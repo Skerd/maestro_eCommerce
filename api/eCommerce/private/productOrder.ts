@@ -1,16 +1,17 @@
-import {Router} from "express";
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
-import {productOrderToDTO, productOrdersToDTO, productOrderToSelect, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrderMapper.dto";
+import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
+import {productOrderToDTO, productOrdersToDTO, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrderMapper.dto";
 import {z} from "zod";
 
 const orderStatuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"] as const;
-const paymentStatuses = ["pending", "paid", "failed", "refunded", "partially_refunded"] as const;
+const paymentStatuses = ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"] as const;
 const fulfillmentStatuses = ["unfulfilled", "partially_fulfilled", "fulfilled", "returned"] as const;
 
 function orderListSchema(_lang: string) {
@@ -57,81 +58,57 @@ export const {router} = createCrudRouter({
         return update;
     },
     rateLimits: {read: 60, write: 30, delete: 10},
+    // Lifecycle mutations: POST /api/eCommerce/productOrder/{confirm|markProcessing|ship|cancel|refund}
+    actions: ProductOrderActions,
 });
 
-// Update order status
+/**
+ * Buyer self-service routes (storefront account pages). Scoped hard to the
+ * authenticated customer — no admin model permissions required.
+ */
 router.post(
-    "/update-status",
+    "/my",
     authMW("private"),
-    rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx} = req;
-        const {orderId, status, notes} = req.body;
+    rateLimiter({windowMs: 60000, max: 60}),
+    asyncHandler(async (params: any) => {
+        const {company, actionUserCtx} = params;
+        const page = Math.max(1, Number(params.page) || 1);
+        const limit = Math.min(50, Math.max(1, Number(params.limit) || 10));
 
-        if (!orderId || !status) return res.status(400).json({message: "orderId and status required"});
-        if (!orderStatuses.includes(status)) return res.status(400).json({message: "invalid_status"});
+        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId), deletedAt: null};
 
-        const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(orderId), company: company._id},
-            {logger, languageCode},
-        );
+        const [orders, total] = await Promise.all([
+            ProductOrder.find(filter)
+                .select("orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt")
+                .sort({createdAt: -1})
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .lean(),
+            ProductOrder.countDocuments(filter),
+        ]);
 
-        const timelineEntry = {
-            status,
-            notes: notes || undefined,
-            changedBy: actionUserCtx.userId,
-            changedAt: new Date(),
-        };
-
-        await ProductOrder.updateOne(
-            {_id: order._id},
-            {
-                $set: {status},
-                $push: {timeline: timelineEntry} as any,
-            },
-        );
-
-        const updated = await productOrderService.findById(order._id, {logger, languageCode});
-        return res.json({data: updated ? productOrderToDTO(updated) : null});
+        return {data: orders.map(productOrderToDTO as any), total, page, limit};
     }),
 );
 
-// Cancel order
 router.post(
-    "/cancel",
+    "/mySingle",
     authMW("private"),
-    rateLimiter({windowMs: 60000, max: 10}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx} = req;
-        const {orderId, reason} = req.body;
+    rateLimiter({windowMs: 60000, max: 60}),
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx, _id} = params;
 
-        if (!orderId) return res.status(400).json({message: "orderId required"});
+        if (!_id) throw apiValidationException("id_required", null, null, languageCode);
 
-        const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(orderId), company: company._id},
-            {logger, languageCode},
-        );
+        const order = await ProductOrder.findOne({
+            _id: new ObjectId(_id),
+            company: company._id,
+            customer: new ObjectId(actionUserCtx.userId),
+            deletedAt: null,
+        }).lean();
 
-        if (["shipped", "delivered", "cancelled"].includes(order.status)) {
-            return res.status(400).json({message: "order_cannot_be_cancelled"});
-        }
+        if (!order) throw apiValidationException("order_not_found", null, null, languageCode);
 
-        await ProductOrder.updateOne(
-            {_id: order._id},
-            {
-                $set: {status: "cancelled"},
-                $push: {
-                    timeline: {
-                        status: "cancelled",
-                        notes: reason || "Cancelled by admin",
-                        changedBy: actionUserCtx.userId,
-                        changedAt: new Date(),
-                    },
-                } as any,
-            },
-        );
-
-        const updated = await productOrderService.findById(order._id, {logger, languageCode});
-        return res.json({data: updated ? productOrderToDTO(updated) : null});
+        return {data: productOrderToDTO(order as any)};
     }),
 );

@@ -3,6 +3,14 @@ import type {ProductAttribute} from "armonia/src/modules/eCommerce/api/eCommerce
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function productAttributeToDTO(attr: IProductAttribute): ProductAttribute {
     return {
         _id: attr._id.toString(),
@@ -12,7 +20,7 @@ export function productAttributeToDTO(attr: IProductAttribute): ProductAttribute
         isUsedForVariants: attr.isUsedForVariants,
         position: attr.position,
         valueCount: (attr.values ?? []).length,
-        company: attr.company ? {_id: attr.company._id.toString(), name: attr.company.name} : undefined,
+        company: mapCompanyLabel(attr.company),
         ...mapSoftDeleteToDTO(attr),
         ...mapOwnershipToDTO(attr),
     };

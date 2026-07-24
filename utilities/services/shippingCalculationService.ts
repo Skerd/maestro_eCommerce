@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {COMMERCE_PROVIDERS} from "@coreModule/environment";
 import ShippingZone from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 
 export type CartForShipping = {
@@ -78,45 +79,75 @@ function computeRatePrice(
     return rate.price ?? 0;
 }
 
+/**
+ * Provider seam (§2.C): `calculateShipping` stays the single call-site facade;
+ * external rate providers (EasyPost, Shippo, …) implement this interface and
+ * register under their env-selectable name. InternalZones is the default.
+ */
+export interface ShippingRateProvider {
+    readonly name: string;
+    getRates(cart: CartForShipping, companyId: ObjectId): Promise<AvailableShippingRate[]>;
+}
+
+const internalZonesShippingProvider: ShippingRateProvider = {
+    name: "internal",
+    async getRates(cart, companyId) {
+        if (!cart.destinationCountry) return [];
+
+        let countryId: ObjectId;
+        try {
+            countryId = new ObjectId(cart.destinationCountry);
+        } catch {
+            return [];
+        }
+
+        const zones = await ShippingZone.find({
+            company: companyId,
+            isActive: true,
+            countries: countryId,
+        }).lean();
+
+        const availableRates: AvailableShippingRate[] = [];
+
+        for (const zone of zones) {
+            if (!zoneMatchesAddress(zone, cart.destinationState, cart.destinationPostalCode)) continue;
+
+            const rates = (zone.rates as Parameters<typeof computeRatePrice>[0][]) ?? [];
+            for (const rate of rates) {
+                const price = computeRatePrice(rate, cart);
+                if (price === null) continue;
+
+                availableRates.push({
+                    zoneId: zone._id.toString(),
+                    zoneName: zone.name,
+                    rateName: rate.name,
+                    rateType: rate.type,
+                    price,
+                    estimatedDays: rate.estimatedDeliveryDays,
+                });
+            }
+        }
+
+        return availableRates;
+    },
+};
+
+const shippingProviders: Record<string, ShippingRateProvider> = {
+    internal: internalZonesShippingProvider,
+};
+
+/** External adapters call this at module load to become env-selectable. */
+export function registerShippingProvider(provider: ShippingRateProvider): void {
+    shippingProviders[provider.name] = provider;
+}
+
+function activeShippingProvider(): ShippingRateProvider {
+    return shippingProviders[COMMERCE_PROVIDERS.SHIPPING_PROVIDER] ?? internalZonesShippingProvider;
+}
+
 export async function calculateShipping(
     cart: CartForShipping,
     companyId: ObjectId,
 ): Promise<AvailableShippingRate[]> {
-    if (!cart.destinationCountry) return [];
-
-    let countryId: ObjectId;
-    try {
-        countryId = new ObjectId(cart.destinationCountry);
-    } catch {
-        return [];
-    }
-
-    const zones = await ShippingZone.find({
-        company: companyId,
-        isActive: true,
-        countries: countryId,
-    }).lean();
-
-    const availableRates: AvailableShippingRate[] = [];
-
-    for (const zone of zones) {
-        if (!zoneMatchesAddress(zone, cart.destinationState, cart.destinationPostalCode)) continue;
-
-        const rates = (zone.rates as Parameters<typeof computeRatePrice>[0][]) ?? [];
-        for (const rate of rates) {
-            const price = computeRatePrice(rate, cart);
-            if (price === null) continue;
-
-            availableRates.push({
-                zoneId: zone._id.toString(),
-                zoneName: zone.name,
-                rateName: rate.name,
-                rateType: rate.type,
-                price,
-                estimatedDays: rate.estimatedDeliveryDays,
-            });
-        }
-    }
-
-    return availableRates;
+    return activeShippingProvider().getRates(cart, companyId);
 }

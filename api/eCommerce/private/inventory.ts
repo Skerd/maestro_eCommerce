@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
@@ -56,17 +57,18 @@ export const {router} = createCrudRouter({
     rateLimits: {read: 120, write: 30, delete: 10},
 });
 
+const movementReasons = ["restock", "sale", "return", "adjustment", "damage", "transfer_in", "transfer_out", "initial"] as const;
+
 // Adjust inventory
 router.post(
     "/adjust",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, actionUserCtx, company, session} = req;
-        const {inventoryId, delta, reason, notes} = req.body;
+    asyncHandler(async (params: any) => {
+        const {logger, languageCode, actionUserCtx, company, session, inventoryId, delta, reason, notes} = params;
 
         if (!inventoryId || delta == null) {
-            return res.status(400).json({message: "inventoryId and delta required"});
+            throw apiValidationException("inventory_id_and_delta_required", null, null, languageCode);
         }
 
         const inventory = await inventoryService.findOneOrThrow(
@@ -74,28 +76,32 @@ router.post(
             {logger, languageCode, session},
         );
 
+        const quantityBefore = inventory.quantityOnHand;
+
         await inventoryService.adjust(
-            inventory.product as ObjectId,
-            inventory.variant as ObjectId | undefined,
-            inventory.warehouse as ObjectId,
+            (inventory.product as any)?._id ?? (inventory.product as any),
+            (inventory.variant as any)?._id ?? (inventory.variant as any),
+            (inventory.warehouse as any)?._id ?? (inventory.warehouse as any),
             Number(delta),
             {logger, languageCode, session},
         );
 
         await inventoryMovementService.create({
-            inventory: inventory._id,
-            product: inventory.product as ObjectId,
-            variant: inventory.variant as ObjectId | undefined,
-            warehouse: inventory.warehouse as ObjectId,
-            type: "adjustment",
-            quantityChange: Number(delta),
-            reason,
-            notes,
+            product: (inventory.product as any)?._id ?? (inventory.product as any),
+            variant: (inventory.variant as any)?._id ?? (inventory.variant as any),
+            warehouse: (inventory.warehouse as any)?._id ?? (inventory.warehouse as any),
+            quantity: Number(delta),
+            reason: movementReasons.includes(reason) ? reason : "adjustment",
+            note: notes,
+            quantityBefore,
+            quantityAfter: quantityBefore + Number(delta),
             performedBy: actionUserCtx.userId,
+            referenceType: "Inventory",
+            referenceId: inventory._id,
             company: company._id,
-        }, {logger, languageCode, session});
+        } as any, {logger, languageCode, session});
 
         const updated = await inventoryService.findById(inventory._id, {logger, languageCode});
-        return res.json({data: updated ? inventoryToDTO(updated) : null});
+        return {data: updated ? inventoryToDTO(updated) : null};
     }),
 );

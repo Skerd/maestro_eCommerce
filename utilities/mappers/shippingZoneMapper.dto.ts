@@ -7,6 +7,14 @@ function mapPopulatedCountry(ref: any): {_id: string; name: string} {
     return {_id: ref?._id?.toString() ?? ref?.toString() ?? "", name: ref?.name ?? ""};
 }
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function shippingZoneToDTO(zone: IShippingZone): ShippingZone {
     return {
         _id: zone._id.toString(),
@@ -23,7 +31,7 @@ export function shippingZoneToDTO(zone: IShippingZone): ShippingZone {
             conditions: r.conditions,
         })),
         isActive: zone.isActive,
-        company: zone.company ? {_id: zone.company._id.toString(), name: zone.company.name} : undefined,
+        company: mapCompanyLabel(zone.company),
         ...mapSoftDeleteToDTO(zone),
         ...mapOwnershipToDTO(zone),
     };

@@ -3,6 +3,14 @@ import type {Discount} from "armonia/src/modules/eCommerce/api/eCommerce/private
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function discountToDTO(discount: IDiscount): Discount {
     return {
         _id: discount._id.toString(),
@@ -26,7 +34,7 @@ export function discountToDTO(discount: IDiscount): Discount {
             getQuantity: discount.buyXGetY.getQuantity,
             getProductIds: discount.buyXGetY.getProductIds?.map((id: any) => id.toString()) ?? [],
         } : undefined,
-        company: discount.company ? {_id: discount.company._id.toString(), name: discount.company.name} : undefined,
+        company: mapCompanyLabel(discount.company),
         ...mapSoftDeleteToDTO(discount),
         ...mapOwnershipToDTO(discount),
     };

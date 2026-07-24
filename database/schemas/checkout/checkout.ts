@@ -14,6 +14,28 @@ import {checkoutViews} from "./checkout.views";
 
 export type CheckoutStatus = "pending" | "payment_processing" | "confirmed" | "failed" | "expired";
 export type CheckoutPaymentMethod = "stripe" | "paypal" | "cod" | "bank_transfer";
+export type CheckoutReservationState = "reserved" | "consumed" | "released";
+
+export interface ICheckoutItem {
+    product: Schema.Types.ObjectId;
+    variant?: Schema.Types.ObjectId;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    snapshot?: {title?: string; sku?: string; imageUrl?: string};
+}
+
+/**
+ * Inventory reservation created during /confirm. Consumed (sale) on payment
+ * success, released on cancel / expiry. One entry per reserved order line.
+ */
+export interface ICheckoutReservation {
+    product: Schema.Types.ObjectId;
+    variant?: Schema.Types.ObjectId;
+    warehouse: Schema.Types.ObjectId;
+    quantity: number;
+    state: CheckoutReservationState;
+}
 
 const AddressSubSchema = new Schema(
     {
@@ -34,10 +56,16 @@ export interface ICheckout extends Document {
     user?: IUser;
     sessionId?: string;
     company: ICompany;
+    items: ICheckoutItem[];
+    appliedDiscounts?: {discount: Schema.Types.ObjectId; code?: string; amount: number}[];
     shippingAddress?: typeof AddressSubSchema;
     billingAddress?: typeof AddressSubSchema;
+    availableShippingRates?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number}[];
     selectedShippingRate?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number};
     taxBreakdown?: {name: string; rate: number; amount: number}[];
+    reservations?: ICheckoutReservation[];
+    /** Store credit applied to this checkout; redeemed atomically at confirm. */
+    giftCard?: {giftCard: Schema.Types.ObjectId; code: string; amount: number};
     subtotal: number;
     discountTotal: number;
     shippingTotal: number;
@@ -58,14 +86,81 @@ const CheckoutSchema = new Schema<ICheckout>(
         user: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
         sessionId: {type: SchemaTypes.String},
         company: {type: SchemaTypes.ObjectId, ref: "Company", required: true, refAllowlist: CompanyBlankSnippet},
+        items: {
+            type: [
+                new Schema(
+                    {
+                        product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
+                        variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
+                        quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                        unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                        totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                        snapshot: {
+                            type: {
+                                title: {type: SchemaTypes.String},
+                                sku: {type: SchemaTypes.String},
+                                imageUrl: {type: SchemaTypes.String},
+                            },
+                            _id: false,
+                        },
+                    },
+                    {_id: true},
+                ),
+            ],
+            default: [],
+        },
+        appliedDiscounts: {
+            type: [
+                {
+                    discount: {type: SchemaTypes.ObjectId, ref: "Discount"},
+                    code: {type: SchemaTypes.String},
+                    amount: {type: SchemaTypes.Number, min: 0},
+                    _id: false,
+                },
+            ],
+            default: [],
+        },
         shippingAddress: {type: AddressSubSchema},
         billingAddress: {type: AddressSubSchema},
+        availableShippingRates: {
+            type: [
+                {
+                    name: {type: SchemaTypes.String},
+                    carrier: {type: SchemaTypes.String},
+                    price: {type: SchemaTypes.Number, min: 0},
+                    estimatedDeliveryDays: {type: SchemaTypes.Number},
+                    _id: false,
+                },
+            ],
+            default: [],
+        },
+        reservations: {
+            type: [
+                {
+                    product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
+                    variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
+                    warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true},
+                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                    state: {type: SchemaTypes.String, enum: ["reserved", "consumed", "released"], default: "reserved"},
+                    _id: false,
+                },
+            ],
+            default: [],
+        },
         selectedShippingRate: {
             type: {
                 name: {type: SchemaTypes.String},
                 carrier: {type: SchemaTypes.String},
                 price: {type: SchemaTypes.Number, min: 0},
                 estimatedDeliveryDays: {type: SchemaTypes.Number},
+            },
+            _id: false,
+        },
+        giftCard: {
+            type: {
+                giftCard: {type: SchemaTypes.ObjectId, ref: "GiftCard"},
+                code: {type: SchemaTypes.String},
+                amount: {type: SchemaTypes.Number, min: 0},
             },
             _id: false,
         },

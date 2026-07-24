@@ -3,8 +3,9 @@ import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
@@ -14,6 +15,12 @@ import {
     enrichCartLinesWithProductMeta,
     getCustomerGroupIdsForUser,
 } from "@eCommerceModule/utilities/services/pricingCalculationService";
+
+/**
+ * Cart is authenticated-only: every route requires a JWT (storefront asks the
+ * buyer to sign in before adding to cart). The earlier guest-token support was
+ * phantom — the Cart schema never had a guestToken path.
+ */
 
 async function applyPricingToCart(cart: any, companyId: ObjectId, userId?: ObjectId): Promise<void> {
     const rawItems = (cart.items as any[]).map((item) => ({
@@ -47,7 +54,7 @@ function cartToDTO(cart: any) {
         items: (cart.items ?? []).map((item: any) => ({
             _id: item._id?.toString(),
             product: {_id: item.product?._id?.toString() ?? item.product?.toString(), title: item.snapshot?.title},
-            variant: item.variant ? {_id: item.variant._id?.toString() ?? item.variant.toString(), title: item.snapshot?.variantTitle} : null,
+            variant: item.variant ? {_id: item.variant._id?.toString() ?? item.variant.toString()} : null,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
@@ -56,26 +63,24 @@ function cartToDTO(cart: any) {
         subtotal: cart.subtotal,
         discountTotal: cart.discountTotal,
         appliedDiscounts: cart.appliedDiscounts ?? [],
+        appliedGiftCard: cart.appliedGiftCard
+            ? {code: cart.appliedGiftCard.code, amount: cart.appliedGiftCard.amount}
+            : undefined,
         expiresAt: cart.expiresAt?.toISOString(),
-        guestToken: cart.guestToken,
     };
 }
 
-async function getOrCreateCart(req: any): Promise<any> {
-    const {logger, languageCode, company, actionUserCtx} = req;
-    const guestToken = req.headers["x-guest-token"] as string | undefined;
+/** Enforces the product's minOrderQty / maxOrderQty / stepQty on a target quantity. */
+function assertQuantityAllowed(product: any, quantity: number, languageCode: string): void {
+    const min = product.minOrderQty ?? 1;
+    const max = product.maxOrderQty;
+    const step = product.stepQty;
 
-    let filter: Record<string, unknown> = {company: company._id, deletedAt: null};
-    if (actionUserCtx?.userId) {
-        filter.user = actionUserCtx.userId;
-    } else if (guestToken) {
-        filter.guestToken = guestToken;
-    } else {
-        return null;
+    if (quantity < min) throw apiValidationException("quantity_below_minimum", "quantity", null, languageCode);
+    if (max != null && max > 0 && quantity > max) throw apiValidationException("quantity_above_maximum", "quantity", null, languageCode);
+    if (step != null && step > 1 && (quantity - min) % step !== 0) {
+        throw apiValidationException("quantity_step_mismatch", "quantity", null, languageCode);
     }
-
-    const cart = await Cart.findOne(filter).populate("items.product", "title price mainImage").lean();
-    return cart;
 }
 
 // GET cart
@@ -83,10 +88,14 @@ router.get(
     "/",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 120}),
-    asyncHandler(async (req: any, res: any) => {
-        const cart = await getOrCreateCart(req);
-        if (!cart) return res.json({data: null});
-        return res.json({data: cartToDTO(cart)});
+    asyncHandler(async (params: any) => {
+        const {company, actionUserCtx} = params;
+
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId})
+            .populate("items.product", "title price mainImage slug")
+            .lean();
+        if (!cart) return {data: null};
+        return {data: cartToDTO(cart)};
     }),
 );
 
@@ -95,45 +104,39 @@ router.put(
     "/item",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx} = req;
-        const {productId, variantId, quantity} = req.body;
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx, productId, variantId, quantity} = params;
 
         if (!productId || !quantity || quantity < 1) {
-            return res.status(400).json({message: "productId and quantity required"});
+            throw apiValidationException("product_and_quantity_required", null, null, languageCode);
         }
 
         const product = await Product.findOne({_id: new ObjectId(productId), company: company._id, status: "active"}).lean();
-        if (!product) return res.status(404).json({message: "product_not_found"});
+        if (!product) throw apiValidationException("product_not_found", null, null, languageCode);
 
         let unitPrice = (product as any).price ?? 0;
         let variantDoc: any = null;
 
         if (variantId) {
             variantDoc = await ProductVariant.findOne({_id: new ObjectId(variantId), product: product._id}).lean();
-            if (!variantDoc) return res.status(404).json({message: "variant_not_found"});
+            if (!variantDoc) throw apiValidationException("variant_not_found", null, null, languageCode);
             unitPrice = variantDoc.price ?? unitPrice;
         }
 
-        const guestToken = req.headers["x-guest-token"] as string | undefined;
-        const filter: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.userId) filter.user = actionUserCtx.userId;
-        else if (guestToken) filter.guestToken = guestToken;
-        else return res.status(401).json({message: "authentication_required"});
-
+        const filter = {company: company._id, user: actionUserCtx.userId};
         let cart = await Cart.findOne(filter);
 
         const snapshot = {
             title: (product as any).title,
             sku: variantDoc?.sku ?? (product as any).sku,
-            variantTitle: variantDoc?.title,
-            image: (product as any).mainImage?.toString(),
-            price: unitPrice,
+            imageUrl: (product as any).mainImage?.toString(),
         };
 
         if (!cart) {
+            assertQuantityAllowed(product, quantity, languageCode);
+
             const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + (actionUserCtx?.userId ? 30 : 7));
+            expiresAt.setDate(expiresAt.getDate() + 30);
 
             cart = new Cart({
                 ...filter,
@@ -158,9 +161,11 @@ router.put(
 
             if (existingIdx >= 0) {
                 const item = cart.items[existingIdx] as any;
+                assertQuantityAllowed(product, item.quantity + quantity, languageCode);
                 item.quantity += quantity;
                 item.totalPrice = item.unitPrice * item.quantity;
             } else {
+                assertQuantityAllowed(product, quantity, languageCode);
                 (cart.items as any[]).push({
                     product: new ObjectId(productId),
                     variant: variantId ? new ObjectId(variantId) : undefined,
@@ -174,9 +179,9 @@ router.put(
             cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
         }
 
-        await applyPricingToCart(cart, company._id, actionUserCtx?.userId ? new ObjectId(actionUserCtx.userId) : undefined);
+        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
         await cart.save();
-        return res.json({data: cartToDTO(cart.toObject())});
+        return {data: cartToDTO(cart.toObject())};
     }),
 );
 
@@ -185,37 +190,31 @@ router.patch(
     "/item",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company, actionUserCtx} = req;
-        const {itemId, quantity} = req.body;
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx, itemId, quantity} = params;
 
-        if (!itemId) return res.status(400).json({message: "itemId required"});
+        if (!itemId) throw apiValidationException("item_id_required", null, null, languageCode);
 
-        const filter: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.userId) filter.user = actionUserCtx.userId;
-        else {
-            const guestToken = req.headers["x-guest-token"] as string | undefined;
-            if (guestToken) filter.guestToken = guestToken;
-            else return res.status(401).json({message: "authentication_required"});
-        }
-
-        const cart = await Cart.findOne(filter);
-        if (!cart) return res.status(404).json({message: "cart_not_found"});
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
 
         const item = (cart.items as any[]).find((i: any) => i._id?.toString() === itemId);
-        if (!item) return res.status(404).json({message: "item_not_found"});
+        if (!item) throw apiValidationException("item_not_found", null, null, languageCode);
 
         if (quantity <= 0) {
             cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
         } else {
+            const productId = item.product?._id ?? item.product;
+            const product = await Product.findOne({_id: productId, company: company._id}).lean();
+            if (product) assertQuantityAllowed(product, quantity, languageCode);
             item.quantity = quantity;
             item.totalPrice = item.unitPrice * quantity;
         }
 
         cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
-        await applyPricingToCart(cart, company._id, actionUserCtx?.userId ? new ObjectId(actionUserCtx.userId) : undefined);
+        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
         await cart.save();
-        return res.json({data: cartToDTO(cart.toObject())});
+        return {data: cartToDTO(cart.toObject())};
     }),
 );
 
@@ -224,29 +223,21 @@ router.delete(
     "/item/:itemId",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company, actionUserCtx} = req;
-        const {itemId} = req.params;
-
-        const filter: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.userId) filter.user = actionUserCtx.userId;
-        else {
-            const guestToken = req.headers["x-guest-token"] as string | undefined;
-            if (guestToken) filter.guestToken = guestToken;
-            else return res.status(401).json({message: "authentication_required"});
-        }
+    asyncHandler(async (params: any, queryParams: any) => {
+        const {languageCode, company, actionUserCtx} = params;
+        const {itemId} = queryParams;
 
         const cart = await Cart.findOneAndUpdate(
-            filter,
+            {company: company._id, user: actionUserCtx.userId},
             {$pull: {items: {_id: new ObjectId(itemId)}}},
             {new: true},
         );
-        if (!cart) return res.status(404).json({message: "cart_not_found"});
+        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
 
         cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
-        await applyPricingToCart(cart, company._id, actionUserCtx?.userId ? new ObjectId(actionUserCtx.userId) : undefined);
+        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
         await cart.save();
-        return res.json({data: cartToDTO(cart.toObject())});
+        return {data: cartToDTO(cart.toObject())};
     }),
 );
 
@@ -255,18 +246,13 @@ router.post(
     "/apply-discount",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx} = req;
-        const {code} = req.body;
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx, code} = params;
 
-        if (!code) return res.status(400).json({message: "code required"});
+        if (!code) throw apiValidationException("code_required", null, null, languageCode);
 
-        const filter: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.userId) filter.user = actionUserCtx.userId;
-        else return res.status(401).json({message: "authentication_required"});
-
-        const cart = await Cart.findOne(filter);
-        if (!cart) return res.status(404).json({message: "cart_not_found"});
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
 
         const now = new Date();
         const discount = await Discount.findOne({
@@ -277,16 +263,59 @@ router.post(
             $or: [{endsAt: null}, {endsAt: {$gte: now}}],
         });
 
-        if (!discount) return res.status(404).json({valid: false, message: "discount_not_found"});
+        if (!discount) return {valid: false, message: "discount_not_found"};
 
         const result = validateDiscount({subtotal: cart.subtotal, items: []}, discount);
-        if (!result.valid) return res.json({valid: false, message: result.reason});
+        if (!result.valid) return {valid: false, message: result.reason};
 
         cart.discountTotal = result.discountAmount;
         cart.appliedDiscounts = [{discount: discount._id, code: discount.code, amount: result.discountAmount}] as any;
         await cart.save();
 
-        return res.json({valid: true, data: cartToDTO(cart.toObject()), discountAmount: result.discountAmount});
+        return {valid: true, data: cartToDTO(cart.toObject()), discountAmount: result.discountAmount};
+    }),
+);
+
+// Apply gift card (store credit) — amount capped later at checkout totals
+router.post(
+    "/apply-gift-card",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 20}),
+    asyncHandler(async (params: any) => {
+        const {logger, languageCode, company, actionUserCtx, code} = params;
+
+        if (!code) throw apiValidationException("code_required", null, null, languageCode);
+
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+
+        const giftCard = await giftCardService.findRedeemable(code, company._id, {logger, languageCode});
+        if (!giftCard) return {valid: false, message: "gift_card_not_redeemable"};
+
+        const cartTotal = Math.max(0, cart.subtotal - (cart.discountTotal ?? 0));
+        const amount = Math.min(giftCard.balance, cartTotal);
+
+        cart.appliedGiftCard = {giftCard: giftCard._id as any, code: giftCard.code, amount};
+        await cart.save();
+
+        return {valid: true, data: cartToDTO(cart.toObject()), giftCardAmount: amount, balance: giftCard.balance};
+    }),
+);
+
+// Remove applied gift card
+router.delete(
+    "/gift-card",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 20}),
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx} = params;
+
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+
+        cart.appliedGiftCard = undefined;
+        await cart.save();
+        return {data: cartToDTO(cart.toObject())};
     }),
 );
 
@@ -295,13 +324,13 @@ router.delete(
     "/clear",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 10}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company, actionUserCtx} = req;
-        const filter: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.userId) filter.user = actionUserCtx.userId;
-        else return res.status(401).json({message: "authentication_required"});
+    asyncHandler(async (params: any) => {
+        const {company, actionUserCtx} = params;
 
-        await Cart.findOneAndUpdate(filter, {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}});
-        return res.json({message: "Cart cleared"});
+        await Cart.findOneAndUpdate(
+            {company: company._id, user: actionUserCtx.userId},
+            {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}},
+        );
+        return {message: "Cart cleared"};
     }),
 );

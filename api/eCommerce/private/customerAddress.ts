@@ -23,9 +23,16 @@ export const {router} = createCrudRouter({
     toDTO: customerAddressToDTO,
     toDTOArray: customerAddressesToDTO,
     toSelect: (docs: any[]) => docs.map((d: any) => ({value: d._id.toString(), label: `${d.firstName} ${d.lastName} — ${d.city}`})),
-    extraListFilter: async ({}, ctx) => {
-        const userId = (ctx as any).actionUserCtx?.userId;
-        return userId ? {user: userId} : {};
+    // Admins manage every customer's addresses; buyers only ever see their own.
+    extraListFilter: async ({actionUserCtx}) => {
+        if (actionUserCtx?.isAdmin) return {};
+        const userId = actionUserCtx?.userId;
+        return userId ? {user: new ObjectId(userId)} : {};
+    },
+    documentFilter: async ({company, actionUserCtx}) => {
+        const base: Record<string, unknown> = {company: company._id};
+        if (actionUserCtx?.isAdmin) return base;
+        return {...base, user: new ObjectId(actionUserCtx.userId)};
     },
     buildCreateData: async (params) => {
         if (params.isDefault) {

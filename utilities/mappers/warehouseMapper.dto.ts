@@ -8,6 +8,14 @@ function mapPopulatedRef(ref: any): {_id: string; name: string} | undefined {
     return {_id: ref?._id?.toString() ?? ref?.toString() ?? "", name: ref?.name ?? ""};
 }
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function warehouseToDTO(warehouse: IWarehouse): Warehouse {
     const addr = warehouse.address;
     return {
@@ -23,7 +31,7 @@ export function warehouseToDTO(warehouse: IWarehouse): Warehouse {
         } : undefined,
         isDefault: warehouse.isDefault,
         isActive: warehouse.isActive,
-        company: warehouse.company ? {_id: warehouse.company._id.toString(), name: warehouse.company.name} : undefined,
+        company: mapCompanyLabel(warehouse.company),
         ...mapSoftDeleteToDTO(warehouse),
         ...mapOwnershipToDTO(warehouse),
     };

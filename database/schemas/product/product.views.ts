@@ -208,6 +208,65 @@ const productFormFields: ViewConfig["nodes"] = [
         ],
     },
 
+    // ── Bundle components (type "bundle") ─────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        props: {watchField: "type", whenValues: ["bundle"]},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "bundleComponents",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.bundleComponentsSectionTitle",
+                        arrayField: "bundleComponents",
+                        defaultItem: {product: "", quantity: 1},
+                        addLabel: "form.bundleComponentAddRow",
+                        removeLabel: "form.bundleComponentRemoveRow",
+                        rowTitleFields: ["quantity"],
+                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "#FormGrid",
+                                props: {columns: 2},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "product",
+                                            widget: "#ApiSelect",
+                                            label: "form.bundleComponentProductLabel",
+                                            required: true,
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                        },
+                                    },
+                                    {render: "#Field", field: {name: "quantity", widget: "#Input", label: "form.bundleComponentQuantityLabel", required: true, widgetProps: {type: "number", min: 1}}},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Digital delivery (type "digital") ──────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        props: {watchField: "type", whenValues: ["digital"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", field: {name: "downloadLimit", widget: "#Input", label: "form.downloadLimitLabel", widgetProps: {type: "number", min: 1}}},
+                    {render: "#Field", field: {name: "downloadExpiryDays", widget: "#Input", label: "form.downloadExpiryDaysLabel", widgetProps: {type: "number", min: 1}}},
+                ],
+            },
+        ],
+    },
+
     // ── Media ──────────────────────────────────────────────────
     {
         render: "#TitleWithCollapse",

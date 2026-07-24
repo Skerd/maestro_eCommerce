@@ -3,6 +3,14 @@ import type {CmsBlock} from "armonia/src/modules/eCommerce/api/eCommerce/private
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function cmsBlockToDTO(block: ICmsBlock): CmsBlock {
     return {
         _id: block._id.toString(),
@@ -15,7 +23,7 @@ export function cmsBlockToDTO(block: ICmsBlock): CmsBlock {
         endsAt: block.endsAt?.toISOString(),
         visibility: block.visibility,
         abTestVariant: block.abTestVariant,
-        company: block.company ? {_id: block.company._id.toString(), name: block.company.name} : undefined,
+        company: mapCompanyLabel(block.company),
         ...mapSoftDeleteToDTO(block),
         ...mapOwnershipToDTO(block),
     };

@@ -2,6 +2,14 @@ import type {IPaymentTransaction} from "@eCommerceModule/database/schemas/paymen
 import type {PaymentTransaction} from "armonia/src/modules/eCommerce/api/eCommerce/private/paymentTransaction/paymentTransaction.dto";
 import {mapOwnershipToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function paymentTransactionToDTO(tx: IPaymentTransaction): PaymentTransaction {
     return {
         _id: tx._id.toString(),
@@ -14,7 +22,7 @@ export function paymentTransactionToDTO(tx: IPaymentTransaction): PaymentTransac
         gatewayTransactionId: tx.gatewayTransactionId,
         failureReason: tx.failureReason,
         refundedAmount: tx.refundedAmount,
-        company: tx.company ? {_id: tx.company._id.toString(), name: tx.company.name} : undefined,
+        company: mapCompanyLabel(tx.company),
         ...mapOwnershipToDTO(tx),
     };
 }

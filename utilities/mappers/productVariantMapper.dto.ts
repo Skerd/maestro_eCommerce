@@ -12,6 +12,14 @@ function mapProductRef(ref: any): {_id: string; title: string; slug: string} {
     };
 }
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function productVariantToDTO(variant: IProductVariant): ProductVariant {
     return {
         _id: variant._id.toString(),
@@ -35,7 +43,7 @@ export function productVariantToDTO(variant: IProductVariant): ProductVariant {
         position: variant.position,
         status: variant.status,
         trackInventory: variant.trackInventory,
-        company: variant.company ? {_id: variant.company._id.toString(), name: variant.company.name} : undefined,
+        company: mapCompanyLabel(variant.company),
         ...mapSoftDeleteToDTO(variant),
         ...mapOwnershipToDTO(variant),
     };

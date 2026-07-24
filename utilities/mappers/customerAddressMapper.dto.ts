@@ -2,6 +2,14 @@ import type {ICustomerAddress} from "@eCommerceModule/database/schemas/customerA
 import type {CustomerAddress} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerAddress/customerAddress.dto";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function customerAddressToDTO(address: ICustomerAddress): CustomerAddress {
     const country = address.country as any;
     return {
@@ -16,7 +24,7 @@ export function customerAddressToDTO(address: ICustomerAddress): CustomerAddress
         country: country ? {_id: country._id?.toString() ?? country.toString(), name: country.name, code: country.code} : undefined,
         isDefault: address.isDefault,
         label: address.label,
-        company: address.company ? {_id: address.company._id.toString(), name: address.company.name} : undefined,
+        company: mapCompanyLabel(address.company),
         ...mapSoftDeleteToDTO(address),
         ...mapOwnershipToDTO(address),
     };

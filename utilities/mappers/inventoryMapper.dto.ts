@@ -2,6 +2,14 @@ import type {IInventory} from "@eCommerceModule/database/schemas/inventory/inven
 import type {Inventory} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/inventory.dto";
 import {mapOwnershipToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function inventoryToDTO(inventory: IInventory): Inventory {
     const product = inventory.product as any;
     const variant = inventory.variant as any;
@@ -29,7 +37,7 @@ export function inventoryToDTO(inventory: IInventory): Inventory {
         reorderPoint: inventory.reorderPoint,
         reorderQuantity: inventory.reorderQuantity,
         lowStockAlertSent: inventory.lowStockAlertSent,
-        company: inventory.company ? {_id: inventory.company._id.toString(), name: inventory.company.name} : undefined,
+        company: mapCompanyLabel(inventory.company),
         ...mapOwnershipToDTO(inventory),
     };
 }

@@ -1,5 +1,4 @@
-import {Router} from "express";
-import {ObjectId} from "mongodb";
+import {Router, Request} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
@@ -31,10 +30,10 @@ router.get(
     "/revenue",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const {period = "30d"} = req.query;
-        const {start, end} = dateRange(String(period));
+    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+        const {company} = params;
+        const period = String((req.query?.period as string) ?? "30d");
+        const {start, end} = dateRange(period);
 
         const [result] = await ProductOrder.aggregate([
             {
@@ -76,7 +75,7 @@ router.get(
             {$sort: {"_id": 1}},
         ]);
 
-        return res.json({
+        return {
             data: {
                 totalRevenue: result?.totalRevenue ?? 0,
                 orderCount: result?.orderCount ?? 0,
@@ -85,7 +84,7 @@ router.get(
                 totalShipping: result?.totalShipping ?? 0,
                 daily: dailyRevenue,
             },
-        });
+        };
     }),
 );
 
@@ -94,21 +93,21 @@ router.get(
     "/orders",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const {period = "30d"} = req.query;
-        const {start, end} = dateRange(String(period));
+    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+        const {company} = params;
+        const period = String((req.query?.period as string) ?? "30d");
+        const {start, end} = dateRange(period);
 
         const statusCounts = await ProductOrder.aggregate([
             {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, "deletedAt": null}},
             {$group: {_id: "$status", count: {$sum: 1}}},
         ]);
 
-        return res.json({
+        return {
             data: {
                 byStatus: statusCounts.reduce((acc: any, {_id, count}: any) => ({...acc, [_id]: count}), {}),
             },
-        });
+        };
     }),
 );
 
@@ -117,8 +116,8 @@ router.get(
     "/inventory",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
+    asyncHandler(async (params: any) => {
+        const {company} = params;
 
         const [lowStock, outOfStock, totalValue] = await Promise.all([
             Inventory.countDocuments({
@@ -135,13 +134,13 @@ router.get(
             ]),
         ]);
 
-        return res.json({
+        return {
             data: {
                 lowStockCount: lowStock,
                 outOfStockCount: outOfStock,
                 totalOnHand: totalValue[0]?.totalOnHand ?? 0,
             },
-        });
+        };
     }),
 );
 
@@ -150,17 +149,26 @@ router.get(
     "/products",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const {period = "30d", limit = 10} = req.query;
-        const {start, end} = dateRange(String(period));
+    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+        const {company} = params;
+        const period = String((req.query?.period as string) ?? "30d");
+        const limit = Number((req.query?.limit as string) ?? 10);
+        const {start, end} = dateRange(period);
 
         const topProducts = await ProductOrder.aggregate([
             {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, paymentStatus: "paid", "deletedAt": null}},
             {$unwind: "$items"},
-            {$group: {_id: "$items.product", title: {$first: "$items.title"}, totalSold: {$sum: "$items.quantity"}, totalRevenue: {$sum: "$items.totalPrice"}}},
+            {
+                $group: {
+                    _id: "$items.product",
+                    // Order items snapshot titles under items.snapshot.title; older rows used items.title
+                    title: {$first: {$ifNull: ["$items.snapshot.title", "$items.title"]}},
+                    totalSold: {$sum: "$items.quantity"},
+                    totalRevenue: {$sum: "$items.totalPrice"},
+                },
+            },
             {$sort: {totalRevenue: -1}},
-            {$limit: Math.min(Number(limit), 50)},
+            {$limit: Math.min(Number.isFinite(limit) ? limit : 10, 50)},
         ]);
 
         const statusCounts = await Product.aggregate([
@@ -168,12 +176,12 @@ router.get(
             {$group: {_id: "$status", count: {$sum: 1}}},
         ]);
 
-        return res.json({
+        return {
             data: {
                 topProducts,
                 byStatus: statusCounts.reduce((acc: any, {_id, count}: any) => ({...acc, [_id]: count}), {}),
             },
-        });
+        };
     }),
 );
 
@@ -182,8 +190,8 @@ router.get(
     "/carts",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
+    asyncHandler(async (params: any) => {
+        const {company} = params;
 
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
@@ -206,12 +214,12 @@ router.get(
             {$group: {_id: null, avg: {$avg: "$subtotal"}}},
         ]);
 
-        return res.json({
+        return {
             data: {
                 abandonedCarts,
                 activeCarts,
                 averageCartValue: avgCartValue[0]?.avg ?? 0,
             },
-        });
+        };
     }),
 );

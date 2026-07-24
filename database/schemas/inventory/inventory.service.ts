@@ -19,8 +19,8 @@ export class InventoryService extends BaseCrudService<IInventory, typeof Invento
         const filter: Record<string, unknown> = {
             product: productId,
             warehouse: warehouseId,
+            variant: variantId ?? null,
         };
-        if (variantId) filter.variant = variantId;
 
         return Inventory.findOneAndUpdate(
             {
@@ -40,8 +40,7 @@ export class InventoryService extends BaseCrudService<IInventory, typeof Invento
         quantity: number,
         opts: CrudOptions,
     ): Promise<void> {
-        const filter: Record<string, unknown> = {product: productId, warehouse: warehouseId};
-        if (variantId) filter.variant = variantId;
+        const filter: Record<string, unknown> = {product: productId, warehouse: warehouseId, variant: variantId ?? null};
 
         await Inventory.findOneAndUpdate(
             filter,
@@ -58,8 +57,7 @@ export class InventoryService extends BaseCrudService<IInventory, typeof Invento
         quantity: number,
         opts: CrudOptions,
     ): Promise<void> {
-        const filter: Record<string, unknown> = {product: productId, warehouse: warehouseId};
-        if (variantId) filter.variant = variantId;
+        const filter: Record<string, unknown> = {product: productId, warehouse: warehouseId, variant: variantId ?? null};
 
         await Inventory.findOneAndUpdate(
             filter,

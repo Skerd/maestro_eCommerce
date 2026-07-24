@@ -1,0 +1,204 @@
+import {ObjectId} from "mongodb";
+import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
+import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
+import Product from "@eCommerceModule/database/schemas/product/product";
+import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
+import type {ICheckout, ICheckoutReservation} from "@eCommerceModule/database/schemas/checkout/checkout";
+import type {CrudOptions} from "@coreModule/database/services";
+
+type ReservationCtx = CrudOptions & {auditUserId?: ObjectId | string};
+
+export class OutOfStockError extends Error {
+    constructor(public readonly productId: string, public readonly quantity: number) {
+        super("out_of_stock");
+    }
+}
+
+/**
+ * Bundle lines don't hold stock themselves: each bundle line becomes its
+ * components' quantities (component qty × line qty), merged with any direct
+ * lines for the same product. Non-bundle lines pass through unchanged.
+ */
+export async function explodeBundleLines(
+    items: {product: ObjectId; variant?: ObjectId; quantity: number}[],
+    companyId: ObjectId,
+    ctx: ReservationCtx,
+): Promise<{product: ObjectId; variant?: ObjectId; quantity: number}[]> {
+    const productIds = items.map(item => item.product);
+    const bundles = await Product.find(
+        {_id: {$in: productIds}, company: companyId, type: "bundle"},
+        {bundleComponents: 1},
+        {session: ctx.session},
+    );
+    if (bundles.length === 0) return items;
+
+    const bundleMap = new Map<string, {product: any; quantity: number}[]>(
+        bundles.map(bundle => [bundle._id.toString(), (bundle.bundleComponents as any[]) ?? []]),
+    );
+
+    const exploded: {product: ObjectId; variant?: ObjectId; quantity: number}[] = [];
+    for (const item of items) {
+        const components = bundleMap.get(item.product.toString());
+        if (!components) {
+            exploded.push(item);
+            continue;
+        }
+        for (const component of components) {
+            const componentId = (component.product as any)?._id ?? component.product;
+            exploded.push({
+                product: new ObjectId(componentId.toString()),
+                quantity: (component.quantity ?? 1) * item.quantity,
+            });
+        }
+    }
+
+    // Merge duplicate product/variant pairs so availability is checked once
+    const merged = new Map<string, {product: ObjectId; variant?: ObjectId; quantity: number}>();
+    for (const item of exploded) {
+        const key = `${item.product.toString()}::${item.variant?.toString() ?? ""}`;
+        const existing = merged.get(key);
+        if (existing) existing.quantity += item.quantity;
+        else merged.set(key, {...item});
+    }
+    return [...merged.values()];
+}
+
+/**
+ * Reserves stock for every stock-tracked checkout line inside the caller's
+ * transaction. Bundle lines are exploded into their components first. Lines
+ * with no Inventory record at all are treated as untracked (digital / service
+ * products) and skipped. Warehouse choice: the company's default warehouse
+ * when it holds the item, otherwise the first inventory row with enough
+ * available stock. Throws OutOfStockError when no warehouse can cover a
+ * tracked line — the caller's transaction rollback undoes any partial
+ * reservations.
+ */
+export async function reserveCheckoutStock(
+    rawItems: {product: ObjectId; variant?: ObjectId; quantity: number}[],
+    companyId: ObjectId,
+    ctx: ReservationCtx,
+): Promise<ICheckoutReservation[]> {
+    const items = await explodeBundleLines(rawItems, companyId, ctx);
+
+    const defaultWarehouse = await Warehouse.findOne(
+        {company: companyId, isDefault: true, isActive: true},
+        {_id: 1},
+        {session: ctx.session},
+    );
+
+    const reservations: ICheckoutReservation[] = [];
+
+    for (const item of items) {
+        const filter: Record<string, unknown> = {
+            product: item.product,
+            company: companyId,
+            variant: item.variant ?? null,
+        };
+
+        const rows = await Inventory.find(filter, {warehouse: 1, quantityOnHand: 1, quantityReserved: 1}, {session: ctx.session});
+        if (rows.length === 0) continue; // untracked line (digital/service)
+
+        const ordered = defaultWarehouse
+            ? [...rows].sort((a, b) =>
+                  (a.warehouse as any).toString() === defaultWarehouse._id.toString() ? -1
+                  : (b.warehouse as any).toString() === defaultWarehouse._id.toString() ? 1 : 0)
+            : rows;
+
+        let reserved = false;
+        for (const row of ordered) {
+            const result = await inventoryService.reserveStock(
+                item.product,
+                item.variant,
+                (row.warehouse as any)._id ?? (row.warehouse as any),
+                item.quantity,
+                ctx,
+            );
+            if (result) {
+                reservations.push({
+                    product: item.product,
+                    variant: item.variant,
+                    warehouse: (row.warehouse as any)._id ?? (row.warehouse as any),
+                    quantity: item.quantity,
+                    state: "reserved",
+                } as ICheckoutReservation);
+                reserved = true;
+                break;
+            }
+        }
+
+        if (!reserved) {
+            throw new OutOfStockError(item.product.toString(), item.quantity);
+        }
+    }
+
+    return reservations;
+}
+
+/**
+ * Converts a checkout's "reserved" reservations into sales: decrements stock,
+ * writes InventoryMovement rows, and flips reservation state to "consumed".
+ * Idempotent — already-consumed/released entries are skipped.
+ */
+export async function consumeCheckoutReservations(checkout: ICheckout, ctx: ReservationCtx): Promise<void> {
+    const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
+
+    for (const reservation of checkout.reservations ?? []) {
+        if (reservation.state !== "reserved") continue;
+
+        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
+        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
+        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+
+        const before = await Inventory.findOne(
+            {product: productId, warehouse: warehouseId, company: companyId, variant: variantId ?? null},
+            {quantityOnHand: 1},
+            {session: ctx.session},
+        );
+
+        await inventoryService.confirmSale(productId, variantId, warehouseId, reservation.quantity, ctx);
+
+        const quantityBefore = before?.quantityOnHand ?? 0;
+        await inventoryMovementService.create(
+            {
+                product: productId,
+                variant: variantId,
+                warehouse: warehouseId,
+                quantity: -reservation.quantity,
+                reason: "sale",
+                quantityBefore,
+                quantityAfter: quantityBefore - reservation.quantity,
+                performedBy: ctx.auditUserId ? new ObjectId(ctx.auditUserId.toString()) : undefined,
+                referenceType: "Checkout",
+                referenceId: checkout._id,
+                company: companyId,
+            } as any,
+            ctx,
+        );
+
+        reservation.state = "consumed";
+    }
+
+    checkout.markModified("reservations");
+    await checkout.save({session: ctx.session});
+}
+
+/**
+ * Releases every "reserved" reservation on a checkout (cancel / expiry).
+ * Idempotent — only "reserved" entries are released.
+ */
+export async function releaseCheckoutReservations(checkout: ICheckout, ctx: ReservationCtx): Promise<void> {
+    for (const reservation of checkout.reservations ?? []) {
+        if (reservation.state !== "reserved") continue;
+
+        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
+        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
+        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+
+        await inventoryService.releaseReservation(productId, variantId, warehouseId, reservation.quantity, ctx);
+        reservation.state = "released";
+    }
+
+    checkout.markModified("reservations");
+    await checkout.save({session: ctx.session});
+}

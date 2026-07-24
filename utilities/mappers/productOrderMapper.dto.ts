@@ -21,6 +21,14 @@ function mapAddress(addr: any) {
     };
 }
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function productOrderToDTO(order: IProductOrder): ProductOrder {
     const customer = order.customer as any;
     const currency = order.currency as any;
@@ -56,7 +64,7 @@ export function productOrderToDTO(order: IProductOrder): ProductOrder {
             name: customer?.name ?? "",
             surname: customer?.surname ?? "",
         },
-        company: order.company ? {_id: order.company._id.toString(), name: order.company.name} : {_id: "", name: ""},
+        company: mapCompanyLabel(order.company) ?? {_id: "", name: ""},
         items,
         subtotal: order.subtotal,
         discountTotal: order.discountTotal,

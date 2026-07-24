@@ -53,6 +53,14 @@ function mapAttributeRefs(refs: unknown): {_id: string; name: string}[] {
 // Local Media type alias (matches common.mapper.mapMedia return shape)
 type Media = ReturnType<typeof mapMedia>;
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function productToDTO(product: IProduct): Product {
     const seo = product.seo as Record<string, any> | undefined;
     const variantRef = product.defaultVariant as any;
@@ -159,7 +167,7 @@ export function productToDTO(product: IProduct): Product {
                   noIndex: seo.noIndex,
               }
             : undefined,
-        company: product.company ? {_id: product.company._id.toString(), name: product.company.name} : undefined,
+        company: mapCompanyLabel(product.company),
         ...mapSoftDeleteToDTO(product),
         ...mapOwnershipToDTO(product),
     };

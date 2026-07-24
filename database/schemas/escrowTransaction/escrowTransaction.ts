@@ -17,6 +17,13 @@ import { escrowTransactionViews } from "./escrowTransaction.views";
 
 export type EscrowTransactionType = "hold" | "release" | "refund" | "fee";
 export type EscrowTransactionStatus = "pending" | "completed" | "failed";
+/**
+ * Gateway mirror of a ledger row:
+ * - ledger_only: no PSP configured / no gateway object behind this row
+ * - pending: gateway object created, awaiting confirmation (PI unpaid, etc.)
+ * - succeeded / failed: gateway outcome
+ */
+export type EscrowGatewayStatus = "ledger_only" | "pending" | "succeeded" | "failed";
 
 export interface IEscrowTransaction extends Document, IOwnershipPluginFields {
     order: IOrder;
@@ -28,6 +35,15 @@ export interface IEscrowTransaction extends Document, IOwnershipPluginFields {
     company: ICompany;
     /** For release: provider payout amount. For fee: platform fee amount. */
     recipient?: "customer" | "provider" | "platform";
+    gatewayStatus: EscrowGatewayStatus;
+    /** hold rows: the customer charge PaymentIntent. */
+    gatewayPaymentIntentId?: string;
+    /** hold rows: client secret the customer uses to complete payment. */
+    stripeClientSecret?: string;
+    /** release rows: the Connect transfer to the provider. */
+    gatewayTransferId?: string;
+    /** refund rows: the gateway refund. */
+    gatewayRefundId?: string;
 }
 
 const EscrowTransactionSchema = new Schema<IEscrowTransaction>(
@@ -73,6 +89,26 @@ const EscrowTransactionSchema = new Schema<IEscrowTransaction>(
         recipient: {
             type: SchemaTypes.String,
             enum: ["customer", "provider", "platform"],
+        },
+        gatewayStatus: {
+            type: SchemaTypes.String,
+            enum: ["ledger_only", "pending", "succeeded", "failed"],
+            default: "ledger_only",
+        },
+        gatewayPaymentIntentId: {
+            type: SchemaTypes.String,
+            trim: true,
+        },
+        stripeClientSecret: {
+            type: SchemaTypes.String,
+        },
+        gatewayTransferId: {
+            type: SchemaTypes.String,
+            trim: true,
+        },
+        gatewayRefundId: {
+            type: SchemaTypes.String,
+            trim: true,
         },
     },
     {

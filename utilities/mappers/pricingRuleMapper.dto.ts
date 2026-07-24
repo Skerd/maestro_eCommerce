@@ -3,6 +3,14 @@ import type {PricingRule} from "armonia/src/modules/eCommerce/api/eCommerce/priv
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function pricingRuleToDTO(rule: IPricingRule): PricingRule {
     return {
         _id: rule._id.toString(),
@@ -18,7 +26,7 @@ export function pricingRuleToDTO(rule: IPricingRule): PricingRule {
         isActive: rule.isActive,
         startsAt: rule.startsAt?.toISOString(),
         endsAt: rule.endsAt?.toISOString(),
-        company: rule.company ? {_id: rule.company._id.toString(), name: rule.company.name} : undefined,
+        company: mapCompanyLabel(rule.company),
         ...mapSoftDeleteToDTO(rule),
         ...mapOwnershipToDTO(rule),
     };

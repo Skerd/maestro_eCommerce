@@ -10,6 +10,7 @@ import { orderService } from "@eCommerceMarketplaceModule/database/schemas/order
 import { orderDeliveryService } from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
 import { disputeService } from "@eCommerceMarketplaceModule/database/schemas/dispute/dispute.service";
 import { createEscrowReleaseAndFee } from "@eCommerceModule/utilities/escrowHelper";
+import { providerProfileService } from "@eCommerceMarketplaceModule/database/schemas/providerProfile/providerProfile.service";
 
 const AUTO_ACCEPT_DAYS = 3;
 
@@ -30,7 +31,7 @@ export async function runOrderAutoComplete(parentLogger?: serverLogger): Promise
             { status: "in_progress", deliveryDueDate: { $lte: cutoff } },
             { logger, languageCode: lang },
             null,
-            "_id amount currency company",
+            "_id amount currency company provider",
             { deliveryDueDate: 1 },
             200,
             0
@@ -69,11 +70,16 @@ export async function runOrderAutoComplete(parentLogger?: serverLogger): Promise
                     : parseFloat(String((order as any).amount || 0));
                 const currencyId = (order as any).currency;
                 const companyId = (order as any).company;
+                const providerId = (order as any).provider?._id ?? (order as any).provider;
+
+                const providerStripeAccountId = providerId && companyId
+                    ? await providerProfileService.getPayoutAccountId(providerId, companyId, {logger, languageCode: lang})
+                    : undefined;
 
                 await createEscrowReleaseAndFee(order._id, amount, currencyId, companyId, {
                     logger,
                     languageCode: lang,
-                });
+                }, {providerStripeAccountId});
 
                 await orderService.updateById(
                     order._id,

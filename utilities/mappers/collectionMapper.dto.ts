@@ -18,6 +18,14 @@ function mapProductRefs(refs: unknown): {_id: string; title: string; slug: strin
     return refs.map(mapProductRef).filter((r): r is {_id: string; title: string; slug: string} => r !== undefined);
 }
 
+function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
+    if (!company) return undefined;
+    if (typeof company === "object" && company._id) {
+        return {_id: company._id.toString(), name: company.name ?? ""};
+    }
+    return {_id: company.toString(), name: ""};
+}
+
 export function collectionToDTO(collection: ICollection): Collection {
     const products = mapProductRefs(collection.products);
     return {
@@ -36,7 +44,7 @@ export function collectionToDTO(collection: ICollection): Collection {
         seoTitle: collection.seoTitle,
         seoDescription: collection.seoDescription,
         publishedAt: collection.publishedAt?.toISOString(),
-        company: collection.company ? {_id: collection.company._id.toString(), name: collection.company.name} : undefined,
+        company: mapCompanyLabel(collection.company),
         ...mapSoftDeleteToDTO(collection),
         ...mapOwnershipToDTO(collection),
     };

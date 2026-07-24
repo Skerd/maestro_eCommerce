@@ -33,6 +33,10 @@ export interface ICart extends Document {
     estimatedTotal: number;
     expiresAt: Date;
     mergedFrom?: Schema.Types.ObjectId;
+    /** Set once the abandoned-cart reminder fired; cleared on new activity. */
+    abandonedNotifiedAt?: Date;
+    /** Store credit applied at cart; consumed atomically at checkout confirm. */
+    appliedGiftCard?: {giftCard: Schema.Types.ObjectId; code: string; amount: number};
 }
 
 const CartItemSubSchema = new Schema<ICartItem>(
@@ -77,6 +81,15 @@ const CartSchema = new Schema<ICart>(
         estimatedTotal: {type: SchemaTypes.Number, default: 0, min: 0},
         expiresAt: {type: SchemaTypes.Date, required: true},
         mergedFrom: {type: SchemaTypes.ObjectId, ref: "Cart"},
+        abandonedNotifiedAt: {type: SchemaTypes.Date},
+        appliedGiftCard: {
+            type: {
+                giftCard: {type: SchemaTypes.ObjectId, ref: "GiftCard"},
+                code: {type: SchemaTypes.String},
+                amount: {type: SchemaTypes.Number, min: 0},
+            },
+            _id: false,
+        },
     },
     {accessMode: "loose", timestamps: true},
 );

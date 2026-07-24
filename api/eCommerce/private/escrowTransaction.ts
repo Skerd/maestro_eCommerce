@@ -12,7 +12,12 @@ import { EscrowTransactionFormType } from "armonia/src/modules/eCommerce/api/eCo
 import { escrowTransactionFormSchema } from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/escrowTransaction.form.validator";
 import { escrowSummaryFormSchema } from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/escrowSummary.form.validator";
 import { EscrowSummaryFormType } from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/escrowSummary.form.type";
-import { EscrowSummary } from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/escrowSummary.form.response.type";
+import { EscrowStuckHold, EscrowSummary } from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/escrowSummary.form.response.type";
+import {
+    providerEarningsFormSchema,
+    ProviderEarningsFormType,
+    ProviderEarningsResponse,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/escrowTransaction/providerEarnings.form.validator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import EscrowTransactionModel from "@eCommerceModule/database/schemas/escrowTransaction/escrowTransaction";
 import { escrowTransactionsToDTO } from "@eCommerceModule/utilities/mappers/escrowTransactionMapper.dto";
@@ -166,6 +171,66 @@ async function getEscrowSummary(
         else if (row._id.type === "fee") byCurrency[cid].fees += row.total;
     }
 
+    // Stuck holds: completed holds with no release/refund row for the same
+    // order — money still sitting in escrow (plus its gateway mirror status).
+    const stuckRows = await EscrowTransactionModel.aggregate([
+        { $match: { company: company._id, type: "hold", status: "completed" } },
+        {
+            $lookup: {
+                from: "escrowtransactions",
+                let: { orderId: "$order" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ["$order", "$$orderId"] },
+                                    { $in: ["$type", ["release", "refund"]] },
+                                ],
+                            },
+                        },
+                    },
+                    { $limit: 1 },
+                ],
+                as: "settlements",
+            },
+        },
+        { $match: { settlements: { $size: 0 } } },
+        {
+            $lookup: {
+                from: "currencies",
+                localField: "currency",
+                foreignField: "_id",
+                as: "currencyDoc",
+            },
+        },
+        { $unwind: { path: "$currencyDoc", preserveNullAndEmptyArrays: true } },
+        { $sort: { createdAt: 1 } },
+        { $limit: 100 },
+        {
+            $project: {
+                order: 1,
+                amount: 1,
+                currency: 1,
+                gatewayStatus: 1,
+                createdAt: 1,
+                currencySymbol: "$currencyDoc.symbol",
+            },
+        },
+    ]);
+
+    const now = Date.now();
+    const stuckHolds: EscrowStuckHold[] = stuckRows.map((row: any) => ({
+        escrowTransactionId: row._id.toString(),
+        orderId: row.order?.toString() ?? "",
+        amount: row.amount ?? 0,
+        currencyId: row.currency?.toString(),
+        currencySymbol: row.currencySymbol,
+        gatewayStatus: row.gatewayStatus,
+        createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
+        ageDays: row.createdAt ? Math.floor((now - new Date(row.createdAt).getTime()) / 86400000) : 0,
+    }));
+
     return {
         byCurrency: Object.entries(byCurrency).map(([currencyId, data]) => ({
             currencyId,
@@ -174,6 +239,153 @@ async function getEscrowSummary(
             releases: data.releases,
             refunds: data.refunds,
             fees: data.fees,
+        })),
+        stuckHolds,
+    };
+}
+
+/**
+ * POST /api/eCommerce/escrowTransaction/providerEarnings
+ *
+ * Earnings for the CURRENT user as marketplace provider: released payouts,
+ * fees taken, refunds, and holds still pending — grouped by currency.
+ */
+router.post(
+    "/providerEarnings",
+    authMW("private"),
+    rateLimiter({ windowMs: 60000, max: 30 }),
+    validateFormZod(providerEarningsFormSchema),
+    asyncHandler(getProviderEarnings)
+);
+
+async function getProviderEarnings(
+    params: AuthenticatedMWType & ProviderEarningsFormType
+): Promise<ProviderEarningsResponse> {
+    const { logger, actionUserCtx, company, startDate, endDate } = params;
+
+    logger.start("Computing provider earnings...");
+
+    const match: any = { company: company._id, status: "completed" };
+    if (startDate) match.createdAt = { ...(match.createdAt ?? {}), $gte: new Date(startDate) };
+    if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        match.createdAt = { ...(match.createdAt ?? {}), $lte: end };
+    }
+
+    const rows = await EscrowTransactionModel.aggregate([
+        { $match: match },
+        {
+            $lookup: {
+                from: "orders",
+                localField: "order",
+                foreignField: "_id",
+                as: "orderDoc",
+            },
+        },
+        { $unwind: "$orderDoc" },
+        { $match: { "orderDoc.provider": new ObjectId(actionUserCtx.userId) } },
+        {
+            $lookup: {
+                from: "currencies",
+                localField: "currency",
+                foreignField: "_id",
+                as: "currencyDoc",
+            },
+        },
+        { $unwind: { path: "$currencyDoc", preserveNullAndEmptyArrays: true } },
+        {
+            $group: {
+                _id: { currency: "$currency", type: "$type", recipient: "$recipient" },
+                total: { $sum: "$amount" },
+                orderIds: { $addToSet: "$order" },
+                symbol: { $first: "$currencyDoc.symbol" },
+            },
+        },
+    ]);
+
+    const byCurrency: Record<string, { released: number; fees: number; refunded: number; holds: number; settledOrders: Set<string>; heldOrders: Map<string, number>; symbol?: string }> = {};
+
+    for (const row of rows) {
+        const cid = row._id.currency?.toString() ?? "unknown";
+        if (!byCurrency[cid]) {
+            byCurrency[cid] = { released: 0, fees: 0, refunded: 0, holds: 0, settledOrders: new Set(), heldOrders: new Map(), symbol: row.symbol };
+        }
+        const bucket = byCurrency[cid];
+        const orderIds: string[] = (row.orderIds ?? []).map((id: any) => id.toString());
+
+        if (row._id.type === "release" && row._id.recipient === "provider") {
+            bucket.released += row.total;
+            orderIds.forEach(id => bucket.settledOrders.add(id));
+        } else if (row._id.type === "fee") {
+            bucket.fees += row.total;
+        } else if (row._id.type === "refund") {
+            bucket.refunded += row.total;
+            orderIds.forEach(id => bucket.settledOrders.add(id));
+        } else if (row._id.type === "hold") {
+            // per-order hold totals; pending = holds on orders never settled
+            bucket.holds += row.total;
+            orderIds.forEach(id => bucket.heldOrders.set(id, (bucket.heldOrders.get(id) ?? 0)));
+        }
+    }
+
+    // Second pass for pending holds needs per-order amounts; recompute cheaply
+    const holdRows = await EscrowTransactionModel.aggregate([
+        { $match: { ...match, type: "hold" } },
+        {
+            $lookup: {
+                from: "orders",
+                localField: "order",
+                foreignField: "_id",
+                as: "orderDoc",
+            },
+        },
+        { $unwind: "$orderDoc" },
+        { $match: { "orderDoc.provider": new ObjectId(actionUserCtx.userId) } },
+        {
+            $lookup: {
+                from: "escrowtransactions",
+                let: { orderId: "$order" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ["$order", "$$orderId"] },
+                                    { $in: ["$type", ["release", "refund"]] },
+                                ],
+                            },
+                        },
+                    },
+                    { $limit: 1 },
+                ],
+                as: "settlements",
+            },
+        },
+        { $match: { settlements: { $size: 0 } } },
+        {
+            $group: {
+                _id: "$currency",
+                pendingHolds: { $sum: "$amount" },
+            },
+        },
+    ]);
+
+    const pendingByCurrency: Record<string, number> = {};
+    for (const row of holdRows) {
+        pendingByCurrency[row._id?.toString() ?? "unknown"] = row.pendingHolds ?? 0;
+    }
+
+    logger.finish("Computed provider earnings");
+
+    return {
+        byCurrency: Object.entries(byCurrency).map(([currencyId, data]) => ({
+            currencyId,
+            currencySymbol: data.symbol,
+            released: data.released,
+            fees: data.fees,
+            refunded: data.refunded,
+            pendingHolds: pendingByCurrency[currencyId] ?? 0,
         })),
     };
 }

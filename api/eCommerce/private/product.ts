@@ -38,6 +38,7 @@ const productTransforms = {
     attributes: (v: unknown) => v,
     specifications: (v: unknown) => v,
     faqs: (v: unknown) => v,
+    bundleComponents: (v: unknown) => v,
     seo: (v: unknown) => normalizeSeo(v),
 } as const;
 const buildProductCreateFromSchemaDef = buildCreateDataFromSchemaDef(ProductSchemaDef, productTransforms);

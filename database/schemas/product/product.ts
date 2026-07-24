@@ -89,6 +89,11 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     hasVariants?: boolean;
     defaultVariant?: Schema.Types.ObjectId;
     variantCount?: number;
+    // Bundles (type "bundle")
+    bundleComponents?: {product: Schema.Types.ObjectId; quantity: number}[];
+    // Digital delivery (type "digital")
+    downloadLimit?: number;
+    downloadExpiryDays?: number;
     // Merchandising
     relatedProducts?: Schema.Types.ObjectId[];
     upsells?: Schema.Types.ObjectId[];
@@ -260,6 +265,20 @@ const ProductSchema = new Schema<IProduct>(
             ref: "ProductVariant",
             refAllowlist: ProductVariantSimpleSnippet,
         },
+        // Bundles (type "bundle")
+        bundleComponents: {
+            type: [
+                {
+                    product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
+                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                    _id: false,
+                },
+            ],
+            default: [],
+        },
+        // Digital delivery (type "digital")
+        downloadLimit: {type: SchemaTypes.Number, min: 1},
+        downloadExpiryDays: {type: SchemaTypes.Number, min: 1},
         // Merchandising
         relatedProducts: {
             type: [{type: SchemaTypes.ObjectId, ref: "Product"}],
