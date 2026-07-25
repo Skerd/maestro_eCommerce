@@ -9,7 +9,8 @@
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import { emitNotificationEvent, NotificationEventCodes } from "@coreModule/domain/notifications/notificationEventBus";
+import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
+import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 
 const ABANDON_AFTER_HOURS = 24;
 const BATCH_SIZE = 200;

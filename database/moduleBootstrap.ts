@@ -12,3 +12,8 @@ export async function dropECommerceCollections(): Promise<void> {
         await model.collection.drop();
     }
 }
+
+export const moduleBootstrap = {
+    models: eCommerceModels,
+    dropModuleCollections: dropECommerceCollections,
+};

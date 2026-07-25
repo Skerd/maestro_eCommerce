@@ -6,7 +6,8 @@ import {cancelProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {refundProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/refundProductOrder.form.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import {emitNotificationEvent, NotificationEventCodes} from "@coreModule/domain/notifications/notificationEventBus";
+import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
+import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
 import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
 import Fulfillment from "@eCommerceModule/database/schemas/fulfillment/fulfillment";

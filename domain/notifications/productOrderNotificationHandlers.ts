@@ -1,9 +1,6 @@
 import {ObjectId} from "mongodb";
-import {
-    type NotificationEvent,
-    notificationEventBus,
-    NotificationEventCodes,
-} from "@coreModule/domain/notifications/notificationEventBus";
+import {type NotificationEvent, notificationEventBus, } from "@coreModule/domain/notifications/notificationEventBus";
+import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {createAndPushNotification} from "@coreModule/domain/notifications/notificationDomainService";
 import {NotificationCategory} from "armonia/src/modules/core/api/user/private/notifications/notifications.enum";
 import {NotificationImportance} from "@coreModule/database/schemas/notification/notification";
