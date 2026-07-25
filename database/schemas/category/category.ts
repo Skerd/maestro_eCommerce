@@ -12,15 +12,18 @@ import { CategorySimpleSnippet } from "@eCommerceModule/database/schemas/categor
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {CategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
 
-export interface ICategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
     company: ICompany;
     name: string;
     slug: string;
-    parent?: ICategory;
+    parent?: IProductCategory;
     order: number;
 }
 
-const ListingCategorySchema = new Schema<ICategory>(
+/** @deprecated Prefer IProductCategory */
+export type ICategory = IProductCategory;
+
+const ProductCategorySchema = new Schema<IProductCategory>(
     {
         name: {
             type: SchemaTypes.String,
@@ -34,7 +37,7 @@ const ListingCategorySchema = new Schema<ICategory>(
         },
         parent: {
             type: SchemaTypes.ObjectId,
-            ref: "ListingCategory",
+            ref: "ProductCategory",
             refAllowlist: CategorySimpleSnippet,
         },
         order: {
@@ -44,17 +47,19 @@ const ListingCategorySchema = new Schema<ICategory>(
     },
     {
         accessMode: "loose",
+        collection: "productcategories",
     }
 );
 
-ownershipPlugin(ListingCategorySchema);
-auditPlugin(ListingCategorySchema);
-softDeletePlugin(ListingCategorySchema);
-applyCategoryIndexes(ListingCategorySchema);
-/** Registered as `ListingCategory`; Mongo collection remains `categories`. */
-const ListingCategory = model<ICategory>("ListingCategory", ListingCategorySchema);
-normalizeSchemaPermissions(ListingCategory);
-export default ListingCategory;
+ownershipPlugin(ProductCategorySchema);
+auditPlugin(ProductCategorySchema);
+softDeletePlugin(ProductCategorySchema);
+applyCategoryIndexes(ProductCategorySchema);
+const ProductCategory = model<IProductCategory>("ProductCategory", ProductCategorySchema);
+normalizeSchemaPermissions(ProductCategory);
+export default ProductCategory;
+/** @deprecated Prefer default ProductCategory export */
+export const ListingCategory = ProductCategory;
 
-addModelData(ListingCategory, categoryViews);
-validateSchemaDefAgainstMongoose(ListingCategorySchema, CategorySchemaDef, "ListingCategory");
+addModelData(ProductCategory, categoryViews);
+validateSchemaDefAgainstMongoose(ProductCategorySchema, CategorySchemaDef, "ProductCategory");

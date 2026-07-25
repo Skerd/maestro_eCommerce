@@ -1,10 +1,12 @@
 import { BaseCrudService } from "@coreModule/database/services/baseCrudService";
-import ListingCategory, { ICategory } from "@eCommerceModule/database/schemas/category/category";
+import ProductCategory, { IProductCategory } from "@eCommerceModule/database/schemas/category/category";
 
-export class ListingCategoryService extends BaseCrudService<ICategory, typeof ListingCategory> {
+export class ProductCategoryService extends BaseCrudService<IProductCategory, typeof ProductCategory> {
     constructor() {
-        super(ListingCategory, "ListingCategory");
+        super(ProductCategory, "ProductCategory");
     }
 }
 
-export const categoryService = new ListingCategoryService();
+export const categoryService = new ProductCategoryService();
+/** @deprecated */
+export const ListingCategoryService = ProductCategoryService;

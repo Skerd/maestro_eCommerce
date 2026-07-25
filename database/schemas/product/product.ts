@@ -193,7 +193,7 @@ const ProductSchema = new Schema<IProduct>(
         vendor: {type: SchemaTypes.String, trim: true},
         tags: {type: [SchemaTypes.String], default: []},
         categories: {
-            type: [{type: SchemaTypes.ObjectId, ref: "ListingCategory"}],
+            type: [{type: SchemaTypes.ObjectId, ref: "ProductCategory"}],
             default: [],
         },
         collections: {

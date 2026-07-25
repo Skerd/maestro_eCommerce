@@ -6,7 +6,7 @@ import {CategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/pri
 import {createCategoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/createCategory.form.validator";
 import {editCategoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/editCategory.form.validator";
 import {categorySelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.select.form.validator";
-import ListingCategory from "@eCommerceModule/database/schemas/category/category";
+import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
 import {categoriesToDTO, categoryToDTO} from "@eCommerceModule/utilities/mappers/category/categoryMapper.dto";
 import {categoriesToSelect} from "@eCommerceModule/utilities/mappers/category/categoryMapper.select";
@@ -16,10 +16,10 @@ const buildCategoryUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(CategorySc
 
 export const basePath = "/api/eCommerce/category";
 export const {router} = createCrudRouter({
-    collectionName: "listingcategories",
-    model: ListingCategory,
+    collectionName: "productcategories",
+    model: ProductCategory,
     service: categoryService,
-    entityName: "ListingCategory",
+    entityName: "ProductCategory",
     selectSearchField: "name",
     selectSort: {order: 1, name: 1},
     defaultSort: {order: 1},

@@ -6,13 +6,13 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {emitNotificationEvent, NotificationEventCodes} from "@coreModule/domain/notifications/notificationEventBus";
 import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import EscrowTransaction from "@eCommerceModule/database/schemas/escrowTransaction/escrowTransaction";
+import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
 import PaymentWebhookEvent from "@eCommerceModule/database/schemas/paymentWebhookEvent/paymentWebhookEvent";
 import {paymentTransactionService} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {consumeCheckoutReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
-import type {WebhookEvent} from "@eCommerceModule/utilities/services/payment/paymentProvider.types";
+import type {WebhookEvent} from "@financeModule/utilities/services/payment/paymentProvider.types";
 
 export const basePath = "/api/eCommerce/paymentsWebhook";
 export const router = Router();

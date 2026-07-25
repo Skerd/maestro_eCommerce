@@ -1,7 +1,7 @@
 import type {PaymentGateway} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction";
 import type {CheckoutPaymentMethod} from "@eCommerceModule/database/schemas/checkout/checkout";
-import {stripeAdapter} from "./stripeAdapter";
-import type {PaymentProviderAdapter} from "./paymentProvider.types";
+import {stripeAdapter} from "@financeModule/utilities/services/payment/stripeAdapter";
+import type {PaymentProviderAdapter} from "@financeModule/utilities/services/payment/paymentProvider.types";
 
 /**
  * Facade over payment gateway adapters. Checkout, the payments webhook, and
