@@ -1,9 +1,9 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 
 export const categorySheetView: ViewConfig = {
-    model: "categories",
+    model: "productcategories",
     viewType: "sheet",
-    accessModel: "listingCategories",
+    accessModel: "productcategories",
     apiUrl: "/api/eCommerce/category",
     header: {
         titleField: "name",
@@ -58,7 +58,7 @@ export const categorySheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#IconCategory2",
                                     linkedRefPath: "parent",
-                                    linkedSheetModel: "listingCategories",
+                                    linkedSheetModel: "productcategories",
                                     linkedSheetWidget: "#CategorySheetView",
                                     linkedSheetEntityProp: "parent",
                                 },
@@ -179,20 +179,20 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
 ];
 
 export const categoryCreateFormView: ViewConfig = {
-    model: "categories",
+    model: "productcategories",
     viewType: "form",
     viewMode: "create",
-    accessModel: "listingCategories",
+    accessModel: "productcategories",
     apiUrl: "/api/eCommerce/category",
     method: "PUT",
     nodes: categoryCreateFormNodes,
 };
 
 export const categoryEditFormView: ViewConfig = {
-    model: "categories",
+    model: "productcategories",
     viewType: "form",
     viewMode: "edit",
-    accessModel: "listingCategories",
+    accessModel: "productcategories",
     apiUrl: "/api/eCommerce/category",
     method: "PATCH",
     nodes: categoryEditFormNodes,
