@@ -41,12 +41,18 @@ const ProductReviewSchema = new Schema<IProductReview>(
             ref: "ProductOrder",
             required: true,
             refAllowlist: ProductOrderSimpleSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["orderNumber"],
+            },
         },
         product: {
             type: SchemaTypes.ObjectId,
             ref: "Product",
             required: true,
             refAllowlist: ProductSimpleSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["title"],
+            },
         },
         rating: {
             type: SchemaTypes.Number,
@@ -67,12 +73,18 @@ const ProductReviewSchema = new Schema<IProductReview>(
             ref: "User",
             required: true,
             refAllowlist: SimpleUserSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
         },
         company: {
             type: SchemaTypes.ObjectId,
             ref: "Company",
             required: true,
             refAllowlist: CompanyBlankSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name"],
+            },
         },
     },
     {accessMode: "loose", timestamps: true},

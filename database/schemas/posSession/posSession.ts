@@ -18,16 +18,13 @@ import {posSessionViews} from "./posSession.views";
 export type PosSessionState = "opening_control" | "opened" | "closing_control" | "closed";
 export type PosCashMoveType = "in" | "out";
 
-const CashMoveSubSchema = new Schema(
-    {
-        type: {type: SchemaTypes.String, enum: ["in", "out"], required: true},
-        amount: {type: SchemaTypes.Number, required: true, min: 0},
-        reason: {type: SchemaTypes.String},
-        at: {type: SchemaTypes.Date, default: Date.now},
-        by: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
-    },
-    {_id: false},
-);
+export interface IPosCashMove {
+    type: PosCashMoveType;
+    amount: number;
+    reason?: string;
+    at?: Date;
+    by?: IUser | Schema.Types.ObjectId;
+}
 
 export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
     name: string;
@@ -41,7 +38,7 @@ export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDele
     closingBalance?: number;
     expectedCash: number;
     cashRegisterBalance: number;
-    cashMoves: typeof CashMoveSubSchema[];
+    cashMoves: IPosCashMove[];
     orderCount: number;
     totalSales: number;
     totalCash: number;
@@ -53,21 +50,54 @@ export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDele
 const PosSessionSchema = new Schema<IPosSession>(
     {
         name: {type: SchemaTypes.String, required: true, trim: true},
-        config: {type: SchemaTypes.ObjectId, ref: "PosConfig", required: true, refAllowlist: PosConfigSimpleSnippet},
+        config: {
+            type: SchemaTypes.ObjectId,
+            ref: "PosConfig",
+            required: true,
+            refAllowlist: PosConfigSimpleSnippet,
+            dynamicTableConfiguration: {
+                dtoPath: "configLabel",
+                refDisplayKey: ["name"],
+            },
+        },
         state: {
             type: SchemaTypes.String,
             enum: ["opening_control", "opened", "closing_control", "closed"],
             default: "opening_control",
         },
-        openedBy: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
-        closedBy: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
+        openedBy: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
+        },
+        closedBy: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
+        },
         openedAt: {type: SchemaTypes.Date},
         closedAt: {type: SchemaTypes.Date},
         openingBalance: {type: SchemaTypes.Number, default: 0, min: 0},
         closingBalance: {type: SchemaTypes.Number, min: 0},
         expectedCash: {type: SchemaTypes.Number, default: 0, min: 0},
         cashRegisterBalance: {type: SchemaTypes.Number, default: 0, min: 0},
-        cashMoves: {type: [CashMoveSubSchema], default: []},
+        cashMoves: [{
+            type: {
+                type: {type: SchemaTypes.String, enum: ["in", "out"], required: true},
+                amount: {type: SchemaTypes.Number, required: true, min: 0},
+                reason: {type: SchemaTypes.String},
+                at: {type: SchemaTypes.Date, default: Date.now},
+                by: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
+            },
+            _id: false,
+            default: [],
+        }],
         orderCount: {type: SchemaTypes.Number, default: 0, min: 0},
         totalSales: {type: SchemaTypes.Number, default: 0, min: 0},
         totalCash: {type: SchemaTypes.Number, default: 0, min: 0},

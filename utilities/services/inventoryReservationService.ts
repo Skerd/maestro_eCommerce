@@ -161,6 +161,7 @@ export async function consumeCheckoutReservations(checkout: ICheckout, ctx: Rese
         const quantityBefore = before?.quantityOnHand ?? 0;
         await inventoryMovementService.create(
             {
+                inventory: before?._id,
                 product: productId,
                 variant: variantId,
                 warehouse: warehouseId,

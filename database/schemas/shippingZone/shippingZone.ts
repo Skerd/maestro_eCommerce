@@ -4,7 +4,11 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
@@ -12,8 +16,9 @@ import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/v
 import {ShippingZoneSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/shippingZone.schema-def";
 import {applyShippingZoneIndexes} from "./shippingZone.indexes";
 import {shippingZoneViews} from "./shippingZone.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     countries?: Schema.Types.ObjectId[];
     states?: Schema.Types.ObjectId[];
@@ -67,6 +72,7 @@ ownershipPlugin(ShippingZoneSchema);
 auditPlugin(ShippingZoneSchema);
 softDeletePlugin(ShippingZoneSchema);
 applyShippingZoneIndexes(ShippingZoneSchema);
+lifeCyclePlugin(ShippingZoneSchema);
 const ShippingZone = model<IShippingZone>("ShippingZone", ShippingZoneSchema);
 normalizeSchemaPermissions(ShippingZone);
 export default ShippingZone;

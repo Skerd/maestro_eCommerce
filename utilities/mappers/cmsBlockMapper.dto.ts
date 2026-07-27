@@ -12,13 +12,15 @@ function mapCompanyLabel(company: any): {_id: string; name: string} | undefined 
 }
 
 export function cmsBlockToDTO(block: ICmsBlock): CmsBlock {
+    const config = (block.config as Record<string, unknown>) ?? {};
     return {
         _id: block._id.toString(),
         type: block.type,
         title: block.title,
         isActive: block.isActive,
         position: block.position,
-        config: block.config as Record<string, unknown>,
+        config,
+        configText: JSON.stringify(config, null, 2),
         startsAt: block.startsAt?.toISOString(),
         endsAt: block.endsAt?.toISOString(),
         visibility: block.visibility,

@@ -8,7 +8,8 @@ import {createShippingZoneFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {editShippingZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/editShippingZone.form.validator";
 import ShippingZone from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 import {shippingZoneService} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.service";
-import {shippingZoneToDTO, shippingZonesToDTO, shippingZoneToSelect, shippingZonesToSelect} from "@eCommerceModule/utilities/mappers/shippingZoneMapper.dto";
+import {shippingZoneToDTO, shippingZonesToDTO} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.dto";
+import {shippingZonesToSelect} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.select";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
 
 const shippingZoneTransforms = {

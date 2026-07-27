@@ -7,7 +7,8 @@ import {editProductVariantFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {mediaUploadMW} from "@coreModule/utilities/middlewares/mediaUploadMW";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
-import {productVariantToDTO, productVariantsToDTO, productVariantToSelect, productVariantsToSelect} from "@eCommerceModule/utilities/mappers/productVariantMapper.dto";
+import {productVariantToDTO, productVariantsToDTO} from "@eCommerceModule/utilities/mappers/productVariant/productVariantMapper.dto";
+import {productVariantsToSelect} from "@eCommerceModule/utilities/mappers/productVariant/productVariantMapper.select";
 
 const mediaUpload = mediaUploadMW({fields: {mainImage: 1}, maxFileSize: 50 * 1024 * 1024});
 

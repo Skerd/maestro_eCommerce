@@ -5,7 +5,8 @@ import {createTaxZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommer
 import {editTaxZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/editTaxZone.form.validator";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import {taxZoneService} from "@eCommerceModule/database/schemas/taxZone/taxZone.service";
-import {taxZoneToDTO, taxZonesToDTO, taxZoneToSelect, taxZonesToSelect} from "@eCommerceModule/utilities/mappers/taxZoneMapper.dto";
+import {taxZoneToDTO, taxZonesToDTO} from "@eCommerceModule/utilities/mappers/taxZone/taxZoneMapper.dto";
+import {taxZonesToSelect} from "@eCommerceModule/utilities/mappers/taxZone/taxZoneMapper.select";
 
 const taxZoneTransforms = {
     rates: (v: unknown) => v,

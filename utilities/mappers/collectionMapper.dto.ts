@@ -4,18 +4,19 @@ import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapMedia} from "@coreModule/utilities/mappers/common.mapper";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
-function mapProductRef(ref: any): {_id: string; title: string; slug: string} | undefined {
+function mapProductRef(ref: any): {_id: string; title: string; slug: string; sku?: string} | undefined {
     if (!ref) return undefined;
     return {
         _id: ref._id?.toString() ?? String(ref),
         title: ref.title ?? "",
         slug: ref.slug ?? "",
+        sku: ref.sku ?? undefined,
     };
 }
 
-function mapProductRefs(refs: unknown): {_id: string; title: string; slug: string}[] {
+function mapProductRefs(refs: unknown): {_id: string; title: string; slug: string; sku?: string}[] {
     if (!Array.isArray(refs)) return [];
-    return refs.map(mapProductRef).filter((r): r is {_id: string; title: string; slug: string} => r !== undefined);
+    return refs.map(mapProductRef).filter((r): r is {_id: string; title: string; slug: string; sku?: string} => r !== undefined);
 }
 
 function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {

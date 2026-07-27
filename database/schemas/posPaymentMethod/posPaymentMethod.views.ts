@@ -16,9 +16,18 @@ const posTerminalProviderOptions = [
 const posPaymentMethodFormFields: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
-        props: {columns: 2},
+        props: {columns: 3},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
+            {
+                render: "#Field",
+                field: {
+                    name: "name",
+                    widget: "#Input",
+                    label: "form.nameLabel",
+                    placeholder: "form.namePlaceholder",
+                    required: true,
+                },
+            },
             {
                 render: "#Field",
                 field: {
@@ -29,47 +38,141 @@ const posPaymentMethodFormFields: ViewConfig["nodes"] = [
                     widgetProps: {options: posPaymentMethodTypeOptions, className: "grow w-full"},
                 },
             },
-            {render: "#Field", field: {name: "sequence", widget: "#Input", label: "form.sequenceLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
             {
                 render: "#Field",
                 field: {
-                    name: "cashQuickAmounts",
+                    name: "sequence",
                     widget: "#Input",
-                    label: "form.cashQuickAmountsLabel",
-                    placeholder: "form.cashQuickAmountsPlaceholder",
-                    widgetProps: {className: "grow w-full"},
+                    label: "form.sequenceLabel",
+                    placeholder: "form.sequencePlaceholder",
+                    widgetProps: {type: "number", min: 0},
                 },
             },
-            {render: "#Field", field: {name: "terminalEnabled", widget: "#Checkbox", label: "form.terminalEnabledLabel"}},
+        ],
+    },
+    {
+        render: "#FormWhenFieldValueIn",
+        props: {watchField: "type", whenValues: ["cash"]},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "terminalProvider",
-                    widget: "#Select",
-                    label: "form.terminalProviderLabel",
-                    widgetProps: {options: posTerminalProviderOptions, className: "grow w-full"},
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "cashQuickAmounts",
+                            widget: "#Input",
+                            label: "form.cashQuickAmountsLabel",
+                            placeholder: "form.cashQuickAmountsPlaceholder",
+                            widgetProps: {className: "grow w-full"},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {
+            title: "form.terminalSectionTitle",
+            defaultOpen: true,
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "terminalEnabled",
+                            widget: "#Switch",
+                            label: "form.terminalEnabledLabel",
+                        },
+                    },
+                ],
+            },
+            // Sync type when the terminal switch toggles (create + edit).
+            {
+                render: "#FormWhenFieldValueIn",
+                props: {
+                    watchField: "terminalEnabled",
+                    whenValues: ["true"],
+                    setFieldsOnMatch: {type: "card"},
                 },
             },
-            {render: "#Field", field: {name: "terminalHost", widget: "#Input", label: "form.terminalHostLabel", placeholder: "form.terminalHostPlaceholder"}},
             {
-                render: "#Field",
-                field: {
-                    name: "terminalPort",
-                    widget: "#Input",
-                    label: "form.terminalPortLabel",
-                    widgetProps: {type: "number", min: 1, max: 65535},
+                render: "#FormWhenFieldValueIn",
+                props: {
+                    watchField: "terminalEnabled",
+                    whenValues: ["false"],
+                    setFieldsOnMatch: {type: "cash"},
                 },
             },
-            {render: "#Field", field: {name: "terminalId", widget: "#Input", label: "form.terminalIdLabel", placeholder: "form.terminalIdPlaceholder"}},
             {
-                render: "#Field",
-                field: {
-                    name: "terminalPath",
-                    widget: "#Input",
-                    label: "form.terminalPathLabel",
-                    placeholder: "form.terminalPathPlaceholder",
-                },
+                render: "#FormWhenFieldValueIn",
+                props: {watchField: "terminalEnabled", whenValues: ["true"]},
+                children: [
+                    {
+                        render: "#FormAlert",
+                        props: {
+                            message: "form.terminalForcesCardHint",
+                        },
+                    },
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 2},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "terminalProvider",
+                                    widget: "#Select",
+                                    label: "form.terminalProviderLabel",
+                                    widgetProps: {options: posTerminalProviderOptions, className: "grow w-full"},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "terminalId",
+                                    widget: "#Input",
+                                    label: "form.terminalIdLabel",
+                                    placeholder: "form.terminalIdPlaceholder",
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "terminalHost",
+                                    widget: "#Input",
+                                    label: "form.terminalHostLabel",
+                                    placeholder: "form.terminalHostPlaceholder",
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "terminalPort",
+                                    widget: "#Input",
+                                    label: "form.terminalPortLabel",
+                                    placeholder: "form.terminalPortPlaceholder",
+                                    widgetProps: {type: "number", min: 1, max: 65535},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "terminalPath",
+                                    widget: "#Input",
+                                    label: "form.terminalPathLabel",
+                                    placeholder: "form.terminalPathPlaceholder",
+                                },
+                            },
+                        ],
+                    },
+                ],
             },
         ],
     },
@@ -93,14 +196,56 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}}},
                         {render: "#SmallInfoCard", permissions: {read: "type"}, field: {name: "type", widget: "#SmallInfoCard", label: "type", widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "paymentType"}}},
                         {render: "#SmallInfoCard", permissions: {read: "sequence"}, field: {name: "sequence", widget: "#SmallInfoCard", label: "sequence", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight", valueType: "boolean"}}},
                         {render: "#SmallInfoCard", permissions: {read: "cashQuickAmounts"}, field: {name: "cashQuickAmounts", widget: "#SmallInfoCard", label: "cashQuickAmounts", widgetProps: {icon: "#IconCash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalEnabled"}, field: {name: "terminalEnabled", widget: "#SmallInfoCard", label: "terminalEnabled", widgetProps: {icon: "#IconCreditCard"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalProvider"}, field: {name: "terminalProvider", widget: "#SmallInfoCard", label: "terminalProviderLabel", widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "terminalProvider"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalHost"}, field: {name: "terminalHost", widget: "#SmallInfoCard", label: "terminalHost", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalPort"}, field: {name: "terminalPort", widget: "#SmallInfoCard", label: "terminalPort", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalId"}, field: {name: "terminalId", widget: "#SmallInfoCard", label: "terminalId", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "terminalPath"}, field: {name: "terminalPath", widget: "#SmallInfoCard", label: "terminalPath", widgetProps: {icon: "#IconTag"}}},
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "terminal"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {render: "#SmallInfoCard", permissions: {read: "terminalEnabled"}, field: {name: "terminalEnabled", widget: "#SmallInfoCard", label: "terminalEnabled", widgetProps: {icon: "#IconCreditCard", valueType: "boolean"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalProvider"},
+                            dependent: "terminalEnabled",
+                            field: {
+                                name: "terminalProvider",
+                                widget: "#SmallInfoCard",
+                                label: "terminalProviderLabel",
+                                widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "terminalProvider"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalHost"},
+                            dependent: "terminalEnabled",
+                            field: {name: "terminalHost", widget: "#SmallInfoCard", label: "terminalHost", widgetProps: {icon: "#IconTag"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalPort"},
+                            dependent: "terminalEnabled",
+                            field: {name: "terminalPort", widget: "#SmallInfoCard", label: "terminalPort", widgetProps: {icon: "#Hash"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalId"},
+                            dependent: "terminalEnabled",
+                            field: {name: "terminalId", widget: "#SmallInfoCard", label: "terminalId", widgetProps: {icon: "#IconTag"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalPath"},
+                            dependent: "terminalEnabled",
+                            field: {name: "terminalPath", widget: "#SmallInfoCard", label: "terminalPath", widgetProps: {icon: "#IconTag"}},
+                        },
                     ],
                 },
             ],

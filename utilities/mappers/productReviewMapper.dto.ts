@@ -13,17 +13,40 @@ function mapRef(ref: any, fields: string[]): any {
     return out;
 }
 
+function toIso(value: unknown): string | undefined {
+    if (!value) return undefined;
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === "string") return value;
+    const d = new Date(value as any);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
 export function productReviewToDTO(review: IProductReview): ProductReview {
+    const product = mapRef(review.product, ["title", "slug", "sku"]);
+    const title = review.title || undefined;
+    const displayTitle =
+        (typeof title === "string" && title.trim()) ||
+        product?.title ||
+        (review.rating != null ? `${review.rating}★` : undefined) ||
+        review._id.toString();
+
     return {
         _id: review._id.toString(),
-        order: mapRef(review.order, ["orderNumber"]),
-        product: mapRef(review.product, ["title", "slug"]),
+        order: mapRef(review.order, ["orderNumber", "status", "paymentStatus"]),
+        product,
         rating: review.rating,
-        title: review.title || undefined,
+        title,
         comment: review.comment || undefined,
-        reviewer: mapRef(review.reviewer, ["name", "surname"]),
-        company: review.company ? {_id: (review.company as any)._id?.toString?.() ?? review.company.toString(), name: (review.company as any).name ?? ""} : undefined,
-        createdAt: (review as any).createdAt?.toISOString?.(),
+        displayTitle,
+        reviewer: mapRef(review.reviewer, ["name", "surname", "photo"]),
+        company: review.company
+            ? {
+                  _id: (review.company as any)._id?.toString?.() ?? review.company.toString(),
+                  name: (review.company as any).name ?? "",
+              }
+            : undefined,
+        createdAt: toIso((review as any).createdAt),
+        updatedAt: toIso((review as any).updatedAt),
         ...mapSoftDeleteToDTO(review),
         ...mapOwnershipToDTO(review),
     };

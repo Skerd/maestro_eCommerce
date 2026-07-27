@@ -23,44 +23,32 @@ export type ProductOrderPaymentStatus = "unpaid" | "authorized" | "paid" | "part
 export type ProductOrderFulfillmentStatus = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "returned";
 export type ProductOrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
 
-const AddressSubSchema = new Schema(
-    {
-        firstName: {type: SchemaTypes.String},
-        lastName: {type: SchemaTypes.String},
-        phone: {type: SchemaTypes.String},
-        street: {type: SchemaTypes.String},
-        city: {type: SchemaTypes.String},
-        state: {type: SchemaTypes.String},
-        postalCode: {type: SchemaTypes.String},
-        country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
-    },
-    {_id: false},
-);
+export interface IProductOrderAddress {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: Schema.Types.ObjectId;
+}
 
-const OrderItemSubSchema = new Schema(
-    {
-        product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
-        variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant", refAllowlist: ProductVariantSimpleSnippet},
-        quantity: {type: SchemaTypes.Number, required: true, min: 1},
-        unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
-        totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
-        snapshot: {
-            type: {title: SchemaTypes.String, sku: SchemaTypes.String, imageUrl: SchemaTypes.String},
-            _id: false,
-        },
-    },
-    {_id: true},
-);
+export interface IProductOrderItem {
+    product: Schema.Types.ObjectId;
+    variant?: Schema.Types.ObjectId;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    snapshot?: {title?: string; sku?: string; imageUrl?: string};
+}
 
-const TimelineEntrySubSchema = new Schema(
-    {
-        event: {type: SchemaTypes.String, required: true},
-        timestamp: {type: SchemaTypes.Date, default: Date.now},
-        userId: {type: SchemaTypes.ObjectId, ref: "User"},
-        note: {type: SchemaTypes.String},
-    },
-    {_id: false},
-);
+export interface IProductOrderTimelineEntry {
+    event: string;
+    timestamp?: Date;
+    userId?: Schema.Types.ObjectId;
+    note?: string;
+}
 
 export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
     orderNumber: string;
@@ -68,15 +56,15 @@ export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDe
     email?: string;
     phone?: string;
     company: ICompany;
-    items: typeof OrderItemSubSchema[];
+    items: IProductOrderItem[];
     subtotal: number;
     discountTotal: number;
     shippingTotal: number;
     taxTotal: number;
     grandTotal: number;
     currency: ICurrency;
-    shippingAddress: typeof AddressSubSchema;
-    billingAddress?: typeof AddressSubSchema;
+    shippingAddress: IProductOrderAddress;
+    billingAddress?: IProductOrderAddress;
     paymentStatus: ProductOrderPaymentStatus;
     fulfillmentStatus: ProductOrderFulfillmentStatus;
     status: ProductOrderStatus;
@@ -85,7 +73,7 @@ export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDe
     shippingRate?: {name: string; carrier?: string; price: number};
     notes?: string;
     internalNotes?: string;
-    timeline?: typeof TimelineEntrySubSchema[];
+    timeline?: IProductOrderTimelineEntry[];
     stripePaymentIntentId?: string;
     idempotencyKey: string;
     /** Store credit redeemed against this order. */
@@ -99,15 +87,53 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         email: {type: SchemaTypes.String, trim: true},
         phone: {type: SchemaTypes.String, trim: true},
         company: {type: SchemaTypes.ObjectId, ref: "Company", required: true, refAllowlist: CompanyBlankSnippet},
-        items: {type: [OrderItemSubSchema], default: []},
+        items: [{
+            type: {
+                product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
+                variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant", refAllowlist: ProductVariantSimpleSnippet},
+                quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                snapshot: {
+                    type: {title: SchemaTypes.String, sku: SchemaTypes.String, imageUrl: SchemaTypes.String},
+                    _id: false,
+                },
+            },
+            default: [],
+        }],
         subtotal: {type: SchemaTypes.Number, default: 0, min: 0},
         discountTotal: {type: SchemaTypes.Number, default: 0, min: 0},
         shippingTotal: {type: SchemaTypes.Number, default: 0, min: 0},
         taxTotal: {type: SchemaTypes.Number, default: 0, min: 0},
         grandTotal: {type: SchemaTypes.Number, default: 0, min: 0},
         currency: {type: SchemaTypes.ObjectId, ref: "Currency", required: true, refAllowlist: CurrencySimpleSnippet},
-        shippingAddress: {type: AddressSubSchema, required: true},
-        billingAddress: {type: AddressSubSchema},
+        shippingAddress: {
+            type: {
+                firstName: {type: SchemaTypes.String},
+                lastName: {type: SchemaTypes.String},
+                phone: {type: SchemaTypes.String},
+                street: {type: SchemaTypes.String},
+                city: {type: SchemaTypes.String},
+                state: {type: SchemaTypes.String},
+                postalCode: {type: SchemaTypes.String},
+                country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
+            },
+            _id: false,
+            required: true,
+        },
+        billingAddress: {
+            type: {
+                firstName: {type: SchemaTypes.String},
+                lastName: {type: SchemaTypes.String},
+                phone: {type: SchemaTypes.String},
+                street: {type: SchemaTypes.String},
+                city: {type: SchemaTypes.String},
+                state: {type: SchemaTypes.String},
+                postalCode: {type: SchemaTypes.String},
+                country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
+            },
+            _id: false,
+        },
         paymentStatus: {
             type: SchemaTypes.String,
             enum: ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"],
@@ -124,7 +150,12 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             default: "pending",
         },
         appliedDiscounts: {
-            type: [{discount: SchemaTypes.ObjectId, code: SchemaTypes.String, amount: SchemaTypes.Number, _id: false}],
+            type: [{
+                discount: {type: SchemaTypes.ObjectId, ref: "Discount"},
+                code: SchemaTypes.String,
+                amount: SchemaTypes.Number,
+                _id: false,
+            }],
             default: [],
         },
         taxBreakdown: {
@@ -137,7 +168,16 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         },
         notes: {type: SchemaTypes.String},
         internalNotes: {type: SchemaTypes.String},
-        timeline: {type: [TimelineEntrySubSchema], default: []},
+        timeline: [{
+            type: {
+                event: {type: SchemaTypes.String, required: true},
+                timestamp: {type: SchemaTypes.Date, default: Date.now},
+                userId: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
+                note: {type: SchemaTypes.String},
+            },
+            _id: false,
+            default: [],
+        }],
         stripePaymentIntentId: {type: SchemaTypes.String},
         idempotencyKey: {type: SchemaTypes.String, required: true},
         giftCard: {

@@ -1,3 +1,3 @@
 export const PosConfigSimpleSnippet = {
-    keys: {_id: {}, name: {}, isActive: {}, warehouse: {}},
+    keys: {_id: {}, name: {}, isActive: {}, warehouses: {}},
 };

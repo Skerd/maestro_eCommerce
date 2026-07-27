@@ -3,22 +3,16 @@ import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/vi
 const posConfigFormFields: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
-        props: {columns: 2},
+        props: {columns: 3},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
             {
                 render: "#Field",
                 field: {
-                    name: "warehouse",
-                    widget: "#ApiSelect",
-                    label: "form.warehouseLabel",
-                    placeholder: "form.warehousePlaceholder",
+                    name: "name",
+                    widget: "#Input",
+                    label: "form.nameLabel",
+                    placeholder: "form.namePlaceholder",
                     required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/warehouse/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                    },
                 },
             },
             {
@@ -36,12 +30,25 @@ const posConfigFormFields: ViewConfig["nodes"] = [
                     },
                 },
             },
-            {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
-            {render: "#Field", field: {name: "ifaceBarcodeScanner", widget: "#Checkbox", label: "form.ifaceBarcodeScannerLabel"}},
-            {render: "#Field", field: {name: "ifaceCashControl", widget: "#Checkbox", label: "form.ifaceCashControlLabel"}},
-            {render: "#Field", field: {name: "allowDiscount", widget: "#Checkbox", label: "form.allowDiscountLabel"}},
-            {render: "#Field", field: {name: "allowQuantityChange", widget: "#Checkbox", label: "form.allowQuantityChangeLabel"}},
         ],
+    },
+    {
+        render: "#Field",
+        field: {
+            name: "warehouses",
+            widget: "#FormObjectIdChips",
+            label: "form.warehousesLabel",
+            required: true,
+            widgetProps: {
+                apiUrl: "/api/eCommerce/warehouse/select",
+                method: "POST",
+                placeholderKey: "form.selectWarehouse",
+                removeTooltipKey: "form.removeWarehouse",
+                selectPageSizeCreate: 50,
+                selectPageSizeEdit: 200,
+                labelRefFormExtraKey: "warehouses",
+            },
+        },
     },
     {
         render: "#Field",
@@ -61,11 +68,74 @@ const posConfigFormFields: ViewConfig["nodes"] = [
         },
     },
     {
+        render: "#Field",
+        field: {
+            name: "managers",
+            widget: "#FormObjectIdChips",
+            label: "form.managersLabel",
+            widgetProps: {
+                apiUrl: "/api/company/users/select",
+                method: "POST",
+                placeholderKey: "form.selectManager",
+                removeTooltipKey: "form.removeManager",
+                selectPageSizeCreate: 50,
+                selectPageSizeEdit: 200,
+                labelRefFormExtraKey: "managers",
+            },
+        },
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {
+            title: "form.tillOptionsSectionTitle",
+            defaultOpen: true,
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {render: "#Field", field: {name: "isActive", widget: "#Switch", label: "form.isActiveLabel"}},
+                    {render: "#Field", field: {name: "ifaceBarcodeScanner", widget: "#Switch", label: "form.ifaceBarcodeScannerLabel"}},
+                    {render: "#Field", field: {name: "ifaceCashControl", widget: "#Switch", label: "form.ifaceCashControlLabel"}},
+                    {render: "#Field", field: {name: "allowDiscount", widget: "#Switch", label: "form.allowDiscountLabel"}},
+                    {render: "#Field", field: {name: "allowQuantityChange", widget: "#Switch", label: "form.allowQuantityChangeLabel"}},
+                    {render: "#Field", field: {name: "allowOversell", widget: "#Switch", label: "form.allowOversellLabel"}},
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3, skipRenderWhenFormExtraNotTruthy: "hasManagerPin"},
+                children: [
+                    {render: "#Field", field: {name: "pinForDiscount", widget: "#Switch", label: "form.pinForDiscountLabel"}},
+                    {render: "#Field", field: {name: "pinForCashOut", widget: "#Switch", label: "form.pinForCashOutLabel"}},
+                    {render: "#Field", field: {name: "pinForRefund", widget: "#Switch", label: "form.pinForRefundLabel"}},
+                ],
+            },
+        ],
+    },
+    {
         render: "#FormGrid",
         props: {columns: 1},
         children: [
-            {render: "#Field", field: {name: "receiptHeader", widget: "#Textarea", label: "form.receiptHeaderLabel"}},
-            {render: "#Field", field: {name: "receiptFooter", widget: "#Textarea", label: "form.receiptFooterLabel"}},
+            {
+                render: "#Field",
+                field: {
+                    name: "receiptHeader",
+                    widget: "#Textarea",
+                    label: "form.receiptHeaderLabel",
+                    placeholder: "form.receiptHeaderPlaceholder",
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "receiptFooter",
+                    widget: "#Textarea",
+                    label: "form.receiptFooterLabel",
+                    placeholder: "form.receiptFooterPlaceholder",
+                },
+            },
         ],
     },
 ];
@@ -87,10 +157,227 @@ export const posConfigSheetView: ViewConfig = {
                     children: [
                         {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}}},
                         {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "ifaceBarcodeScanner"}, field: {name: "ifaceBarcodeScanner", widget: "#SmallInfoCard", label: "ifaceBarcodeScanner", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "ifaceCashControl"}, field: {name: "ifaceCashControl", widget: "#SmallInfoCard", label: "ifaceCashControl", widgetProps: {icon: "#IconCurrencyDollar"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "allowDiscount"}, field: {name: "allowDiscount", widget: "#SmallInfoCard", label: "allowDiscount", widgetProps: {icon: "#IconPercent"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "currency"},
+                            field: {
+                                name: "currency",
+                                widget: "#SmallInfoCard",
+                                label: "currency",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    parent: "currency",
+                                    valuePath: ["symbol", "name"],
+                                    joinSeparator: " ",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {
+                                    icon: "#IconBuilding",
+                                    parent: "company",
+                                    valuePath: ["name"],
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "managers"},
+                            field: {
+                                name: "hasManagerPin",
+                                widget: "#SmallInfoCard",
+                                label: "hasManagerPin",
+                                widgetProps: {icon: "#IconLock"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "posConfig.sheet.warehouses.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "warehouses",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "warehouses",
+                    permissions: {read: "warehouses"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "warehouses"},
+                                    field: {
+                                        name: "warehouses",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#WarehouseCard",
+                                            itemDataProp: "warehouse",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconBuildingWarehouse",
+                                                label: "warehouse",
+                                                valuePath: ["name", "code"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "warehouses",
+                                                linkedSheetWidget: "#WarehouseSheetView",
+                                                linkedSheetEntityProp: "warehouse",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "posConfig.sheet.paymentMethods.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "paymentMethods",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "paymentMethods",
+                    permissions: {read: "paymentMethods"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "paymentMethods"},
+                                    field: {
+                                        name: "paymentMethodLabels",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#PosPaymentMethodCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconCreditCard",
+                                                label: "paymentMethod",
+                                                valuePath: ["name", "type"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "posPaymentMethods",
+                                                linkedSheetWidget: "#PosPaymentMethodSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "managers"},
+            dependent: "managers",
+            permissions: {read: "managers"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "managers"},
+                            field: {
+                                name: "managers",
+                                widget: "#SmallInfoCard",
+                                label: "managers",
+                                widgetProps: {
+                                    icon: "#IconUsers",
+                                    tooltip: "managers",
+                                    valueType: "linkedObjectRefCardList",
+                                    labelField: "name",
+                                    linkedRefListLayout: "responsive4",
+                                    linkedRefListPath: "managers",
+                                    linkedSheetModel: "posConfigs",
+                                    linkedSheetWidget: "#PosManagerSheetView",
+                                    linkedSheetEntityProp: "manager",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "tillOptions"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {render: "#SmallInfoCard", permissions: {read: "ifaceBarcodeScanner"}, field: {name: "ifaceBarcodeScanner", widget: "#SmallInfoCard", label: "ifaceBarcodeScanner", widgetProps: {icon: "#IconBarcode"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "ifaceCashControl"}, field: {name: "ifaceCashControl", widget: "#SmallInfoCard", label: "ifaceCashControl", widgetProps: {icon: "#IconCash"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "allowDiscount"}, field: {name: "allowDiscount", widget: "#SmallInfoCard", label: "allowDiscount", widgetProps: {icon: "#IconPercentage"}}},
                         {render: "#SmallInfoCard", permissions: {read: "allowQuantityChange"}, field: {name: "allowQuantityChange", widget: "#SmallInfoCard", label: "allowQuantityChange", widgetProps: {icon: "#Hash"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "allowOversell"}, field: {name: "allowOversell", widget: "#SmallInfoCard", label: "allowOversell", widgetProps: {icon: "#IconPackageOff"}}},
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "pinRequirements"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {render: "#SmallInfoCard", permissions: {read: "pinForDiscount"}, field: {name: "pinForDiscount", widget: "#SmallInfoCard", label: "pinForDiscount", widgetProps: {icon: "#IconLock"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pinForCashOut"}, field: {name: "pinForCashOut", widget: "#SmallInfoCard", label: "pinForCashOut", widgetProps: {icon: "#IconCashBanknote"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pinForRefund"}, field: {name: "pinForRefund", widget: "#SmallInfoCard", label: "pinForRefund", widgetProps: {icon: "#IconReceiptRefund"}}},
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "receipt"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {render: "#SmallInfoCard", permissions: {read: "receiptHeader"}, field: {name: "receiptHeader", widget: "#SmallInfoCard", label: "receiptHeader", widgetProps: {icon: "#IconReceipt"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "receiptFooter"}, field: {name: "receiptFooter", widget: "#SmallInfoCard", label: "receiptFooter", widgetProps: {icon: "#IconReceipt"}}},
                     ],
                 },
             ],

@@ -1,15 +1,11 @@
 import type {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import type {PosPaymentMethod} from "armonia/src/modules/eCommerce/api/eCommerce/private/posPaymentMethod/posPaymentMethod.dto";
-import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
-import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-
-function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
-    if (!company) return undefined;
-    if (typeof company === "object" && company._id) {
-        return {_id: company._id.toString(), name: company.name ?? ""};
-    }
-    return {_id: company.toString(), name: ""};
-}
+import {mapPopulatedRef} from "@coreModule/utilities/mappers/common.mapper";
+import {
+    mapLifeCycleToDTO,
+    mapOwnershipToDTO,
+    mapSoftDeleteToDTO,
+} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function posPaymentMethodToDTO(method: IPosPaymentMethod): PosPaymentMethod {
     return {
@@ -25,20 +21,13 @@ export function posPaymentMethodToDTO(method: IPosPaymentMethod): PosPaymentMeth
         terminalPort: method.terminalPort,
         terminalId: method.terminalId,
         terminalPath: method.terminalPath,
-        company: mapCompanyLabel(method.company),
+        company: mapPopulatedRef(method.company),
         ...mapSoftDeleteToDTO(method),
         ...mapOwnershipToDTO(method),
+        ...mapLifeCycleToDTO(method),
     };
 }
 
 export function posPaymentMethodsToDTO(methods: IPosPaymentMethod[]): PosPaymentMethod[] {
     return methods.map(posPaymentMethodToDTO);
-}
-
-export function posPaymentMethodToSelect(method: IPosPaymentMethod): ApiSelectDatum {
-    return {value: method._id.toString(), label: method.name};
-}
-
-export function posPaymentMethodsToSelect(methods: IPosPaymentMethod[]): ApiSelectDatum[] {
-    return methods.map(posPaymentMethodToSelect);
 }

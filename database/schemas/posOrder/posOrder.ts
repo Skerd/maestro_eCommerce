@@ -16,6 +16,7 @@ import {PosPaymentMethodSimpleSnippet} from "@eCommerceModule/database/schemas/p
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {PosSessionSimpleSnippet} from "@eCommerceModule/database/schemas/posSession/posSession.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
+import {PosOrderSimpleSnippet} from "@eCommerceModule/database/schemas/posOrder/posOrder.snippets";
 import {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import {IPosSession} from "@eCommerceModule/database/schemas/posSession/posSession";
 import {applyPosOrderIndexes} from "./posOrder.indexes";
@@ -109,15 +110,48 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
 const PosOrderSchema = new Schema<IPosOrder>(
     {
         name: {type: SchemaTypes.String, required: true, trim: true},
-        session: {type: SchemaTypes.ObjectId, ref: "PosSession", required: true, refAllowlist: PosSessionSimpleSnippet},
-        config: {type: SchemaTypes.ObjectId, ref: "PosConfig", required: true, refAllowlist: PosConfigSimpleSnippet},
+        session: {
+            type: SchemaTypes.ObjectId,
+            ref: "PosSession",
+            required: true,
+            refAllowlist: PosSessionSimpleSnippet,
+            dynamicTableConfiguration: {
+                dtoPath: "sessionLabel",
+                refDisplayKey: ["name"],
+            },
+        },
+        config: {
+            type: SchemaTypes.ObjectId,
+            ref: "PosConfig",
+            required: true,
+            refAllowlist: PosConfigSimpleSnippet,
+            dynamicTableConfiguration: {
+                dtoPath: "configLabel",
+                refDisplayKey: ["name"],
+            },
+        },
         state: {
             type: SchemaTypes.String,
             enum: ["draft", "paid", "cancel", "refunded"],
             default: "draft",
         },
-        cashier: {type: SchemaTypes.ObjectId, ref: "User", required: true, refAllowlist: SimpleUserSnippet},
-        customer: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
+        cashier: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            required: true,
+            refAllowlist: SimpleUserSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
+        },
+        customer: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
+        },
         customerName: {type: SchemaTypes.String},
         lines: {type: [PosOrderLineSubSchema], default: []},
         payments: {type: [PosOrderPaymentSubSchema], default: []},
@@ -132,7 +166,7 @@ const PosOrderSchema = new Schema<IPosOrder>(
         orderDiscountPercent: {type: SchemaTypes.Number, default: 0, min: 0},
         clientRequestId: {type: SchemaTypes.String, trim: true},
         productOrder: {type: SchemaTypes.ObjectId, ref: "ProductOrder", refAllowlist: ProductOrderSimpleSnippet},
-        refundOf: {type: SchemaTypes.ObjectId, ref: "PosOrder"},
+        refundOf: {type: SchemaTypes.ObjectId, ref: "PosOrder", refAllowlist: PosOrderSimpleSnippet},
         isRefund: {type: SchemaTypes.Boolean, default: false},
         nslf: {type: SchemaTypes.String, trim: true},
         iicSignature: {type: SchemaTypes.String, select: false},

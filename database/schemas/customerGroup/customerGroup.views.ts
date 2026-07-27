@@ -3,11 +3,20 @@ import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/vi
 const customerGroupFormFields: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
-        props: {columns: 2},
+        props: {columns: 1},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
-            {render: "#Field", field: {name: "isDefault", widget: "#Checkbox", label: "form.isDefaultLabel"}},
-            {render: "#Field", field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", widgetProps: {rows: 3}}},
+            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", placeholder: "form.namePlaceholder", required: true}},
+            {
+                render: "#Field",
+                field: {
+                    name: "description",
+                    widget: "#Textarea",
+                    label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
+                    widgetProps: {className: "resize-none max-h-[200px] overflow-y-auto"},
+                },
+            },
+            {render: "#Field", field: {name: "isDefault", widget: "#Switch", label: "form.isDefaultLabel"}},
         ],
     },
 ];
@@ -25,11 +34,52 @@ export const customerGroupSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 1},
                     children: [
                         {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}}},
                         {render: "#SmallInfoCard", permissions: {read: "memberCount"}, field: {name: "memberCount", widget: "#SmallInfoCard", label: "memberCount", widgetProps: {icon: "#IconUsers"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isDefault"}, field: {name: "isDefault", widget: "#SmallInfoCard", label: "isDefault", widgetProps: {icon: "#IconStar"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isDefault"},
+                            field: {
+                                name: "isDefault",
+                                widget: "#SmallInfoCard",
+                                label: "isDefault",
+                                widgetProps: {icon: "#IconStar", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "description"},
+            dependent: "description",
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-2 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "description"},
+                            field: {
+                                name: "description",
+                                widget: "#ExpandableText",
+                                widgetProps: {className: "text-sm"},
+                            },
+                        },
                     ],
                 },
             ],

@@ -7,8 +7,8 @@ const productAttributeFormFields: ViewConfig["nodes"] = [
         children: [
             {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
             {render: "#Field", field: {name: "position", widget: "#Input", label: "form.positionLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "isVisibleOnProductPage", widget: "#Checkbox", label: "form.isVisibleOnProductPageLabel"}},
-            {render: "#Field", field: {name: "isUsedForVariants", widget: "#Checkbox", label: "form.isUsedForVariantsLabel"}},
+            {render: "#Field", field: {name: "isVisibleOnProductPage", widget: "#Switch", label: "form.isVisibleOnProductPageLabel"}},
+            {render: "#Field", field: {name: "isUsedForVariants", widget: "#Switch", label: "form.isUsedForVariantsLabel"}},
         ],
     },
     {
@@ -40,9 +40,42 @@ export const productAttributeSheetView: ViewConfig = {
                     children: [
                         {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}}},
                         {render: "#SmallInfoCard", permissions: {read: "position"}, field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isVisibleOnProductPage"}, field: {name: "isVisibleOnProductPage", widget: "#SmallInfoCard", label: "isVisibleOnProductPage", widgetProps: {icon: "#IconEye"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isUsedForVariants"}, field: {name: "isUsedForVariants", widget: "#SmallInfoCard", label: "isUsedForVariants", widgetProps: {icon: "#IconLayers"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "values"}, field: {name: "valueCount", widget: "#SmallInfoCard", label: "valueCount", widgetProps: {icon: "#IconList"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isVisibleOnProductPage"},
+                            field: {
+                                name: "isVisibleOnProductPage",
+                                widget: "#SmallInfoCard",
+                                label: "isVisibleOnProductPage",
+                                widgetProps: {icon: "#IconEye", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isUsedForVariants"},
+                            field: {
+                                name: "isUsedForVariants",
+                                widget: "#SmallInfoCard",
+                                label: "isUsedForVariants",
+                                widgetProps: {icon: "#IconStack", valueType: "boolean"},
+                            },
+                        },
+                    ],
+                },
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "values"},
+                            field: {
+                                name: "values",
+                                widget: "#SmallInfoCard",
+                                label: "values",
+                                widgetProps: {icon: "#IconList", valueType: "stringBadgeList"},
+                            },
+                        },
                     ],
                 },
             ],

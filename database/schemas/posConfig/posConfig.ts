@@ -1,26 +1,51 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
+import {IUser} from "@coreModule/database/schemas/user/user";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {PosConfigSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.schema-def";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
 import {PosPaymentMethodSimpleSnippet} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.snippets";
 import {IWarehouse} from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import {applyPosConfigIndexes} from "./posConfig.indexes";
 import {posConfigViews} from "./posConfig.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export type IPosManagerPinReset = {
+    code?: string;
+    date?: Date;
+    opened?: boolean;
+};
+
+/** Per-manager credentials — never expose pinHash in DTOs. */
+export type IPosManagerPin = {
+    user: IUser | any;
+    pinHash?: string;
+    pinReset?: IPosManagerPinReset;
+};
+
+export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     paymentMethods?: IPosPaymentMethod[];
-    warehouse: IWarehouse;
+    /** Users assigned as managers for this till. */
+    managers?: IUser[];
+    /** PIN credentials keyed by manager user (server-only). */
+    managerPins?: IPosManagerPin[];
+    /** Warehouses this till can sell from (stock is aggregated / allocated across them). */
+    warehouses?: IWarehouse[];
     currency?: ICurrency;
     receiptHeader?: string;
     receiptFooter?: string;
@@ -36,8 +61,6 @@ export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDelet
     pinForCashOut: boolean;
     /** Require manager PIN for refunds. */
     pinForRefund: boolean;
-    /** bcrypt hash — never expose in DTOs. */
-    managerPinHash?: string;
     isActive: boolean;
     company: ICompany;
 }
@@ -49,7 +72,34 @@ const PosConfigSchema = new Schema<IPosConfig>(
             type: [{type: SchemaTypes.ObjectId, ref: "PosPaymentMethod", refAllowlist: PosPaymentMethodSimpleSnippet}],
             default: [],
         },
-        warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true, refAllowlist: WarehouseSimpleSnippet},
+        managers: {
+            type: [{type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet}],
+            default: [],
+        },
+        managerPins: [{
+            type: {
+                user: {type: SchemaTypes.ObjectId, ref: "User", required: true},
+                pinHash: {type: SchemaTypes.String},
+                pinReset: {
+                    type: {
+                        code: {type: SchemaTypes.String},
+                        date: {type: SchemaTypes.Date},
+                        opened: {type: SchemaTypes.Boolean},
+                    },
+                    _id: false,
+                },
+            },
+            _id: false,
+            default: [],
+        }],
+        warehouses: {
+            type: [{type: SchemaTypes.ObjectId, ref: "Warehouse", refAllowlist: WarehouseSimpleSnippet}],
+            default: [],
+            validate: {
+                validator: (v: unknown[]) => Array.isArray(v) && v.length > 0,
+                message: "At least one warehouse is required",
+            },
+        },
         currency: {type: SchemaTypes.ObjectId, ref: "Currency", refAllowlist: CurrencySimpleSnippet},
         receiptHeader: {type: SchemaTypes.String},
         receiptFooter: {type: SchemaTypes.String},
@@ -61,11 +111,6 @@ const PosConfigSchema = new Schema<IPosConfig>(
         pinForDiscount: {type: SchemaTypes.Boolean, default: false},
         pinForCashOut: {type: SchemaTypes.Boolean, default: false},
         pinForRefund: {type: SchemaTypes.Boolean, default: false},
-        /** Write-only form field — stripped before persist; use managerPinHash. */
-        managerPin: {type: SchemaTypes.String, select: false},
-        /** Write-only form field — clears managerPinHash when true. */
-        clearManagerPin: {type: SchemaTypes.Boolean, select: false},
-        managerPinHash: {type: SchemaTypes.String},
         isActive: {type: SchemaTypes.Boolean, default: true},
     },
     {accessMode: "loose"},
@@ -75,9 +120,10 @@ ownershipPlugin(PosConfigSchema);
 auditPlugin(PosConfigSchema);
 softDeletePlugin(PosConfigSchema);
 applyPosConfigIndexes(PosConfigSchema);
+lifeCyclePlugin(PosConfigSchema);
 const PosConfig = model<IPosConfig>("PosConfig", PosConfigSchema);
 normalizeSchemaPermissions(PosConfig);
 export default PosConfig;
 
 addModelData(PosConfig, posConfigViews);
-validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", ["managerPinHash"]);
+validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", ["managerPins"]);

@@ -7,6 +7,7 @@ import {z} from "zod";
 import GiftCard from "@eCommerceModule/database/schemas/giftCard/giftCard";
 import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
 import {giftCardToDTO, giftCardsToDTO, giftCardsToSelect} from "@eCommerceModule/utilities/mappers/giftCardMapper.dto";
+import {GiftCardActions} from "@financeModule/database/schemas/giftCard/giftCard.actions";
 
 function giftCardListSchema(_lang: string) {
     return z.object({
@@ -20,8 +21,8 @@ function giftCardListSchema(_lang: string) {
 
 /**
  * Gift cards are system-issued and balance mutations happen only through
- * giftCardService.redeemAmount — the panel reads, and "disables" via the
- * status update below (write rate kept low, no create).
+ * giftCardService.redeemAmount — the panel reads, and enables/disables via
+ * actions (write rate kept low, no create).
  */
 export const basePath = "/api/eCommerce/giftCard";
 export const {router} = createCrudRouter({
@@ -51,6 +52,7 @@ export const {router} = createCrudRouter({
         if (status !== undefined && (writeFields as any).status) update.status = status;
         return update;
     },
+    actions: GiftCardActions,
     rateLimits: {read: 60, write: 10, delete: 10},
 });
 

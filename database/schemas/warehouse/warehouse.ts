@@ -4,7 +4,11 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
@@ -13,8 +17,9 @@ import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/v
 import {WarehouseSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/warehouse.schema-def";
 import {applyWarehouseIndexes} from "./warehouse.indexes";
 import {warehouseViews} from "./warehouse.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface IWarehouse extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IWarehouse extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     code: string;
     address?: {
@@ -23,6 +28,8 @@ export interface IWarehouse extends Document, IOwnershipPluginFields, ISoftDelet
         city?: Schema.Types.ObjectId;
         street?: string;
         postalCode?: string;
+        latitude?: number;
+        longitude?: number;
     };
     isDefault?: boolean;
     isActive?: boolean;
@@ -40,6 +47,8 @@ const WarehouseSchema = new Schema<IWarehouse>(
                 city: {type: SchemaTypes.ObjectId, ref: "City", refAllowlist: CitySimpleSnippet},
                 street: {type: SchemaTypes.String},
                 postalCode: {type: SchemaTypes.String},
+                latitude: {type: SchemaTypes.Number},
+                longitude: {type: SchemaTypes.Number},
             },
             required: false,
         },
@@ -53,6 +62,7 @@ ownershipPlugin(WarehouseSchema);
 auditPlugin(WarehouseSchema);
 softDeletePlugin(WarehouseSchema);
 applyWarehouseIndexes(WarehouseSchema);
+lifeCyclePlugin(WarehouseSchema);
 const Warehouse = model<IWarehouse>("Warehouse", WarehouseSchema);
 normalizeSchemaPermissions(Warehouse);
 export default Warehouse;

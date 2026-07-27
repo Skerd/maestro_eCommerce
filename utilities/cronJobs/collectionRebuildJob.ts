@@ -1,7 +1,6 @@
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import {buildProductFilterFromCollectionRules} from "@eCommerceModule/utilities/services/collectionRuleEngine";
+import {rebuildDynamicCollectionMembership} from "@eCommerceModule/utilities/services/rebuildDynamicCollection";
 import {CronJob} from "cron";
 
 let collectionRebuildJob: CronJob | null = null;
@@ -20,24 +19,9 @@ export async function runCollectionRebuild(parentLogger?: serverLogger): Promise
 
         for (const collection of dynamicCollections) {
             try {
-                const rules = (collection.rules as any[]) ?? [];
-                if (!rules.length) continue;
-
-                const mongoFilter = buildProductFilterFromCollectionRules(
-                    collection.company,
-                    rules,
-                    collection.ruleCondition ?? "all",
-                );
-
-                const matchingProducts = await Product.find(mongoFilter, {_id: 1}).lean();
-                const productIds = matchingProducts.map((p: any) => p._id);
-
-                await ProductCollection.updateOne(
-                    {_id: collection._id},
-                    {$set: {products: productIds}},
-                );
-
-                logger.debug(`Rebuilt collection ${collection._id}: ${productIds.length} products`);
+                const productCount = await rebuildDynamicCollectionMembership(collection as any);
+                if (productCount === null) continue;
+                logger.debug(`Rebuilt collection ${collection._id}: ${productCount} products`);
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);
                 logger.err(`Failed to rebuild collection ${collection._id}: ${msg}`);

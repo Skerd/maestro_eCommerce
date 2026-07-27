@@ -7,7 +7,11 @@ import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperator
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
@@ -16,13 +20,20 @@ import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/priv
 import {ProductSimpleSnippet} from "./product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
+import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
+import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collection/collection.snippets";
 import {applyProductIndexes} from "./product.indexes";
 import {productViews} from "./product.views";
+import {IProductCategory} from "@eCommerceModule/database/schemas/category/category";
+import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
+import {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
+import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";
 export type ProductStatus = "draft" | "active" | "archived";
 
-export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     type: ProductType;
     title: string;
     slug: string;
@@ -46,8 +57,8 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     brand?: string;
     vendor?: string;
     tags?: string[];
-    categories?: Schema.Types.ObjectId[];
-    collections?: Schema.Types.ObjectId[];
+    categories?: IProductCategory[];
+    collections?: ICollection[];
     // Pricing
     price?: number;
     compareAtPrice?: number;
@@ -85,20 +96,20 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     videoUrls?: string[];
     documents?: IMedia[];
     // Variants / options
-    variantOptions?: Schema.Types.ObjectId[];
+    variantOptions?: IProductAttribute[];
     hasVariants?: boolean;
-    defaultVariant?: Schema.Types.ObjectId;
+    defaultVariant?: IProductVariant;
     variantCount?: number;
     // Bundles (type "bundle")
-    bundleComponents?: {product: Schema.Types.ObjectId; quantity: number}[];
+    bundleComponents?: {product: IProduct; quantity: number}[];
     // Digital delivery (type "digital")
     downloadLimit?: number;
     downloadExpiryDays?: number;
     // Merchandising
-    relatedProducts?: Schema.Types.ObjectId[];
-    upsells?: Schema.Types.ObjectId[];
-    crossSells?: Schema.Types.ObjectId[];
-    frequentlyBoughtTogether?: Schema.Types.ObjectId[];
+    relatedProducts?: IProduct[];
+    upsells?: IProduct[];
+    crossSells?: IProduct[];
+    frequentlyBoughtTogether?: IProduct[];
     featured?: boolean;
     badges?: string[];
     // Ratings (system-computed, denormalized)
@@ -128,41 +139,6 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     company: ICompany;
 }
 
-const SeoSubSchema = new Schema(
-    {
-        metaTitle: {type: SchemaTypes.String},
-        metaDescription: {type: SchemaTypes.String},
-        metaKeywords: {type: [SchemaTypes.String], default: []},
-        canonicalUrl: {type: SchemaTypes.String},
-        openGraphTitle: {type: SchemaTypes.String},
-        openGraphDescription: {type: SchemaTypes.String},
-        openGraphImage: {type: SchemaTypes.ObjectId, ref: "Media", refAllowlist: MediaSimpleSnippet},
-        twitterCard: {type: SchemaTypes.String, enum: ["summary", "summary_large_image"], default: "summary_large_image"},
-        structuredDataType: {type: SchemaTypes.String},
-        sitemapInclude: {type: SchemaTypes.Boolean, default: true},
-        sitemapPriority: {type: SchemaTypes.Number, min: 0, max: 1},
-        noIndex: {type: SchemaTypes.Boolean, default: false},
-    },
-    {_id: false},
-);
-
-const DimensionsSubSchema = new Schema(
-    {
-        length: {type: SchemaTypes.Number, min: 0},
-        width: {type: SchemaTypes.Number, min: 0},
-        height: {type: SchemaTypes.Number, min: 0},
-    },
-    {_id: false},
-);
-
-const FaqSubSchema = new Schema(
-    {
-        question: {type: SchemaTypes.String, required: true},
-        answer: {type: SchemaTypes.String, required: true},
-    },
-    {_id: false},
-);
-
 const ProductSchema = new Schema<IProduct>(
     {
         type: {
@@ -177,7 +153,14 @@ const ProductSchema = new Schema<IProduct>(
         highlights: {type: [SchemaTypes.String], default: []},
         careInstructions: {type: SchemaTypes.String},
         warranty: {type: SchemaTypes.String},
-        faqs: {type: [FaqSubSchema], default: []},
+        faqs: [{
+            type: {
+                question: {type: SchemaTypes.String, required: true},
+                answer: {type: SchemaTypes.String, required: true},
+            },
+            _id: false,
+            default: [],
+        }],
         // Identifiers
         sku: {type: SchemaTypes.String, trim: true},
         barcode: {type: SchemaTypes.String, trim: true},
@@ -195,10 +178,12 @@ const ProductSchema = new Schema<IProduct>(
         categories: {
             type: [{type: SchemaTypes.ObjectId, ref: "ProductCategory"}],
             default: [],
+            refAllowlist: CategorySimpleSnippet,
         },
         collections: {
             type: [{type: SchemaTypes.ObjectId, ref: "ProductCollection"}],
             default: [],
+            refAllowlist: CollectionSimpleSnippet,
         },
         // Pricing
         price: {type: SchemaTypes.Number, min: 0},
@@ -220,7 +205,14 @@ const ProductSchema = new Schema<IProduct>(
         // Shipping / physical
         weight: {type: SchemaTypes.Number, min: 0},
         weightUnit: {type: SchemaTypes.String, enum: ["kg", "lb", "g", "oz"], default: "kg"},
-        dimensions: {type: DimensionsSubSchema},
+        dimensions: {
+            type: {
+                length: {type: SchemaTypes.Number, min: 0},
+                width: {type: SchemaTypes.Number, min: 0},
+                height: {type: SchemaTypes.Number, min: 0},
+            },
+            _id: false,
+        },
         dimensionUnit: {type: SchemaTypes.String, enum: ["cm", "in"], default: "cm"},
         volumetricWeight: {type: SchemaTypes.Number, min: 0},
         shippingClass: {type: SchemaTypes.String, trim: true},
@@ -335,7 +327,23 @@ const ProductSchema = new Schema<IProduct>(
             ],
             default: [],
         },
-        seo: {type: SeoSubSchema},
+        seo: {
+            type: {
+                metaTitle: {type: SchemaTypes.String},
+                metaDescription: {type: SchemaTypes.String},
+                metaKeywords: {type: [SchemaTypes.String], default: []},
+                canonicalUrl: {type: SchemaTypes.String},
+                openGraphTitle: {type: SchemaTypes.String},
+                openGraphDescription: {type: SchemaTypes.String},
+                openGraphImage: {type: SchemaTypes.ObjectId, ref: "Media", refAllowlist: MediaSimpleSnippet},
+                twitterCard: {type: SchemaTypes.String, enum: ["summary", "summary_large_image"], default: "summary_large_image"},
+                structuredDataType: {type: SchemaTypes.String},
+                sitemapInclude: {type: SchemaTypes.Boolean, default: true},
+                sitemapPriority: {type: SchemaTypes.Number, min: 0, max: 1},
+                noIndex: {type: SchemaTypes.Boolean, default: false},
+            },
+            _id: false,
+        },
     },
     {accessMode: "loose"},
 );
@@ -344,6 +352,7 @@ ownershipPlugin(ProductSchema);
 auditPlugin(ProductSchema);
 softDeletePlugin(ProductSchema);
 applyProductIndexes(ProductSchema);
+lifeCyclePlugin(ProductSchema);
 const Product = model<IProduct>("Product", ProductSchema);
 normalizeSchemaPermissions(Product);
 export default Product;

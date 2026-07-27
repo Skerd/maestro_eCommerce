@@ -4,7 +4,11 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
@@ -12,8 +16,9 @@ import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/v
 import {TaxZoneSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/taxZone.schema-def";
 import {applyTaxZoneIndexes} from "./taxZone.indexes";
 import {taxZoneViews} from "./taxZone.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface ITaxZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface ITaxZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     country: Schema.Types.ObjectId;
     states?: Schema.Types.ObjectId[];
@@ -52,6 +57,7 @@ ownershipPlugin(TaxZoneSchema);
 auditPlugin(TaxZoneSchema);
 softDeletePlugin(TaxZoneSchema);
 applyTaxZoneIndexes(TaxZoneSchema);
+lifeCyclePlugin(TaxZoneSchema);
 const TaxZone = model<ITaxZone>("TaxZone", TaxZoneSchema);
 normalizeSchemaPermissions(TaxZone);
 export default TaxZone;

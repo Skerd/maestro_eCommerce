@@ -3,7 +3,13 @@ import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreM
 import {PricingRuleSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.schema-def";
 import PricingRule from "@eCommerceModule/database/schemas/pricingRule/pricingRule";
 import {pricingRuleService} from "@eCommerceModule/database/schemas/pricingRule/pricingRule.service";
-import {pricingRuleToDTO, pricingRulesToDTO, pricingRuleToSelect, pricingRulesToSelect} from "@eCommerceModule/utilities/mappers/pricingRuleMapper.dto";
+import {PricingRuleActions} from "@eCommerceModule/database/schemas/pricingRule/pricingRule.actions";
+import {
+    pricingRuleToDTO,
+    pricingRuleToDTOWithLabels,
+    pricingRulesToDTOWithLabels,
+} from "@eCommerceModule/utilities/mappers/pricingRule/pricingRuleMapper.dto";
+import {pricingRulesToSelect} from "@eCommerceModule/utilities/mappers/pricingRule/pricingRuleMapper.select";
 import {createPricingRuleFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/createPricingRule.form.validator";
 import {editPricingRuleFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/editPricingRule.form.validator";
 
@@ -21,9 +27,22 @@ export const {router} = createCrudRouter({
     createSchema: createPricingRuleFormSchema,
     editSchema: editPricingRuleFormSchema,
     toDTO: pricingRuleToDTO,
-    toDTOArray: pricingRulesToDTO,
+    toDTOArray: (docs) => docs.map((d) => pricingRuleToDTO(d)),
     toSelect: pricingRulesToSelect,
-    buildCreateData: async (params) => buildPricingRuleCreateFromSchemaDef(params),
-    buildUpdateData: async (params, writeFields) => buildPricingRuleUpdateFromSchemaDef(params, writeFields),
+    buildCreateData: async (params) => {
+        const data = buildPricingRuleCreateFromSchemaDef(params);
+        if (data.isActive === undefined) data.isActive = true;
+        return data;
+    },
+    buildUpdateData: async (params, writeFields) => {
+        const data = buildPricingRuleUpdateFromSchemaDef(params, writeFields);
+        // Active state is managed via activate/deactivate actions, not the edit form.
+        delete data.isActive;
+        return data;
+    },
+    actions: PricingRuleActions,
     rateLimits: {read: 60, write: 30, delete: 20},
+    enrichList: async (docs) => pricingRulesToDTOWithLabels(docs),
+    enrichSingle: async (doc) => pricingRuleToDTOWithLabels(doc),
+    enrichUpdate: async (doc) => pricingRuleToDTOWithLabels(doc),
 });

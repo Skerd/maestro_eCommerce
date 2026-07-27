@@ -8,7 +8,13 @@ import {createDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eComme
 import {editDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/editDiscount.form.validator";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
-import {discountToDTO, discountsToDTO, discountToSelect, discountsToSelect} from "@eCommerceModule/utilities/mappers/discountMapper.dto";
+import {DiscountActions} from "@eCommerceModule/database/schemas/discount/discount.actions";
+import {
+    discountToDTO,
+    discountToDTOWithLabels,
+    discountsToDTOWithLabels,
+} from "@eCommerceModule/utilities/mappers/discount/discountMapper.dto";
+import {discountsToSelect} from "@eCommerceModule/utilities/mappers/discount/discountMapper.select";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
@@ -17,6 +23,11 @@ const discountTransforms = {
 
 const buildDiscountCreateFromSchemaDef = buildCreateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
 const buildDiscountUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
+
+/** `value` only applies to percentage/fixed; other types always persist 0. */
+function shouldZeroDiscountValue(type: unknown): boolean {
+    return type === "free_shipping" || type === "buy_x_get_y";
+}
 
 export const basePath = "/api/eCommerce/discount";
 export const {router} = createCrudRouter({
@@ -29,15 +40,27 @@ export const {router} = createCrudRouter({
     createSchema: createDiscountFormSchema,
     editSchema: editDiscountFormSchema,
     toDTO: discountToDTO,
-    toDTOArray: discountsToDTO,
+    toDTOArray: (docs) => docs.map((d) => discountToDTO(d)),
     toSelect: discountsToSelect,
     buildCreateData: async (params) => {
         const data = buildDiscountCreateFromSchemaDef(params);
+        if (shouldZeroDiscountValue(data.type)) data.value = 0;
         data.usageCount = 0;
+        if (data.isActive === undefined) data.isActive = true;
         return data;
     },
-    buildUpdateData: async (params, writeFields) => buildDiscountUpdateFromSchemaDef(params, writeFields),
+    buildUpdateData: async (params, writeFields) => {
+        const data = buildDiscountUpdateFromSchemaDef(params, writeFields);
+        // Active state is managed via activate/deactivate actions, not the edit form.
+        delete data.isActive;
+        if (shouldZeroDiscountValue(params.type ?? data.type)) data.value = 0;
+        return data;
+    },
+    actions: DiscountActions,
     rateLimits: {read: 60, write: 30, delete: 20},
+    enrichList: async (docs) => discountsToDTOWithLabels(docs),
+    enrichSingle: async (doc) => discountToDTOWithLabels(doc),
+    enrichUpdate: async (doc) => discountToDTOWithLabels(doc),
 });
 
 router.post(
@@ -79,6 +102,6 @@ router.post(
         else if (discount.type === "fixed") discountAmount = Math.min(discount.value, subtotal);
         else if (discount.type === "free_shipping") discountAmount = 0;
 
-        return res.json({valid: true, discount: discountToDTO(discount), discountAmount});
+        return res.json({valid: true, discount: await discountToDTOWithLabels(discount), discountAmount});
     }),
 );

@@ -8,6 +8,7 @@ import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
 import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
+import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {
@@ -55,7 +56,10 @@ const CollectionSchema = new Schema<ICollection>(
         },
         isVisible: {type: SchemaTypes.Boolean, default: true},
         position: {type: SchemaTypes.Number, default: 0},
-        products: {type: [{type: SchemaTypes.ObjectId, ref: "Product"}], default: []},
+        products: {
+            type: [{type: SchemaTypes.ObjectId, ref: "Product", refAllowlist: ProductSimpleSnippet}],
+            default: [],
+        },
         ruleCondition: {type: SchemaTypes.String, enum: ["all", "any"], default: "all"},
         rules: {
             type: [

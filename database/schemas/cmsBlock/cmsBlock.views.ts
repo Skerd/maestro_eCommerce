@@ -21,58 +21,72 @@ const visibilityDeviceOptions = [
     {value: "tablet", label: "form.visibilityDevice.tablet"},
 ];
 
+const largeTextClassName = "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto font-mono text-xs";
+
+/** Shared create/edit fields — isActive is menu-managed (activate/deactivate). */
 const cmsBlockFormFields: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
         children: [
-            {render: "#Field", field: {name: "title", widget: "#Input", label: "form.titleLabel", required: true}},
             {
-                render: "#Field",
-                field: {
-                    name: "type",
-                    widget: "#Select",
-                    label: "form.typeLabel",
-                    required: true,
-                    widgetProps: {options: cmsBlockTypeOptions, className: "grow w-full"},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", field: {name: "title", widget: "#Input", label: "form.titleLabel", required: true}},
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "type",
+                            widget: "#Select",
+                            label: "form.typeLabel",
+                            required: true,
+                            widgetProps: {options: cmsBlockTypeOptions, className: "grow w-full"},
+                        },
+                    },
+                    {render: "#Field", field: {name: "position", widget: "#Input", label: "form.positionLabel", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", field: {name: "abTestVariant", widget: "#Input", label: "form.abTestVariantLabel"}},
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "startsAt",
+                            widget: "#DateInput",
+                            label: "form.startsAtLabel",
+                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "endsAt",
+                            widget: "#DateInput",
+                            label: "form.endsAtLabel",
+                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                        },
+                    },
+                ],
             },
-            {render: "#Field", field: {name: "position", widget: "#Input", label: "form.positionLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
-            {
-                render: "#Field",
-                field: {
-                    name: "startsAt",
-                    widget: "#DateInput",
-                    label: "form.startsAtLabel",
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "endsAt",
-                    widget: "#DateInput",
-                    label: "form.endsAtLabel",
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
-                },
-            },
-            {render: "#Field", field: {name: "abTestVariant", widget: "#Input", label: "form.abTestVariantLabel"}},
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "config",
-            widget: "#Textarea",
-            label: "form.configLabel",
-            placeholder: "form.configPlaceholder",
-            widgetProps: {rows: 6},
-        },
+        render: "#TitleWithCollapse",
+        props: {title: "form.configSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "config",
+                    widget: "#Textarea",
+                    label: "form.configLabel",
+                    placeholder: "form.configPlaceholder",
+                    widgetProps: {rows: 8, className: largeTextClassName},
+                },
+            },
+        ],
     },
     {
         render: "#TitleWithCollapse",
-        props: {title: "form.visibilitySectionTitle"},
+        props: {title: "form.visibilitySectionTitle", defaultOpen: true},
         children: [
             {
                 render: "#FormGrid",
@@ -112,18 +126,202 @@ export const cmsBlockSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {title: "overview"},
+            props: {title: "overview", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "type"}, field: {name: "type", widget: "#SmallInfoCard", label: "type", widgetProps: {icon: "#IconLayout", languageKeyCategory: "cmsBlockType"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "position"}, field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "startsAt"}, field: {name: "startsAt", widget: "#SmallInfoCard", label: "startsAt", widgetProps: {icon: "#Calendar"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "endsAt"}, field: {name: "endsAt", widget: "#SmallInfoCard", label: "endsAt", widgetProps: {icon: "#Calendar"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "abTestVariant"}, field: {name: "abTestVariant", widget: "#SmallInfoCard", label: "abTestVariant", widgetProps: {icon: "#IconFlask"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "title"},
+                            field: {name: "title", widget: "#SmallInfoCard", label: "title", widgetProps: {icon: "#IconTag"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "type"},
+                            field: {
+                                name: "type",
+                                widget: "#SmallInfoCard",
+                                label: "type",
+                                widgetProps: {icon: "#IconLayout", languageKeyCategory: "cmsBlockType"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isActive"},
+                            field: {
+                                name: "isActive",
+                                widget: "#SmallInfoCard",
+                                label: "isActive",
+                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "position"},
+                            field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "startsAt"},
+                            field: {
+                                name: "startsAt",
+                                widget: "#SmallInfoCard",
+                                label: "startsAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "endsAt"},
+                            field: {
+                                name: "endsAt",
+                                widget: "#SmallInfoCard",
+                                label: "endsAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "abTestVariant"},
+                            field: {
+                                name: "abTestVariant",
+                                widget: "#SmallInfoCard",
+                                label: "abTestVariant",
+                                widgetProps: {icon: "#IconTag"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "config", defaultOpen: true},
+            dependent: "configText",
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            field: {
+                                name: "configText",
+                                widget: "#ExpandableText",
+                                widgetProps: {className: "text-sm whitespace-pre-wrap font-mono"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "visibility", defaultOpen: true},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "space-y-3 p-1"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "visibility"},
+                            field: {
+                                name: "visibility.devices",
+                                widget: "#ExpandableText",
+                                widgetProps: {className: "text-sm"},
+                            },
+                        },
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "visibility"},
+                            field: {
+                                name: "visibility.regions",
+                                widget: "#ExpandableText",
+                                widgetProps: {className: "text-sm"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "related", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {
+                                    icon: "#IconBuilding",
+                                    parent: "company",
+                                    valuePath: ["name"],
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdBy"},
+                            field: {
+                                name: "createdBy",
+                                widget: "#SmallInfoCard",
+                                label: "createdBy",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "createdBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "deletion", defaultOpen: false},
+            dependent: "deletedAt",
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "deletedAt"},
+                            field: {
+                                name: "deletedAt",
+                                widget: "#SmallInfoCard",
+                                label: "deletedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "deletedBy"},
+                            field: {
+                                name: "deletedBy",
+                                widget: "#SmallInfoCard",
+                                label: "deletedBy",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "deletedBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
                     ],
                 },
             ],

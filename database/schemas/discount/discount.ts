@@ -4,18 +4,23 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
 import {applyDiscountIndexes} from "./discount.indexes";
 import {discountViews} from "./discount.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type DiscountType = "percentage" | "fixed" | "free_shipping" | "buy_x_get_y";
 export type DiscountAppliesTo = "order" | "product" | "collection" | "category";
 
-export interface IDiscount extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IDiscount extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     type: DiscountType;
     title: string;
     code?: string;
@@ -76,6 +81,7 @@ ownershipPlugin(DiscountSchema);
 auditPlugin(DiscountSchema);
 softDeletePlugin(DiscountSchema);
 applyDiscountIndexes(DiscountSchema);
+lifeCyclePlugin(DiscountSchema);
 const Discount = model<IDiscount>("Discount", DiscountSchema);
 normalizeSchemaPermissions(Discount);
 export default Discount;

@@ -1,6 +1,5 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
-import bcrypt from "bcrypt";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {HoldPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
 import User from "@coreModule/database/schemas/user/user";
@@ -11,6 +10,10 @@ import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/po
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
 import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSessionMapper.dto";
+import {
+    hasAnyManagerPin,
+    managerPinMatchesForUser,
+} from "@eCommerceModule/utilities/services/posManagerPin";
 
 type Ctx = {
     logger: any;
@@ -527,7 +530,12 @@ export async function searchPosCustomers(query: string | undefined, ctx: Ctx) {
     }));
 }
 
-export async function verifyPosManagerPin(configId: string, pin: string, ctx: Ctx) {
+export async function verifyPosManagerPin(
+    configId: string,
+    pin: string,
+    ctx: Ctx,
+    managerId?: string,
+) {
     if (!ObjectId.isValid(configId)) {
         throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
     }
@@ -537,10 +545,15 @@ export async function verifyPosManagerPin(configId: string, pin: string, ctx: Ct
         deletedAt: null,
     });
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
-    if (!(config as any).managerPinHash) {
+    if (!hasAnyManagerPin(config)) {
         throw apiValidationException("pos_manager_pin_not_set", "pin", null, ctx.languageCode);
     }
-    const ok = await bcrypt.compare(pin || "", (config as any).managerPinHash);
-    if (!ok) throw apiValidationException("pos_manager_pin_invalid", "pin", null, ctx.languageCode);
-    return {ok: true};
+    if (!managerId || !ObjectId.isValid(String(managerId))) {
+        throw apiValidationException("pos_manager_not_assigned", "managerId", null, ctx.languageCode);
+    }
+    const approvedBy = await managerPinMatchesForUser(config, String(managerId), pin || "");
+    if (!approvedBy) {
+        throw apiValidationException("pos_manager_pin_invalid", "pin", null, ctx.languageCode);
+    }
+    return {ok: true, approvedBy};
 }

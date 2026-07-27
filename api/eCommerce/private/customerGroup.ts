@@ -2,18 +2,22 @@ import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import CustomerGroup from "@eCommerceModule/database/schemas/customerGroup/customerGroup";
 import {customerGroupService} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.service";
 import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
 import {customerGroupMemberService} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.service";
-import {customerGroupToDTO, customerGroupsToDTO, customerGroupToSelect, customerGroupsToSelect} from "@eCommerceModule/utilities/mappers/customerGroupMapper.dto";
-import {customerGroupMemberToDTO, customerGroupMembersToDTO} from "@eCommerceModule/utilities/mappers/customerGroupMemberMapper.dto";
+import {mapPopulatedUserWithPhoto} from "@coreModule/utilities/mappers/common.mapper";
+import {customerGroupToDTO, customerGroupsToDTO} from "@eCommerceModule/utilities/mappers/customerGroup/customerGroupMapper.dto";
+import {customerGroupsToSelect} from "@eCommerceModule/utilities/mappers/customerGroup/customerGroupMapper.select";
+import {customerGroupMemberToDTO, customerGroupMembersToDTO} from "@eCommerceModule/utilities/mappers/customerGroupMember/customerGroupMemberMapper.dto";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {CustomerGroupSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/customerGroup.schema-def";
 import {createCustomerGroupFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/createCustomerGroup.form.validator";
 import {editCustomerGroupFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/editCustomerGroup.form.validator";
 import {createCustomerGroupMemberFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/createCustomerGroupMember.form.validator";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 
 async function syncMemberCount(customerGroupId: ObjectId, companyId: ObjectId): Promise<void> {
     const count = await CustomerGroupMember.countDocuments({
@@ -81,18 +85,15 @@ export const {router} = createCrudRouter({
             company: params.company._id,
             deletedAt: null,
         })
-            .populate("user", "name surname email")
+            .populate("user", "name surname photo")
             .limit(50)
             .lean();
         const dto = customerGroupToDTO(doc);
         return {
             ...dto,
-            members: members.map((m) => ({
-                _id: (m.user as any)?._id?.toString() ?? "",
-                name: (m.user as any)?.name ?? "",
-                surname: (m.user as any)?.surname ?? "",
-                email: (m.user as any)?.email,
-            })),
+            members: members
+                .map((m) => mapPopulatedUserWithPhoto(m.user))
+                .filter((u): u is NonNullable<typeof u> => !!u),
         };
     },
     rateLimits: {read: 60, write: 30, delete: 20},
@@ -102,34 +103,34 @@ router.post(
     "/members",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx, session} = req;
-        const parsed = createCustomerGroupMemberFormSchema(languageCode, req.body).safeParse(req.body);
-        if (!parsed.success) return res.status(400).json({message: parsed.error.message});
-
-        const {user, customerGroup} = parsed.data;
+    validateFormZod(createCustomerGroupMemberFormSchema),
+    asyncHandler(async (params: any) => {
+        const {logger, languageCode, company, actionUserCtx, session, userId, customerGroup} = params;
         const groupId = new ObjectId(customerGroup);
-        const userId = new ObjectId(user);
+        const memberUserId = new ObjectId(userId);
 
         const group = await customerGroupService.findOne({_id: groupId, company: company._id}, {logger, languageCode});
-        if (!group) return res.status(404).json({message: "customer_group_not_found"});
+        if (!group) throw apiValidationException("not_found", null, null, languageCode);
 
         const existing = await CustomerGroupMember.findOne({
-            user: userId,
+            user: memberUserId,
             customerGroup: groupId,
             company: company._id,
             deletedAt: null,
         });
-        if (existing) return res.status(409).json({message: "member_already_exists"});
+        if (existing) throw apiValidationException("validation_error", null, null, languageCode);
 
         const member = await customerGroupMemberService.create(
-            {user: userId, customerGroup: groupId, company: company._id},
+            {user: memberUserId, customerGroup: groupId, company: company._id},
             {logger, languageCode, session, auditUserId: actionUserCtx?.userId},
         );
 
         await syncMemberCount(groupId, company._id);
-        const populated = await CustomerGroupMember.findById(member._id).populate("user", "name surname email").populate("customerGroup", "name").lean();
-        return res.json({data: customerGroupMemberToDTO(populated as any)});
+        const populated = await CustomerGroupMember.findById(member._id)
+            .populate("user", "name surname photo")
+            .populate("customerGroup", "name")
+            .lean();
+        return {data: customerGroupMemberToDTO(populated as any)};
     }),
 );
 
@@ -137,10 +138,11 @@ router.delete(
     "/members",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company, actionUserCtx} = req;
-        const {userId, customerGroupId} = req.body;
-        if (!userId || !customerGroupId) return res.status(400).json({message: "userId and customerGroupId required"});
+    asyncHandler(async (params: any) => {
+        const {logger, languageCode, company, actionUserCtx, userId, customerGroupId} = params;
+        if (!userId || !customerGroupId) {
+            throw apiValidationException("validation_error", null, null, languageCode);
+        }
 
         const groupId = new ObjectId(customerGroupId);
         const member = await CustomerGroupMember.findOne({
@@ -149,7 +151,7 @@ router.delete(
             company: company._id,
             deletedAt: null,
         });
-        if (!member) return res.status(404).json({message: "member_not_found"});
+        if (!member) throw apiValidationException("not_found", null, null, languageCode);
 
         await customerGroupMemberService.deleteOneOrThrow(
             {_id: member._id, company: company._id},
@@ -157,7 +159,7 @@ router.delete(
         );
 
         await syncMemberCount(groupId, company._id);
-        return res.json({message: "Member removed"});
+        return {message: "Member removed"};
     }),
 );
 
@@ -165,17 +167,16 @@ router.post(
     "/members/list",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const {customerGroupId, page = 1, limit = 20} = req.body;
-        if (!customerGroupId) return res.status(400).json({message: "customerGroupId required"});
+    asyncHandler(async (params: any) => {
+        const {company, languageCode, customerGroupId, page = 1, limit = 20} = params;
+        if (!customerGroupId) throw apiValidationException("validation_error", null, null, languageCode);
 
         const skip = (Math.max(1, Number(page)) - 1) * Math.min(Number(limit), 100);
         const filter = {customerGroup: new ObjectId(customerGroupId), company: company._id, deletedAt: null};
 
         const [members, total] = await Promise.all([
             CustomerGroupMember.find(filter)
-                .populate("user", "name surname email")
+                .populate("user", "name surname photo")
                 .populate("customerGroup", "name")
                 .skip(skip)
                 .limit(Math.min(Number(limit), 100))
@@ -183,6 +184,6 @@ router.post(
             CustomerGroupMember.countDocuments(filter),
         ]);
 
-        return res.json({data: customerGroupMembersToDTO(members as any[]), total});
+        return {data: customerGroupMembersToDTO(members as any[]), total};
     }),
 );

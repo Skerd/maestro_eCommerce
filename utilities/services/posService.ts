@@ -18,12 +18,13 @@ import {paymentTransactionService} from "@eCommerceModule/database/schemas/payme
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
 import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSessionMapper.dto";
-import {posConfigToDTO} from "@eCommerceModule/utilities/mappers/posConfigMapper.dto";
+import {posConfigToDTO} from "@eCommerceModule/utilities/mappers/posConfig/posConfigMapper.dto";
 import {
     buildReceiptFromPosOrder,
     getPosSessionReconciliation,
     rebuildPaidPosResult,
 } from "@eCommerceModule/utilities/services/posTillOps";
+import {warehouseIdsFromPosConfig} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
 
 type Ctx = {
     logger: any;
@@ -113,6 +114,7 @@ async function consumePosStock(params: {
     const quantityAfter = updated?.quantityOnHand ?? onHand - quantity;
     await inventoryMovementService.create(
         {
+            inventory: updated?._id,
             product: productId,
             variant: variantId,
             warehouse: warehouseId,
@@ -127,6 +129,59 @@ async function consumePosStock(params: {
         } as any,
         {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId},
     );
+}
+
+/** Allocate a sale across the till's warehouses (fill from each until quantity is met). */
+async function consumePosStockAcrossWarehouses(params: {
+    productId: ObjectId;
+    variantId?: ObjectId;
+    warehouseIds: ObjectId[];
+    quantity: number;
+    companyId: ObjectId;
+    posOrderId: ObjectId;
+    auditUserId: ObjectId;
+    allowOversell?: boolean;
+    ctx: Ctx;
+}): Promise<void> {
+    const {warehouseIds, quantity, allowOversell, ctx, ...rest} = params;
+    if (!warehouseIds.length) {
+        throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
+    }
+
+    let remaining = quantity;
+    for (let i = 0; i < warehouseIds.length; i++) {
+        if (remaining <= 0.0001) break;
+        const warehouseId = warehouseIds[i]!;
+        const isLast = i === warehouseIds.length - 1;
+        const filter: Record<string, unknown> = {
+            product: rest.productId,
+            warehouse: warehouseId,
+            company: rest.companyId,
+            variant: rest.variantId ?? null,
+        };
+        const before = await Inventory.findOne(
+            filter,
+            {quantityOnHand: 1, quantityReserved: 1},
+            {session: ctx.session},
+        );
+        const available = Math.max(0, (before?.quantityOnHand ?? 0) - (before?.quantityReserved ?? 0));
+        let take = Math.min(remaining, available);
+        if (allowOversell && isLast) take = remaining;
+        if (take <= 0.0001) continue;
+
+        await consumePosStock({
+            ...rest,
+            warehouseId,
+            quantity: take,
+            allowOversell: !!(allowOversell && isLast),
+            ctx,
+        });
+        remaining = round2(remaining - take);
+    }
+
+    if (remaining > 0.0001) {
+        throw apiValidationException("pos_insufficient_stock", "quantity", null, ctx.languageCode);
+    }
 }
 
 async function restockPosStock(params: {
@@ -148,9 +203,14 @@ async function restockPosStock(params: {
     };
     const before = await Inventory.findOne(filter, {quantityOnHand: 1}, {session: ctx.session});
     const onHand = before?.quantityOnHand ?? 0;
-    await Inventory.findOneAndUpdate(filter, {$inc: {quantityOnHand: quantity}}, {upsert: true, session: ctx.session});
+    const updated = await Inventory.findOneAndUpdate(
+        filter,
+        {$inc: {quantityOnHand: quantity}},
+        {upsert: true, new: true, session: ctx.session},
+    );
     await inventoryMovementService.create(
         {
+            inventory: updated?._id ?? before?._id,
             product: productId,
             variant: variantId,
             warehouse: warehouseId,
@@ -176,7 +236,7 @@ export async function openPosSession(
         company: ctx.company._id,
         isActive: true,
         deletedAt: null,
-    }).populate("paymentMethods warehouse currency");
+    }).populate("paymentMethods warehouses currency managers");
 
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
 
@@ -240,7 +300,9 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
         .populate("config openedBy closedBy");
     if (!session) return null;
 
-    const config = await PosConfig.findById(session.config).populate("paymentMethods warehouse currency");
+    const config = await PosConfig.findById(session.config).populate(
+        "paymentMethods warehouses currency managers",
+    );
     return {
         session: posSessionToDTO(session),
         config: config ? posConfigToDTO(config) : undefined,
@@ -260,9 +322,14 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
 
     if (body.type === "out") {
         const config = await PosConfig.findById(sessionDoc.config);
-        if ((config as any)?.pinForCashOut && (config as any)?.managerPinHash) {
-            const bcrypt = (await import("bcrypt")).default;
-            if (!body.managerPin || !(await bcrypt.compare(body.managerPin, (config as any).managerPinHash))) {
+        const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
+            "@eCommerceModule/utilities/services/posManagerPin"
+        );
+        if ((config as any)?.pinForCashOut && config && hasAnyManagerPin(config)) {
+            const approvedBy = body.managerId
+                ? await managerPinMatchesForUser(config, body.managerId, body.managerPin || "")
+                : null;
+            if (!body.managerPin || !body.managerId || !approvedBy) {
                 throw apiValidationException("pos_manager_pin_invalid", "managerPin", null, ctx.languageCode);
             }
         }
@@ -360,18 +427,18 @@ export async function loadPosCatalog(
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(100, Math.max(1, params.limit ?? 48));
 
-    let warehouseId: ObjectId | undefined;
+    let warehouseIds: ObjectId[] = [];
     if (params.warehouseId && ObjectId.isValid(params.warehouseId)) {
-        warehouseId = new ObjectId(params.warehouseId);
+        warehouseIds = [new ObjectId(params.warehouseId)];
     } else if (params.configId && ObjectId.isValid(params.configId)) {
         const cfg = await PosConfig.findOne({
             _id: params.configId,
             company: ctx.company._id,
             deletedAt: null,
         })
-            .select("warehouse")
+            .select("warehouses warehouse")
             .lean();
-        if (cfg?.warehouse) warehouseId = ((cfg.warehouse as any)._id ?? cfg.warehouse) as ObjectId;
+        if (cfg) warehouseIds = warehouseIdsFromPosConfig(cfg as any);
     }
 
     // Barcode may hit a variant first
@@ -446,10 +513,10 @@ export async function loadPosCatalog(
 
     const variantIds = variants.map((v: any) => v._id);
     let stockRows: any[] = [];
-    if (warehouseId && (productIds.length || variantIds.length)) {
+    if (warehouseIds.length && (productIds.length || variantIds.length)) {
         stockRows = await Inventory.find({
             company: ctx.company._id,
-            warehouse: warehouseId,
+            warehouse: {$in: warehouseIds},
             $or: [
                 {product: {$in: productIds}, variant: null},
                 ...(variantIds.length ? [{variant: {$in: variantIds}}] : []),
@@ -464,8 +531,11 @@ export async function loadPosCatalog(
     const stockMap = new Map<string, number>();
     for (const row of stockRows) {
         const available = (row.quantityOnHand ?? 0) - (row.quantityReserved ?? 0);
-        stockMap.set(stockKey(row.product, row.variant), available);
+        const key = stockKey(row.product, row.variant);
+        stockMap.set(key, (stockMap.get(key) ?? 0) + available);
     }
+
+    const hasWarehouseStock = warehouseIds.length > 0;
 
     const variantsByProduct = new Map<string, any[]>();
     for (const v of variants) {
@@ -485,7 +555,7 @@ export async function loadPosCatalog(
                 v.sku ||
                 v.barcode ||
                 v._id.toString(),
-            stockQty: warehouseId ? (stockMap.get(stockKey(v.product, v._id)) ?? 0) : undefined,
+            stockQty: hasWarehouseStock ? (stockMap.get(stockKey(v.product, v._id)) ?? 0) : undefined,
         });
         variantsByProduct.set(pid, list);
     }
@@ -506,7 +576,7 @@ export async function loadPosCatalog(
             hasVariants: !!p.hasVariants || productVariants.length > 0,
             shortDescription: p.shortDescription,
             imageUrl: mainImageId ? `/api/auxiliary/media/${mainImageId}` : undefined,
-            stockQty: warehouseId ? (stockMap.get(stockKey(p._id)) ?? 0) : undefined,
+            stockQty: hasWarehouseStock ? (stockMap.get(stockKey(p._id)) ?? 0) : undefined,
             variants: productVariants,
             matchedVariantId:
                 params.barcode?.trim() &&
@@ -545,10 +615,13 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         _id: sessionDoc.config,
         company: ctx.company._id,
         deletedAt: null,
-    }).populate("warehouse currency paymentMethods");
+    }).populate("warehouses currency paymentMethods");
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
 
-    const warehouseId = ((config.warehouse as any)?._id ?? config.warehouse) as ObjectId;
+    const warehouseIds = warehouseIdsFromPosConfig(config as any);
+    if (!warehouseIds.length) {
+        throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
+    }
     const currencyId = ((config.currency as any)?._id ?? config.currency) as ObjectId | undefined;
 
     const lines: any[] = [];
@@ -596,10 +669,17 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const discountTotal = round2(lineDiscountTotal + orderDiscount);
     const amountTotal = round2(Math.max(0, subtotal - discountTotal));
 
-    if (discountTotal > 0.001 && (config as any).pinForDiscount && (config as any).managerPinHash) {
-        const bcrypt = (await import("bcrypt")).default;
-        if (!body.managerPin || !(await bcrypt.compare(body.managerPin, (config as any).managerPinHash))) {
-            throw apiValidationException("pos_manager_pin_invalid", "managerPin", null, ctx.languageCode);
+    if (discountTotal > 0.001 && (config as any).pinForDiscount) {
+        const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
+            "@eCommerceModule/utilities/services/posManagerPin"
+        );
+        if (hasAnyManagerPin(config)) {
+            const approvedBy = body.managerId
+                ? await managerPinMatchesForUser(config, body.managerId, body.managerPin || "")
+                : null;
+            if (!body.managerPin || !body.managerId || !approvedBy) {
+                throw apiValidationException("pos_manager_pin_invalid", "managerPin", null, ctx.languageCode);
+            }
         }
     }
 
@@ -678,10 +758,10 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
 
     for (const line of lines) {
         if (!line.trackInventory) continue;
-        await consumePosStock({
+        await consumePosStockAcrossWarehouses({
             productId: line.product,
             variantId: line.variant,
-            warehouseId,
+            warehouseIds,
             quantity: line.quantity,
             companyId: ctx.company._id,
             posOrderId: posOrder._id,
@@ -891,12 +971,23 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
 
     const config = await PosConfig.findById(original.config);
     if (!config) throw apiValidationException("pos_config_not_found", "config", null, ctx.languageCode);
-    const warehouseId = ((config.warehouse as any)?._id ?? config.warehouse) as ObjectId;
+    const warehouseIds = warehouseIdsFromPosConfig(config as any);
+    const warehouseId = warehouseIds[0];
+    if (!warehouseId) {
+        throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
+    }
 
-    if ((config as any).pinForRefund && (config as any).managerPinHash) {
-        const bcrypt = (await import("bcrypt")).default;
-        if (!body.managerPin || !(await bcrypt.compare(body.managerPin, (config as any).managerPinHash))) {
-            throw apiValidationException("pos_manager_pin_invalid", "managerPin", null, ctx.languageCode);
+    if ((config as any).pinForRefund) {
+        const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
+            "@eCommerceModule/utilities/services/posManagerPin"
+        );
+        if (hasAnyManagerPin(config)) {
+            const approvedBy = body.managerId
+                ? await managerPinMatchesForUser(config, body.managerId, body.managerPin || "")
+                : null;
+            if (!body.managerPin || !body.managerId || !approvedBy) {
+                throw apiValidationException("pos_manager_pin_invalid", "managerPin", null, ctx.languageCode);
+            }
         }
     }
 
@@ -1132,6 +1223,9 @@ export type ChargePosTerminalResult = {
     reference: string;
     raw?: unknown;
 };
+
+export type {TestPosTerminalConnectionResult} from "./posTerminalConnection";
+export {testPosTerminalConnection} from "./posTerminalConnection";
 
 /**
  * Charge a bank payment terminal configured on a card/bank POS payment method.

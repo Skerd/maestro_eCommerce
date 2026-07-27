@@ -1,0 +1,10 @@
+{
+  "subject": "Rivendos PIN-in e menaxherit — {configName}",
+  "heading": "Rivendos PIN-in e menaxherit",
+  "introBefore": "Keni kërkuar rivendosjen e PIN-it të menaxherit për arkën ",
+  "introLink": "Rivendos PIN-in",
+  "introAfter": " ({configName}).",
+  "securityReasons": "Nëse nuk e keni kërkuar ju, injoroni këtë email. Për arsye sigurie, lidhja e rivendosjes do të jetë e vlefshme për 24 orët e ardhshme.",
+  "imageAlt": "Sukses",
+  "copyright": "© 2024 Të gjitha të drejtat e rezervuara"
+}

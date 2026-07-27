@@ -10,6 +10,7 @@ import {
     fiscalConfigsToDTO,
     fiscalConfigsToSelect,
 } from "@eCommerceModule/utilities/mappers/fiscalConfigMapper.dto";
+import {FiscalConfigActions} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.actions";
 
 const buildFiscalConfigCreateFromSchemaDef = buildCreateDataFromSchemaDef(FiscalConfigSchemaDef);
 const buildFiscalConfigUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(FiscalConfigSchemaDef);
@@ -57,12 +58,16 @@ export const {router} = createCrudRouter({
     buildCreateData: async params => {
         const data = await buildFiscalConfigCreateFromSchemaDef(params);
         applyCertificateFields(data as any, params, true);
+        if (data.isActive === undefined) data.isActive = true;
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = await buildFiscalConfigUpdateFromSchemaDef(params, writeFields);
+        // Active state is managed via activate/deactivate actions, not the edit form.
+        delete data.isActive;
         applyCertificateFields(data as any, params, false);
         return data;
     },
+    actions: FiscalConfigActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });

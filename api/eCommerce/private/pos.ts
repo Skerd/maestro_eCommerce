@@ -134,9 +134,10 @@ router.post(
     transactionHandler(),
     validateFormZod(cashMovePosSessionFormSchema),
     asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, actionUserCtx, session, _id, type, amount, reason, managerPin} = params;
+        const {logger, languageCode, company, actionUserCtx, session, _id, type, amount, reason, managerPin, managerId} =
+            params;
         const data = await cashMovePosSession(
-            {_id, type, amount, reason, managerPin},
+            {_id, type, amount, reason, managerPin, managerId},
             {
                 logger,
                 languageCode,
@@ -313,7 +314,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
     asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, actionUserCtx, configId, pin} = params;
+        const {logger, languageCode, company, actionUserCtx, configId, pin, managerId} = params;
         if (!configId || !pin) {
             return {data: {ok: false}};
         }
@@ -322,7 +323,7 @@ router.post(
             languageCode,
             company,
             userId: actionUserCtx.userId,
-        });
+        }, managerId ? String(managerId) : undefined);
         return {data};
     }),
 );
@@ -371,6 +372,7 @@ router.post(
             heldOrderId,
             clientRequestId,
             managerPin,
+            managerId,
         } = params;
         const data = await payPosOrder(
             {
@@ -384,6 +386,7 @@ router.post(
                 heldOrderId,
                 clientRequestId,
                 managerPin,
+                managerId,
             },
             {
                 logger,
@@ -404,9 +407,10 @@ router.post(
     transactionHandler(),
     validateFormZod(refundPosOrderFormSchema),
     asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, actionUserCtx, session, _id, reason, amount, lines, managerPin} = params;
+        const {logger, languageCode, company, actionUserCtx, session, _id, reason, amount, lines, managerPin, managerId} =
+            params;
         const data = await refundPosOrder(
-            {_id, reason, amount, lines, managerPin},
+            {_id, reason, amount, lines, managerPin, managerId},
             {
                 logger,
                 languageCode,

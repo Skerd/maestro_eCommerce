@@ -10,9 +10,25 @@ import {editCmsBlockFormSchema} from "armonia/src/modules/eCommerce/api/eCommerc
 import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
 import {cmsBlockService} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.service";
 import {cmsBlockToDTO, cmsBlocksToDTO, cmsBlockToSelect, cmsBlocksToSelect} from "@eCommerceModule/utilities/mappers/cmsBlockMapper.dto";
+import {CmsBlockActions} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.actions";
 
 const buildCmsBlockCreateFromSchemaDef = buildCreateDataFromSchemaDef(CmsBlockSchemaDef);
 const buildCmsBlockUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(CmsBlockSchemaDef);
+
+function parseConfigPayload(raw: unknown): Record<string, unknown> {
+    if (raw == null || raw === "") return {};
+    if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+    if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (!trimmed) return {};
+        const parsed = JSON.parse(trimmed);
+        if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("config must be a JSON object");
+        }
+        return parsed as Record<string, unknown>;
+    }
+    return {};
+}
 
 export const basePath = "/api/eCommerce/cmsBlock";
 export const {router} = createCrudRouter({
@@ -29,7 +45,12 @@ export const {router} = createCrudRouter({
     toSelect: cmsBlocksToSelect,
     buildCreateData: async (params) => {
         const data = buildCmsBlockCreateFromSchemaDef(params);
-        data.config = params.config ?? {};
+        try {
+            data.config = parseConfigPayload(params.config);
+        } catch {
+            data.config = {};
+        }
+        if (data.isActive === undefined) data.isActive = true;
         if (data.visibility === undefined) {
             data.visibility = {devices: ["desktop", "mobile", "tablet"], regions: []};
         }
@@ -37,11 +58,18 @@ export const {router} = createCrudRouter({
     },
     buildUpdateData: async (params, writeFields) => {
         const update = buildCmsBlockUpdateFromSchemaDef(params, writeFields);
+        // Active state is managed via activate/deactivate actions, not the edit form.
+        delete update.isActive;
         if (params.config !== undefined && (writeFields as any).config) {
-            update.config = params.config;
+            try {
+                update.config = parseConfigPayload(params.config);
+            } catch {
+                // leave config unchanged on invalid JSON — zod/form should catch earlier
+            }
         }
         return update;
     },
+    actions: CmsBlockActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });
 

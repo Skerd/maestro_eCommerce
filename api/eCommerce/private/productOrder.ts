@@ -5,9 +5,12 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import PaymentTransaction from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction";
+import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
 import {productOrderToDTO, productOrdersToDTO, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrderMapper.dto";
+import {paymentTransactionsToDTO} from "@eCommerceModule/utilities/mappers/paymentTransactionMapper.dto";
 import {z} from "zod";
 
 const orderStatuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"] as const;
@@ -26,6 +29,53 @@ function orderListSchema(_lang: string) {
     });
 }
 
+function asObjectId(value: unknown): ObjectId | null {
+    if (!value) return null;
+    if (value instanceof ObjectId) return value;
+    if (typeof value === "object" && (value as any)._id) return asObjectId((value as any)._id);
+    try {
+        return new ObjectId(String(value));
+    } catch {
+        return null;
+    }
+}
+
+async function enrichProductOrderSingle(doc: any) {
+    const dto = productOrderToDTO(doc) as ReturnType<typeof productOrderToDTO> & {
+        paymentTransactions?: ReturnType<typeof paymentTransactionsToDTO>;
+    };
+
+    const orderId = asObjectId(doc._id);
+    const companyId = asObjectId(doc.company);
+    if (!orderId) {
+        dto.paymentTransactions = [];
+        return dto;
+    }
+
+    const or: Record<string, unknown>[] = [{order: orderId}];
+
+    // Charges created at checkout may still only reference checkout until confirm links them.
+    if (doc.idempotencyKey && companyId) {
+        const checkout = await Checkout.findOne({idempotencyKey: doc.idempotencyKey, company: companyId})
+            .select("_id")
+            .lean();
+        if (checkout?._id) {
+            or.push({checkout: checkout._id});
+        }
+    }
+
+    const filter: Record<string, unknown> = {$or: or};
+    if (companyId) filter.company = companyId;
+
+    const txs = await PaymentTransaction.find(filter)
+        .populate("currency", "name symbol abbreviation")
+        .sort({_id: -1})
+        .limit(50)
+        .lean();
+    dto.paymentTransactions = paymentTransactionsToDTO(txs as any);
+    return dto;
+}
+
 export const basePath = "/api/eCommerce/productOrder";
 export const {router} = createCrudRouter({
     collectionName: "productOrders",
@@ -39,6 +89,7 @@ export const {router} = createCrudRouter({
     toDTO: productOrderToDTO,
     toDTOArray: productOrdersToDTO,
     toSelect: productOrdersToSelect,
+    enrichSingle: async (doc) => enrichProductOrderSingle(doc),
     extraListFilter: async ({status, paymentStatus, fulfillmentStatus, customerId, orderNumber}) => {
         const filter: Record<string, unknown> = {};
         if (status) filter.status = status;

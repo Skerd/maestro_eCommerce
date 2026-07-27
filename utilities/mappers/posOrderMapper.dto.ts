@@ -1,5 +1,5 @@
 import type {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import type {PosOrder} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.dto";
+import type {PosOrder, PosOrderLineProduct} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.dto";
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
@@ -20,43 +20,72 @@ function mapCompanyLabel(company: any): {_id: string; name: string} | undefined 
     return {_id: company.toString(), name: ""};
 }
 
+function mapLineProduct(line: any): PosOrderLineProduct {
+    const product = line.product;
+    const id =
+        product?._id?.toString?.() ??
+        product?.toString?.() ??
+        "";
+    return {
+        _id: id,
+        title: product?.title ?? line.productName ?? "",
+        sku: product?.sku ?? line.productSku,
+    };
+}
+
 export function posOrderToDTO(order: IPosOrder): PosOrder {
     const session = order.session as any;
     const config = order.config as any;
     const cashier = mapUserLabel(order.cashier) ?? {_id: ""};
+    const productOrderRaw = order.productOrder as any;
+    const refundOfRaw = order.refundOf as any;
 
-    const lines = ((order.lines as any[]) ?? []).map(line => ({
-        _id: line._id?.toString?.(),
-        product: line.product?._id?.toString?.() ?? line.product?.toString?.() ?? "",
-        variant: line.variant ? line.variant._id?.toString?.() ?? line.variant.toString?.() : undefined,
-        quantity: line.quantity,
-        quantityRefunded: Number(line.quantityRefunded ?? 0),
-        unitPrice: line.unitPrice,
-        discountPercent: line.discountPercent ?? 0,
-        discountAmount: line.discountAmount ?? 0,
-        priceSubtotal: line.priceSubtotal,
-        priceTotal: line.priceTotal,
-        taxAmount: line.taxAmount ?? 0,
-        productName: line.productName ?? "",
-        productSku: line.productSku,
-        barcode: line.barcode,
-    }));
+    const lines = ((order.lines as any[]) ?? []).map(line => {
+        const product = mapLineProduct(line);
+        return {
+            _id: line._id?.toString?.(),
+            product,
+            variant: line.variant ? line.variant._id?.toString?.() ?? line.variant.toString?.() : undefined,
+            quantity: line.quantity,
+            quantityRefunded: Number(line.quantityRefunded ?? 0),
+            unitPrice: line.unitPrice,
+            discountPercent: line.discountPercent ?? 0,
+            discountAmount: line.discountAmount ?? 0,
+            priceSubtotal: line.priceSubtotal,
+            priceTotal: line.priceTotal,
+            taxAmount: line.taxAmount ?? 0,
+            productName: line.productName ?? product.title ?? "",
+            productSku: line.productSku ?? product.sku,
+            barcode: line.barcode,
+        };
+    });
+
+    const lineProducts = lines
+        .map(line => (typeof line.product === "object" ? line.product : null))
+        .filter((p): p is PosOrderLineProduct => !!p && typeof p._id === "string" && p._id.length > 0)
+        .filter((p, index, arr) => arr.findIndex(x => x._id === p._id) === index);
 
     const payments = ((order.payments as any[]) ?? []).map(payment => {
         const method = payment.paymentMethod;
-        return {
-            paymentMethod: method?._id?.toString?.() ?? method?.toString?.() ?? "",
-            paymentMethodLabel: method?._id
-                ? {_id: method._id.toString(), name: method.name ?? "", type: method.type}
+        const methodObj =
+            method?._id
+                ? {_id: method._id.toString(), name: method.name ?? payment.paymentMethodName ?? "", type: method.type ?? payment.paymentMethodType}
                 : payment.paymentMethodName
                   ? {
                         _id: method?.toString?.() ?? "",
                         name: payment.paymentMethodName,
                         type: payment.paymentMethodType,
                     }
-                  : undefined,
-            paymentMethodName: payment.paymentMethodName ?? method?.name,
-            paymentMethodType: payment.paymentMethodType ?? method?.type,
+                  : method
+                    ? {_id: method.toString?.() ?? String(method), name: payment.paymentMethodName}
+                    : {_id: ""};
+        return {
+            paymentMethod: methodObj,
+            paymentMethodLabel: methodObj._id
+                ? {_id: methodObj._id, name: methodObj.name ?? "", type: methodObj.type}
+                : undefined,
+            paymentMethodName: payment.paymentMethodName ?? methodObj.name,
+            paymentMethodType: payment.paymentMethodType ?? methodObj.type,
             amount: payment.amount,
             paymentDate:
                 payment.paymentDate instanceof Date
@@ -80,6 +109,7 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         customer: mapUserLabel(order.customer),
         customerName: order.customerName,
         lines,
+        lineProducts,
         payments,
         amountTax: order.amountTax,
         amountTotal: order.amountTotal,
@@ -90,8 +120,18 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         note: order.note,
         orderDiscountPercent: (order as any).orderDiscountPercent ?? 0,
         clientRequestId: (order as any).clientRequestId,
-        productOrder: order.productOrder?.toString?.(),
-        refundOf: order.refundOf?.toString?.(),
+        productOrder: productOrderRaw?._id?.toString?.() ?? productOrderRaw?.toString?.(),
+        productOrderLabel: productOrderRaw?._id
+            ? {_id: productOrderRaw._id.toString(), orderNumber: productOrderRaw.orderNumber}
+            : productOrderRaw
+              ? {_id: productOrderRaw.toString?.() ?? String(productOrderRaw)}
+              : undefined,
+        refundOf: refundOfRaw?._id?.toString?.() ?? refundOfRaw?.toString?.(),
+        refundOfLabel: refundOfRaw?._id
+            ? {_id: refundOfRaw._id.toString(), name: refundOfRaw.name}
+            : refundOfRaw
+              ? {_id: refundOfRaw.toString?.() ?? String(refundOfRaw)}
+              : undefined,
         isRefund: order.isRefund,
         nslf: (order as any).nslf,
         nivf: (order as any).nivf,
@@ -115,6 +155,10 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
             (order as any).createdAt instanceof Date
                 ? (order as any).createdAt.toISOString()
                 : (order as any).createdAt,
+        updatedAt:
+            (order as any).updatedAt instanceof Date
+                ? (order as any).updatedAt.toISOString()
+                : (order as any).updatedAt,
         ...mapSoftDeleteToDTO(order),
         ...mapOwnershipToDTO(order),
     };

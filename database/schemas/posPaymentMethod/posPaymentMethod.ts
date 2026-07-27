@@ -4,7 +4,11 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {
@@ -14,10 +18,11 @@ import {
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/posPaymentMethod/posPaymentMethod.schema-def";
 import {applyPosPaymentMethodIndexes} from "./posPaymentMethod.indexes";
 import {posPaymentMethodViews} from "./posPaymentMethod.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type {PosPaymentMethodType, PosTerminalProvider};
 
-export interface IPosPaymentMethod extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IPosPaymentMethod extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     type: PosPaymentMethodType;
     isActive: boolean;
@@ -61,6 +66,7 @@ ownershipPlugin(PosPaymentMethodSchema);
 auditPlugin(PosPaymentMethodSchema);
 softDeletePlugin(PosPaymentMethodSchema);
 applyPosPaymentMethodIndexes(PosPaymentMethodSchema);
+lifeCyclePlugin(PosPaymentMethodSchema);
 const PosPaymentMethod = model<IPosPaymentMethod>("PosPaymentMethod", PosPaymentMethodSchema);
 normalizeSchemaPermissions(PosPaymentMethod);
 export default PosPaymentMethod;

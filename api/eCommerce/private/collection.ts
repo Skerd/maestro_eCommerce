@@ -12,8 +12,10 @@ import ProductCollection from "@eCommerceModule/database/schemas/collection/coll
 import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
 import {collectionToDTO, collectionsToDTO, collectionToSelect, collectionsToSelect} from "@eCommerceModule/utilities/mappers/collectionMapper.dto";
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
-import {buildProductFilterFromCollectionRules} from "@eCommerceModule/utilities/services/collectionRuleEngine";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import {
+    collectionMembershipChanged,
+    rebuildDynamicCollectionMembership,
+} from "@eCommerceModule/utilities/services/rebuildDynamicCollection";
 
 const mediaUpload = mediaUploadMW({fields: {mainImage: 1}, maxFileSize: 50 * 1024 * 1024});
 
@@ -63,6 +65,22 @@ export const {router} = createCrudRouter({
         }
         return update;
     },
+    afterCreate: async (created, params) => {
+        if (created.type === "dynamic") {
+            await rebuildDynamicCollectionMembership(created, {session: params.session});
+        }
+    },
+    afterUpdate: async (params, existing) => {
+        if (!collectionMembershipChanged(params, existing)) return;
+
+        const updated = await collectionService.findById(existing._id, {
+            session: params.session,
+            logger: params.logger,
+        });
+        if (!updated || updated.type !== "dynamic") return;
+
+        await rebuildDynamicCollectionMembership(updated, {session: params.session});
+    },
     rateLimits: {read: 60, write: 30, delete: 20},
 });
 
@@ -81,23 +99,12 @@ router.post(
             {logger, languageCode},
         );
 
-        const rules = (collection.rules as any[]) ?? [];
-        if (!rules.length) return res.json({message: "No rules defined", productCount: 0});
-
-        const mongoFilter = buildProductFilterFromCollectionRules(
-            company._id,
-            rules,
-            collection.ruleCondition ?? "all",
-        );
-
-        const matchingProducts = await Product.find(mongoFilter, {_id: 1}).lean();
-        const productIds = matchingProducts.map((p: any) => p._id);
-
-        await ProductCollection.updateOne(
-            {_id: collection._id},
-            {$set: {products: productIds}},
-        );
-
-        return res.json({message: "Collection rebuilt", productCount: productIds.length});
+        const productCount = await rebuildDynamicCollectionMembership(collection);
+        return res.json({
+            message: productCount === 0 && !(collection.rules as any[])?.length
+                ? "No rules defined"
+                : "Collection rebuilt",
+            productCount: productCount ?? 0,
+        });
     }),
 );

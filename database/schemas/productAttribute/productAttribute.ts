@@ -4,14 +4,19 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {ProductAttributeSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
 import {applyProductAttributeIndexes} from "./productAttribute.indexes";
 import {productAttributeViews} from "./productAttribute.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface IProductAttribute extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProductAttribute extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     values?: string[];
     isVisibleOnProductPage?: boolean;
@@ -35,6 +40,7 @@ ownershipPlugin(ProductAttributeSchema);
 auditPlugin(ProductAttributeSchema);
 softDeletePlugin(ProductAttributeSchema);
 applyProductAttributeIndexes(ProductAttributeSchema);
+lifeCyclePlugin(ProductAttributeSchema);
 const ProductAttribute = model<IProductAttribute>("ProductAttribute", ProductAttributeSchema);
 normalizeSchemaPermissions(ProductAttribute);
 export default ProductAttribute;

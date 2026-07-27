@@ -4,14 +4,19 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {applyCustomerGroupIndexes} from "./customerGroup.indexes";
 import {customerGroupViews} from "./customerGroup.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {CustomerGroupSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/customerGroup.schema-def";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface ICustomerGroup extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface ICustomerGroup extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     description?: string;
     memberCount: number;
@@ -33,6 +38,7 @@ ownershipPlugin(CustomerGroupSchema);
 auditPlugin(CustomerGroupSchema);
 softDeletePlugin(CustomerGroupSchema);
 applyCustomerGroupIndexes(CustomerGroupSchema);
+lifeCyclePlugin(CustomerGroupSchema);
 const CustomerGroup = model<ICustomerGroup>("CustomerGroup", CustomerGroupSchema);
 normalizeSchemaPermissions(CustomerGroup);
 export default CustomerGroup;

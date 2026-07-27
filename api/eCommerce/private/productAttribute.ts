@@ -7,7 +7,8 @@ import {ProductAttributeSchemaDef} from "armonia/src/modules/eCommerce/api/eComm
 import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
-import {productAttributeToDTO, productAttributesToDTO, productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttributeMapper.dto";
+import {productAttributeToDTO, productAttributesToDTO} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.dto";
+import {productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.select";
 
 const productAttributeTransforms = {
     values: (v: unknown) => (Array.isArray(v) ? v.filter(Boolean) : []),

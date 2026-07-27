@@ -1,7 +1,7 @@
 import type {IPosSession} from "@eCommerceModule/database/schemas/posSession/posSession";
 import type {PosSession} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/posSession.dto";
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
-import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
+import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 function mapUserLabel(user: any): {_id: string; name?: string; surname?: string} | undefined {
     if (!user) return undefined;
@@ -53,6 +53,7 @@ export function posSessionToDTO(session: IPosSession): PosSession {
         company: mapCompanyLabel(session.company),
         ...mapSoftDeleteToDTO(session),
         ...mapOwnershipToDTO(session),
+        ...mapLifeCycleToDTO(session),
     };
 }
 

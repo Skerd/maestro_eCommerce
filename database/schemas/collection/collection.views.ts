@@ -32,18 +32,68 @@ const ruleOperatorOptions = [
 
 const collectionFormFields: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
-            {render: "#Field", field: {name: "slug", widget: "#Input", label: "form.slugLabel"}},
-            {render: "#Field", field: {name: "type", widget: "#Select", label: "form.typeLabel", required: true, widgetProps: {options: collectionTypeOptions, className: "grow w-full"}}},
-            {render: "#Field", field: {name: "isVisible", widget: "#Checkbox", label: "form.isVisibleLabel"}},
-            {render: "#Field", field: {name: "position", widget: "#Input", label: "form.positionLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "publishedAt", widget: "#DateInput", label: "form.publishedAtLabel"}},
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "slug",
+                            widget: "#Input",
+                            label: "form.slugLabel",
+                            placeholder: "form.slugPlaceholder",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "type",
+                            widget: "#Select",
+                            label: "form.typeLabel",
+                            required: true,
+                            widgetProps: {options: collectionTypeOptions, className: "grow w-full"},
+                        },
+                    },
+                    {render: "#Field", field: {name: "isVisible", widget: "#Checkbox", label: "form.isVisibleLabel"}},
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {type: "number", min: 0},
+                        },
+                    },
+                    {render: "#Field", field: {name: "publishedAt", widget: "#DateInput", label: "form.publishedAtLabel"}},
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "description",
+                    widget: "#Textarea",
+                    label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
+                    widgetProps: {rows: 4},
+                },
+            },
         ],
     },
-    {render: "#Field", field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", widgetProps: {rows: 4}}},
     {
         render: "#TitleWithCollapse",
         props: {title: "form.mediaSectionTitle"},
@@ -52,59 +102,112 @@ const collectionFormFields: ViewConfig["nodes"] = [
         ],
     },
     {
-        render: "#TitleWithCollapse",
-        props: {title: "form.manualSectionTitle"},
+        render: "#FormWhenFieldValueIn",
+        props: {
+            watchField: "type",
+            whenValues: ["manual"],
+        },
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "products",
-                    widget: "#FormObjectIdChips",
-                    label: "form.productsLabel",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
-                        placeholderKey: "form.selectProduct",
-                        removeTooltipKey: "form.removeProduct",
-                        selectPageSizeCreate: 50,
-                        selectPageSizeEdit: 200,
-                        labelRefFormExtraKey: "products",
+                render: "#TitleWithCollapse",
+                props: {title: "form.manualSectionTitle", defaultOpen: true},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "products",
+                            widget: "#FormObjectIdChips",
+                            label: "form.productsLabel",
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/product/select",
+                                method: "POST",
+                                placeholderKey: "form.selectProduct",
+                                removeTooltipKey: "form.removeProduct",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "products",
+                            },
+                        },
                     },
-                },
+                ],
             },
         ],
     },
     {
-        render: "#TitleWithCollapse",
-        props: {title: "form.dynamicSectionTitle"},
+        render: "#FormWhenFieldValueIn",
+        props: {
+            watchField: "type",
+            whenValues: ["dynamic"],
+        },
         children: [
-            {render: "#Field", field: {name: "ruleCondition", widget: "#Select", label: "form.ruleConditionLabel", widgetProps: {options: ruleConditionOptions, className: "grow w-full"}}},
             {
-                render: "#Field",
-                field: {
-                    name: "rules",
-                    widget: "#FormRepeater",
-                    widgetProps: {
-                        title: "form.rulesSectionTitle",
-                        arrayField: "rules",
-                        defaultItem: {field: "tag", operator: "contains", value: ""},
-                        addLabel: "form.ruleAddRow",
-                        removeLabel: "form.ruleRemoveRow",
-                        rowTitleFields: ["field", "value"],
-                        rowTitlePlaceholder: "form.ruleRowTitle",
-                        rowTemplate: [
-                            {
-                                render: "#FormGrid",
-                                props: {columns: 3},
-                                children: [
-                                    {render: "#Field", field: {name: "field", widget: "#Select", label: "form.ruleFieldLabel", required: true, widgetProps: {options: ruleFieldOptions, className: "grow w-full"}}},
-                                    {render: "#Field", field: {name: "operator", widget: "#Select", label: "form.ruleOperatorLabel", required: true, widgetProps: {options: ruleOperatorOptions, className: "grow w-full"}}},
-                                    {render: "#Field", field: {name: "value", widget: "#Input", label: "form.ruleValueLabel", required: true}},
+                render: "#TitleWithCollapse",
+                props: {title: "form.dynamicSectionTitle", defaultOpen: true},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "ruleCondition",
+                            widget: "#Select",
+                            label: "form.ruleConditionLabel",
+                            widgetProps: {options: ruleConditionOptions, className: "grow w-full"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "rules",
+                            widget: "#FormRepeater",
+                            widgetProps: {
+                                title: "form.rulesSectionTitle",
+                                arrayField: "rules",
+                                defaultItem: {field: "tag", operator: "contains", value: ""},
+                                addLabel: "form.ruleAddRow",
+                                removeLabel: "form.ruleRemoveRow",
+                                rowTitleFields: ["field", "value"],
+                                rowTitlePlaceholder: "form.ruleRowTitle",
+                                rowTemplate: [
+                                    {
+                                        render: "#FormGrid",
+                                        props: {columns: 3},
+                                        children: [
+                                            {
+                                                render: "#Field",
+                                                field: {
+                                                    name: "field",
+                                                    widget: "#Select",
+                                                    label: "form.ruleFieldLabel",
+                                                    required: true,
+                                                    widgetProps: {options: ruleFieldOptions, className: "grow w-full"},
+                                                },
+                                            },
+                                            {
+                                                render: "#Field",
+                                                field: {
+                                                    name: "operator",
+                                                    widget: "#Select",
+                                                    label: "form.ruleOperatorLabel",
+                                                    required: true,
+                                                    widgetProps: {options: ruleOperatorOptions, className: "grow w-full"},
+                                                },
+                                            },
+                                            {
+                                                render: "#Field",
+                                                field: {
+                                                    name: "value",
+                                                    widget: "#Input",
+                                                    label: "form.ruleValueLabel",
+                                                    placeholder: "form.ruleValuePlaceholder",
+                                                    required: true,
+                                                },
+                                            },
+                                        ],
+                                    },
                                 ],
                             },
-                        ],
+                        },
                     },
-                },
+                ],
             },
         ],
     },
@@ -112,8 +215,25 @@ const collectionFormFields: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.seoSectionTitle"},
         children: [
-            {render: "#Field", field: {name: "seoTitle", widget: "#Input", label: "form.seoTitleLabel"}},
-            {render: "#Field", field: {name: "seoDescription", widget: "#Textarea", label: "form.seoDescriptionLabel", widgetProps: {rows: 3}}},
+            {
+                render: "#Field",
+                field: {
+                    name: "seoTitle",
+                    widget: "#Input",
+                    label: "form.seoTitleLabel",
+                    placeholder: "form.seoTitlePlaceholder",
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "seoDescription",
+                    widget: "#Textarea",
+                    label: "form.seoDescriptionLabel",
+                    placeholder: "form.seoDescriptionPlaceholder",
+                    widgetProps: {rows: 3},
+                },
+            },
         ],
     },
 ];
@@ -127,18 +247,303 @@ export const collectionSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {title: "overview"},
+            props: {title: "overview", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "type"}, field: {name: "type", widget: "#SmallInfoCard", label: "type", widgetProps: {icon: "#Tag", languageKeyCategory: "collectionType"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "slug"}, field: {name: "slug", widget: "#SmallInfoCard", label: "slug", widgetProps: {icon: "#IconLink"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isVisible"}, field: {name: "isVisible", widget: "#SmallInfoCard", label: "isVisible", widgetProps: {icon: "#IconEye"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "productCount"}, field: {name: "productCount", widget: "#SmallInfoCard", label: "productCount", widgetProps: {icon: "#IconBox"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "publishedAt"}, field: {name: "publishedAt", widget: "#SmallInfoCard", label: "publishedAt", widgetProps: {icon: "#IconCalendar"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "ruleCondition"}, field: {name: "ruleCondition", widget: "#SmallInfoCard", label: "ruleCondition", widgetProps: {icon: "#IconFilter", languageKeyCategory: "ruleCondition"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "name"},
+                            field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "type"},
+                            field: {
+                                name: "type",
+                                widget: "#SmallInfoCard",
+                                label: "type",
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "collectionType"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "slug"},
+                            field: {name: "slug", widget: "#SmallInfoCard", label: "slug", widgetProps: {icon: "#IconLink"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isVisible"},
+                            field: {
+                                name: "isVisible",
+                                widget: "#SmallInfoCard",
+                                label: "isVisible",
+                                widgetProps: {icon: "#IconEye", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "position"},
+                            field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "productCount"},
+                            field: {
+                                name: "productCount",
+                                widget: "#SmallInfoCard",
+                                label: "productCount",
+                                widgetProps: {icon: "#IconBox"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "ruleCondition"},
+                            field: {
+                                name: "ruleCondition",
+                                widget: "#SmallInfoCard",
+                                label: "ruleCondition",
+                                widgetProps: {icon: "#IconFilter", languageKeyCategory: "ruleCondition"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "publishedAt"},
+                            field: {
+                                name: "publishedAt",
+                                widget: "#SmallInfoCard",
+                                label: "publishedAt",
+                                widgetProps: {icon: "#IconCalendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#IconCalendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#IconCalendar", format: "dateTime"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "content", defaultOpen: false},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "description"},
+                            field: {
+                                name: "description",
+                                widget: "#SmallInfoCard",
+                                label: "description",
+                                widgetProps: {icon: "#IconAlignLeft"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "media", defaultOpen: false},
+            dependent: "mainImage",
+            permissions: {read: "mainImage"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50 max-w-full"},
+                    children: [
+                        {
+                            render: "#GalleryCarousel",
+                            permissions: {read: "mainImage"},
+                            field: {
+                                name: "mainImage",
+                                widget: "#GalleryCarousel",
+                                label: "mainImage",
+                                widgetProps: {
+                                    icon: "#IconPhoto",
+                                    showThumbnails: false,
+                                    allowFullScreen: false,
+                                    coverAfterFirst: false,
+                                    showPreviews: true,
+                                    previewLocation: "right",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "collection.sheet.products.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "products",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "products",
+                    permissions: {read: "products"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "products"},
+                                    field: {
+                                        name: "products",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ProductCard",
+                                            itemDataProp: "product",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconPackage",
+                                                label: "product",
+                                                valuePath: ["title", "sku"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "products",
+                                                linkedSheetWidget: "#ProductSheetView",
+                                                linkedSheetEntityProp: "product",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "collection.sheet.rules.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "rules",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    dependent: "rules",
+                    permissions: {read: "rules"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    permissions: {read: "rules"},
+                                    field: {
+                                        name: "rules",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            compactSummaryFields: ["field", "operator", "value"],
+                                            fields: [
+                                                {
+                                                    name: "field",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                    languageKeyCategory: "ruleField",
+                                                    labelKey: "ruleFieldLabel",
+                                                },
+                                                {
+                                                    name: "operator",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    languageKeyCategory: "ruleOperator",
+                                                    labelKey: "ruleOperatorLabel",
+                                                },
+                                                {
+                                                    name: "value",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "ruleValue",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "seo", defaultOpen: false},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "seoTitle"},
+                            field: {
+                                name: "seoTitle",
+                                widget: "#SmallInfoCard",
+                                label: "seoTitle",
+                                widgetProps: {icon: "#IconSeo"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "seoDescription"},
+                            field: {
+                                name: "seoDescription",
+                                widget: "#SmallInfoCard",
+                                label: "seoDescription",
+                                widgetProps: {icon: "#IconAlignLeft"},
+                            },
+                        },
                     ],
                 },
             ],

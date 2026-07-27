@@ -4,17 +4,22 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {applyPricingRuleIndexes} from "./pricingRule.indexes";
 import {pricingRuleViews} from "./pricingRule.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {PricingRuleSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.schema-def";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type PricingRuleType = "percentage_discount" | "fixed_discount" | "fixed_price" | "surcharge";
 export type PricingRuleAppliesTo = "all" | "product" | "category" | "collection" | "customer_group";
 
-export interface IPricingRule extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IPricingRule extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     type: PricingRuleType;
     value: number;
@@ -60,6 +65,7 @@ ownershipPlugin(PricingRuleSchema);
 auditPlugin(PricingRuleSchema);
 softDeletePlugin(PricingRuleSchema);
 applyPricingRuleIndexes(PricingRuleSchema);
+lifeCyclePlugin(PricingRuleSchema);
 const PricingRule = model<IPricingRule>("PricingRule", PricingRuleSchema);
 normalizeSchemaPermissions(PricingRule);
 export default PricingRule;

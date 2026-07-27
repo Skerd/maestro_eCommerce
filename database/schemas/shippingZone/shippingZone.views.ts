@@ -10,56 +10,68 @@ const shippingRateTypeOptions = [
 
 const shippingZoneFormFields: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
-            {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
+                    {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
+                ],
+            },
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "countries",
-            widget: "#FormObjectIdChips",
-            label: "form.countriesLabel",
-            widgetProps: {
-                apiUrl: "/api/auxiliary/country/select",
-                method: "POST",
-                placeholderKey: "form.selectCountry",
-                removeTooltipKey: "form.removeCountry",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "countries",
+        render: "#TitleWithCollapse",
+        props: {title: "form.geographySectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "countries",
+                    widget: "#FormObjectIdChips",
+                    label: "form.countriesLabel",
+                    widgetProps: {
+                        apiUrl: "/api/auxiliary/country/select",
+                        method: "POST",
+                        placeholderKey: "form.selectCountry",
+                        removeTooltipKey: "form.removeCountry",
+                        selectPageSizeCreate: 50,
+                        selectPageSizeEdit: 200,
+                        labelRefFormExtraKey: "countries",
+                    },
+                },
             },
-        },
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "states",
-            widget: "#FormObjectIdChips",
-            label: "form.statesLabel",
-            widgetProps: {
-                apiUrl: "/api/auxiliary/state/select",
-                method: "POST",
-                placeholderKey: "form.selectState",
-                removeTooltipKey: "form.removeState",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "states",
+            {
+                render: "#Field",
+                field: {
+                    name: "states",
+                    widget: "#FormObjectIdChips",
+                    label: "form.statesLabel",
+                    widgetProps: {
+                        apiUrl: "/api/auxiliary/state/select",
+                        method: "POST",
+                        placeholderKey: "form.selectState",
+                        removeTooltipKey: "form.removeState",
+                        selectPageSizeCreate: 50,
+                        selectPageSizeEdit: 200,
+                        labelRefFormExtraKey: "states",
+                    },
+                },
             },
-        },
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "postalCodePatterns",
-            widget: "#StringArrayField",
-            label: "form.postalCodePatternsLabel",
-            placeholder: "form.postalCodePatternsPlaceholder",
-            widgetProps: {removeTooltipKey: "form.removePostalCodePattern"},
-        },
+            {
+                render: "#Field",
+                field: {
+                    name: "postalCodePatterns",
+                    widget: "#StringArrayField",
+                    label: "form.postalCodePatternsLabel",
+                    placeholder: "form.postalCodePatternsPlaceholder",
+                    widgetProps: {removeTooltipKey: "form.removePostalCodePattern"},
+                },
+            },
+        ],
     },
     {
         render: "#Field",
@@ -199,8 +211,193 @@ export const shippingZoneSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconMapPin"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTruckDelivery"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isActive"},
+                            field: {
+                                name: "isActive",
+                                widget: "#SmallInfoCard",
+                                label: "isActive",
+                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#IconCalendar", format: "dateTime"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "geography"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "countries"},
+                            field: {
+                                name: "countries",
+                                widget: "#SmallInfoCard",
+                                label: "countries",
+                                widgetProps: {
+                                    icon: "#Globe",
+                                    tooltip: "countries",
+                                    valueType: "linkedObjectRefCardList",
+                                    labelField: "name",
+                                    linkedRefListLayout: "responsive4",
+                                    linkedRefListPath: "countries",
+                                    linkedSheetModel: "countries",
+                                    linkedSheetWidget: "#CountrySheetView",
+                                    linkedSheetEntityProp: "country",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "states"},
+                            field: {
+                                name: "states",
+                                widget: "#SmallInfoCard",
+                                label: "states",
+                                widgetProps: {
+                                    icon: "#IconMapPin",
+                                    tooltip: "states",
+                                    valueType: "linkedObjectRefCardList",
+                                    labelField: "name",
+                                    linkedRefListLayout: "responsive4",
+                                    linkedRefListPath: "states",
+                                    linkedSheetModel: "states",
+                                    linkedSheetWidget: "#StateSheetView",
+                                    linkedSheetEntityProp: "state",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "postalCodePatterns"},
+                            field: {
+                                name: "postalCodePatterns",
+                                widget: "#SmallInfoCard",
+                                label: "postalCodePatterns",
+                                widgetProps: {icon: "#IconMail", valueType: "stringBadgeList"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "shippingZone.sheet.rates.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "rates",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "rates",
+                    permissions: {read: "rates"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    permissions: {read: "rates"},
+                                    field: {
+                                        name: "rates",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            compactSummaryFields: ["name", "type", "price", "carrier"],
+                                            fields: [
+                                                {
+                                                    name: "name",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                },
+                                                {
+                                                    name: "type",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    languageKeyCategory: "shippingRateType",
+                                                    labelKey: "rateType",
+                                                },
+                                                {
+                                                    name: "price",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "ratePrice",
+                                                },
+                                                {
+                                                    name: "carrier",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "carrier",
+                                                },
+                                                {
+                                                    name: "estimatedDeliveryDays",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "estimatedDeliveryDays",
+                                                },
+                                                {
+                                                    name: "conditions.minWeight",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "minWeight",
+                                                },
+                                                {
+                                                    name: "conditions.maxWeight",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "maxWeight",
+                                                },
+                                                {
+                                                    name: "conditions.minOrderAmount",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "minOrderAmount",
+                                                },
+                                                {
+                                                    name: "conditions.maxOrderAmount",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "maxOrderAmount",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
                     ],
                 },
             ],

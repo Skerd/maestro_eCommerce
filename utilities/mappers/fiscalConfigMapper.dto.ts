@@ -42,6 +42,10 @@ export function fiscalConfigToDTO(config: IFiscalConfig): FiscalConfig {
             (config as any).createdAt instanceof Date
                 ? (config as any).createdAt.toISOString()
                 : (config as any).createdAt,
+        updatedAt:
+            (config as any).updatedAt instanceof Date
+                ? (config as any).updatedAt.toISOString()
+                : (config as any).updatedAt,
         ...mapSoftDeleteToDTO(config),
         ...mapOwnershipToDTO(config),
     };

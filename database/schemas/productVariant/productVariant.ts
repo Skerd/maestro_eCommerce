@@ -7,7 +7,11 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
@@ -17,8 +21,9 @@ import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/v
 import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
 import {applyProductVariantIndexes} from "./productVariant.indexes";
 import {productVariantViews} from "./productVariant.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export interface IProductVariant extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProductVariant extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     product: IProduct;
     sku?: string;
     barcode?: string;
@@ -35,15 +40,6 @@ export interface IProductVariant extends Document, IOwnershipPluginFields, ISoft
     trackInventory?: boolean;
     company: ICompany;
 }
-
-const DimensionsSubSchema = new Schema(
-    {
-        length: {type: SchemaTypes.Number, min: 0},
-        width: {type: SchemaTypes.Number, min: 0},
-        height: {type: SchemaTypes.Number, min: 0},
-    },
-    {_id: false},
-);
 
 const ProductVariantSchema = new Schema<IProductVariant>(
     {
@@ -74,7 +70,14 @@ const ProductVariantSchema = new Schema<IProductVariant>(
             refAllowlist: CurrencySimpleSnippet,
         },
         weight: {type: SchemaTypes.Number, min: 0},
-        dimensions: {type: DimensionsSubSchema},
+        dimensions: {
+            type: {
+                length: {type: SchemaTypes.Number, min: 0},
+                width: {type: SchemaTypes.Number, min: 0},
+                height: {type: SchemaTypes.Number, min: 0},
+            },
+            _id: false,
+        },
         mainImage: {
             type: SchemaTypes.ObjectId,
             ref: "Media",
@@ -95,6 +98,7 @@ ownershipPlugin(ProductVariantSchema);
 auditPlugin(ProductVariantSchema);
 softDeletePlugin(ProductVariantSchema);
 applyProductVariantIndexes(ProductVariantSchema);
+lifeCyclePlugin(ProductVariantSchema);
 const ProductVariant = model<IProductVariant>("ProductVariant", ProductVariantSchema);
 normalizeSchemaPermissions(ProductVariant);
 export default ProductVariant;

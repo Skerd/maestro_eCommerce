@@ -3,7 +3,12 @@ import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import { ICompany } from "@coreModule/database/schemas/company/company";
 import { applyCategoryIndexes } from "./category.indexes";
 import { addModelData } from "@coreModule/database/collections";
@@ -12,7 +17,7 @@ import { CategorySimpleSnippet } from "@eCommerceModule/database/schemas/categor
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {CategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
 
-export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     name: string;
     slug: string;
@@ -55,6 +60,7 @@ ownershipPlugin(ProductCategorySchema);
 auditPlugin(ProductCategorySchema);
 softDeletePlugin(ProductCategorySchema);
 applyCategoryIndexes(ProductCategorySchema);
+lifeCyclePlugin(ProductCategorySchema);
 const ProductCategory = model<IProductCategory>("ProductCategory", ProductCategorySchema);
 normalizeSchemaPermissions(ProductCategory);
 export default ProductCategory;

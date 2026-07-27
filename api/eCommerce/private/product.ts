@@ -11,7 +11,9 @@ import {editProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce
 import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
-import {productToDTO, productsToDTO, productsToSelect} from "@eCommerceModule/utilities/mappers/productMapper.dto";
+import {productToDTO, productsToDTO} from "@eCommerceModule/utilities/mappers/product/productMapper.dto";
+import {productsToSelect} from "@eCommerceModule/utilities/mappers/product/productMapper.select";
+
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {COLLECTED_DATA} from "@coreModule/database/collections";

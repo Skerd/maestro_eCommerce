@@ -8,59 +8,77 @@ const taxRateAppliesToOptions = [
 
 const taxZoneFormFields: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
         children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
             {
-                render: "#Field",
-                field: {
-                    name: "country",
-                    widget: "#ApiSelect",
-                    label: "form.countryLabel",
-                    placeholder: "form.countryPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/auxiliary/country/select",
-                        method: "POST",
-                        pageSize: 50,
-                        normalizeEmptyToUndefined: true,
-                        cascadeClearFormFields: ["states"],
-                    },
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
+                    {render: "#Field", field: {name: "priority", widget: "#Input", label: "form.priorityLabel", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
+                ],
             },
-            {render: "#Field", field: {name: "priority", widget: "#Input", label: "form.priorityLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "states",
-            widget: "#FormObjectIdChips",
-            label: "form.statesLabel",
-            widgetProps: {
-                apiUrl: "/api/auxiliary/state/select",
-                method: "POST",
-                placeholderKey: "form.selectState",
-                removeTooltipKey: "form.removeState",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "states",
-                postBodyFromFormFields: [{field: "country", paramName: "country"}],
-                enableWhenFormFieldsNonEmpty: ["country"],
+        render: "#TitleWithCollapse",
+        props: {title: "form.geographySectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "country",
+                            widget: "#ApiSelect",
+                            label: "form.countryLabel",
+                            placeholder: "form.countryPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/auxiliary/country/select",
+                                method: "POST",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                                cascadeClearFormFields: ["states"],
+                            },
+                        },
+                    },
+                ],
             },
-        },
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "postalCodePatterns",
-            widget: "#StringArrayField",
-            label: "form.postalCodePatternsLabel",
-            placeholder: "form.postalCodePatternsPlaceholder",
-            widgetProps: {removeTooltipKey: "form.removePostalCodePattern"},
-        },
+            {
+                render: "#Field",
+                field: {
+                    name: "states",
+                    widget: "#FormObjectIdChips",
+                    label: "form.statesLabel",
+                    widgetProps: {
+                        apiUrl: "/api/auxiliary/state/select",
+                        method: "POST",
+                        placeholderKey: "form.selectState",
+                        removeTooltipKey: "form.removeState",
+                        selectPageSizeCreate: 50,
+                        selectPageSizeEdit: 200,
+                        labelRefFormExtraKey: "states",
+                        postBodyFromFormFields: [{field: "country", paramName: "country"}],
+                        enableWhenFormFieldsNonEmpty: ["country"],
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "postalCodePatterns",
+                    widget: "#StringArrayField",
+                    label: "form.postalCodePatternsLabel",
+                    placeholder: "form.postalCodePatternsPlaceholder",
+                    widgetProps: {removeTooltipKey: "form.removePostalCodePattern"},
+                },
+            },
+        ],
     },
     {
         render: "#Field",
@@ -136,10 +154,167 @@ export const taxZoneSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "country"}, field: {name: "country", widget: "#SmallInfoCard", label: "country", widgetProps: {icon: "#IconMapPin", parent: "country", valuePath: ["name"]}}},
-                        {render: "#SmallInfoCard", permissions: {read: "priority"}, field: {name: "priority", widget: "#SmallInfoCard", label: "priority", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconReceiptTax"}}},
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "isActive"},
+                            field: {
+                                name: "isActive",
+                                widget: "#SmallInfoCard",
+                                label: "isActive",
+                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "priority"},
+                            field: {name: "priority", widget: "#SmallInfoCard", label: "priority", widgetProps: {icon: "#Hash"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "company"},
+                            field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#IconCalendar", format: "dateTime"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "geography"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "country"},
+                            field: {
+                                name: "country",
+                                widget: "#SmallInfoCard",
+                                label: "country",
+                                widgetProps: {
+                                    icon: "#Globe",
+                                    parent: "country",
+                                    valuePath: ["name"],
+                                    linkedRefPath: "country",
+                                    linkedSheetModel: "countries",
+                                    linkedSheetWidget: "#CountrySheetView",
+                                    linkedSheetEntityProp: "country",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "states"},
+                            field: {
+                                name: "states",
+                                widget: "#SmallInfoCard",
+                                label: "states",
+                                widgetProps: {
+                                    icon: "#IconMapPin",
+                                    tooltip: "states",
+                                    valueType: "linkedObjectRefCardList",
+                                    labelField: "name",
+                                    linkedRefListLayout: "responsive4",
+                                    linkedRefListPath: "states",
+                                    linkedSheetModel: "states",
+                                    linkedSheetWidget: "#StateSheetView",
+                                    linkedSheetEntityProp: "state",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "postalCodePatterns"},
+                            field: {
+                                name: "postalCodePatterns",
+                                widget: "#SmallInfoCard",
+                                label: "postalCodePatterns",
+                                widgetProps: {icon: "#IconMail", valueType: "stringBadgeList"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "taxZone.sheet.rates.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "rates",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "rates",
+                    permissions: {read: "rates"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    permissions: {read: "rates"},
+                                    field: {
+                                        name: "rates",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            compactSummaryFields: ["name", "rate", "appliesTo"],
+                                            fields: [
+                                                {
+                                                    name: "name",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                },
+                                                {
+                                                    name: "rate",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "rateValue",
+                                                },
+                                                {
+                                                    name: "appliesTo",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    languageKeyCategory: "taxRateAppliesTo",
+                                                    labelKey: "rateAppliesTo",
+                                                },
+                                                {
+                                                    name: "isCompound",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    languageKeyCategory: "yesNo",
+                                                    labelKey: "isCompound",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
                     ],
                 },
             ],

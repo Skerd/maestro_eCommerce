@@ -37,19 +37,16 @@ export interface ICheckoutReservation {
     state: CheckoutReservationState;
 }
 
-const AddressSubSchema = new Schema(
-    {
-        firstName: {type: SchemaTypes.String, required: true},
-        lastName: {type: SchemaTypes.String, required: true},
-        phone: {type: SchemaTypes.String},
-        street: {type: SchemaTypes.String, required: true},
-        city: {type: SchemaTypes.String, required: true},
-        state: {type: SchemaTypes.String},
-        postalCode: {type: SchemaTypes.String},
-        country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
-    },
-    {_id: false},
-);
+export interface ICheckoutAddress {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    street: string;
+    city: string;
+    state?: string;
+    postalCode?: string;
+    country?: Schema.Types.ObjectId;
+}
 
 export interface ICheckout extends Document {
     cart: ICart;
@@ -58,8 +55,8 @@ export interface ICheckout extends Document {
     company: ICompany;
     items: ICheckoutItem[];
     appliedDiscounts?: {discount: Schema.Types.ObjectId; code?: string; amount: number}[];
-    shippingAddress?: typeof AddressSubSchema;
-    billingAddress?: typeof AddressSubSchema;
+    shippingAddress?: ICheckoutAddress;
+    billingAddress?: ICheckoutAddress;
     availableShippingRates?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number}[];
     selectedShippingRate?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number};
     taxBreakdown?: {name: string; rate: number; amount: number}[];
@@ -86,29 +83,24 @@ const CheckoutSchema = new Schema<ICheckout>(
         user: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
         sessionId: {type: SchemaTypes.String},
         company: {type: SchemaTypes.ObjectId, ref: "Company", required: true, refAllowlist: CompanyBlankSnippet},
-        items: {
-            type: [
-                new Schema(
-                    {
-                        product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
-                        variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
-                        quantity: {type: SchemaTypes.Number, required: true, min: 1},
-                        unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
-                        totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
-                        snapshot: {
-                            type: {
-                                title: {type: SchemaTypes.String},
-                                sku: {type: SchemaTypes.String},
-                                imageUrl: {type: SchemaTypes.String},
-                            },
-                            _id: false,
-                        },
+        items: [{
+            type: {
+                product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
+                variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
+                quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
+                snapshot: {
+                    type: {
+                        title: {type: SchemaTypes.String},
+                        sku: {type: SchemaTypes.String},
+                        imageUrl: {type: SchemaTypes.String},
                     },
-                    {_id: true},
-                ),
-            ],
+                    _id: false,
+                },
+            },
             default: [],
-        },
+        }],
         appliedDiscounts: {
             type: [
                 {
@@ -120,8 +112,32 @@ const CheckoutSchema = new Schema<ICheckout>(
             ],
             default: [],
         },
-        shippingAddress: {type: AddressSubSchema},
-        billingAddress: {type: AddressSubSchema},
+        shippingAddress: {
+            type: {
+                firstName: {type: SchemaTypes.String, required: true},
+                lastName: {type: SchemaTypes.String, required: true},
+                phone: {type: SchemaTypes.String},
+                street: {type: SchemaTypes.String, required: true},
+                city: {type: SchemaTypes.String, required: true},
+                state: {type: SchemaTypes.String},
+                postalCode: {type: SchemaTypes.String},
+                country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
+            },
+            _id: false,
+        },
+        billingAddress: {
+            type: {
+                firstName: {type: SchemaTypes.String, required: true},
+                lastName: {type: SchemaTypes.String, required: true},
+                phone: {type: SchemaTypes.String},
+                street: {type: SchemaTypes.String, required: true},
+                city: {type: SchemaTypes.String, required: true},
+                state: {type: SchemaTypes.String},
+                postalCode: {type: SchemaTypes.String},
+                country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
+            },
+            _id: false,
+        },
         availableShippingRates: {
             type: [
                 {
