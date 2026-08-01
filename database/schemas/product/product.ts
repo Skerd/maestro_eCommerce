@@ -1,6 +1,5 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {IMedia} from "@coreModule/database/schemas/media/media";
-import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
@@ -29,6 +28,7 @@ import {ICollection} from "@eCommerceModule/database/schemas/collection/collecti
 import {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";
 export type ProductStatus = "draft" | "active" | "archived";
@@ -42,7 +42,10 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     highlights?: string[];
     careInstructions?: string;
     warranty?: string;
-    faqs?: {question: string; answer: string}[];
+    faqs?: {
+        question: string;
+        answer: string
+    }[];
     // Identifiers
     sku?: string;
     barcode?: string;
@@ -101,7 +104,10 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     defaultVariant?: IProductVariant;
     variantCount?: number;
     // Bundles (type "bundle")
-    bundleComponents?: {product: IProduct; quantity: number}[];
+    bundleComponents?: {
+        product: IProduct;
+        quantity: number
+    }[];
     // Digital delivery (type "digital")
     downloadLimit?: number;
     downloadExpiryDays?: number;
@@ -119,7 +125,6 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     // Publishing
     status: ProductStatus;
     publishedAt?: Date;
-    // Legacy free-form attributes/specifications
     attributes?: {name: string; values: string[]}[];
     specifications?: {label: string; value: string}[];
     seo?: {
@@ -136,7 +141,6 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
         sitemapPriority?: number;
         noIndex?: boolean;
     };
-    company: ICompany;
 }
 
 const ProductSchema = new Schema<IProduct>(
@@ -146,112 +150,285 @@ const ProductSchema = new Schema<IProduct>(
             enum: ["physical", "digital", "service", "variable", "bundle", "gift_card"],
             required: true,
         },
-        title: {type: SchemaTypes.String, required: true, trim: true},
-        slug: {type: SchemaTypes.String, required: true, trim: true, lowercase: true},
-        description: {type: SchemaTypes.String, default: ""},
-        shortDescription: {type: SchemaTypes.String, default: ""},
-        highlights: {type: [SchemaTypes.String], default: []},
-        careInstructions: {type: SchemaTypes.String},
-        warranty: {type: SchemaTypes.String},
+        title: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true
+        },
+        slug: {
+            type: SchemaTypes.String,
+            // Set on create by pre-save (derived from title); not required so validation can pass first.
+            required: false,
+            trim: true,
+            lowercase: true,
+            permissions: {
+                self: {
+                    write: "no-permission",
+                },
+                others: {
+                    write: "no-permission",
+                }
+            }
+        },
+        description: {
+            type: SchemaTypes.String,
+            default: ""
+        },
+        shortDescription: {
+            type: SchemaTypes.String,
+            default: ""
+        },
+        highlights: {
+            type: [SchemaTypes.String],
+            default: []
+        },
+        careInstructions: {
+            type: SchemaTypes.String
+        },
+        warranty: {
+            type: SchemaTypes.String
+        },
         faqs: [{
             type: {
                 question: {type: SchemaTypes.String, required: true},
                 answer: {type: SchemaTypes.String, required: true},
             },
-            _id: false,
             default: [],
         }],
         // Identifiers
-        sku: {type: SchemaTypes.String, trim: true},
-        barcode: {type: SchemaTypes.String, trim: true},
-        gtin: {type: SchemaTypes.String, trim: true},
-        upc: {type: SchemaTypes.String, trim: true},
-        ean: {type: SchemaTypes.String, trim: true},
-        isbn: {type: SchemaTypes.String, trim: true},
-        mpn: {type: SchemaTypes.String, trim: true},
-        hsCode: {type: SchemaTypes.String, trim: true},
-        countryOfOrigin: {type: SchemaTypes.String, trim: true},
+        sku: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        barcode: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        gtin: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        upc: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        ean: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        isbn: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        mpn: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        hsCode: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        countryOfOrigin: {
+            type: SchemaTypes.String,
+            trim: true
+        },
         // Organization
-        brand: {type: SchemaTypes.String, trim: true},
-        vendor: {type: SchemaTypes.String, trim: true},
-        tags: {type: [SchemaTypes.String], default: []},
+        brand: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        vendor: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        tags: {
+            type: [SchemaTypes.String],
+            default: []
+        },
         categories: {
-            type: [{type: SchemaTypes.ObjectId, ref: "ProductCategory"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "ProductCategory"
+            }],
             default: [],
             refAllowlist: CategorySimpleSnippet,
         },
         collections: {
-            type: [{type: SchemaTypes.ObjectId, ref: "ProductCollection"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "ProductCollection"
+            }],
             default: [],
             refAllowlist: CollectionSimpleSnippet,
         },
         // Pricing
-        price: {type: SchemaTypes.Number, min: 0},
-        compareAtPrice: {type: SchemaTypes.Number, min: 0},
-        costPrice: {type: SchemaTypes.Number, min: 0},
-        msrp: {type: SchemaTypes.Number, min: 0},
-        saleStartsAt: {type: SchemaTypes.Date},
-        saleEndsAt: {type: SchemaTypes.Date},
-        taxable: {type: SchemaTypes.Boolean, default: true},
-        taxClass: {type: SchemaTypes.String, trim: true},
-        minOrderQty: {type: SchemaTypes.Number, min: 0},
-        maxOrderQty: {type: SchemaTypes.Number, min: 0},
-        stepQty: {type: SchemaTypes.Number, min: 0},
+        price: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        compareAtPrice: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        costPrice: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        msrp: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        saleStartsAt: {
+            type: SchemaTypes.Date
+        },
+        saleEndsAt: {
+            type: SchemaTypes.Date
+        },
+        taxable: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        taxClass: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        minOrderQty: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        maxOrderQty: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        stepQty: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
         currency: {
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet,
         },
         // Shipping / physical
-        weight: {type: SchemaTypes.Number, min: 0},
-        weightUnit: {type: SchemaTypes.String, enum: ["kg", "lb", "g", "oz"], default: "kg"},
+        weight: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        weightUnit: {
+            type: SchemaTypes.String,
+            enum: ["kg", "lb", "g", "oz"],
+            default: "kg"
+        },
         dimensions: {
             type: {
-                length: {type: SchemaTypes.Number, min: 0},
-                width: {type: SchemaTypes.Number, min: 0},
-                height: {type: SchemaTypes.Number, min: 0},
-            },
-            _id: false,
+                length: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
+                width: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
+                height: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
+            }
         },
-        dimensionUnit: {type: SchemaTypes.String, enum: ["cm", "in"], default: "cm"},
-        volumetricWeight: {type: SchemaTypes.Number, min: 0},
-        shippingClass: {type: SchemaTypes.String, trim: true},
-        isHazmat: {type: SchemaTypes.Boolean, default: false},
-        requiresShipping: {type: SchemaTypes.Boolean, default: true},
+        dimensionUnit: {
+            type: SchemaTypes.String,
+            enum: ["cm", "in"],
+            default: "cm"
+        },
+        volumetricWeight: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        shippingClass: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        isHazmat: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        requiresShipping: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
         // Inventory hints
-        trackInventory: {type: SchemaTypes.Boolean, default: true},
-        allowBackorder: {type: SchemaTypes.Boolean, default: false},
-        lowStockThreshold: {type: SchemaTypes.Number, min: 0},
-        safetyStock: {type: SchemaTypes.Number, min: 0},
-        backorderLimit: {type: SchemaTypes.Number, min: 0},
-        preorderEnabled: {type: SchemaTypes.Boolean, default: false},
-        preorderAvailableAt: {type: SchemaTypes.Date},
-        availableForSale: {type: SchemaTypes.Boolean, default: true},
+        trackInventory: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        allowBackorder: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        lowStockThreshold: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        safetyStock: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        backorderLimit: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        preorderEnabled: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        preorderAvailableAt: {
+            type: SchemaTypes.Date
+        },
+        availableForSale: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
         // Media
         mainImage: {
             type: SchemaTypes.ObjectId,
             ref: "Media",
             refAllowlist: MediaSimpleSnippet,
-            dynamicTableConfiguration: {filterable: false, sortable: false, cellType: COLUMN_TYPE.AVATAR},
+            dynamicTableConfiguration: {
+                filterable: false,
+                sortable: false,
+                cellType: COLUMN_TYPE.AVATAR
+            },
         },
         gallery: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Media"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Media"
+            }],
             default: [],
             refAllowlist: MediaSimpleSnippet,
         },
         videoUrls: {type: [SchemaTypes.String], default: []},
         documents: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Media"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Media"
+            }],
             default: [],
             refAllowlist: MediaSimpleSnippet,
         },
         // Variants / options
         variantOptions: {
-            type: [{type: SchemaTypes.ObjectId, ref: "ProductAttribute"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "ProductAttribute"
+            }],
             default: [],
             refAllowlist: ProductAttributeSimpleSnippet,
         },
-        hasVariants: {type: SchemaTypes.Boolean, default: false},
+        hasVariants: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
         defaultVariant: {
             type: SchemaTypes.ObjectId,
             ref: "ProductVariant",
@@ -261,43 +438,88 @@ const ProductSchema = new Schema<IProduct>(
         bundleComponents: {
             type: [
                 {
-                    product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
-                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
-                    _id: false,
+                    product: {
+                        type: SchemaTypes.ObjectId,
+                        ref: "Product",
+                        required: true,
+                        refAllowlist: ProductSimpleSnippet
+                    },
+                    quantity: {
+                        type: SchemaTypes.Number,
+                        required: true,
+                        min: 1
+                    }
                 },
             ],
             default: [],
         },
         // Digital delivery (type "digital")
-        downloadLimit: {type: SchemaTypes.Number, min: 1},
-        downloadExpiryDays: {type: SchemaTypes.Number, min: 1},
+        downloadLimit: {
+            type: SchemaTypes.Number,
+            min: 1
+        },
+        downloadExpiryDays: {
+            type: SchemaTypes.Number,
+            min: 1
+        },
         // Merchandising
         relatedProducts: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Product"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Product"
+            }],
             default: [],
             refAllowlist: ProductSimpleSnippet,
         },
         upsells: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Product"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Product"
+            }],
             default: [],
             refAllowlist: ProductSimpleSnippet,
         },
         crossSells: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Product"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Product"
+            }],
             default: [],
             refAllowlist: ProductSimpleSnippet,
         },
         frequentlyBoughtTogether: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Product"}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Product"
+            }],
             default: [],
             refAllowlist: ProductSimpleSnippet,
         },
-        featured: {type: SchemaTypes.Boolean, default: false},
-        badges: {type: [SchemaTypes.String], default: []},
+        featured: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        badges: {
+            type: [SchemaTypes.String],
+            default: []
+        },
         // Ratings (system-computed)
-        ratingAverage: {type: SchemaTypes.Number, min: 0, max: 5, default: 0},
-        ratingCount: {type: SchemaTypes.Number, min: 0, default: 0},
-        reviewCount: {type: SchemaTypes.Number, min: 0, default: 0},
+        ratingAverage: {
+            type: SchemaTypes.Number,
+            min: 0,
+            max: 5,
+            default: 0
+        },
+        ratingCount: {
+            type: SchemaTypes.Number,
+            min: 0,
+            default: 0
+        },
+        reviewCount: {
+            type: SchemaTypes.Number,
+            min: 0,
+            default: 0
+        },
         // Publishing
         status: {
             type: SchemaTypes.String,
@@ -305,14 +527,21 @@ const ProductSchema = new Schema<IProduct>(
             default: "draft",
             required: true,
         },
-        publishedAt: {type: SchemaTypes.Date},
+        publishedAt: {
+            type: SchemaTypes.Date
+        },
         // Legacy attributes / specifications
         attributes: {
             type: [
                 {
-                    name: {type: SchemaTypes.String, required: true},
-                    values: {type: [SchemaTypes.String], default: []},
-                    _id: false,
+                    name: {
+                        type: SchemaTypes.String,
+                        required: true
+                    },
+                    values: {
+                        type: [SchemaTypes.String],
+                        default: []
+                    }
                 },
             ],
             default: [],
@@ -320,39 +549,92 @@ const ProductSchema = new Schema<IProduct>(
         specifications: {
             type: [
                 {
-                    label: {type: SchemaTypes.String, required: true},
-                    value: {type: SchemaTypes.String, required: true},
-                    _id: false,
+                    label: {
+                        type: SchemaTypes.String,
+                        required: true
+                    },
+                    value: {
+                        type: SchemaTypes.String,
+                        required: true
+                    }
                 },
             ],
             default: [],
         },
         seo: {
             type: {
-                metaTitle: {type: SchemaTypes.String},
-                metaDescription: {type: SchemaTypes.String},
-                metaKeywords: {type: [SchemaTypes.String], default: []},
-                canonicalUrl: {type: SchemaTypes.String},
-                openGraphTitle: {type: SchemaTypes.String},
-                openGraphDescription: {type: SchemaTypes.String},
-                openGraphImage: {type: SchemaTypes.ObjectId, ref: "Media", refAllowlist: MediaSimpleSnippet},
-                twitterCard: {type: SchemaTypes.String, enum: ["summary", "summary_large_image"], default: "summary_large_image"},
-                structuredDataType: {type: SchemaTypes.String},
-                sitemapInclude: {type: SchemaTypes.Boolean, default: true},
-                sitemapPriority: {type: SchemaTypes.Number, min: 0, max: 1},
-                noIndex: {type: SchemaTypes.Boolean, default: false},
-            },
-            _id: false,
+                metaTitle: {
+                    type: SchemaTypes.String
+                },
+                metaDescription: {
+                    type: SchemaTypes.String
+                },
+                metaKeywords: {
+                    type: [SchemaTypes.String],
+                    default: []
+                },
+                canonicalUrl: {
+                    type: SchemaTypes.String
+                },
+                openGraphTitle: {
+                    type: SchemaTypes.String
+                },
+                openGraphDescription: {
+                    type: SchemaTypes.String
+                },
+                openGraphImage: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "Media",
+                    refAllowlist: MediaSimpleSnippet
+                },
+                twitterCard: {
+                    type: SchemaTypes.String,
+                    enum: ["summary", "summary_large_image"],
+                    default: "summary_large_image"
+                },
+                structuredDataType: {
+                    type: SchemaTypes.String
+                },
+                sitemapInclude: {
+                    type: SchemaTypes.Boolean,
+                    default: true
+                },
+                sitemapPriority: {
+                    type: SchemaTypes.Number,
+                    min: 0,
+                    max: 1
+                },
+                noIndex: {
+                    type: SchemaTypes.Boolean,
+                    default: false
+                }
+            }
         },
     },
-    {accessMode: "loose"},
+    {
+        accessMode: "loose"
+    },
 );
+
+// Auto-generate unique slug on create from title (same pattern as Sale/Reservation name).
+// Slug is sticky after create — title renames do not change it.
+ProductSchema.pre("save", async function () {
+    if (!this.isNew || this.slug) return;
+    if (!this.title) {
+        throw new Error("Product title is required to generate slug");
+    }
+    const companyId = (this.company as {_id?: unknown} | null)?._id ?? this.company;
+    if (!companyId) {
+        throw new Error("Product company is required to generate slug");
+    }
+    this.slug = await generateUniqueSlug(this.title, this.constructor, companyId as any);
+});
 
 ownershipPlugin(ProductSchema);
 auditPlugin(ProductSchema);
 softDeletePlugin(ProductSchema);
-applyProductIndexes(ProductSchema);
 lifeCyclePlugin(ProductSchema);
+applyProductIndexes(ProductSchema);
 const Product = model<IProduct>("Product", ProductSchema);
 normalizeSchemaPermissions(Product);
 export default Product;

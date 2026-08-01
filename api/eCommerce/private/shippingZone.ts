@@ -8,16 +8,10 @@ import {createShippingZoneFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {editShippingZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/editShippingZone.form.validator";
 import ShippingZone from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 import {shippingZoneService} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.service";
+import {ShippingZoneActions} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.actions";
 import {shippingZoneToDTO, shippingZonesToDTO} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.dto";
 import {shippingZonesToSelect} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.select";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
-
-const shippingZoneTransforms = {
-    rates: (v: unknown) => v,
-} as const;
-
-const buildShippingZoneCreateFromSchemaDef = buildCreateDataFromSchemaDef(ShippingZoneSchemaDef, shippingZoneTransforms);
-const buildShippingZoneUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(ShippingZoneSchemaDef, shippingZoneTransforms);
 
 export const basePath = "/api/eCommerce/shippingZone";
 export const {router} = createCrudRouter({
@@ -32,8 +26,9 @@ export const {router} = createCrudRouter({
     toDTO: shippingZoneToDTO,
     toDTOArray: shippingZonesToDTO,
     toSelect: shippingZonesToSelect,
-    buildCreateData: async (params) => buildShippingZoneCreateFromSchemaDef(params),
-    buildUpdateData: async (params, writeFields) => buildShippingZoneUpdateFromSchemaDef(params, writeFields),
+    buildCreateData: buildCreateDataFromSchemaDef(ShippingZoneSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(ShippingZoneSchemaDef),
+    actions: ShippingZoneActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });
 

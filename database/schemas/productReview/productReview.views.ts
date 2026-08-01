@@ -3,8 +3,8 @@ import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/vi
 /**
  * Reviews are created by buyers through the API (purchase-gated) — the panel
  * only moderates (view / delete / restore), so this ships sheet-only.
- * Related fields are single refs (order, product, reviewer, company) — linked
- * sheets where widgets exist; no related arrays on this model.
+ * Related fields are single refs (order, product, reviewer) — linked sheets
+ * where widgets exist; company comes from ownershipPlugin (not shown here).
  */
 export const productReviewSheetView: ViewConfig = {
     model: "productReviews",
@@ -139,19 +139,6 @@ export const productReviewSheetView: ViewConfig = {
                                     parent: "reviewer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
-                                },
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "company",
-                                widget: "#SmallInfoCard",
-                                label: "company",
-                                widgetProps: {
-                                    icon: "#IconBuilding",
-                                    parent: "company",
-                                    valuePath: ["name"],
                                 },
                             },
                         },

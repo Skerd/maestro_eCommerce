@@ -11,10 +11,10 @@ const customerAddressFormFields: ViewConfig["nodes"] = [
             {
                 render: "#Field",
                 field: {
-                    name: "user",
+                    name: "customer",
                     widget: "#ApiSelect",
-                    label: "form.userLabel",
-                    placeholder: "form.userPlaceholder",
+                    label: "form.customerLabel",
+                    placeholder: "form.customerPlaceholder",
                     required: true,
                     widgetProps: {
                         apiUrl: "/api/company/users/select",
@@ -61,7 +61,6 @@ const customerAddressFormFields: ViewConfig["nodes"] = [
                     placeholder: "form.phonePlaceholder",
                 },
             },
-            {render: "#Field", field: {name: "isDefault", widget: "#Checkbox", label: "form.isDefaultLabel"}},
         ],
     },
     {
@@ -87,7 +86,27 @@ const customerAddressFormFields: ViewConfig["nodes"] = [
                                     widgetProps: {
                                         apiUrl: "/api/auxiliary/country/select",
                                         method: "POST",
+                                        pageSize: 50,
                                         normalizeEmptyToUndefined: true,
+                                        cascadeClearFormFields: ["state", "city"],
+                                    },
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "state",
+                                    widget: "#ApiSelect",
+                                    label: "form.stateLabel",
+                                    placeholder: "form.statePlaceholder",
+                                    widgetProps: {
+                                        apiUrl: "/api/auxiliary/state/select",
+                                        method: "POST",
+                                        pageSize: 50,
+                                        normalizeEmptyToUndefined: true,
+                                        postBodyFromFormFields: [{field: "country", paramName: "country"}],
+                                        enableWhenFormFieldsNonEmpty: ["country"],
+                                        cascadeClearFormFields: ["city"],
                                     },
                                 },
                             },
@@ -95,19 +114,21 @@ const customerAddressFormFields: ViewConfig["nodes"] = [
                                 render: "#Field",
                                 field: {
                                     name: "city",
-                                    widget: "#Input",
+                                    widget: "#ApiSelect",
                                     label: "form.cityLabel",
                                     placeholder: "form.cityPlaceholder",
                                     required: true,
-                                },
-                            },
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "state",
-                                    widget: "#Input",
-                                    label: "form.stateLabel",
-                                    placeholder: "form.statePlaceholder",
+                                    widgetProps: {
+                                        apiUrl: "/api/auxiliary/city/select",
+                                        method: "POST",
+                                        pageSize: 50,
+                                        normalizeEmptyToUndefined: true,
+                                        postBodyFromFormFields: [
+                                            {field: "country", paramName: "country"},
+                                            {field: "state", paramName: "state"},
+                                        ],
+                                        enableWhenFormFieldsNonEmpty: ["country"],
+                                    },
                                 },
                             },
                             {
@@ -246,59 +267,133 @@ export const customerAddressSheetView: ViewConfig = {
                                 widgetProps: {icon: "#IconPhone"},
                             },
                         },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "address", defaultOpen: true},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch"},
+                    children: [
                         {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "street",
-                                widget: "#SmallInfoCard",
-                                label: "street",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
+                            render: "div",
+                            props: {className: "lg:col-span-2 space-y-2 min-w-0"},
+                            children: [
+                                {
+                                    render: "#SheetGrid",
+                                    props: {columns: 2},
+                                    children: [
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "country",
+                                                widget: "#SmallInfoCard",
+                                                label: "country",
+                                                widgetProps: {
+                                                    icon: "#Globe",
+                                                    parent: "country",
+                                                    valuePath: ["name"],
+                                                    linkedRefPath: "country",
+                                                    linkedSheetModel: "countries",
+                                                    linkedSheetWidget: "#CountrySheetView",
+                                                    linkedSheetEntityProp: "country",
+                                                },
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "state",
+                                                widget: "#SmallInfoCard",
+                                                label: "state",
+                                                widgetProps: {
+                                                    icon: "#IconMapPin",
+                                                    parent: "state",
+                                                    valuePath: ["name"],
+                                                    linkedRefPath: "state",
+                                                    linkedSheetModel: "states",
+                                                    linkedSheetWidget: "#StateSheetView",
+                                                    linkedSheetEntityProp: "state",
+                                                },
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "city",
+                                                widget: "#SmallInfoCard",
+                                                label: "city",
+                                                widgetProps: {
+                                                    icon: "#IconMapPin",
+                                                    parent: "city",
+                                                    valuePath: ["name"],
+                                                    linkedRefPath: "city",
+                                                    linkedSheetModel: "cities",
+                                                    linkedSheetWidget: "#CitySheetView",
+                                                    linkedSheetEntityProp: "city",
+                                                },
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "postalCode",
+                                                widget: "#SmallInfoCard",
+                                                label: "postalCode",
+                                                widgetProps: {icon: "#Hash"},
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "street",
+                                                widget: "#SmallInfoCard",
+                                                label: "street",
+                                                widgetProps: {icon: "#IconMapPin"},
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "latitude",
+                                                widget: "#SmallInfoCard",
+                                                label: "latitude",
+                                                widgetProps: {icon: "#IconMapPin", format: "locale"},
+                                            },
+                                        },
+                                        {
+                                            render: "#SmallInfoCard",
+                                            field: {
+                                                name: "longitude",
+                                                widget: "#SmallInfoCard",
+                                                label: "longitude",
+                                                widgetProps: {icon: "#IconMapPin", format: "locale"},
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
                         },
                         {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "city",
-                                widget: "#SmallInfoCard",
-                                label: "city",
-                                widgetProps: {icon: "#IconMapPin"},
+                            render: "div",
+                            props: {
+                                className:
+                                    "flex flex-col lg:col-span-1 w-full min-h-[180px] h-[180px] lg:h-full lg:min-h-[180px]",
                             },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "state",
-                                widget: "#SmallInfoCard",
-                                label: "state",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "postalCode",
-                                widget: "#SmallInfoCard",
-                                label: "postalCode",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "latitude",
-                                widget: "#SmallInfoCard",
-                                label: "latitude",
-                                widgetProps: {icon: "#IconMapPin", format: "locale"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "longitude",
-                                widget: "#SmallInfoCard",
-                                label: "longitude",
-                                widgetProps: {icon: "#IconMapPin", format: "locale"},
-                            },
+                            children: [
+                                {
+                                    render: "#SheetLocationMap",
+                                    field: {
+                                        name: "latitude",
+                                        widget: "#SheetLocationMap",
+                                        widgetProps: {addressField: "."},
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },
@@ -315,32 +410,14 @@ export const customerAddressSheetView: ViewConfig = {
                         {
                             render: "#SmallInfoCard",
                             field: {
-                                name: "user",
+                                name: "customer",
                                 widget: "#SmallInfoCard",
-                                label: "user",
+                                label: "customer",
                                 widgetProps: {
                                     icon: "#IconUser",
-                                    parent: "user",
+                                    parent: "customer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
-                                },
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "country",
-                                widget: "#SmallInfoCard",
-                                label: "country",
-                                widgetProps: {
-                                    icon: "#Globe",
-                                    parent: "country",
-                                    valuePath: ["name", "code"],
-                                    joinSeparator: " · ",
-                                    linkedRefPath: "country",
-                                    linkedSheetModel: "countries",
-                                    linkedSheetWidget: "#CountrySheetView",
-                                    linkedSheetEntityProp: "country",
                                 },
                             },
                         },

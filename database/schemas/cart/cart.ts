@@ -35,7 +35,7 @@ export interface ICart extends Document {
     mergedFrom?: Schema.Types.ObjectId;
     /** Set once the abandoned-cart reminder fired; cleared on new activity. */
     abandonedNotifiedAt?: Date;
-    /** Store credit applied at cart; consumed atomically at checkout confirm. */
+    /** Store credit applied at cart; consumed atomically at checkout confirmation. */
     appliedGiftCard?: {giftCard: Schema.Types.ObjectId; code: string; amount: number};
 }
 

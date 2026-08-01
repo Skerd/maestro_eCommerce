@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {IWarehouse} from "@eCommerceModule/database/schemas/warehouse/warehouse";
@@ -13,10 +13,12 @@ import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/pro
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
 import {InventorySimpleSnippet} from "@eCommerceModule/database/schemas/inventory/inventory.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
-import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
 import {applyInventoryMovementIndexes} from "./inventoryMovement.indexes";
 import {inventoryMovementViews} from "./inventoryMovement.views";
+import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import {ILifeCyclePluginFields, IOwnershipPluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type InventoryMovementReason =
     | "restock"
@@ -29,7 +31,11 @@ export type InventoryMovementReason =
     | "initial"
     | "write_off";
 
-export interface IInventoryMovement extends Document {
+/**
+ * Stock ledger row — system/action-generated only. Panel is read-only
+ * (list + single); all fields are write-locked (NoWritePermission).
+ */
+export interface IInventoryMovement extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
     /** Owning inventory row — preferred link for sheet history. */
     inventory?: IInventory;
     product: IProduct;
@@ -49,50 +55,144 @@ export interface IInventoryMovement extends Document {
     expiryDate?: Date;
     performedBy?: IUser;
     referenceType?: string;
-    referenceId?: Schema.Types.ObjectId;
+    /** Opaque polymorphic link with `referenceType` — intentionally no Interface / mongoose ref. */
+    referenceId?: Types.ObjectId;
     company: ICompany;
     createdAt?: Date;
 }
 
+const NoWritePermission = {
+    self: {
+        write: "no-permission",
+    },
+    others: {
+        write: "no-permission",
+    },
+};
+
 const InventoryMovementSchema = new Schema<IInventoryMovement>(
     {
-        inventory: {type: SchemaTypes.ObjectId, ref: "Inventory", refAllowlist: InventorySimpleSnippet},
-        product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
-        variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant", refAllowlist: ProductVariantSimpleSnippet},
-        warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true, refAllowlist: WarehouseSimpleSnippet},
-        quantity: {type: SchemaTypes.Number, required: true},
+        inventory: {
+            type: SchemaTypes.ObjectId,
+            ref: "Inventory",
+            refAllowlist: InventorySimpleSnippet,
+            permissions: NoWritePermission,
+        },
+        product: {
+            type: SchemaTypes.ObjectId,
+            ref: "Product",
+            required: true,
+            refAllowlist: ProductSimpleSnippet,
+            permissions: NoWritePermission,
+        },
+        variant: {
+            type: SchemaTypes.ObjectId,
+            ref: "ProductVariant",
+            refAllowlist: ProductVariantSimpleSnippet,
+            permissions: NoWritePermission,
+        },
+        warehouse: {
+            type: SchemaTypes.ObjectId,
+            ref: "Warehouse",
+            required: true,
+            refAllowlist: WarehouseSimpleSnippet,
+            permissions: NoWritePermission,
+        },
+        quantity: {
+            type: SchemaTypes.Number,
+            required: true,
+            permissions: NoWritePermission,
+        },
         reason: {
             type: SchemaTypes.String,
             enum: ["restock", "sale", "return", "adjustment", "damage", "transfer_in", "transfer_out", "initial", "write_off"],
             required: true,
+            permissions: NoWritePermission,
         },
-        note: {type: SchemaTypes.String},
-        quantityBefore: {type: SchemaTypes.Number, required: true},
-        quantityAfter: {type: SchemaTypes.Number, required: true},
-        manufacturer: {type: SchemaTypes.String, trim: true},
-        receiptNumber: {type: SchemaTypes.String, trim: true},
+        note: {
+            type: SchemaTypes.String,
+            permissions: NoWritePermission,
+        },
+        quantityBefore: {
+            type: SchemaTypes.Number,
+            required: true,
+            permissions: NoWritePermission,
+        },
+        quantityAfter: {
+            type: SchemaTypes.Number,
+            required: true,
+            permissions: NoWritePermission,
+        },
+        manufacturer: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
+        receiptNumber: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
         receipts: {
             type: [{type: SchemaTypes.ObjectId, ref: "Media"}],
             default: [],
             refAllowlist: MediaSimpleSnippet,
+            permissions: NoWritePermission,
         },
-        occurredAt: {type: SchemaTypes.Date},
-        unitCost: {type: SchemaTypes.Number, min: 0},
-        batchLot: {type: SchemaTypes.String, trim: true},
-        expiryDate: {type: SchemaTypes.Date},
-        performedBy: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
-        referenceType: {type: SchemaTypes.String},
-        referenceId: {type: SchemaTypes.ObjectId},
-        company: {type: SchemaTypes.ObjectId, ref: "Company", required: true, refAllowlist: CompanyBlankSnippet},
+        occurredAt: {
+            type: SchemaTypes.Date,
+            permissions: NoWritePermission,
+        },
+        unitCost: {
+            type: SchemaTypes.Number,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        batchLot: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
+        expiryDate: {
+            type: SchemaTypes.Date,
+            permissions: NoWritePermission,
+        },
+        performedBy: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            permissions: NoWritePermission,
+        },
+        referenceType: {
+            type: SchemaTypes.String,
+            permissions: NoWritePermission,
+        },
+        referenceId: {
+            type: SchemaTypes.ObjectId,
+            permissions: NoWritePermission,
+        }
     },
     {
         accessMode: "loose",
         timestamps: {createdAt: true, updatedAt: false},
+        permissions: {
+            self: {
+                create: "no-permission",
+                delete: "no-permission",
+                restore: "no-permission",
+            },
+            others: {
+                create: "no-permission",
+                delete: "no-permission",
+                restore: "no-permission",
+            },
+        },
     },
 );
 
+ownershipPlugin(InventoryMovementSchema);
+lifeCyclePlugin(InventoryMovementSchema);
 applyInventoryMovementIndexes(InventoryMovementSchema);
-
 const InventoryMovement = model<IInventoryMovement>("InventoryMovement", InventoryMovementSchema);
 normalizeSchemaPermissions(InventoryMovement);
 export default InventoryMovement;

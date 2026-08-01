@@ -1,5 +1,4 @@
 import {ObjectId} from "mongodb";
-import slugify from "slugify";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {CategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
@@ -10,9 +9,6 @@ import ProductCategory from "@eCommerceModule/database/schemas/category/category
 import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
 import {categoriesToDTO, categoryToDTO} from "@eCommerceModule/utilities/mappers/category/categoryMapper.dto";
 import {categoriesToSelect} from "@eCommerceModule/utilities/mappers/category/categoryMapper.select";
-
-const buildCategoryCreateFromSchemaDef = buildCreateDataFromSchemaDef(CategorySchemaDef);
-const buildCategoryUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(CategorySchemaDef);
 
 export const basePath = "/api/eCommerce/category";
 export const {router} = createCrudRouter({
@@ -37,25 +33,7 @@ export const {router} = createCrudRouter({
         }
         return filter;
     },
-    buildCreateData: async (params) => {
-        const createParams = {
-            ...params,
-            parent: params.parentId ?? params.parent,
-        };
-        const data = buildCategoryCreateFromSchemaDef(createParams);
-        data.slug = params.slug?.trim() || slugify(params.name);
-        if (data.order === undefined) data.order = 0;
-        return data;
-    },
-    buildUpdateData: async (params, writeFields) => {
-        const update = buildCategoryUpdateFromSchemaDef(params, writeFields);
-        if (params.slug !== undefined && writeFields.slug && typeof update.slug === "string") {
-            update.slug = update.slug.trim();
-        }
-        if (params.name !== undefined && writeFields.name && typeof update.name === "string") {
-            update.name = update.name.trim();
-        }
-        return update;
-    },
+    buildCreateData: buildCreateDataFromSchemaDef(CategorySchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(CategorySchemaDef),
     rateLimits: {read: 60, write: 30, delete: 20},
 });

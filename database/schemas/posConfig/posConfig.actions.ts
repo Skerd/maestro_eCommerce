@@ -2,14 +2,23 @@ import bcrypt from "bcrypt";
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {AUTHENTICATION, CLIENT_SIDE} from "@coreModule/environment";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {generateRandomString} from "@coreModule/utilities/helpers";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {setManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/setManagerPin.form.validator";
 import {changeManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/changeManagerPin.form.validator";
 import {clearManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/clearManagerPin.form.validator";
 import {requestManagerPinResetFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/requestManagerPinReset.form.validator";
 import {openManagerPinResetLinkFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/openManagerPinResetLink.form.validator";
 import {resetManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/resetManagerPin.form.validator";
+import {
+    companyLockStatusFormSchema,
+    pauseAllPosConfigsFormSchema,
+    pausePosConfigFormSchema,
+    resumeAllPosConfigsFormSchema,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/pausePosConfig.form.validator";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
 import {dispatchManagerPinResetEmail} from "@eCommerceModule/utilities/emails/dispatchManagerPinResetEmail";
 import {
@@ -20,7 +29,20 @@ import {
     upsertManagerPin,
     userRefId,
 } from "@eCommerceModule/utilities/services/posManagerPin";
+import {
+    clearAllConfigPauses,
+    forceCloseOpenSessionsForConfig,
+    forceCloseOpenSessionsForConfigs,
+    getCompanyPosLock,
+    isCompanyPosLockActive,
+    notifyPosTillsKilled,
+    stampAllConfigsPaused,
+    upsertCompanyPosLock,
+    type PosKillReason,
+} from "@eCommerceModule/utilities/services/posKillSwitch";
+import PosConfigModel from "./posConfig";
 import {posConfigService} from "./posConfig.service";
+import "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
 
 const RESET_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -44,7 +66,248 @@ function assertCurrentUserIsManager(config: any, userId: string, languageCode: s
     }
 }
 
+function assertCanWritePauseOrActive(
+    writeFields: Record<string, unknown>,
+    languageCode: string,
+    field: "pausedAt" | "isActive",
+) {
+    if (field === "isActive" && !writeFields.isActive) {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+    }
+    if (field === "pausedAt" && !(writeFields.pausedAt || writeFields.isActive)) {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+    }
+}
+
+function sanitizeWriteFields(actionUserCtx: any, languageCode: string) {
+    return SchemaGuard.sanitizeFields(
+        PosConfigModel,
+        getModelCollectedData("posConfigs").writeFields!,
+        "write",
+        actionUserCtx,
+        languageCode,
+    );
+}
+
+async function runKillPipeline(
+    configId: ObjectId | string,
+    reason: PosKillReason,
+    params: Record<string, any>,
+    opts?: {pauseReason?: string | null; companyWide?: boolean; configIds?: (ObjectId | string)[]},
+) {
+    const ctx = {
+        languageCode: params.languageCode,
+        company: params.company,
+        session: params.session,
+        logger: params.logger,
+        userId: params.actionUserCtx?.userId,
+    };
+    const result = opts?.configIds?.length
+        ? await forceCloseOpenSessionsForConfigs(opts.configIds, reason, ctx)
+        : await forceCloseOpenSessionsForConfig(configId, reason, ctx);
+
+    notifyPosTillsKilled({
+        ...result,
+        reason,
+        pauseReason: opts?.pauseReason ?? null,
+        companyWide: !!opts?.companyWide,
+    });
+    return result;
+}
+
+async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<ActionMessage> {
+    const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+
+    const writeFields = sanitizeWriteFields(actionUserCtx, languageCode);
+    assertCanWritePauseOrActive(writeFields, languageCode, "isActive");
+
+    const existing = await posConfigService.findOneOrThrow(
+        {_id: new ObjectId(_id), company: company._id},
+        {session, logger, languageCode},
+    );
+
+    if (existing.isActive === isActive) {
+        return {message: isActive ? "POS config already active" : "POS config already inactive"};
+    }
+
+    await posConfigService.updateByIdOrThrow(
+        existing._id,
+        {isActive},
+        {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+    );
+
+    if (!isActive) {
+        await runKillPipeline(existing._id, "deactivate", params);
+    }
+
+    return {message: isActive ? "POS config activated" : "POS config deactivated"};
+}
+
 export class PosConfigActions {
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: validateSingleForm,
+        transaction: true,
+    })
+    async activate(params: Record<string, any>): Promise<ActionMessage> {
+        return setActiveState(params, true);
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: validateSingleForm,
+        transaction: true,
+    })
+    async deactivate(params: Record<string, any>): Promise<ActionMessage> {
+        return setActiveState(params, false);
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: pausePosConfigFormSchema,
+        transaction: true,
+    })
+    async pause(params: Record<string, any>): Promise<ActionMessage & {isPaused: true}> {
+        const {logger, languageCode, session, company, actionUserCtx, _id, pauseReason} = params;
+        const writeFields = sanitizeWriteFields(actionUserCtx, languageCode);
+        assertCanWritePauseOrActive(writeFields, languageCode, "pausedAt");
+
+        const existing = await posConfigService.findOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode},
+        );
+
+        const now = new Date();
+        const reason = typeof pauseReason === "string" ? pauseReason.trim() || null : null;
+        await posConfigService.updateByIdOrThrow(
+            existing._id,
+            {
+                pausedAt: now,
+                pausedBy: new ObjectId(actionUserCtx.userId.toString()),
+                pauseReason: reason,
+            },
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+
+        await runKillPipeline(existing._id, "pause", params, {pauseReason: reason});
+        return {message: "POS config paused", isPaused: true};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: validateSingleForm,
+        transaction: true,
+    })
+    async resume(params: Record<string, any>): Promise<ActionMessage & {isPaused: boolean}> {
+        const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+        const writeFields = sanitizeWriteFields(actionUserCtx, languageCode);
+        assertCanWritePauseOrActive(writeFields, languageCode, "pausedAt");
+
+        if (isCompanyPosLockActive(await getCompanyPosLock(company._id, session))) {
+            throw apiValidationException("pos_config_paused", "_id", null, languageCode);
+        }
+
+        const existing = await posConfigService.findOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode},
+        );
+
+        if (!existing.pausedAt) {
+            return {message: "POS config already resumed", isPaused: false};
+        }
+
+        await posConfigService.updateByIdOrThrow(
+            existing._id,
+            {pausedAt: null, pausedBy: null, pauseReason: null},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+
+        return {message: "POS config resumed", isPaused: false};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 10},
+        schema: pauseAllPosConfigsFormSchema,
+        transaction: true,
+    })
+    async pauseAll(params: Record<string, any>): Promise<ActionMessage & {isPaused: true}> {
+        const {logger, languageCode, session, company, actionUserCtx, pauseReason} = params;
+        const writeFields = sanitizeWriteFields(actionUserCtx, languageCode);
+        assertCanWritePauseOrActive(writeFields, languageCode, "pausedAt");
+
+        const now = new Date();
+        const userId = new ObjectId(actionUserCtx.userId.toString());
+        const reason = typeof pauseReason === "string" ? pauseReason.trim() || null : null;
+
+        await upsertCompanyPosLock(
+            company._id,
+            {pausedAt: now, pausedBy: userId, pauseReason: reason},
+            session,
+        );
+        const configIds = await stampAllConfigsPaused(
+            company._id,
+            {pausedAt: now, pausedBy: userId, pauseReason: reason},
+            session,
+        );
+
+        await runKillPipeline(configIds[0] ?? company._id, "pauseAll", params, {
+            pauseReason: reason,
+            companyWide: true,
+            configIds,
+        });
+
+        logger?.info?.(`Company POS pause-all applied (${configIds.length} configs)`);
+        return {message: "All POS configs paused", isPaused: true};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 10},
+        schema: resumeAllPosConfigsFormSchema,
+        transaction: true,
+    })
+    async resumeAll(params: Record<string, any>): Promise<ActionMessage & {isPaused: false}> {
+        const {logger, languageCode, session, company, actionUserCtx} = params;
+        const writeFields = sanitizeWriteFields(actionUserCtx, languageCode);
+        assertCanWritePauseOrActive(writeFields, languageCode, "pausedAt");
+
+        await upsertCompanyPosLock(
+            company._id,
+            {pausedAt: null, pausedBy: null, pauseReason: null},
+            session,
+        );
+        await clearAllConfigPauses(company._id, session);
+
+        logger?.info?.("Company POS resume-all applied");
+        return {message: "All POS configs resumed", isPaused: false};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 60},
+        schema: companyLockStatusFormSchema,
+        transaction: false,
+    })
+    async companyLockStatus(params: Record<string, any>): Promise<{
+        isLocked: boolean;
+        pauseReason: string | null;
+        pausedAt: string | null;
+    }> {
+        const {company, session} = params;
+        const lock = await getCompanyPosLock(company._id, session);
+        const isLocked = isCompanyPosLockActive(lock);
+        return {
+            isLocked,
+            pauseReason: isLocked ? (lock?.pauseReason ?? null) : null,
+            pausedAt: isLocked && lock?.pausedAt ? new Date(lock.pausedAt).toISOString() : null,
+        };
+    }
+
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 20},

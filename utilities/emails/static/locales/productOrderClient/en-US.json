@@ -1,0 +1,86 @@
+{
+  "heading": "Order update",
+  "imageAlt": "Notification",
+  "copyright": "© {pageName}",
+  "greeting": "Hello {fullName},",
+  "subjectGeneric": "Order update — {companyName}",
+  "introGeneric": "There is an update on your order.",
+  "closingGeneric": "Thank you for shopping with us.",
+
+  "headingPlaced": "Order placed",
+  "subjectPlaced": "Order {orderNumber} placed — {companyName}",
+  "introPlaced": "We received your order.",
+  "closingPlaced": "You can review your order in your account.",
+
+  "headingPaid": "Payment received",
+  "subjectPaid": "Payment received for order {orderNumber} — {companyName}",
+  "introPaid": "We have received payment for your order.",
+  "closingPaid": "We will notify you when it ships.",
+
+  "headingPaymentFailed": "Payment failed",
+  "subjectPaymentFailed": "Payment failed for order {orderNumber} — {companyName}",
+  "introPaymentFailed": "We could not process your payment.",
+  "closingPaymentFailed": "Please return to checkout to try another payment method.",
+
+  "headingConfirmed": "Order confirmed",
+  "subjectConfirmed": "Order {orderNumber} confirmed — {companyName}",
+  "introConfirmed": "Your order has been confirmed and will be prepared shortly.",
+  "closingConfirmed": "Thank you for your patience.",
+
+  "headingShipped": "Order shipped",
+  "subjectShipped": "Order {orderNumber} shipped — {companyName}",
+  "introShipped": "Your order is on its way.",
+  "closingShipped": "Track your shipment using the details below.",
+  "trackingLine": "Tracking number: {trackingNumber}",
+  "trackingLink": "<a href=\"{trackingUrl}\">Track shipment</a>",
+
+  "headingDelivered": "Order delivered",
+  "subjectDelivered": "Order {orderNumber} delivered — {companyName}",
+  "introDelivered": "Your order has been marked as delivered.",
+  "closingDelivered": "We hope you enjoy your purchase.",
+
+  "headingCancelled": "Order cancelled",
+  "subjectCancelled": "Order {orderNumber} cancelled — {companyName}",
+  "introCancelled": "Your order has been cancelled.",
+  "closingCancelled": "If you have questions, contact the store.",
+
+  "headingRefunded": "Refund processed",
+  "subjectRefunded": "Refund for order {orderNumber} — {companyName}",
+  "introRefunded": "A refund has been processed for your order.",
+  "closingRefunded": "It may take a few business days to appear on your statement.",
+
+  "headingAbandonedCart": "Complete your order",
+  "subjectAbandonedCart": "You left items in your cart — {companyName}",
+  "introAbandonedCart": "You still have items waiting in your cart.",
+  "closingAbandonedCart": "Complete checkout when you are ready.",
+
+  "headingGiftCard": "Your gift card",
+  "subjectGiftCard": "Gift card for order {orderNumber} — {companyName}",
+  "introGiftCard": "Your gift card code(s) are ready.",
+  "closingGiftCard": "Keep these codes safe — they are your store credit.",
+
+  "headingDigital": "Your downloads are ready",
+  "subjectDigital": "Digital downloads for order {orderNumber} — {companyName}",
+  "introDigital": "Your digital purchases are ready to download.",
+  "closingDigital": "Links expire according to the product download policy.",
+
+  "headingReturnApproved": "Return approved",
+  "subjectReturnApproved": "Return approved for order {orderNumber} — {companyName}",
+  "introReturnApproved": "Your return request has been approved.",
+  "closingReturnApproved": "Follow any return instructions from the store.",
+
+  "headingReturnRejected": "Return rejected",
+  "subjectReturnRejected": "Return rejected for order {orderNumber} — {companyName}",
+  "introReturnRejected": "Your return request was not approved.",
+  "closingReturnRejected": "Contact the store if you need more information.",
+
+  "headingNewOrderMerchant": "New order",
+  "subjectNewOrderMerchant": "New order {orderNumber} — {companyName}",
+  "introNewOrderMerchant": "A new product order was placed.",
+  "closingNewOrderMerchant": "Open the admin panel to fulfill it.",
+
+  "headingLowStock": "Low stock alert",
+  "subjectLowStock": "Low stock: {productTitle} — {companyName}",
+  "introLowStock": "Inventory has fallen below the reorder point.",
+  "closingLowStock": "Restock soon to avoid selling out."
+}

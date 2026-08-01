@@ -12,13 +12,6 @@ import {productVariantsToSelect} from "@eCommerceModule/utilities/mappers/produc
 
 const mediaUpload = mediaUploadMW({fields: {mainImage: 1}, maxFileSize: 50 * 1024 * 1024});
 
-const productVariantTransforms = {
-    attributeCombination: (v: unknown) => v,
-} as const;
-
-const buildProductVariantCreateFromSchemaDef = buildCreateDataFromSchemaDef(ProductVariantSchemaDef, productVariantTransforms);
-const buildProductVariantUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(ProductVariantSchemaDef, productVariantTransforms);
-
 export const basePath = "/api/eCommerce/productVariant";
 export const {router} = createCrudRouter({
     collectionName: "productVariants",
@@ -38,7 +31,7 @@ export const {router} = createCrudRouter({
         if (!productId) return {};
         return {product: new ObjectId(productId as string)};
     },
-    buildCreateData: async (params) => buildProductVariantCreateFromSchemaDef(params),
-    buildUpdateData: async (params, writeFields) => buildProductVariantUpdateFromSchemaDef(params, writeFields),
+    buildCreateData: buildCreateDataFromSchemaDef(ProductVariantSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(ProductVariantSchemaDef),
     rateLimits: {read: 60, write: 30, delete: 20},
 });

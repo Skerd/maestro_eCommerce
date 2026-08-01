@@ -71,7 +71,7 @@ export const categorySheetView: ViewConfig = {
     ],
 };
 
-/** Create: optional slug (generated server-side when omitted); optional parent. */
+/** Create/edit: slug is generated server-side from name and is not editable. */
 const categoryCreateFormNodes: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
@@ -90,17 +90,7 @@ const categoryCreateFormNodes: ViewConfig["nodes"] = [
             {
                 render: "#Field",
                 field: {
-                    name: "slug",
-                    widget: "#Input",
-                    label: "form.slugLabel",
-                    placeholder: "form.slugPlaceholder",
-                    required: false,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "parentId",
+                    name: "parent",
                     widget: "#ApiSelect",
                     label: "form.parentCategoryLabel",
                     placeholder: "form.parentCategoryPlaceholder",
@@ -137,16 +127,6 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.nameLabel",
                     placeholder: "form.namePlaceholder",
                     required: true,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "slug",
-                    widget: "#Input",
-                    label: "form.slugLabel",
-                    placeholder: "form.slugPlaceholder",
-                    required: false,
                 },
             },
             {

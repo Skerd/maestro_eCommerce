@@ -1,4 +1,3 @@
-import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {createWarehouseFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/createWarehouse.form.validator";
@@ -10,19 +9,6 @@ import {WarehouseActions} from "@eCommerceModule/database/schemas/warehouse/ware
 import {warehouseToDTO, warehousesToDTO} from "@eCommerceModule/utilities/mappers/warehouse/warehouseMapper.dto";
 import {warehousesToSelect} from "@eCommerceModule/utilities/mappers/warehouse/warehouseMapper.select";
 import {detachWarehouseFromPosConfigsOrThrow} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
-
-const warehouseTransforms = {
-    code: (v: unknown) => String(v).trim().toUpperCase(),
-} as const;
-
-const buildWarehouseCreateFromSchemaDef = buildCreateDataFromSchemaDef(WarehouseSchemaDef, warehouseTransforms);
-const buildWarehouseUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(WarehouseSchemaDef, warehouseTransforms);
-
-async function clearOtherDefaultWarehouses(companyId: ObjectId, exceptId?: ObjectId): Promise<void> {
-    const filter: Record<string, unknown> = {company: companyId, isDefault: true};
-    if (exceptId) filter._id = {$ne: exceptId};
-    await Warehouse.updateMany(filter, {$set: {isDefault: false}});
-}
 
 export const basePath = "/api/eCommerce/warehouse";
 export const {router} = createCrudRouter({
@@ -38,28 +24,8 @@ export const {router} = createCrudRouter({
     toDTO: warehouseToDTO,
     toDTOArray: warehousesToDTO,
     toSelect: warehousesToSelect,
-    buildCreateData: async (params) => {
-        const data = buildWarehouseCreateFromSchemaDef(params);
-        if (data.isDefault === undefined) data.isDefault = false;
-        if (data.isActive === undefined) data.isActive = true;
-        return data;
-    },
-    buildUpdateData: async (params, writeFields) => {
-        const data = buildWarehouseUpdateFromSchemaDef(params, writeFields);
-        // Active state is managed via activate/deactivate actions, not the edit form.
-        delete data.isActive;
-        return data;
-    },
-    afterCreate: async (created, params) => {
-        if (created.isDefault) {
-            await clearOtherDefaultWarehouses(params.company._id, created._id);
-        }
-    },
-    afterUpdate: async (params) => {
-        if (params.isDefault === true) {
-            await clearOtherDefaultWarehouses(params.company._id, new ObjectId(params._id));
-        }
-    },
+    buildCreateData: buildCreateDataFromSchemaDef(WarehouseSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(WarehouseSchemaDef),
     beforeDelete: async (params, doc) => {
         await detachWarehouseFromPosConfigsOrThrow({
             warehouseId: doc._id,

@@ -27,11 +27,27 @@ export interface IProductAttribute extends Document, IOwnershipPluginFields, ISo
 
 const ProductAttributeSchema = new Schema<IProductAttribute>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
-        values: {type: [SchemaTypes.String], default: []},
-        isVisibleOnProductPage: {type: SchemaTypes.Boolean, default: true},
-        isUsedForVariants: {type: SchemaTypes.Boolean, default: false},
-        position: {type: SchemaTypes.Number, default: 0},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true
+        },
+        values: {
+            type: [SchemaTypes.String],
+            default: []
+        },
+        isVisibleOnProductPage: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        isUsedForVariants: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        position: {
+            type: SchemaTypes.Number,
+            default: 0
+        },
     },
     {accessMode: "loose"},
 );

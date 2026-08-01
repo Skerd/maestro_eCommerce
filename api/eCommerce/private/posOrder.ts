@@ -1,11 +1,15 @@
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
-import {createPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/createPosOrder.form.validator";
-import {editPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/editPosOrder.form.validator";
-import {posOrderToDTO, posOrdersToDTO, posOrdersToSelect} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
+import {posOrderToDTO, posOrdersToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
+import {posOrdersToSelect} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.select";
+import {z} from "zod";
 
 export const basePath = "/api/eCommerce/posOrder";
+/**
+ * POS orders are created by the till pay API only. Panel is read +
+ * reprint — no CRUD create/edit.
+ */
 export const {router} = createCrudRouter({
     collectionName: "posOrders",
     model: PosOrder,
@@ -13,12 +17,11 @@ export const {router} = createCrudRouter({
     entityName: "PosOrder",
     selectSearchField: "name",
     defaultSort: {createdAt: -1},
-    createSchema: createPosOrderFormSchema,
-    editSchema: editPosOrderFormSchema,
+    createSchema: (_lang: string) => z.object({}),
+    editSchema: (_lang: string) => z.object({_id: z.string()}),
     toDTO: posOrderToDTO,
     toDTOArray: posOrdersToDTO,
     toSelect: posOrdersToSelect,
-    // Till API creates/pays orders — standard CRUD create/update are stubs.
     buildCreateData: async () => ({}),
     buildUpdateData: async () => ({}),
     rateLimits: {read: 60, write: 10, delete: 10},

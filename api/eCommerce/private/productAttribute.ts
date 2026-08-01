@@ -1,4 +1,3 @@
-import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {createProductAttributeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/createProductAttribute.form.validator";
@@ -9,13 +8,6 @@ import ProductVariant from "@eCommerceModule/database/schemas/productVariant/pro
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
 import {productAttributeToDTO, productAttributesToDTO} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.dto";
 import {productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.select";
-
-const productAttributeTransforms = {
-    values: (v: unknown) => (Array.isArray(v) ? v.filter(Boolean) : []),
-} as const;
-
-const buildProductAttributeCreateFromSchemaDef = buildCreateDataFromSchemaDef(ProductAttributeSchemaDef, productAttributeTransforms);
-const buildProductAttributeUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(ProductAttributeSchemaDef, productAttributeTransforms);
 
 export const basePath = "/api/eCommerce/productAttribute";
 export const {router} = createCrudRouter({
@@ -30,8 +22,8 @@ export const {router} = createCrudRouter({
     toDTO: productAttributeToDTO,
     toDTOArray: productAttributesToDTO,
     toSelect: productAttributesToSelect,
-    buildCreateData: async (params) => buildProductAttributeCreateFromSchemaDef(params),
-    buildUpdateData: async (params, writeFields) => buildProductAttributeUpdateFromSchemaDef(params, writeFields),
+    buildCreateData: buildCreateDataFromSchemaDef(ProductAttributeSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(ProductAttributeSchemaDef),
     beforeDelete: async (params, doc) => {
         const inUse = await ProductVariant.countDocuments({
             company: params.company._id,

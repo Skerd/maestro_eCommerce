@@ -6,7 +6,13 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
-import {IOwnershipPluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
@@ -16,7 +22,8 @@ import {inventoryViews} from "./inventory.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {InventorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/inventory.schema-def";
 
-export interface IInventory extends Document, IOwnershipPluginFields {
+export interface IInventory
+    extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     product: IProduct;
     variant?: IProductVariant;
     warehouse: IWarehouse;
@@ -47,11 +54,28 @@ const InventorySchema = new Schema<IInventory>(
             required: true,
             refAllowlist: WarehouseSimpleSnippet,
         },
-        quantityOnHand: {type: SchemaTypes.Number, default: 0, min: 0},
-        quantityReserved: {type: SchemaTypes.Number, default: 0, min: 0},
-        reorderPoint: {type: SchemaTypes.Number, min: 0},
-        reorderQuantity: {type: SchemaTypes.Number, min: 0},
-        lowStockAlertSent: {type: SchemaTypes.Boolean, default: false},
+        quantityOnHand: {
+            type: SchemaTypes.Number, 
+            default: 0, 
+            min: 0
+        },
+        quantityReserved: {
+            type: SchemaTypes.Number, 
+            default: 0, 
+            min: 0
+        },
+        reorderPoint: {
+            type: SchemaTypes.Number, 
+            min: 0
+        },
+        reorderQuantity: {
+            type: SchemaTypes.Number, 
+            min: 0
+        },
+        lowStockAlertSent: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
     },
     {
         accessMode: "loose",
@@ -67,11 +91,12 @@ InventorySchema.virtual("quantityAvailable").get(function (this: IInventory) {
 
 ownershipPlugin(InventorySchema);
 auditPlugin(InventorySchema);
+softDeletePlugin(InventorySchema);
 applyInventoryIndexes(InventorySchema);
+lifeCyclePlugin(InventorySchema);
 const Inventory = model<IInventory>("Inventory", InventorySchema);
 normalizeSchemaPermissions(Inventory);
 export default Inventory;
 
 addModelData(Inventory, inventoryViews);
-// excludePaths: quantityReserved (system-managed, not in SchemaDef), lowStockAlertSent (system-managed)
 validateSchemaDefAgainstMongoose(InventorySchema, InventorySchemaDef, "Inventory", ["quantityReserved", "lowStockAlertSent"]);

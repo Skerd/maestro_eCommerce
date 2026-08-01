@@ -1,10 +1,6 @@
 import type {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
-import type {Discount} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.dto";
-import {
-    dateToISOString,
-    mapPopulatedRef,
-    objectIdToString,
-} from "@coreModule/utilities/mappers/common.mapper";
+import type {Discount, DiscountRef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.dto";
+import {dateToISOString, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -14,41 +10,34 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import CustomerGroup from "@eCommerceModule/database/schemas/customerGroup/customerGroup";
-import {loadNamedRefs, type NamedRef} from "@eCommerceModule/utilities/mappers/helpers/namedRefs";
+import {loadNamedRefs} from "@eCommerceModule/utilities/mappers/helpers/namedRefs";
 
-export async function resolveDiscountRefs(discount: IDiscount): Promise<{
-    targets: NamedRef[];
-    customerGroupRefs: NamedRef[];
-    getProducts: NamedRef[];
-}> {
-    const [customerGroupRefs, getProducts, targets] = await Promise.all([
-        loadNamedRefs(CustomerGroup as any, discount.customerGroups as any, "name"),
-        loadNamedRefs(Product as any, discount.buyXGetY?.getProductIds as any, "title"),
-        (async () => {
-            const ids = discount.targetIds as any;
-            if (!ids?.length) return [] as NamedRef[];
-            if (discount.appliesTo === "product") return loadNamedRefs(Product as any, ids, "title");
-            if (discount.appliesTo === "collection") return loadNamedRefs(ProductCollection as any, ids, "name");
-            if (discount.appliesTo === "category") return loadNamedRefs(ProductCategory as any, ids, "name");
-            return [];
-        })(),
-    ]);
-
-    return {targets, customerGroupRefs, getProducts};
+function ids(values: unknown[] | undefined): string[] | undefined {
+    if (!values) return undefined;
+    return values.map((v: any) => objectIdToString(v?._id ?? v));
 }
 
-export function discountToDTO(
-    discount: IDiscount,
-    refs?: {
-        targets?: NamedRef[];
-        customerGroupRefs?: NamedRef[];
-        getProducts?: NamedRef[];
-    },
-): Discount {
-    const targets = refs?.targets ?? [];
-    const getProducts = refs?.getProducts ?? [];
-    const appliesTo = discount.appliesTo;
+function withTitle(refs: {_id: string; name: string}[]): DiscountRef[] {
+    return refs.map((r) => ({_id: r._id, name: r.name, title: r.name}));
+}
 
+/** Polymorphic `targetIds` — resolve names by `appliesTo` (no single mongoose ref). */
+async function loadTargets(discount: IDiscount): Promise<DiscountRef[]> {
+    const {appliesTo, targetIds} = discount;
+    if (!targetIds?.length) return [];
+    if (appliesTo === "product") return withTitle(await loadNamedRefs(Product as any, targetIds as any, "title"));
+    if (appliesTo === "collection") return loadNamedRefs(ProductCollection as any, targetIds as any, "name");
+    if (appliesTo === "category") return loadNamedRefs(ProductCategory as any, targetIds as any, "name");
+    return [];
+}
+
+function buildDiscountDTO(
+    discount: IDiscount,
+    targets: DiscountRef[],
+    customerGroupRefs: DiscountRef[],
+    getProducts: DiscountRef[],
+): Discount {
+    const {appliesTo} = discount;
     return {
         _id: discount._id.toString(),
         type: discount.type,
@@ -56,9 +45,9 @@ export function discountToDTO(
         code: discount.code,
         value: discount.value,
         appliesTo,
-        targetIds: discount.targetIds?.map((id: any) => objectIdToString(id?._id ?? id)),
+        targetIds: ids(discount.targetIds as any),
         targets,
-        productTargets: appliesTo === "product" ? targets.map((r) => ({_id: r._id, name: r.name, title: r.name})) : [],
+        productTargets: appliesTo === "product" ? targets : [],
         collectionTargets: appliesTo === "collection" ? targets : [],
         categoryTargets: appliesTo === "category" ? targets : [],
         minimumOrderAmount: discount.minimumOrderAmount,
@@ -66,8 +55,8 @@ export function discountToDTO(
         usageLimit: discount.usageLimit,
         usageLimitPerCustomer: discount.usageLimitPerCustomer,
         usageCount: discount.usageCount,
-        customerGroups: discount.customerGroups?.map((id: any) => objectIdToString(id?._id ?? id)),
-        customerGroupRefs: refs?.customerGroupRefs ?? [],
+        customerGroups: ids(discount.customerGroups as any),
+        customerGroupRefs,
         isActive: discount.isActive,
         startsAt: dateToISOString(discount.startsAt),
         endsAt: dateToISOString(discount.endsAt) || undefined,
@@ -75,19 +64,29 @@ export function discountToDTO(
             ? {
                   buyQuantity: discount.buyXGetY.buyQuantity,
                   getQuantity: discount.buyXGetY.getQuantity,
-                  getProductIds: discount.buyXGetY.getProductIds?.map((id: any) => objectIdToString(id?._id ?? id)) ?? [],
-                  getProducts: getProducts.map((r) => ({_id: r._id, name: r.name, title: r.name}))
+                  getProductIds: ids(discount.buyXGetY.getProductIds as any) ?? [],
+                  getProducts,
               }
             : undefined,
-        company: mapPopulatedRef(discount.company as any),
+        ...(discount.type !== "buy_x_get_y" ? {hasOfferScoping: true as const} : {}),
         ...mapSoftDeleteToDTO(discount),
         ...mapOwnershipToDTO(discount),
         ...mapLifeCycleToDTO(discount),
     };
 }
 
+/** Sync create-response path — chip labels come from `discountToDTOWithLabels` (enrich). */
+export function discountToDTO(discount: IDiscount): Discount {
+    return buildDiscountDTO(discount, [], [], []);
+}
+
 export async function discountToDTOWithLabels(discount: IDiscount): Promise<Discount> {
-    return discountToDTO(discount, await resolveDiscountRefs(discount));
+    const [targets, customerGroupRefs, getProducts] = await Promise.all([
+        loadTargets(discount),
+        loadNamedRefs(CustomerGroup as any, discount.customerGroups as any, "name"),
+        loadNamedRefs(Product as any, discount.buyXGetY?.getProductIds as any, "title").then(withTitle),
+    ]);
+    return buildDiscountDTO(discount, targets, customerGroupRefs, getProducts);
 }
 
 export async function discountsToDTOWithLabels(discounts: IDiscount[]): Promise<Discount[]> {
@@ -95,5 +94,5 @@ export async function discountsToDTOWithLabels(discounts: IDiscount[]): Promise<
 }
 
 export function discountsToDTO(discounts: IDiscount[]): Discount[] {
-    return discounts.map((d) => discountToDTO(d));
+    return discounts.map(discountToDTO);
 }

@@ -22,12 +22,16 @@ import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommer
 import {applyProductVariantIndexes} from "./productVariant.indexes";
 import {productVariantViews} from "./productVariant.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 
 export interface IProductVariant extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     product: IProduct;
     sku?: string;
     barcode?: string;
-    attributeCombination?: {attribute: Schema.Types.ObjectId; value: string}[];
+    attributeCombination?: {
+        attribute: IProductAttribute;
+        value: string
+    }[];
     price?: number;
     compareAtPrice?: number;
     costPrice?: number;
@@ -49,13 +53,26 @@ const ProductVariantSchema = new Schema<IProductVariant>(
             required: true,
             refAllowlist: ProductSimpleSnippet,
         },
-        sku: {type: SchemaTypes.String, trim: true},
-        barcode: {type: SchemaTypes.String, trim: true},
+        sku: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        barcode: {
+            type: SchemaTypes.String,
+            trim: true
+        },
         attributeCombination: {
             type: [
                 {
-                    attribute: {type: SchemaTypes.ObjectId, ref: "ProductAttribute", refAllowlist: ProductAttributeSimpleSnippet},
-                    value: {type: SchemaTypes.String, required: true},
+                    attribute: {
+                        type: SchemaTypes.ObjectId,
+                        ref: "ProductAttribute",
+                        refAllowlist: ProductAttributeSimpleSnippet
+                    },
+                    value: {
+                        type: SchemaTypes.String,
+                        required: true
+                    },
                     _id: false,
                 },
             ],

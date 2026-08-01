@@ -5,10 +5,12 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {cartToDTO} from "@eCommerceModule/utilities/mappers/cart/cartMapper.dto";
 import {validateDiscount} from "@eCommerceModule/utilities/services/discountValidationService";
 import {
     calculatePricing,
@@ -48,28 +50,6 @@ async function applyPricingToCart(cart: any, companyId: ObjectId, userId?: Objec
 export const basePath = "/api/eCommerce/cart";
 export const router = Router();
 
-function cartToDTO(cart: any) {
-    return {
-        _id: cart._id.toString(),
-        items: (cart.items ?? []).map((item: any) => ({
-            _id: item._id?.toString(),
-            product: {_id: item.product?._id?.toString() ?? item.product?.toString(), title: item.snapshot?.title},
-            variant: item.variant ? {_id: item.variant._id?.toString() ?? item.variant.toString()} : null,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            snapshot: item.snapshot,
-        })),
-        subtotal: cart.subtotal,
-        discountTotal: cart.discountTotal,
-        appliedDiscounts: cart.appliedDiscounts ?? [],
-        appliedGiftCard: cart.appliedGiftCard
-            ? {code: cart.appliedGiftCard.code, amount: cart.appliedGiftCard.amount}
-            : undefined,
-        expiresAt: cart.expiresAt?.toISOString(),
-    };
-}
-
 /** Enforces the product's minOrderQty / maxOrderQty / stepQty on a target quantity. */
 function assertQuantityAllowed(product: any, quantity: number, languageCode: string): void {
     const min = product.minOrderQty ?? 1;
@@ -91,9 +71,11 @@ router.get(
     asyncHandler(async (params: any) => {
         const {company, actionUserCtx} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId})
-            .populate("items.product", "title price mainImage slug")
-            .lean();
+        const cart = await cartService.findOne(
+            {company: company._id, user: actionUserCtx.userId},
+            {logger: params.logger, languageCode: params.languageCode},
+            [{path: "items.product", select: "title price mainImage slug"}],
+        );
         if (!cart) return {data: null};
         return {data: cartToDTO(cart)};
     }),
@@ -108,18 +90,18 @@ router.put(
         const {languageCode, company, actionUserCtx, productId, variantId, quantity} = params;
 
         if (!productId || !quantity || quantity < 1) {
-            throw apiValidationException("product_and_quantity_required", null, null, languageCode);
+            throw apiValidationException("product_and_quantity_required", "", null, languageCode);
         }
 
         const product = await Product.findOne({_id: new ObjectId(productId), company: company._id, status: "active"}).lean();
-        if (!product) throw apiValidationException("product_not_found", null, null, languageCode);
+        if (!product) throw apiValidationException("product_not_found", "", null, languageCode);
 
         let unitPrice = (product as any).price ?? 0;
         let variantDoc: any = null;
 
         if (variantId) {
             variantDoc = await ProductVariant.findOne({_id: new ObjectId(variantId), product: product._id}).lean();
-            if (!variantDoc) throw apiValidationException("variant_not_found", null, null, languageCode);
+            if (!variantDoc) throw apiValidationException("variant_not_found", "", null, languageCode);
             unitPrice = variantDoc.price ?? unitPrice;
         }
 
@@ -193,13 +175,13 @@ router.patch(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, itemId, quantity} = params;
 
-        if (!itemId) throw apiValidationException("item_id_required", null, null, languageCode);
+        if (!itemId) throw apiValidationException("item_id_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
-        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         const item = (cart.items as any[]).find((i: any) => i._id?.toString() === itemId);
-        if (!item) throw apiValidationException("item_not_found", null, null, languageCode);
+        if (!item) throw apiValidationException("item_not_found", "", null, languageCode);
 
         if (quantity <= 0) {
             cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
@@ -211,7 +193,7 @@ router.patch(
             item.totalPrice = item.unitPrice * quantity;
         }
 
-        cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
+        cart.subtotal = cart.items.reduce((s: number, i) => s + i.totalPrice, 0);
         await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
         await cart.save();
         return {data: cartToDTO(cart.toObject())};
@@ -232,9 +214,9 @@ router.delete(
             {$pull: {items: {_id: new ObjectId(itemId)}}},
             {new: true},
         );
-        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
-        cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
+        cart.subtotal = cart.items.reduce((s: number, i) => s + i.totalPrice, 0);
         await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
         await cart.save();
         return {data: cartToDTO(cart.toObject())};
@@ -249,10 +231,10 @@ router.post(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, code} = params;
 
-        if (!code) throw apiValidationException("code_required", null, null, languageCode);
+        if (!code) throw apiValidationException("code_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
-        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         const now = new Date();
         const discount = await Discount.findOne({
@@ -265,8 +247,14 @@ router.post(
 
         if (!discount) return {valid: false, message: "discount_not_found"};
 
-        const result = validateDiscount({subtotal: cart.subtotal, items: []}, discount);
-        if (!result.valid) return {valid: false, message: result.reason};
+        const items = (cart.items as any[]).map((item) => ({
+            productId: (item.product?._id ?? item.product) as ObjectId,
+            variantId: item.variant ? ((item.variant._id ?? item.variant) as ObjectId) : undefined,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+        }));
+        const result = validateDiscount({subtotal: cart.subtotal, items}, discount);
+        if (result.valid === false) return {valid: false, message: result.reason};
 
         cart.discountTotal = result.discountAmount;
         cart.appliedDiscounts = [{discount: discount._id, code: discount.code, amount: result.discountAmount}] as any;
@@ -284,10 +272,10 @@ router.post(
     asyncHandler(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, code} = params;
 
-        if (!code) throw apiValidationException("code_required", null, null, languageCode);
+        if (!code) throw apiValidationException("code_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
-        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         const giftCard = await giftCardService.findRedeemable(code, company._id, {logger, languageCode});
         if (!giftCard) return {valid: false, message: "gift_card_not_redeemable"};
@@ -311,7 +299,7 @@ router.delete(
         const {languageCode, company, actionUserCtx} = params;
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
-        if (!cart) throw apiValidationException("cart_not_found", null, null, languageCode);
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         cart.appliedGiftCard = undefined;
         await cart.save();

@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReviewMapper.dto";
+import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
 import type {ShopProductReviewsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.dto";
 
 export const basePath = "/api/eCommerce/shopProductReviews";

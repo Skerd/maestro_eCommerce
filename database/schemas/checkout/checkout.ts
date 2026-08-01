@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
@@ -30,9 +30,9 @@ export interface ICheckoutItem {
  * success, released on cancel / expiry. One entry per reserved order line.
  */
 export interface ICheckoutReservation {
-    product: Schema.Types.ObjectId;
-    variant?: Schema.Types.ObjectId;
-    warehouse: Schema.Types.ObjectId;
+    product: Types.ObjectId;
+    variant?: Types.ObjectId;
+    warehouse: Types.ObjectId;
     quantity: number;
     state: CheckoutReservationState;
 }

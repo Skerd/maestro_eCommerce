@@ -1,11 +1,10 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import {COLLECTED_DATA} from "@coreModule/database/collections";
+import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
-import type {FiscalConfig as FiscalConfigDto} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/fiscalConfig.dto";
-import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfigMapper.dto";
+import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
 import FiscalConfigModel from "./fiscalConfig";
 import {fiscalConfigService} from "./fiscalConfig.service";
 
@@ -16,7 +15,7 @@ export class FiscalConfigActions {
         schema: validateSingleForm,
         transaction: true,
     })
-    async activate(params: Record<string, any>): Promise<FiscalConfigDto> {
+    async activate(params: Record<string, any>): Promise<ActionMessage> {
         return setActiveState(params, true);
     }
 
@@ -26,23 +25,23 @@ export class FiscalConfigActions {
         schema: validateSingleForm,
         transaction: true,
     })
-    async deactivate(params: Record<string, any>): Promise<FiscalConfigDto> {
+    async deactivate(params: Record<string, any>): Promise<ActionMessage> {
         return setActiveState(params, false);
     }
 }
 
-async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<FiscalConfigDto> {
+async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<ActionMessage> {
     const {logger, languageCode, session, company, actionUserCtx, _id} = params;
 
     const writeFields = SchemaGuard.sanitizeFields(
         FiscalConfigModel,
-        COLLECTED_DATA.fiscalconfigs.writeFields,
+        getModelCollectedData("fiscalConfigs").writeFields!,
         "write",
         actionUserCtx,
         languageCode,
     );
     if (!writeFields.isActive) {
-        throw apiValidationException("user_permissions_not_sufficient", null, null, languageCode);
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
     }
 
     const existing = await fiscalConfigService.findOneOrThrow(
@@ -51,14 +50,14 @@ async function setActiveState(params: Record<string, any>, isActive: boolean): P
     );
 
     if (existing.isActive === isActive) {
-        return fiscalConfigToDTO(existing);
+        return {message: isActive ? "Fiscal config already active" : "Fiscal config already inactive"};
     }
 
-    const updated = await fiscalConfigService.updateByIdOrThrow(
+    await fiscalConfigService.updateByIdOrThrow(
         existing._id,
         {isActive},
         {session, logger, languageCode, auditUserId: actionUserCtx.userId},
     );
 
-    return fiscalConfigToDTO(updated);
+    return {message: isActive ? "Fiscal config activated" : "Fiscal config deactivated"};
 }

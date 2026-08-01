@@ -1,5 +1,7 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {ICountry} from "@coreModule/database/schemas/country/country";
+import {IState} from "@coreModule/database/schemas/state/state";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
@@ -20,10 +22,15 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export interface ITaxZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
-    country: Schema.Types.ObjectId;
-    states?: Schema.Types.ObjectId[];
+    country: ICountry;
+    states?: IState[];
     postalCodePatterns?: string[];
-    rates: {name: string; rate: number; isCompound: boolean; appliesTo: "all" | "physical" | "digital"}[];
+    rates: {
+        name: string; 
+        rate: number; 
+        isCompound: boolean; 
+        appliesTo: "all" | "physical" | "digital"
+    }[];
     priority: number;
     isActive: boolean;
     company: ICompany;
@@ -31,24 +38,64 @@ export interface ITaxZone extends Document, IOwnershipPluginFields, ISoftDeleteP
 
 const TaxZoneSchema = new Schema<ITaxZone>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
-        country: {type: SchemaTypes.ObjectId, ref: "Country", required: true, refAllowlist: CountrySimpleSnippet},
-        states: {type: [{type: SchemaTypes.ObjectId, ref: "State", refAllowlist: StateSimpleSnippet}], default: []},
-        postalCodePatterns: {type: [SchemaTypes.String], default: []},
+        name: {
+            type: SchemaTypes.String, 
+            required: true, 
+            trim: true
+        },
+        country: {
+            type: SchemaTypes.ObjectId, 
+            ref: "Country", 
+            required: true, 
+            refAllowlist: CountrySimpleSnippet
+        },
+        states: {
+            type: [{
+                type: SchemaTypes.ObjectId, 
+                ref: "State", 
+                refAllowlist: StateSimpleSnippet
+            }], 
+            default: []
+        },
+        postalCodePatterns: {
+            type: [SchemaTypes.String], 
+            default: []
+        },
         rates: {
             type: [
                 {
-                    name: {type: SchemaTypes.String, required: true},
-                    rate: {type: SchemaTypes.Number, required: true, min: 0, max: 100},
-                    isCompound: {type: SchemaTypes.Boolean, default: false},
-                    appliesTo: {type: SchemaTypes.String, enum: ["all", "physical", "digital"], default: "all"},
+                    name: {
+                        type: SchemaTypes.String, 
+                        required: true
+                    },
+                    rate: {
+                        type: SchemaTypes.Number, 
+                        required: true, 
+                        min: 0, 
+                        max: 100
+                    },
+                    isCompound: {
+                        type: SchemaTypes.Boolean, 
+                        default: false
+                    },
+                    appliesTo: {
+                        type: SchemaTypes.String, 
+                        enum: ["all", "physical", "digital"], 
+                        default: "all"
+                    },
                     _id: false,
                 },
             ],
             default: [],
         },
-        priority: {type: SchemaTypes.Number, default: 0},
-        isActive: {type: SchemaTypes.Boolean, default: true},
+        priority: {
+            type: SchemaTypes.Number, 
+            default: 0
+        },
+        isActive: {
+            type: SchemaTypes.Boolean, 
+            default: true
+        },
     },
     {accessMode: "loose"},
 );

@@ -10,40 +10,6 @@ import {posPaymentMethodToDTO, posPaymentMethodsToDTO} from "@eCommerceModule/ut
 import {posPaymentMethodsToSelect} from "@eCommerceModule/utilities/mappers/posPaymentMethod/posPaymentMethodMapper.select";
 import {detachPosPaymentMethodFromConfigs} from "@eCommerceModule/utilities/services/posPaymentMethodDetach";
 
-const buildPosPaymentMethodCreateFromSchemaDef = buildCreateDataFromSchemaDef(PosPaymentMethodSchemaDef);
-const buildPosPaymentMethodUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(PosPaymentMethodSchemaDef);
-
-function truthyFlag(value: unknown): boolean {
-    return value === true || value === "true" || value === 1 || value === "1";
-}
-
-/** Bank POS terminal ↔ type: on → card; off → leave card (default cash). */
-function applyTerminalTypeRule(
-    data: Record<string, any>,
-    params: Record<string, any>,
-    existing?: {terminalEnabled?: boolean; type?: string},
-) {
-    const terminalEnabled =
-        params.terminalEnabled !== undefined
-            ? truthyFlag(params.terminalEnabled)
-            : data.terminalEnabled !== undefined
-              ? truthyFlag(data.terminalEnabled)
-              : !!existing?.terminalEnabled;
-
-    if (terminalEnabled) {
-        data.type = "card";
-        data.terminalEnabled = true;
-        return data;
-    }
-
-    data.terminalEnabled = false;
-    const effectiveType = data.type ?? params.type ?? existing?.type;
-    if (effectiveType === "card") {
-        data.type = "cash";
-    }
-    return data;
-}
-
 export const basePath = "/api/eCommerce/posPaymentMethod";
 export const {router} = createCrudRouter({
     collectionName: "posPaymentMethods",
@@ -57,15 +23,8 @@ export const {router} = createCrudRouter({
     toDTO: posPaymentMethodToDTO,
     toDTOArray: posPaymentMethodsToDTO,
     toSelect: posPaymentMethodsToSelect,
-    buildCreateData: async (params) => {
-        const data = buildPosPaymentMethodCreateFromSchemaDef(params);
-        return applyTerminalTypeRule(data, params);
-    },
-    buildUpdateData: async (params, writeFields) => {
-        const data = buildPosPaymentMethodUpdateFromSchemaDef(params, writeFields);
-        const existing = params.existing as {terminalEnabled?: boolean; type?: string} | undefined;
-        return applyTerminalTypeRule(data, params, existing);
-    },
+    buildCreateData: buildCreateDataFromSchemaDef(PosPaymentMethodSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(PosPaymentMethodSchemaDef),
     actions: PosPaymentMethodActions,
     /** POS config assignment chips should only offer active methods. */
     extraSelectFilter: () => ({isActive: true}),

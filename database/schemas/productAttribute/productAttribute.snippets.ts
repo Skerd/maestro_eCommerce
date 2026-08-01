@@ -1,3 +1,7 @@
 export const ProductAttributeSimpleSnippet = {
-    keys: {_id: {}, name: {}, values: {}},
+    keys: {
+        _id: {},
+        name: {},
+        values: {}
+    },
 };

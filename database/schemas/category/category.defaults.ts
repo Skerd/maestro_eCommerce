@@ -10,7 +10,7 @@ export type CategorySeed = {
     parentSlug?: string;
 };
 
-/** Product-commerce taxonomy (retail / SKU catalog). Independent from marketplace ListingCategory. */
+/** Product-commerce taxonomy (retail / SKU catalog). Independent of marketplace ListingCategory. */
 const defaultCategorySeeds: readonly CategorySeed[] = [
     { name: "Electronics", slug: "electronics", order: 1 },
     { name: "Fashion", slug: "fashion", order: 2 },

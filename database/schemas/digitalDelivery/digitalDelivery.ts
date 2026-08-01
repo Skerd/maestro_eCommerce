@@ -8,6 +8,7 @@ import {IOwnershipPluginFields} from "@coreModule/database/types/plugin-fields";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
+import {applyDigitalDeliveryIndexes} from "./digitalDelivery.indexes";
 
 /**
  * A buyer's entitlement to download a digital product's files, issued when the
@@ -42,12 +43,9 @@ const DigitalDeliverySchema = new Schema<IDigitalDelivery>(
     {accessMode: "loose", timestamps: true},
 );
 
-DigitalDeliverySchema.index({token: 1}, {unique: true});
-DigitalDeliverySchema.index({order: 1, product: 1}, {unique: true});
-DigitalDeliverySchema.index({customer: 1, company: 1});
-
 ownershipPlugin(DigitalDeliverySchema);
 auditPlugin(DigitalDeliverySchema);
+applyDigitalDeliveryIndexes(DigitalDeliverySchema);
 const DigitalDelivery = model<IDigitalDelivery>("DigitalDelivery", DigitalDeliverySchema);
 normalizeSchemaPermissions(DigitalDelivery);
 export default DigitalDelivery;

@@ -1,0 +1,86 @@
+{
+  "heading": "Përditësim porosi",
+  "imageAlt": "Njoftim",
+  "copyright": "© {pageName}",
+  "greeting": "Përshëndetje {fullName},",
+  "subjectGeneric": "Përditësim porosi — {companyName}",
+  "introGeneric": "Ka një përditësim për porosinë tuaj.",
+  "closingGeneric": "Faleminderit që blini te ne.",
+
+  "headingPlaced": "Porosia u vendos",
+  "subjectPlaced": "Porosia {orderNumber} u vendos — {companyName}",
+  "introPlaced": "Ne e morëm porosinë tuaj.",
+  "closingPlaced": "Mund ta shihni porosinë në llogarinë tuaj.",
+
+  "headingPaid": "Pagesa u pranua",
+  "subjectPaid": "Pagesa u pranua për porosinë {orderNumber} — {companyName}",
+  "introPaid": "Kemi pranuar pagesën për porosinë tuaj.",
+  "closingPaid": "Do t'ju njoftojmë kur të dërgohet.",
+
+  "headingPaymentFailed": "Pagesa dështoi",
+  "subjectPaymentFailed": "Pagesa dështoi për porosinë {orderNumber} — {companyName}",
+  "introPaymentFailed": "Nuk mundëm të përpunojmë pagesën tuaj.",
+  "closingPaymentFailed": "Kthehuni te checkout për të provuar një metodë tjetër.",
+
+  "headingConfirmed": "Porosia u konfirmua",
+  "subjectConfirmed": "Porosia {orderNumber} u konfirmua — {companyName}",
+  "introConfirmed": "Porosia juaj u konfirmua dhe do të përgatitet së shpejti.",
+  "closingConfirmed": "Faleminderit për durimin.",
+
+  "headingShipped": "Porosia u dërgua",
+  "subjectShipped": "Porosia {orderNumber} u dërgua — {companyName}",
+  "introShipped": "Porosia juaj është në rrugë.",
+  "closingShipped": "Ndiqni dërgesën me detajet më poshtë.",
+  "trackingLine": "Numri i gjurmimit: {trackingNumber}",
+  "trackingLink": "<a href=\"{trackingUrl}\">Gjurmo dërgesën</a>",
+
+  "headingDelivered": "Porosia u dorëzua",
+  "subjectDelivered": "Porosia {orderNumber} u dorëzua — {companyName}",
+  "introDelivered": "Porosia juaj është shënuar si e dorëzuar.",
+  "closingDelivered": "Shpresojmë t'ju pëlqejë blerja.",
+
+  "headingCancelled": "Porosia u anulua",
+  "subjectCancelled": "Porosia {orderNumber} u anulua — {companyName}",
+  "introCancelled": "Porosia juaj është anuluar.",
+  "closingCancelled": "Nëse keni pyetje, kontaktoni dyqanin.",
+
+  "headingRefunded": "Rimbursimi u përpunua",
+  "subjectRefunded": "Rimbursim për porosinë {orderNumber} — {companyName}",
+  "introRefunded": "Një rimbursim është përpunuar për porosinë tuaj.",
+  "closingRefunded": "Mund të duhen disa ditë pune për t'u shfaqur në pasqyrën tuaj.",
+
+  "headingAbandonedCart": "Përfundoni porosinë",
+  "subjectAbandonedCart": "Keni lënë artikuj në shportë — {companyName}",
+  "introAbandonedCart": "Ende keni artikuj në shportë.",
+  "closingAbandonedCart": "Përfundoni checkout kur të jeni gati.",
+
+  "headingGiftCard": "Karta juaj e dhuratës",
+  "subjectGiftCard": "Kartë dhuratë për porosinë {orderNumber} — {companyName}",
+  "introGiftCard": "Kodet e kartës së dhuratës janë gati.",
+  "closingGiftCard": "Ruajini këto kode — ato janë krediti juaj në dyqan.",
+
+  "headingDigital": "Shkarkimet tuaja janë gati",
+  "subjectDigital": "Shkarkime digjitale për porosinë {orderNumber} — {companyName}",
+  "introDigital": "Blerjet tuaja digjitale janë gati për shkarkim.",
+  "closingDigital": "Lidhjet skadojnë sipas politikës së produktit.",
+
+  "headingReturnApproved": "Kthimi u aprovua",
+  "subjectReturnApproved": "Kthimi u aprovua për porosinë {orderNumber} — {companyName}",
+  "introReturnApproved": "Kërkesa juaj për kthim u aprovua.",
+  "closingReturnApproved": "Ndiqni udhëzimet e kthimit nga dyqani.",
+
+  "headingReturnRejected": "Kthimi u refuzua",
+  "subjectReturnRejected": "Kthimi u refuzua për porosinë {orderNumber} — {companyName}",
+  "introReturnRejected": "Kërkesa juaj për kthim nuk u aprovua.",
+  "closingReturnRejected": "Kontaktoni dyqanin nëse ju duhen më shumë informacione.",
+
+  "headingNewOrderMerchant": "Porosi e re",
+  "subjectNewOrderMerchant": "Porosi e re {orderNumber} — {companyName}",
+  "introNewOrderMerchant": "U vendos një porosi e re produkti.",
+  "closingNewOrderMerchant": "Hapni panelin e administrimit për ta përmbushur.",
+
+  "headingLowStock": "Alarm stoku i ulët",
+  "subjectLowStock": "Stok i ulët: {productTitle} — {companyName}",
+  "introLowStock": "Inventari ka rënë nën pikën e riporosisë.",
+  "closingLowStock": "Rimbusheni së shpejti për të shmangur mbarimin."
+}

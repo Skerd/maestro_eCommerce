@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {IUser} from "@coreModule/database/schemas/user/user";
@@ -30,9 +30,9 @@ export type IPosManagerPinReset = {
     opened?: boolean;
 };
 
-/** Per-manager credentials — never expose pinHash in DTOs. */
+/** Per-manager credentials — never expose pinHash in DTOs. Stored as ObjectId (not populated). */
 export type IPosManagerPin = {
-    user: IUser | any;
+    user: Types.ObjectId;
     pinHash?: string;
     pinReset?: IPosManagerPinReset;
 };
@@ -62,29 +62,57 @@ export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDelet
     /** Require manager PIN for refunds. */
     pinForRefund: boolean;
     isActive: boolean;
+    /** Set when this till is emergency-paused (actions only — not SchemaDef). */
+    pausedAt?: Date | null;
+    pausedBy?: IUser | null;
+    pauseReason?: string | null;
     company: ICompany;
 }
 
 const PosConfigSchema = new Schema<IPosConfig>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true
+        },
         paymentMethods: {
-            type: [{type: SchemaTypes.ObjectId, ref: "PosPaymentMethod", refAllowlist: PosPaymentMethodSimpleSnippet}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "PosPaymentMethod",
+                refAllowlist: PosPaymentMethodSimpleSnippet
+            }],
             default: [],
         },
         managers: {
-            type: [{type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "User",
+                refAllowlist: SimpleUserSnippet
+            }],
             default: [],
         },
         managerPins: [{
             type: {
-                user: {type: SchemaTypes.ObjectId, ref: "User", required: true},
-                pinHash: {type: SchemaTypes.String},
+                user: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "User",
+                    required: true
+                },
+                pinHash: {
+                    type: SchemaTypes.String
+                },
                 pinReset: {
                     type: {
-                        code: {type: SchemaTypes.String},
-                        date: {type: SchemaTypes.Date},
-                        opened: {type: SchemaTypes.Boolean},
+                        code: {
+                            type: SchemaTypes.String
+                        },
+                        date: {
+                            type: SchemaTypes.Date
+                        },
+                        opened: {
+                            type: SchemaTypes.Boolean
+                        },
                     },
                     _id: false,
                 },
@@ -93,25 +121,80 @@ const PosConfigSchema = new Schema<IPosConfig>(
             default: [],
         }],
         warehouses: {
-            type: [{type: SchemaTypes.ObjectId, ref: "Warehouse", refAllowlist: WarehouseSimpleSnippet}],
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Warehouse",
+                refAllowlist: WarehouseSimpleSnippet
+            }],
             default: [],
             validate: {
                 validator: (v: unknown[]) => Array.isArray(v) && v.length > 0,
                 message: "At least one warehouse is required",
             },
         },
-        currency: {type: SchemaTypes.ObjectId, ref: "Currency", refAllowlist: CurrencySimpleSnippet},
-        receiptHeader: {type: SchemaTypes.String},
-        receiptFooter: {type: SchemaTypes.String},
-        ifaceBarcodeScanner: {type: SchemaTypes.Boolean, default: true},
-        ifaceCashControl: {type: SchemaTypes.Boolean, default: true},
-        allowDiscount: {type: SchemaTypes.Boolean, default: true},
-        allowQuantityChange: {type: SchemaTypes.Boolean, default: true},
-        allowOversell: {type: SchemaTypes.Boolean, default: false},
-        pinForDiscount: {type: SchemaTypes.Boolean, default: false},
-        pinForCashOut: {type: SchemaTypes.Boolean, default: false},
-        pinForRefund: {type: SchemaTypes.Boolean, default: false},
-        isActive: {type: SchemaTypes.Boolean, default: true},
+        currency: {
+            type: SchemaTypes.ObjectId,
+            ref: "Currency",
+            refAllowlist: CurrencySimpleSnippet
+        },
+        receiptHeader: {
+            type: SchemaTypes.String
+        },
+        receiptFooter: {
+            type: SchemaTypes.String
+        },
+        ifaceBarcodeScanner: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        ifaceCashControl: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        allowDiscount: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        allowQuantityChange: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        allowOversell: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        pinForDiscount: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        pinForCashOut: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        pinForRefund: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        isActive: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
+        pausedAt: {
+            type: SchemaTypes.Date,
+            default: null,
+        },
+        pausedBy: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            default: null,
+        },
+        pauseReason: {
+            type: SchemaTypes.String,
+            trim: true,
+            maxlength: 500,
+            default: null,
+        },
     },
     {accessMode: "loose"},
 );
@@ -126,4 +209,10 @@ normalizeSchemaPermissions(PosConfig);
 export default PosConfig;
 
 addModelData(PosConfig, posConfigViews);
-validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", ["managerPins"]);
+validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", [
+    "managerPins",
+    "pausedAt",
+    "pausedBy",
+    "pauseReason",
+    "isActive",
+]);

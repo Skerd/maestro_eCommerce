@@ -16,7 +16,6 @@ const customerGroupFormFields: ViewConfig["nodes"] = [
                     widgetProps: {className: "resize-none max-h-[200px] overflow-y-auto"},
                 },
             },
-            {render: "#Field", field: {name: "isDefault", widget: "#Switch", label: "form.isDefaultLabel"}},
         ],
     },
 ];

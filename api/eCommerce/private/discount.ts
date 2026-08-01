@@ -1,8 +1,9 @@
+import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
-import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
 import {createDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/createDiscount.form.validator";
 import {editDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/editDiscount.form.validator";
@@ -11,22 +12,79 @@ import {discountService} from "@eCommerceModule/database/schemas/discount/discou
 import {DiscountActions} from "@eCommerceModule/database/schemas/discount/discount.actions";
 import {
     discountToDTO,
+    discountsToDTO,
     discountToDTOWithLabels,
     discountsToDTOWithLabels,
 } from "@eCommerceModule/utilities/mappers/discount/discountMapper.dto";
 import {discountsToSelect} from "@eCommerceModule/utilities/mappers/discount/discountMapper.select";
+import {
+    validateDiscount,
+    type CartForValidation,
+} from "@eCommerceModule/utilities/services/discountValidationService";
+import {ObjectId} from "mongodb";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
-    buyXGetY: (v: unknown) => v,
 } as const;
 
 const buildDiscountCreateFromSchemaDef = buildCreateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
 const buildDiscountUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
 
-/** `value` only applies to percentage/fixed; other types always persist 0. */
-function shouldZeroDiscountValue(type: unknown): boolean {
-    return type === "free_shipping" || type === "buy_x_get_y";
+function isBuyXGetYConfigured(buyXGetY: unknown): boolean {
+    if (!buyXGetY || typeof buyXGetY !== "object") return false;
+    const bx = buyXGetY as {buyQuantity?: unknown; getQuantity?: unknown; getProductIds?: unknown};
+    const buyOk = typeof bx.buyQuantity === "number" && bx.buyQuantity >= 1 && !Number.isNaN(bx.buyQuantity);
+    const getOk = typeof bx.getQuantity === "number" && bx.getQuantity >= 1 && !Number.isNaN(bx.getQuantity);
+    const productsOk = Array.isArray(bx.getProductIds) && bx.getProductIds.length >= 1;
+    return buyOk && getOk && productsOk;
+}
+
+/** Persist product-only BXGY shape; strip stale buyXGetY for other types. */
+function normalizeDiscountTypeFields(
+    data: Record<string, any>,
+    type: unknown,
+    languageCode: string,
+    mode: "create" | "update",
+): void {
+    if (type === "buy_x_get_y") {
+        data.appliesTo = "product";
+        data.value = 0;
+        data.targetIds = [];
+        if (!isBuyXGetYConfigured(data.buyXGetY)) {
+            throw apiValidationException("buy_x_get_y_misconfigured", "buyXGetY", null, languageCode);
+        }
+        return;
+    }
+
+    if (type === "free_shipping") {
+        data.value = 0;
+    }
+
+    if (type != null && type !== "buy_x_get_y") {
+        if (mode === "update") data.buyXGetY = null;
+        else delete data.buyXGetY;
+    }
+}
+
+function parseValidateItems(raw: unknown): CartForValidation["items"] {
+    if (!Array.isArray(raw)) return [];
+    const items: CartForValidation["items"] = [];
+    for (const row of raw) {
+        if (!row || typeof row !== "object") continue;
+        const productRaw = (row as any).productId ?? (row as any).product;
+        if (productRaw == null) continue;
+        const productId = productRaw instanceof ObjectId ? productRaw : new ObjectId(String(productRaw._id ?? productRaw));
+        const quantity = Number((row as any).quantity);
+        const unitPrice = Number((row as any).unitPrice);
+        if (!Number.isFinite(quantity) || quantity < 1 || !Number.isFinite(unitPrice)) continue;
+        const item: CartForValidation["items"][number] = {productId, quantity, unitPrice};
+        const variantRaw = (row as any).variantId ?? (row as any).variant;
+        if (variantRaw != null) {
+            item.variantId = variantRaw instanceof ObjectId ? variantRaw : new ObjectId(String(variantRaw._id ?? variantRaw));
+        }
+        items.push(item);
+    }
+    return items;
 }
 
 export const basePath = "/api/eCommerce/discount";
@@ -40,20 +98,22 @@ export const {router} = createCrudRouter({
     createSchema: createDiscountFormSchema,
     editSchema: editDiscountFormSchema,
     toDTO: discountToDTO,
-    toDTOArray: (docs) => docs.map((d) => discountToDTO(d)),
+    toDTOArray: discountsToDTO,
     toSelect: discountsToSelect,
     buildCreateData: async (params) => {
         const data = buildDiscountCreateFromSchemaDef(params);
-        if (shouldZeroDiscountValue(data.type)) data.value = 0;
+        normalizeDiscountTypeFields(data, data.type, params.languageCode, "create");
         data.usageCount = 0;
-        if (data.isActive === undefined) data.isActive = true;
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = buildDiscountUpdateFromSchemaDef(params, writeFields);
-        // Active state is managed via activate/deactivate actions, not the edit form.
-        delete data.isActive;
-        if (shouldZeroDiscountValue(params.type ?? data.type)) data.value = 0;
+        const type = params.type ?? data.type ?? params.existing?.type;
+        // Ensure BXGY nested payload is available when type is BXGY (may live on params only).
+        if (type === "buy_x_get_y" && data.buyXGetY == null && params.buyXGetY != null) {
+            data.buyXGetY = params.buyXGetY;
+        }
+        normalizeDiscountTypeFields(data, type, params.languageCode, "update");
         return data;
     },
     actions: DiscountActions,
@@ -67,17 +127,16 @@ router.post(
     "/validate",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (req: any, res: any) => {
-        const {logger, languageCode, company} = req;
-        const {code, subtotal} = req.body;
+    asyncHandler(async (params: any) => {
+        const {logger, languageCode, company, code, subtotal, items: rawItems} = params;
 
-        if (!code) return res.status(400).json({message: "code required"});
+        if (!code) throw apiValidationException("code_required", "code", null, languageCode);
 
         const now = new Date();
         const discount = await discountService.findOne(
             {
                 company: company._id,
-                code: code.trim().toUpperCase(),
+                code: String(code).trim().toUpperCase(),
                 isActive: true,
                 startsAt: {$lte: now},
                 $or: [{endsAt: null}, {endsAt: {$gte: now}}],
@@ -86,22 +145,24 @@ router.post(
         );
 
         if (!discount) {
-            return res.status(404).json({valid: false, message: "discount_not_found"});
+            return {valid: false, message: "discount_not_found"};
         }
 
-        if (discount.usageLimit != null && discount.usageCount >= discount.usageLimit) {
-            return res.json({valid: false, message: "discount_usage_limit_reached"});
+        const items = parseValidateItems(rawItems);
+        if (discount.type === "buy_x_get_y" && items.length === 0) {
+            return {valid: false, message: "buy_x_get_y_items_required"};
         }
 
-        if (discount.minimumOrderAmount != null && subtotal < discount.minimumOrderAmount) {
-            return res.json({valid: false, message: "minimum_order_amount_not_met", minimumOrderAmount: discount.minimumOrderAmount});
+        const result = validateDiscount({subtotal: Number(subtotal) || 0, items}, discount);
+
+        if (!result.valid) {
+            return {valid: false, message: result.reason};
         }
 
-        let discountAmount = 0;
-        if (discount.type === "percentage") discountAmount = (subtotal * discount.value) / 100;
-        else if (discount.type === "fixed") discountAmount = Math.min(discount.value, subtotal);
-        else if (discount.type === "free_shipping") discountAmount = 0;
-
-        return res.json({valid: true, discount: await discountToDTOWithLabels(discount), discountAmount});
+        return {
+            valid: true,
+            discount: await discountToDTOWithLabels(discount),
+            discountAmount: result.discountAmount,
+        };
     }),
 );

@@ -1,6 +1,5 @@
 import type {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import type {PosPaymentMethod} from "armonia/src/modules/eCommerce/api/eCommerce/private/posPaymentMethod/posPaymentMethod.dto";
-import {mapPopulatedRef} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -17,11 +16,11 @@ export function posPaymentMethodToDTO(method: IPosPaymentMethod): PosPaymentMeth
         cashQuickAmounts: method.cashQuickAmounts,
         terminalEnabled: method.terminalEnabled,
         terminalProvider: method.terminalProvider,
+        terminalProtocol: method.terminalProtocol,
         terminalHost: method.terminalHost,
         terminalPort: method.terminalPort,
         terminalId: method.terminalId,
         terminalPath: method.terminalPath,
-        company: mapPopulatedRef(method.company),
         ...mapSoftDeleteToDTO(method),
         ...mapOwnershipToDTO(method),
         ...mapLifeCycleToDTO(method),

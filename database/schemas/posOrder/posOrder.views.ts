@@ -42,7 +42,7 @@ export const posOrderSheetView: ViewConfig = {
                                 label: "session",
                                 widgetProps: {
                                     icon: "#IconClock",
-                                    parent: "sessionLabel",
+                                    parent: "session",
                                     valuePath: ["name"],
                                     linkedRefPath: "session",
                                     linkedSheetModel: "posSessions",
@@ -59,7 +59,7 @@ export const posOrderSheetView: ViewConfig = {
                                 label: "config",
                                 widgetProps: {
                                     icon: "#IconTag",
-                                    parent: "configLabel",
+                                    parent: "config",
                                     valuePath: ["name"],
                                     linkedRefPath: "config",
                                     linkedSheetModel: "posConfigs",
@@ -122,7 +122,7 @@ export const posOrderSheetView: ViewConfig = {
                                 label: "productOrder",
                                 widgetProps: {
                                     icon: "#IconShoppingCart",
-                                    parent: "productOrderLabel",
+                                    parent: "productOrder",
                                     valuePath: ["orderNumber"],
                                     linkedRefPath: "productOrder",
                                     linkedSheetModel: "productOrders",
@@ -139,7 +139,7 @@ export const posOrderSheetView: ViewConfig = {
                                 label: "refundOf",
                                 widgetProps: {
                                     icon: "#IconReceipt",
-                                    parent: "refundOfLabel",
+                                    parent: "refundOf",
                                     valuePath: ["name"],
                                     linkedRefPath: "refundOf",
                                     linkedSheetModel: "posOrders",
@@ -186,55 +186,6 @@ export const posOrderSheetView: ViewConfig = {
         {
             render: "#ReferencesViewModeScope",
             props: {
-                storageKey: "posOrder.sheet.lineProducts.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "products",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "lineProducts",
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "lineProducts",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ProductCard",
-                                            itemDataProp: "product",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconPackage",
-                                                label: "product",
-                                                valuePath: ["title", "sku"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "products",
-                                                linkedSheetWidget: "#ProductSheetView",
-                                                linkedSheetEntityProp: "product",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
                 storageKey: "posOrder.sheet.lines.listDisplay",
                 defaultMode: "cards",
             },
@@ -259,6 +210,7 @@ export const posOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            cardColumns: 3,
                                             compactSummaryFields: ["productName", "quantity", "priceTotal"],
                                             fields: [
                                                 {
@@ -308,6 +260,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemUnitPrice",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "discountPercent",
@@ -320,24 +273,36 @@ export const posOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemDiscountAmount",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "priceSubtotal",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemPriceSubtotal",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "taxAmount",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemTaxAmount",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "priceTotal",
                                                     type: "text",
                                                     className: "text-sm font-medium",
                                                     labelKey: "itemPriceTotal",
+                                                    currencyField: "currency",
+                                                },
+                                                {
+                                                    name: "currency",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    valuePath: ["symbol", "abbreviation"],
+                                                    joinSeparator: " ",
+                                                    labelKey: "currency",
                                                 },
                                             ],
                                         },
@@ -406,6 +371,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm font-medium",
                                                     labelKey: "paymentAmount",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "paymentDate",

@@ -1,4 +1,4 @@
-import type {PaymentGateway} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction";
+import type {PaymentGateway} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import type {CheckoutPaymentMethod} from "@eCommerceModule/database/schemas/checkout/checkout";
 import {stripeAdapter} from "@financeModule/utilities/services/payment/stripeAdapter";
 import type {PaymentProviderAdapter} from "@financeModule/utilities/services/payment/paymentProvider.types";
@@ -11,7 +11,7 @@ import type {PaymentProviderAdapter} from "@financeModule/utilities/services/pay
 
 const adapters: Partial<Record<PaymentGateway, PaymentProviderAdapter>> = {
     stripe: stripeAdapter,
-    // paypal: paypalAdapter — add when the PayPal adapter lands
+    // PayPal: paypalAdapter — add when the PayPal adapter lands
 };
 
 /** Payment methods settled offline: no gateway adapter, order starts unpaid. */

@@ -1,19 +1,7 @@
 import type {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import type {Product} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.dto";
 import {mapMedia, mapPopulatedRef, mapPopulatedSimpleCurrency} from "@coreModule/utilities/mappers/common.mapper";
-import {
-    mapLifeCycleToDTO,
-    mapOwnershipToDTO,
-    mapSoftDeleteToDTO
-} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-
-function mapCompanyLabel(company: any): {_id: string; name: string} | undefined {
-    if (!company) return undefined;
-    if (typeof company === "object" && company._id) {
-        return {_id: company._id.toString(), name: company.name ?? ""};
-    }
-    return {_id: company.toString(), name: ""};
-}
+import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function productToDTO(product: IProduct): Product {
     const seo = product.seo as Record<string, any> | undefined;
@@ -153,7 +141,6 @@ export function productToDTO(product: IProduct): Product {
               sitemapPriority: seo.sitemapPriority,
               noIndex: seo.noIndex,
           } : undefined,
-        company: mapCompanyLabel(product.company),
         ...mapSoftDeleteToDTO(product),
         ...mapOwnershipToDTO(product),
         ...mapLifeCycleToDTO(product)

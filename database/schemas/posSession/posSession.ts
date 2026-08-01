@@ -5,15 +5,18 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
-import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {PosSessionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/posSession.schema-def";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import {applyPosSessionIndexes} from "./posSession.indexes";
 import {posSessionViews} from "./posSession.views";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type PosSessionState = "opening_control" | "opened" | "closing_control" | "closed";
 export type PosCashMoveType = "in" | "out";
@@ -23,10 +26,10 @@ export interface IPosCashMove {
     amount: number;
     reason?: string;
     at?: Date;
-    by?: IUser | Schema.Types.ObjectId;
+    by?: IUser;
 }
 
-export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     config: IPosConfig;
     state: PosSessionState;
@@ -47,16 +50,32 @@ export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDele
     company: ICompany;
 }
 
+const NoWritePermission = {
+    self: {
+        write: "no-permission",
+    },
+    others: {
+        write: "no-permission",
+    },
+};
+
+const HideFromTable = {hideColumn: true} as const;
+
 const PosSessionSchema = new Schema<IPosSession>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            permissions: NoWritePermission,
+        },
         config: {
             type: SchemaTypes.ObjectId,
             ref: "PosConfig",
             required: true,
             refAllowlist: PosConfigSimpleSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
-                dtoPath: "configLabel",
                 refDisplayKey: ["name"],
             },
         },
@@ -64,11 +83,13 @@ const PosSessionSchema = new Schema<IPosSession>(
             type: SchemaTypes.String,
             enum: ["opening_control", "opened", "closing_control", "closed"],
             default: "opening_control",
+            permissions: NoWritePermission,
         },
         openedBy: {
             type: SchemaTypes.ObjectId,
             ref: "User",
             refAllowlist: SimpleUserSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["name", "surname"],
             },
@@ -77,58 +98,134 @@ const PosSessionSchema = new Schema<IPosSession>(
             type: SchemaTypes.ObjectId,
             ref: "User",
             refAllowlist: SimpleUserSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["name", "surname"],
             },
         },
-        openedAt: {type: SchemaTypes.Date},
-        closedAt: {type: SchemaTypes.Date},
-        openingBalance: {type: SchemaTypes.Number, default: 0, min: 0},
-        closingBalance: {type: SchemaTypes.Number, min: 0},
-        expectedCash: {type: SchemaTypes.Number, default: 0, min: 0},
-        cashRegisterBalance: {type: SchemaTypes.Number, default: 0, min: 0},
-        cashMoves: [{
-            type: {
-                type: {type: SchemaTypes.String, enum: ["in", "out"], required: true},
-                amount: {type: SchemaTypes.Number, required: true, min: 0},
-                reason: {type: SchemaTypes.String},
-                at: {type: SchemaTypes.Date, default: Date.now},
-                by: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
-            },
-            _id: false,
+        openedAt: {
+            type: SchemaTypes.Date,
+            permissions: NoWritePermission,
+        },
+        closedAt: {
+            type: SchemaTypes.Date,
+            permissions: NoWritePermission,
+        },
+        openingBalance: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        closingBalance: {
+            type: SchemaTypes.Number,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        expectedCash: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        cashRegisterBalance: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        cashMoves: {
+            type: [{
+                type: {
+                    type: {
+                        type: SchemaTypes.String,
+                        enum: ["in", "out"],
+                        required: true,
+                        permissions: NoWritePermission,
+                        dynamicTableConfiguration: HideFromTable,
+                    },
+                    amount: {
+                        type: SchemaTypes.Number,
+                        required: true,
+                        min: 0,
+                        permissions: NoWritePermission,
+                        dynamicTableConfiguration: HideFromTable,
+                    },
+                    reason: {
+                        type: SchemaTypes.String,
+                        permissions: NoWritePermission,
+                        dynamicTableConfiguration: HideFromTable,
+                    },
+                    at: {
+                        type: SchemaTypes.Date,
+                        default: Date.now,
+                        permissions: NoWritePermission,
+                        dynamicTableConfiguration: HideFromTable,
+                    },
+                    by: {
+                        type: SchemaTypes.ObjectId,
+                        ref: "User",
+                        refAllowlist: SimpleUserSnippet,
+                        permissions: NoWritePermission,
+                        dynamicTableConfiguration: HideFromTable,
+                    },
+                },
+                _id: false,
+            }],
             default: [],
-        }],
-        orderCount: {type: SchemaTypes.Number, default: 0, min: 0},
-        totalSales: {type: SchemaTypes.Number, default: 0, min: 0},
-        totalCash: {type: SchemaTypes.Number, default: 0, min: 0},
-        totalCard: {type: SchemaTypes.Number, default: 0, min: 0},
-        notes: {type: SchemaTypes.String},
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: HideFromTable,
+        },
+        orderCount: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        totalSales: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        totalCash: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        totalCard: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            permissions: NoWritePermission,
+        },
+        notes: {
+            type: SchemaTypes.String,
+            permissions: NoWritePermission,
+        },
     },
-    {accessMode: "loose", timestamps: true},
+    {
+        accessMode: "loose",
+        permissions: {
+            self: {
+                create: "no-permission",
+            },
+            others: {
+                create: "no-permission",
+            },
+        },
+        timestamps: true,
+    },
 );
 
 ownershipPlugin(PosSessionSchema);
 auditPlugin(PosSessionSchema);
 softDeletePlugin(PosSessionSchema);
+lifeCyclePlugin(PosSessionSchema);
 applyPosSessionIndexes(PosSessionSchema);
 const PosSession = model<IPosSession>("PosSession", PosSessionSchema);
 normalizeSchemaPermissions(PosSession);
 export default PosSession;
 
 addModelData(PosSession, posSessionViews);
-validateSchemaDefAgainstMongoose(PosSessionSchema, PosSessionSchemaDef, "PosSession", [
-    "name",
-    "state",
-    "openedBy",
-    "closedBy",
-    "openedAt",
-    "closedAt",
-    "closingBalance",
-    "expectedCash",
-    "cashRegisterBalance",
-    "cashMoves",
-    "orderCount",
-    "totalSales",
-    "totalCash",
-    "totalCard",
-]);

@@ -1,4 +1,5 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {ObjectId} from "mongodb";
+import {ClientSession, Document, model, Model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
@@ -24,25 +25,67 @@ export interface ICustomerGroup extends Document, IOwnershipPluginFields, ISoftD
     company: ICompany;
 }
 
-const CustomerGroupSchema = new Schema<ICustomerGroup>(
+export interface ICustomerGroupModel extends Model<ICustomerGroup> {
+    syncMemberCount(customerGroupId: ObjectId, companyId: ObjectId, session?: ClientSession | null): Promise<void>;
+}
+
+const CustomerGroupSchema = new Schema<ICustomerGroup, ICustomerGroupModel>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
-        description: {type: SchemaTypes.String, trim: true},
-        memberCount: {type: SchemaTypes.Number, default: 0, min: 0},
-        isDefault: {type: SchemaTypes.Boolean, default: false},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true
+        },
+        description: {
+            type: SchemaTypes.String,
+            trim: true
+        },
+        memberCount: {
+            type: SchemaTypes.Number,
+            default: 0,
+            min: 0,
+            immutable: true
+        },
+        isDefault: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
     },
     {accessMode: "loose"},
 );
+
+CustomerGroupSchema.statics.syncMemberCount = async function (
+    customerGroupId: ObjectId,
+    companyId: ObjectId,
+    session?: ClientSession | null,
+): Promise<void> {
+    // Resolve by model name to avoid a circular import with CustomerGroupMember.
+    const Member = model("CustomerGroupMember");
+    const countQuery = Member.countDocuments({
+        customerGroup: customerGroupId,
+        company: companyId,
+        deletedAt: null,
+    });
+    if (session) countQuery.session(session);
+    const count = await countQuery;
+
+    const opts: {session?: ClientSession} = {};
+    if (session) opts.session = session;
+    await this.collection.updateOne(
+        {_id: customerGroupId, company: companyId},
+        {$set: {memberCount: count}},
+        opts,
+    );
+};
 
 ownershipPlugin(CustomerGroupSchema);
 auditPlugin(CustomerGroupSchema);
 softDeletePlugin(CustomerGroupSchema);
 applyCustomerGroupIndexes(CustomerGroupSchema);
 lifeCyclePlugin(CustomerGroupSchema);
-const CustomerGroup = model<ICustomerGroup>("CustomerGroup", CustomerGroupSchema);
+const CustomerGroup = model<ICustomerGroup, ICustomerGroupModel>("CustomerGroup", CustomerGroupSchema);
 normalizeSchemaPermissions(CustomerGroup);
 export default CustomerGroup;
 
 addModelData(CustomerGroup, customerGroupViews);
-// excludePaths: memberCount (system-managed counter, not user-settable)
-validateSchemaDefAgainstMongoose(CustomerGroupSchema, CustomerGroupSchemaDef, "CustomerGroup", ["memberCount"]);
+validateSchemaDefAgainstMongoose(CustomerGroupSchema, CustomerGroupSchemaDef, "CustomerGroup");

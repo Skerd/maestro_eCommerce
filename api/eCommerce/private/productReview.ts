@@ -4,7 +4,6 @@ import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {z} from "zod";
 import {createProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/createProductReview.form.validator";
-import {productReviewListFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReviewList.form.validator";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
 import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
@@ -12,8 +11,8 @@ import {productService} from "@eCommerceModule/database/schemas/product/product.
 import {
     productReviewToDTO,
     productReviewsToDTO,
-    productReviewsToSelect,
-} from "@eCommerceModule/utilities/mappers/productReviewMapper.dto";
+} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
+import {productReviewsToSelect} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.select";
 
 /**
  * Ratings are system-computed denormalizations on the product (schema-def
@@ -55,22 +54,11 @@ export const {router} = createCrudRouter({
     defaultSort: {createdAt: -1},
     selectSearchField: "comment",
     rateLimits: {read: 60, write: 30, delete: 20},
-    listSchema: productReviewListFormSchema,
     createSchema: createProductReviewFormSchema,
     editSchema: (_lang: string) => z.object({_id: z.string()}),
     toDTO: productReviewToDTO,
     toDTOArray: productReviewsToDTO,
     toSelect: productReviewsToSelect,
-    extraListFilter: async ({productId, orderId, rating, comment}) => {
-        const filter: Record<string, unknown> = {};
-        if (productId) filter.product = new ObjectId(productId as string);
-        if (orderId) filter.order = new ObjectId(orderId as string);
-        if (rating != null) filter.rating = rating;
-        if (comment && typeof comment === "string" && comment.trim()) {
-            filter.comment = {$regex: comment.trim(), $options: "i"};
-        }
-        return filter;
-    },
     buildCreateData: async ({orderId, productId, rating, title, comment, actionUserCtx, company, session, logger, languageCode}) => {
         const order = await ProductOrder.findOne({_id: new ObjectId(orderId), company: company._id, deletedAt: null}).session(session);
         if (!order) {
@@ -96,7 +84,7 @@ export const {router} = createCrudRouter({
 
         const existing = await productReviewService.findOne(
             {order: new ObjectId(orderId), product: new ObjectId(productId)},
-            {session, logger, languageCode},
+            {session, logger, languageCode, withDeleted: false},
         );
         if (existing) {
             throw apiValidationException("product_already_reviewed_for_order", null, null, languageCode);
@@ -144,14 +132,42 @@ export const {router} = createCrudRouter({
         logger.start(`Restoring ProductReview ${_id}...`);
         SchemaGuard.checkModelPermission(ProductReview, "restore", actionUserCtx, languageCode);
 
+        const toRestore = await productReviewService.findOne(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode, withDeleted: true},
+        );
+        if (!toRestore) {
+            throw apiValidationException("not_found", null, null, languageCode);
+        }
+
+        const orderId = (toRestore.order as any)?._id ?? toRestore.order;
+        const productId = (toRestore.product as any)?._id ?? toRestore.product;
+        const activeSibling = await productReviewService.findOne(
+            {
+                order: orderId,
+                product: productId,
+                company: company._id,
+                _id: {$ne: new ObjectId(_id)},
+            },
+            {session, logger, languageCode, withDeleted: false},
+        );
+        if (activeSibling) {
+            throw apiValidationException(
+                "cannot_restore_product_review_active_exists",
+                null,
+                null,
+                languageCode,
+            );
+        }
+
         const restored = await productReviewService.restoreOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        const productId = productIdFromReview(restored);
-        if (productId) {
-            await recalculateProductRating(productId, {session, logger, languageCode});
+        const ratingProductId = productIdFromReview(restored);
+        if (ratingProductId) {
+            await recalculateProductRating(ratingProductId, {session, logger, languageCode});
         }
 
         logger.finish(`Restored ProductReview ${_id}`);

@@ -23,7 +23,6 @@ export function shippingZoneToDTO(zone: IShippingZone): ShippingZone {
             conditions: r.conditions,
         })),
         isActive: zone.isActive,
-        company: mapPopulatedRef(zone.company),
         ...mapSoftDeleteToDTO(zone),
         ...mapOwnershipToDTO(zone),
         ...mapLifeCycleToDTO(zone),

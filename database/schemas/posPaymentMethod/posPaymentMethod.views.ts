@@ -13,6 +13,11 @@ const posTerminalProviderOptions = [
     {value: "local_http", label: "form.terminalProvider.local_http"},
 ];
 
+const posTerminalProtocolOptions = [
+    {value: "http", label: "form.terminalProtocol.http"},
+    {value: "https", label: "form.terminalProtocol.https"},
+];
+
 const posPaymentMethodFormFields: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
@@ -145,6 +150,15 @@ const posPaymentMethodFormFields: ViewConfig["nodes"] = [
                             {
                                 render: "#Field",
                                 field: {
+                                    name: "terminalProtocol",
+                                    widget: "#Select",
+                                    label: "form.terminalProtocolLabel",
+                                    widgetProps: {options: posTerminalProtocolOptions, className: "grow w-full"},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
                                     name: "terminalHost",
                                     widget: "#Input",
                                     label: "form.terminalHostLabel",
@@ -220,6 +234,17 @@ export const posPaymentMethodSheetView: ViewConfig = {
                                 widget: "#SmallInfoCard",
                                 label: "terminalProviderLabel",
                                 widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "terminalProvider"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "terminalProtocol"},
+                            dependent: "terminalEnabled",
+                            field: {
+                                name: "terminalProtocol",
+                                widget: "#SmallInfoCard",
+                                label: "terminalProtocolLabel",
+                                widgetProps: {icon: "#IconTag", languageKeyCategory: "terminalProtocol"},
                             },
                         },
                         {

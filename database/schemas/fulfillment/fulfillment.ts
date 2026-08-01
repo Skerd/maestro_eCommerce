@@ -1,13 +1,17 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
-import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {applyFulfillmentIndexes} from "./fulfillment.indexes";
 import {fulfillmentViews} from "./fulfillment.views";
@@ -16,9 +20,14 @@ import {FulfillmentSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/
 
 export type FulfillmentStatus = "pending" | "shipped" | "delivered" | "failed";
 
-export interface IFulfillment extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IFulfillment
+    extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IProductOrder;
-    items: {orderItemId: Schema.Types.ObjectId; quantity: number}[];
+    items: {
+        /** Opaque link to IProductOrderItem._id on the parent order — not a mongoose-populated ref. */
+        orderItemId: Types.ObjectId;
+        quantity: number;
+    }[];
     carrier?: string;
     trackingNumber?: string;
     trackingUrl?: string;
@@ -32,37 +41,64 @@ export interface IFulfillment extends Document, IOwnershipPluginFields, ISoftDel
 
 const FulfillmentSchema = new Schema<IFulfillment>(
     {
-        order: {type: SchemaTypes.ObjectId, ref: "ProductOrder", required: true, refAllowlist: ProductOrderSimpleSnippet},
+        order: {
+            type: SchemaTypes.ObjectId, 
+            ref: "ProductOrder", 
+            required: true, 
+            refAllowlist: ProductOrderSimpleSnippet
+        },
         items: {
             type: [
                 {
-                    orderItemId: {type: SchemaTypes.ObjectId, required: true},
-                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
+                    orderItemId: {
+                        type: SchemaTypes.ObjectId, 
+                        required: true
+                    },
+                    quantity: {
+                        type: SchemaTypes.Number, 
+                        required: true, 
+                        min: 1
+                    },
                     _id: false,
                 },
             ],
             default: [],
         },
-        carrier: {type: SchemaTypes.String},
-        trackingNumber: {type: SchemaTypes.String},
-        trackingUrl: {type: SchemaTypes.String},
-        shippedAt: {type: SchemaTypes.Date},
-        estimatedDeliveryAt: {type: SchemaTypes.Date},
-        deliveredAt: {type: SchemaTypes.Date},
+        carrier: {
+            type: SchemaTypes.String
+        },
+        trackingNumber: {
+            type: SchemaTypes.String
+        },
+        trackingUrl: {
+            type: SchemaTypes.String
+        },
+        shippedAt: {
+            type: SchemaTypes.Date
+        },
+        estimatedDeliveryAt: {
+            type: SchemaTypes.Date
+        },
+        deliveredAt: {
+            type: SchemaTypes.Date
+        },
         status: {
             type: SchemaTypes.String,
             enum: ["pending", "shipped", "delivered", "failed"],
             default: "pending",
         },
-        notes: {type: SchemaTypes.String},
+        notes: {
+            type: SchemaTypes.String
+        },
     },
-    {accessMode: "loose", timestamps: true},
+    {accessMode: "loose"},
 );
 
 ownershipPlugin(FulfillmentSchema);
 auditPlugin(FulfillmentSchema);
 softDeletePlugin(FulfillmentSchema);
 applyFulfillmentIndexes(FulfillmentSchema);
+lifeCyclePlugin(FulfillmentSchema);
 const Fulfillment = model<IFulfillment>("Fulfillment", FulfillmentSchema);
 normalizeSchemaPermissions(Fulfillment);
 export default Fulfillment;

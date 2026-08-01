@@ -95,7 +95,6 @@ const posConfigFormFields: ViewConfig["nodes"] = [
                 render: "#FormGrid",
                 props: {columns: 3},
                 children: [
-                    {render: "#Field", field: {name: "isActive", widget: "#Switch", label: "form.isActiveLabel"}},
                     {render: "#Field", field: {name: "ifaceBarcodeScanner", widget: "#Switch", label: "form.ifaceBarcodeScannerLabel"}},
                     {render: "#Field", field: {name: "ifaceCashControl", widget: "#Switch", label: "form.ifaceCashControlLabel"}},
                     {render: "#Field", field: {name: "allowDiscount", widget: "#Switch", label: "form.allowDiscountLabel"}},
@@ -156,7 +155,11 @@ export const posConfigSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight", valueType: "boolean"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pausedAt"}, field: {name: "isPaused", widget: "#SmallInfoCard", label: "isPaused", widgetProps: {icon: "#IconPlayerPause", valueType: "boolean"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pausedAt"}, dependent: "isCompanyPaused", field: {name: "isCompanyPaused", widget: "#SmallInfoCard", label: "isCompanyPaused", widgetProps: {icon: "#IconBuilding", valueType: "boolean"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pauseReason"}, dependent: "isCompanyPaused", field: {name: "companyPauseReason", widget: "#SmallInfoCard", label: "companyPauseReason", widgetProps: {icon: "#IconAlertTriangle"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "pauseReason"}, field: {name: "pauseReason", widget: "#SmallInfoCard", label: "pauseReason", widgetProps: {icon: "#IconMessage"}}},
                         {
                             render: "#SmallInfoCard",
                             permissions: {read: "currency"},
@@ -197,7 +200,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "hasManagerPin",
                                 widget: "#SmallInfoCard",
                                 label: "hasManagerPin",
-                                widgetProps: {icon: "#IconLock"},
+                                widgetProps: {icon: "#IconLock", valueType: "boolean"},
                             },
                         },
                     ],
@@ -277,7 +280,7 @@ export const posConfigSheetView: ViewConfig = {
                                     render: "#ReferencesRender",
                                     permissions: {read: "paymentMethods"},
                                     field: {
-                                        name: "paymentMethodLabels",
+                                        name: "paymentMethods",
                                         widget: "#ReferencesRender",
                                         widgetProps: {
                                             cardWidget: "#PosPaymentMethodCard",

@@ -5,15 +5,9 @@ import {createTaxZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommer
 import {editTaxZoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/editTaxZone.form.validator";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import {taxZoneService} from "@eCommerceModule/database/schemas/taxZone/taxZone.service";
+import {TaxZoneActions} from "@eCommerceModule/database/schemas/taxZone/taxZone.actions";
 import {taxZoneToDTO, taxZonesToDTO} from "@eCommerceModule/utilities/mappers/taxZone/taxZoneMapper.dto";
 import {taxZonesToSelect} from "@eCommerceModule/utilities/mappers/taxZone/taxZoneMapper.select";
-
-const taxZoneTransforms = {
-    rates: (v: unknown) => v,
-} as const;
-
-const buildTaxZoneCreateFromSchemaDef = buildCreateDataFromSchemaDef(TaxZoneSchemaDef, taxZoneTransforms);
-const buildTaxZoneUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(TaxZoneSchemaDef, taxZoneTransforms);
 
 export const basePath = "/api/eCommerce/taxZone";
 export const {router} = createCrudRouter({
@@ -28,7 +22,8 @@ export const {router} = createCrudRouter({
     toDTO: taxZoneToDTO,
     toDTOArray: taxZonesToDTO,
     toSelect: taxZonesToSelect,
-    buildCreateData: async (params) => buildTaxZoneCreateFromSchemaDef(params),
-    buildUpdateData: async (params, writeFields) => buildTaxZoneUpdateFromSchemaDef(params, writeFields),
+    buildCreateData: buildCreateDataFromSchemaDef(TaxZoneSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(TaxZoneSchemaDef),
+    actions: TaxZoneActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });

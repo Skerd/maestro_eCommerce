@@ -18,7 +18,6 @@ const shippingZoneFormFields: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
-                    {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
                 ],
             },
         ],

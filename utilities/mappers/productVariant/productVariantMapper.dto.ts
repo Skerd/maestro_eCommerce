@@ -1,6 +1,5 @@
 import type {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import type {ProductVariant} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.dto";
-import type {ProductSimpleRef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.dto";
 import {mapMedia, mapPopulatedRef, mapPopulatedSimpleCurrency} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
@@ -8,18 +7,14 @@ import {
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
-function mapProductRef(ref: any): ProductSimpleRef {
-    return {
-        _id: ref?._id?.toString() ?? String(ref ?? ""),
-        title: ref?.title ?? "",
-        slug: ref?.slug ?? "",
-    };
-}
-
 export function productVariantToDTO(variant: IProductVariant): ProductVariant {
     return {
         _id: variant._id.toString(),
-        product: mapProductRef(variant.product),
+        product: variant.product ? {
+            _id: variant.product?._id?.toString(),
+            title: variant.product?.title,
+            slug: variant.product?.slug,
+        } : undefined,
         sku: variant.sku,
         barcode: variant.barcode,
         attributeCombination: (variant.attributeCombination ?? []).map((ac: any) => ({
@@ -29,14 +24,13 @@ export function productVariantToDTO(variant: IProductVariant): ProductVariant {
         price: variant.price,
         compareAtPrice: variant.compareAtPrice,
         costPrice: variant.costPrice,
-        currency: mapPopulatedSimpleCurrency(variant.currency as any),
+        currency: mapPopulatedSimpleCurrency(variant.currency),
         weight: variant.weight,
         dimensions: variant.dimensions,
         mainImage: variant.mainImage ? mapMedia(variant.mainImage) : undefined,
         position: variant.position,
         status: variant.status,
         trackInventory: variant.trackInventory,
-        company: mapPopulatedRef(variant.company as any),
         ...mapSoftDeleteToDTO(variant),
         ...mapOwnershipToDTO(variant),
         ...mapLifeCycleToDTO(variant),

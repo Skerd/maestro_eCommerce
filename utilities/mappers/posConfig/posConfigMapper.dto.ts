@@ -1,81 +1,65 @@
-import type {IPosConfig, IPosManagerPin} from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import type {PosConfig} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.dto";
-import {mapPopulatedRef, mapPopulatedSimpleCurrency} from "@coreModule/utilities/mappers/common.mapper";
+import {
+    mapPopulatedRef,
+    mapPopulatedSimpleCurrency,
+    mapPopulatedSimpleUser,
+} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-import {hasAnyManagerPin as configHasAnyManagerPin} from "@eCommerceModule/utilities/services/posManagerPin";
+import {hasAnyManagerPin as configHasAnyManagerPin, userRefId} from "@eCommerceModule/utilities/services/posManagerPin";
 
 export type PosConfigDtoOptions = {
     actionUserId?: string | null;
+    /** When true, DTO `isPaused` is true even if this config has no pausedAt. */
+    companyLockActive?: boolean;
+    companyPauseReason?: string | null;
 };
 
 export function posConfigToDTO(config: IPosConfig, opts: PosConfigDtoOptions = {}): PosConfig {
-    const warehousesRaw = (() => {
-        const list = (config.warehouses as any[]) ?? [];
-        if (list.length) return list;
-        const legacy = (config as any).warehouse;
-        return legacy ? [legacy] : [];
-    })();
 
-    const paymentMethods = (config.paymentMethods as any[]) ?? [];
-    const managers = (config.managers as any[]) ?? [];
-    const managerPins = ((config as any).managerPins as IPosManagerPin[] | undefined) ?? [];
-
-    const pinsByUser = new Map(
-        managerPins
-            .map((p) => [(p.user as any).toString(), p] as const)
-            .filter(([id]) => !!id),
-    );
-
+    const pinsByUser = new Map((config.managerPins ?? []).map((p) => [userRefId(p.user), p] as const).filter(([id]) => !!id));
     const actionUserId = opts.actionUserId ? String(opts.actionUserId) : "";
-    const managerIds = managers.map((m) => m._id.toString()).filter(Boolean);
-    const currentUserIsManager = !!actionUserId && managerIds.includes(actionUserId);
-    const currentUserHasManagerPin =
-        currentUserIsManager && !!pinsByUser.get(actionUserId)?.pinHash;
+    const managerIds = config?.managers?.map((m) => m._id.toString())?.filter(Boolean) || [];
+
+    const currentUserIsManager = !!actionUserId && managerIds?.includes(actionUserId);
+    const currentUserHasManagerPin = currentUserIsManager && !!pinsByUser.get(actionUserId)?.pinHash;
+    const configPaused = !!config.pausedAt;
+    const companyPaused = !!opts.companyLockActive;
 
     return {
         _id: config._id.toString(),
         name: config.name,
-        paymentMethods: paymentMethods.map((m: any) => m._id.toString()),
-        paymentMethodLabels: paymentMethods
-            .filter((m: any) => m?._id || m?.name)
-            // Till must not offer inactive or soft-deleted methods (admin still keeps IDs in paymentMethods).
-            .filter((m: any) => {
-                if (typeof m !== "object" || !("_id" in m)) return true;
-                if (m.deletedAt) return false;
-                if (m.isActive === false) return false;
-                return true;
-            })
-            .map((m: any) => ({
-                _id: m._id.toString(),
-                name: m.name ?? "",
-                type: m.type,
-                cashQuickAmounts: m.cashQuickAmounts,
-                terminalEnabled: m.terminalEnabled,
-                terminalProvider: m.terminalProvider,
-                terminalHost: m.terminalHost,
-                terminalPort: m.terminalPort,
-                terminalId: m.terminalId,
-                terminalPath: m.terminalPath,
-            })),
-        managers: managers.map((m: any) => ({
+        paymentMethods: config.paymentMethods?.map((m) => ({
+            _id: m._id.toString(),
+            name: m.name ?? "",
+            type: m.type,
+            isActive: m.isActive,
+            cashQuickAmounts: m.cashQuickAmounts,
+            terminalEnabled: m.terminalEnabled,
+            terminalProvider: m.terminalProvider,
+            terminalProtocol: m.terminalProtocol,
+            terminalHost: m.terminalHost,
+            terminalPort: m.terminalPort,
+            terminalId: m.terminalId,
+            terminalPath: m.terminalPath,
+        })),
+        managers: config.managers?.map((m) => ({
             _id: m._id.toString(),
             name: m.name,
             surname: m.surname,
             username: m.username,
             hasPin: !!pinsByUser.get(m._id.toString())?.pinHash,
         })),
-        warehouses: warehousesRaw
-            .filter((w) => !!w)
-            .map((warehouse: any) => ({
-                _id: warehouse._id.toString(),
-                name: warehouse.name ?? "",
-                code: warehouse.code,
-            })),
-        currency: mapPopulatedSimpleCurrency(config.currency as any),
+        warehouses: config.warehouses?.map((warehouse) => ({
+            _id: warehouse._id.toString(),
+            name: mapPopulatedRef(warehouse)?.name ?? warehouse.name ?? "",
+            code: warehouse.code,
+        })),
+        currency: mapPopulatedSimpleCurrency(config.currency),
         receiptHeader: config.receiptHeader,
         receiptFooter: config.receiptFooter,
         ifaceBarcodeScanner: config.ifaceBarcodeScanner,
@@ -90,7 +74,12 @@ export function posConfigToDTO(config: IPosConfig, opts: PosConfigDtoOptions = {
         currentUserIsManager,
         currentUserHasManagerPin,
         isActive: config.isActive,
-        company: mapPopulatedRef(config.company),
+        isPaused: configPaused || companyPaused,
+        isCompanyPaused: companyPaused,
+        companyPauseReason: companyPaused ? (opts.companyPauseReason ?? null) : null,
+        pausedAt: config.pausedAt ? new Date(config.pausedAt).toISOString() : null,
+        pausedBy: mapPopulatedSimpleUser(config.pausedBy as any) ?? null,
+        pauseReason: config.pauseReason ?? null,
         ...mapSoftDeleteToDTO(config),
         ...mapOwnershipToDTO(config),
         ...mapLifeCycleToDTO(config),

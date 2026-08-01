@@ -3,16 +3,16 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
-import PaymentWebhookEvent from "@eCommerceModule/database/schemas/paymentWebhookEvent/paymentWebhookEvent";
-import {paymentTransactionService} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction.service";
+import PaymentWebhookEvent from "@financeModule/database/schemas/paymentWebhookEvent/paymentWebhookEvent";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {consumeCheckoutReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
+import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import type {WebhookEvent} from "@financeModule/utilities/services/payment/paymentProvider.types";
 
 export const basePath = "/api/eCommerce/paymentsWebhook";
@@ -40,18 +40,12 @@ async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; lan
         await consumeCheckoutReservations(checkout, ctx);
         await fulfillOrderPaidExtras(order, ctx);
 
-        const customerId = ((order.customer as any)?._id ?? order.customer)?.toString?.() ?? "";
-        if (customerId) {
-            emitNotificationEvent(NotificationEventCodes.PRODUCT_ORDER_PAID, {
-                receiverIds: [customerId],
-                payload: {
-                    companyId: companyId.toString(),
-                    languageCode: ctx.languageCode,
-                    orderId: order._id.toString(),
-                    orderNumber: order.orderNumber,
-                },
-            });
-        }
+        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {
+            companyId,
+            languageCode: ctx.languageCode,
+            order,
+            extra: {grandTotal: order.grandTotal},
+        });
     }
 }
 
@@ -113,6 +107,27 @@ router.post(
                 if (checkout && checkout.status === "payment_processing") {
                     checkout.status = "pending"; // buyer can retry with another method
                     await checkout.save();
+                }
+                if (checkout) {
+                    const companyId = ((checkout.company as any)?._id ?? checkout.company)?.toString?.() ?? "";
+                    const order = await ProductOrder.findOne({
+                        idempotencyKey: checkout.idempotencyKey,
+                        company: checkout.company,
+                    }).select("_id orderNumber customer email grandTotal");
+                    const customerId =
+                        ((order?.customer as any)?._id ?? order?.customer)?.toString?.()
+                        || ((checkout.user as any)?._id ?? checkout.user)?.toString?.()
+                        || "";
+                    if (companyId && (customerId || order?.email)) {
+                        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAYMENT_FAILED, {
+                            companyId,
+                            languageCode,
+                            order,
+                            customerId: customerId || undefined,
+                            orderEmail: order?.email,
+                            extra: {failureReason: failureReason ?? "", checkoutId: checkout._id.toString()},
+                        });
+                    }
                 }
             }
 

@@ -8,6 +8,7 @@ export const PosPaymentMethodSimpleSnippet = {
         cashQuickAmounts: {},
         terminalEnabled: {},
         terminalProvider: {},
+        terminalProtocol: {},
         terminalHost: {},
         terminalPort: {},
         terminalId: {},

@@ -3,7 +3,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
-import {cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlockMapper.dto";
+import {cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.dto";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
 
 /**

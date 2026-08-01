@@ -1,56 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 
-const posSessionCreateFormFields: ViewConfig["nodes"] = [
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "config",
-                    widget: "#ApiSelect",
-                    label: "form.configLabel",
-                    placeholder: "form.configPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/posConfig/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "openingBalance",
-                    widget: "#Input",
-                    label: "form.openingBalanceLabel",
-                    required: true,
-                    widgetProps: {type: "number", min: 0},
-                },
-            },
-        ],
-    },
-    {
-        render: "#FormGrid",
-        props: {columns: 1},
-        children: [
-            {render: "#Field", field: {name: "notes", widget: "#Textarea", label: "form.notesLabel"}},
-        ],
-    },
-];
-
-const posSessionEditFormFields: ViewConfig["nodes"] = [
-    {
-        render: "#FormGrid",
-        props: {columns: 1},
-        children: [
-            {render: "#Field", field: {name: "notes", widget: "#Textarea", label: "form.notesLabel"}},
-        ],
-    },
-];
-
 export const posSessionSheetView: ViewConfig = {
     model: "posSessions",
     viewType: "sheet",
@@ -92,7 +41,7 @@ export const posSessionSheetView: ViewConfig = {
                                 label: "config",
                                 widgetProps: {
                                     icon: "#IconTag",
-                                    parent: "configLabel",
+                                    parent: "config",
                                     valuePath: ["name"],
                                     linkedRefPath: "config",
                                     linkedSheetModel: "posConfigs",
@@ -375,24 +324,4 @@ export const posSessionSheetView: ViewConfig = {
     ],
 };
 
-export const posSessionCreateFormView: ViewConfig = {
-    model: "posSessions",
-    viewType: "form",
-    viewMode: "create",
-    accessModel: "posSessions",
-    apiUrl: "/api/eCommerce/posSession",
-    method: "PUT",
-    nodes: posSessionCreateFormFields,
-};
-
-export const posSessionEditFormView: ViewConfig = {
-    model: "posSessions",
-    viewType: "form",
-    viewMode: "edit",
-    accessModel: "posSessions",
-    apiUrl: "/api/eCommerce/posSession",
-    method: "PATCH",
-    nodes: posSessionEditFormFields,
-};
-
-export const posSessionViews: ViewConfig[] = [posSessionSheetView, posSessionCreateFormView, posSessionEditFormView];
+export const posSessionViews: ViewConfig[] = [posSessionSheetView];

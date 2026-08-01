@@ -2,7 +2,7 @@
  * Albanian DPT fiscalization SOAP helpers — ported from
  * fiskalizimi-develop/cp_fiscal/models/soap_methods_fiskalizim.py
  */
-import crypto from "crypto";
+import * as crypto from "crypto";
 import forge from "node-forge";
 import axios from "axios";
 import {HttpsProxyAgent} from "https-proxy-agent";
@@ -14,7 +14,12 @@ export const EINVOICE_SCHEMA = "https://Einvoice.tatime.gov.al/EinvoiceService/s
 export const FISCAL_VERSION = "3";
 export const EINVOICE_VERSION = "1";
 
-export type OrderedDict = Record<string, string | number | boolean | OrderedDict | OrderedDict[]>;
+/** Attribute-centric ordered dict (Odoo/cp_fiscal style). Interface avoids circular type alias. */
+export interface OrderedDict {
+    [key: string]: string | number | boolean | OrderedDict | OrderedDict[];
+}
+
+type FiscalXmlDocument = ReturnType<DOMParser["parseFromString"]>;
 
 function sortKey(key: string): number | string {
     const m = /^(\d+)__/.exec(key);
@@ -186,7 +191,7 @@ export async function postSoap(
     signedInnerXml: string,
     url: string,
     opts?: {einvoice?: boolean; proxyUrl?: string},
-): Promise<{status: number; body: string; xml: Document}> {
+): Promise<{status: number; body: string; xml: FiscalXmlDocument}> {
     const payload = wrapSoapEnvelope(signedInnerXml, !!opts?.einvoice);
     const axiosConfig: Record<string, unknown> = {
         headers: {"Content-Type": "text/xml; charset=UTF-8"},
@@ -212,7 +217,7 @@ export async function registerRequest(
     dictData: OrderedDict,
     requestType: string,
     opts?: {einvoice?: boolean; proxyUrl?: string},
-): Promise<{status: number; body: string; xml: Document; signedXml: string}> {
+): Promise<{status: number; body: string; xml: FiscalXmlDocument; signedXml: string}> {
     const signedXml = getXmlSigned(certificateBase64, password, dictData, requestType);
     const r = await postSoap(signedXml, url, opts);
     return {...r, signedXml};
@@ -227,13 +232,13 @@ export function getXmlSigned(
     return signXml(dict2xml(dictData, requestType), certificateBase64, password);
 }
 
-export function extractFault(xml: Document): string | undefined {
+export function extractFault(xml: FiscalXmlDocument): string | undefined {
     const faults = xml.getElementsByTagName("faultstring");
     if (faults.length) return faults[0].textContent || undefined;
     return undefined;
 }
 
-export function extractNsText(xml: Document, localName: string, ns: string): string | undefined {
+export function extractNsText(xml: FiscalXmlDocument, localName: string, ns: string): string | undefined {
     const nodes = xml.getElementsByTagNameNS(ns, localName);
     if (nodes.length) return nodes[0].textContent || undefined;
     const plain = xml.getElementsByTagName(localName);

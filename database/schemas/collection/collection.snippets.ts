@@ -1,3 +1,8 @@
 export const CollectionSimpleSnippet = {
-    keys: {_id: {}, name: {}, slug: {}, type: {}},
+    keys: {
+        _id: {},
+        name: {},
+        slug: {},
+        type: {}
+    },
 };

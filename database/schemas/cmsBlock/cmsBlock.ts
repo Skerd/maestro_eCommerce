@@ -4,7 +4,12 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {CmsBlockSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/cmsBlock/cmsBlock.schema-def";
@@ -16,7 +21,7 @@ export type CmsBlockType =
     | "best_sellers" | "flash_sale" | "announcement_bar" | "custom_html"
     | "video" | "grid" | "category_showcase" | "promotional_section";
 
-export interface ICmsBlock extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface ICmsBlock extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     type: CmsBlockType;
     title: string;
     isActive: boolean;
@@ -40,20 +45,45 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
             ],
             required: true,
         },
-        title: {type: SchemaTypes.String, required: true, trim: true},
-        isActive: {type: SchemaTypes.Boolean, default: true},
-        position: {type: SchemaTypes.Number, default: 0},
-        config: {type: SchemaTypes.Mixed, default: {}},
-        startsAt: {type: SchemaTypes.Date},
-        endsAt: {type: SchemaTypes.Date},
+        title: {
+            type: SchemaTypes.String, 
+            required: true, 
+            trim: true
+        },
+        isActive: {
+            type: SchemaTypes.Boolean, 
+            default: true
+        },
+        position: {
+            type: SchemaTypes.Number, 
+            default: 0
+        },
+        config: {
+            type: SchemaTypes.Mixed, 
+            default: {}
+        },
+        startsAt: {
+            type: SchemaTypes.Date
+        },
+        endsAt: {
+            type: SchemaTypes.Date
+        },
         visibility: {
             type: {
-                devices: {type: [SchemaTypes.String], default: ["desktop", "mobile", "tablet"]},
-                regions: {type: [SchemaTypes.String], default: []},
+                devices: {
+                    type: [SchemaTypes.String], 
+                    default: ["desktop", "mobile", "tablet"]
+                },
+                regions: {
+                    type: [SchemaTypes.String], 
+                    default: []
+                },
             },
             _id: false,
         },
-        abTestVariant: {type: SchemaTypes.String},
+        abTestVariant: {
+            type: SchemaTypes.String
+        },
     },
     {accessMode: "loose"},
 );
@@ -62,6 +92,7 @@ ownershipPlugin(CmsBlockSchema);
 auditPlugin(CmsBlockSchema);
 softDeletePlugin(CmsBlockSchema);
 applyCmsBlockIndexes(CmsBlockSchema);
+lifeCyclePlugin(CmsBlockSchema);
 const CmsBlock = model<ICmsBlock>("CmsBlock", CmsBlockSchema);
 normalizeSchemaPermissions(CmsBlock);
 export default CmsBlock;

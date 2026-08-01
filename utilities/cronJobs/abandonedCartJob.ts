@@ -11,6 +11,7 @@ import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
+import {notifyAbandonedCartEmail} from "@eCommerceModule/utilities/services/productOrderNotify";
 
 const ABANDON_AFTER_HOURS = 24;
 const BATCH_SIZE = 200;
@@ -49,6 +50,14 @@ export async function runAbandonedCart(parentLogger?: serverLogger): Promise<voi
                         itemCount: (cart.items as any[]).length,
                         subtotal: cart.subtotal,
                     },
+                });
+                await notifyAbandonedCartEmail({
+                    companyId,
+                    languageCode: lang,
+                    userId,
+                    cartId: cart._id.toString(),
+                    itemCount: (cart.items as any[]).length,
+                    subtotal: cart.subtotal,
                 });
 
                 cart.abandonedNotifiedAt = new Date();

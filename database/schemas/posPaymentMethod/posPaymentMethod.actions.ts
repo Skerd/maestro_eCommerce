@@ -1,14 +1,11 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import {COLLECTED_DATA} from "@coreModule/database/collections";
+import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
-import type {
-    PosPaymentMethod as PosPaymentMethodDto,
-    TestPosTerminalConnectionResponse,
-} from "armonia/src/modules/eCommerce/api/eCommerce/private/posPaymentMethod/posPaymentMethod.dto";
-import {posPaymentMethodToDTO} from "@eCommerceModule/utilities/mappers/posPaymentMethod/posPaymentMethodMapper.dto";
+import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import type {TestPosTerminalConnectionResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/posPaymentMethod/posPaymentMethod.dto";
 import {testPosTerminalConnection} from "@eCommerceModule/utilities/services/posTerminalConnection";
 import {detachPosPaymentMethodFromConfigs} from "@eCommerceModule/utilities/services/posPaymentMethodDetach";
 import PosPaymentMethodModel from "./posPaymentMethod";
@@ -37,7 +34,7 @@ export class PosPaymentMethodActions {
         schema: validateSingleForm,
         transaction: true,
     })
-    async activate(params: Record<string, any>): Promise<PosPaymentMethodDto> {
+    async activate(params: Record<string, any>): Promise<ActionMessage> {
         return setActiveState(params, true);
     }
 
@@ -47,23 +44,23 @@ export class PosPaymentMethodActions {
         schema: validateSingleForm,
         transaction: true,
     })
-    async deactivate(params: Record<string, any>): Promise<PosPaymentMethodDto> {
+    async deactivate(params: Record<string, any>): Promise<ActionMessage> {
         return setActiveState(params, false);
     }
 }
 
-async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<PosPaymentMethodDto> {
+async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<ActionMessage> {
     const {logger, languageCode, session, company, actionUserCtx, _id} = params;
 
     const writeFields = SchemaGuard.sanitizeFields(
         PosPaymentMethodModel,
-        COLLECTED_DATA.pospaymentmethods.writeFields,
+        getModelCollectedData("posPaymentMethods").writeFields!,
         "write",
         actionUserCtx,
         languageCode,
     );
     if (!writeFields.isActive) {
-        throw apiValidationException("user_permissions_not_sufficient", null, null, languageCode);
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
     }
 
     const existing = await posPaymentMethodService.findOneOrThrow(
@@ -72,7 +69,7 @@ async function setActiveState(params: Record<string, any>, isActive: boolean): P
     );
 
     if (existing.isActive === isActive) {
-        return posPaymentMethodToDTO(existing);
+        return {message: isActive ? "POS payment method already active" : "POS payment method already inactive"};
     }
 
     // Deactivating also detaches from POS configs (same last-method guard as delete).
@@ -84,11 +81,11 @@ async function setActiveState(params: Record<string, any>, isActive: boolean): P
         });
     }
 
-    const updated = await posPaymentMethodService.updateByIdOrThrow(
+    await posPaymentMethodService.updateByIdOrThrow(
         existing._id,
         {isActive},
         {session, logger, languageCode, auditUserId: actionUserCtx.userId},
     );
 
-    return posPaymentMethodToDTO(updated);
+    return {message: isActive ? "POS payment method activated" : "POS payment method deactivated"};
 }

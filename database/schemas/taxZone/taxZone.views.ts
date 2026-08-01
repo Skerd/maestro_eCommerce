@@ -17,7 +17,6 @@ const taxZoneFormFields: ViewConfig["nodes"] = [
                 children: [
                     {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
                     {render: "#Field", field: {name: "priority", widget: "#Input", label: "form.priorityLabel", widgetProps: {type: "number", min: 0}}},
-                    {render: "#Field", field: {name: "isActive", widget: "#Checkbox", label: "form.isActiveLabel"}},
                 ],
             },
         ],

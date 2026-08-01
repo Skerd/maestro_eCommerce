@@ -5,9 +5,17 @@ import {inventoryMovementService} from "@eCommerceModule/database/schemas/invent
 import Product from "@eCommerceModule/database/schemas/product/product";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import type {ICheckout, ICheckoutReservation} from "@eCommerceModule/database/schemas/checkout/checkout";
-import type {CrudOptions} from "@coreModule/database/services";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 
 type ReservationCtx = CrudOptions & {auditUserId?: ObjectId | string};
+
+function toObjectId(value: unknown): ObjectId {
+    if (value instanceof ObjectId) return value;
+    if (value && typeof value === "object" && "_id" in value) {
+        return toObjectId((value as {_id: unknown})._id);
+    }
+    return new ObjectId(String(value));
+}
 
 export class OutOfStockError extends Error {
     constructor(public readonly productId: string, public readonly quantity: number) {
@@ -107,10 +115,11 @@ export async function reserveCheckoutStock(
 
         let reserved = false;
         for (const row of ordered) {
+            const warehouseId = toObjectId(row.warehouse);
             const result = await inventoryService.reserveStock(
                 item.product,
                 item.variant,
-                (row.warehouse as any)._id ?? (row.warehouse as any),
+                warehouseId,
                 item.quantity,
                 ctx,
             );
@@ -118,10 +127,10 @@ export async function reserveCheckoutStock(
                 reservations.push({
                     product: item.product,
                     variant: item.variant,
-                    warehouse: (row.warehouse as any)._id ?? (row.warehouse as any),
+                    warehouse: warehouseId,
                     quantity: item.quantity,
                     state: "reserved",
-                } as ICheckoutReservation);
+                });
                 reserved = true;
                 break;
             }

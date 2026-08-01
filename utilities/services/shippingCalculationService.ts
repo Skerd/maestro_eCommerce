@@ -1,6 +1,6 @@
 import {ObjectId} from "mongodb";
 import {COMMERCE_PROVIDERS} from "@coreModule/environment";
-import ShippingZone from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
+import ShippingZone, {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 
 export type CartForShipping = {
     subtotal: number;
@@ -19,6 +19,8 @@ export type AvailableShippingRate = {
     price: number;
     estimatedDays?: number;
 };
+
+type ShippingZoneRate = IShippingZone["rates"][number];
 
 function matchesPostalCode(postalCode: string | undefined, patterns: string[] | undefined): boolean {
     if (!patterns?.length) return true;
@@ -42,15 +44,7 @@ function zoneMatchesAddress(
     return matchesPostalCode(destinationPostalCode, zone.postalCodePatterns);
 }
 
-function computeRatePrice(
-    rate: {
-        type: string;
-        price?: number;
-        estimatedDeliveryDays?: number;
-        conditions?: {minWeight?: number; maxWeight?: number; minOrderAmount?: number; maxOrderAmount?: number};
-    },
-    cart: CartForShipping,
-): number | null {
+function computeRatePrice(rate: ShippingZoneRate, cart: CartForShipping): number | null {
     const conditions = rate.conditions ?? {};
 
     if (rate.type === "free") return 0;
@@ -112,7 +106,7 @@ const internalZonesShippingProvider: ShippingRateProvider = {
         for (const zone of zones) {
             if (!zoneMatchesAddress(zone, cart.destinationState, cart.destinationPostalCode)) continue;
 
-            const rates = (zone.rates as Parameters<typeof computeRatePrice>[0][]) ?? [];
+            const rates: ShippingZoneRate[] = zone.rates ?? [];
             for (const rate of rates) {
                 const price = computeRatePrice(rate, cart);
                 if (price === null) continue;

@@ -37,12 +37,7 @@ Routes are discovered from `api/eCommerce/private/`. Each file exports `basePath
 | `checkout.ts` | `/api/eCommerce/checkout` | Checkout flow |
 | `productOrder.ts` | `/api/eCommerce/productOrder` | Orders |
 | `orderChannel.ts` | `/api/eCommerce/orderChannel` | Order channels |
-| `orderDelivery.ts` | `/api/eCommerce/orderDelivery` | Delivery tracking |
-| `orderMilestone.ts` | `/api/eCommerce/orderMilestone` | Order milestones |
-| `orderRevision.ts` | `/api/eCommerce/orderRevision` | Order revisions |
 | `fulfillment.ts` | `/api/eCommerce/fulfillment` | Fulfillment |
-| `paymentTransaction.ts` | `/api/eCommerce/paymentTransaction` | Payments |
-| `escrowTransaction.ts` | `/api/eCommerce/escrowTransaction` | Escrow |
 | `pricingRule.ts` | `/api/eCommerce/pricingRule` | Pricing rules |
 | `discount.ts` | `/api/eCommerce/discount` | Discounts |
 | `taxZone.ts` | `/api/eCommerce/taxZone` | Tax zones |

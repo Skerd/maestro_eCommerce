@@ -8,23 +8,21 @@ import {
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function warehouseToDTO(warehouse: IWarehouse): Warehouse {
-    const addr = warehouse.address as any;
     return {
         _id: warehouse._id.toString(),
         name: warehouse.name,
         code: warehouse.code,
-        address: addr ? {
-              country: mapPopulatedRef(addr.country),
-              state: mapPopulatedRef(addr.state),
-              city: mapPopulatedRef(addr.city),
-              street: addr.street,
-              postalCode: addr.postalCode,
-              latitude: addr.latitude,
-              longitude: addr.longitude,
-          } : undefined,
+        address: warehouse.address ? {
+            country: mapPopulatedRef(warehouse.address.country),
+            state: mapPopulatedRef(warehouse.address.state),
+            city: mapPopulatedRef(warehouse.address.city),
+            street: warehouse.address.street,
+            postalCode: warehouse.address.postalCode,
+            latitude: warehouse.address.latitude,
+            longitude: warehouse.address.longitude,
+        } : undefined,
         isDefault: warehouse.isDefault,
         isActive: warehouse.isActive,
-        company: mapPopulatedRef(warehouse.company),
         ...mapSoftDeleteToDTO(warehouse),
         ...mapOwnershipToDTO(warehouse),
         ...mapLifeCycleToDTO(warehouse),

@@ -139,55 +139,6 @@ export const productOrderSheetView: ViewConfig = {
         {
             render: "#ReferencesViewModeScope",
             props: {
-                storageKey: "productOrder.sheet.itemProducts.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "products",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "itemProducts",
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "itemProducts",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ProductCard",
-                                            itemDataProp: "product",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconPackage",
-                                                label: "product",
-                                                valuePath: ["title", "sku"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "products",
-                                                linkedSheetWidget: "#ProductSheetView",
-                                                linkedSheetEntityProp: "product",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
                 storageKey: "productOrder.sheet.items.listDisplay",
                 defaultMode: "cards",
             },
@@ -212,15 +163,20 @@ export const productOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            cardColumns: 3,
                                             compactSummaryFields: ["product", "quantity", "totalPrice"],
                                             fields: [
                                                 {
                                                     name: "product",
-                                                    type: "text",
+                                                    type: "linkedRef",
                                                     className: "text-sm font-medium",
                                                     valuePath: ["title", "sku"],
                                                     joinSeparator: " · ",
                                                     labelKey: "itemProduct",
+                                                    linkedSheetModel: "products",
+                                                    linkedSheetWidget: "#ProductSheetView",
+                                                    linkedSheetEntityProp: "product",
+                                                    icon: "#IconPackage",
                                                 },
                                                 {
                                                     name: "variant",
@@ -256,12 +212,22 @@ export const productOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemUnitPrice",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "totalPrice",
                                                     type: "text",
                                                     className: "text-sm font-medium",
                                                     labelKey: "itemTotalPrice",
+                                                    currencyField: "currency",
+                                                },
+                                                {
+                                                    name: "currency",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    valuePath: ["symbol", "abbreviation"],
+                                                    joinSeparator: " ",
+                                                    labelKey: "currency",
                                                 },
                                             ],
                                         },
@@ -560,7 +526,7 @@ export const productOrderSheetView: ViewConfig = {
             render: "#ReferencesViewModeScope",
             props: {
                 storageKey: "productOrder.sheet.appliedDiscounts.listDisplay",
-                defaultMode: "compact",
+                defaultMode: "cards",
             },
             children: [
                 {
@@ -570,32 +536,40 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependent: "appliedDiscountRefs",
-                    dependentRuntimeOnly: true,
+                    dependent: "appliedDiscounts",
                     children: [
                         {
                             render: "div",
                             props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
                             children: [
                                 {
-                                    render: "#ReferencesRender",
+                                    render: "#SheetEmbeddedItemsList",
                                     field: {
-                                        name: "appliedDiscountRefs",
-                                        widget: "#ReferencesRender",
+                                        name: "appliedDiscounts",
+                                        widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
-                                            cardWidget: "#DiscountCard",
-                                            itemDataProp: "discount",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconPercent",
-                                                label: "discount",
-                                                valuePath: ["title", "code", "amount"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "discounts",
-                                                linkedSheetWidget: "#DiscountSheetView",
-                                                linkedSheetEntityProp: "discount",
-                                            },
+                                            pageSize: 5,
+                                            compactSummaryFields: ["discount", "amount"],
+                                            fields: [
+                                                {
+                                                    name: "discount",
+                                                    type: "linkedRef",
+                                                    className: "text-sm font-medium",
+                                                    valuePath: ["title", "code"],
+                                                    joinSeparator: " · ",
+                                                    labelKey: "discount",
+                                                    linkedSheetModel: "discounts",
+                                                    linkedSheetWidget: "#DiscountSheetView",
+                                                    linkedSheetEntityProp: "discount",
+                                                    icon: "#IconPercent",
+                                                },
+                                                {
+                                                    name: "amount",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "discountAmount",
+                                                },
+                                            ],
                                         },
                                     },
                                 },
@@ -841,10 +815,11 @@ export const productOrderSheetView: ViewConfig = {
                                             compactRow: {
                                                 icon: "#IconCreditCard",
                                                 label: "paymentTransaction",
-                                                valuePath: ["type", "status", "amountDisplay", "gateway"],
+                                                valuePath: ["type", "status", "amount", "currency.symbol", "gateway"],
                                                 valueLanguageKeyCategories: [
                                                     "paymentTransactionType",
                                                     "paymentTransactionStatus",
+                                                    null,
                                                     null,
                                                     "paymentTransactionGateway",
                                                 ],

@@ -16,36 +16,55 @@ export type CartForPricing = {
     customerGroupIds?: ObjectId[];
 };
 
+/** Normalize ObjectId | populated doc | string to a comparable id string. */
+function idKey(value: unknown): string {
+    if (value == null) return "";
+    if (value instanceof ObjectId) return value.toString();
+    if (typeof value === "object" && "_id" in value) {
+        return String((value as {_id: unknown})._id);
+    }
+    return String(value);
+}
+
+function toObjectId(value: unknown): ObjectId {
+    if (value instanceof ObjectId) return value;
+    if (typeof value === "string") return new ObjectId(value);
+    if (value && typeof value === "object" && "_id" in value) {
+        return toObjectId((value as {_id: unknown})._id);
+    }
+    return new ObjectId(String(value));
+}
+
 function isRuleActive(rule: IPricingRule, now: Date): boolean {
     if (!rule.isActive) return false;
     if (rule.startsAt && rule.startsAt > now) return false;
-    if (rule.endsAt && rule.endsAt < now) return false;
-    return true;
+    return !(rule.endsAt && rule.endsAt < now);
 }
 
 function ruleMatchesCustomerGroups(rule: IPricingRule, customerGroupIds: ObjectId[] = []): boolean {
-    const ruleGroups = (rule.customerGroups ?? []) as ObjectId[];
+    const ruleGroups = rule.customerGroups ?? [];
     if (ruleGroups.length === 0) return true;
-    return ruleGroups.some((g) => customerGroupIds.some((cg) => cg.toString() === g.toString()));
+    const cartKeys = new Set(customerGroupIds.map((cg) => idKey(cg)));
+    return ruleGroups.some((g) => cartKeys.has(idKey(g)));
 }
 
 function lineMatchesRule(rule: IPricingRule, line: CartLineForPricing): boolean {
     if (rule.appliesTo === "all") return true;
-    if (rule.appliesTo === "customer_group") return ruleMatchesCustomerGroups(rule, []);
-    const targets = (rule.targetIds ?? []) as ObjectId[];
-    if (targets.length === 0) return rule.appliesTo === "all";
+    // Cart-level customer-group filter already applied; these rules hit every line.
+    if (rule.appliesTo === "customer_group") return true;
+
+    const targets = rule.targetIds ?? [];
+    if (targets.length === 0) return false;
 
     if (rule.appliesTo === "product") {
-        return targets.some((t) => t.toString() === line.productId.toString());
+        return targets.some((t) => idKey(t) === line.productId);
     }
-    if (rule.appliesTo === "category" && line.categoryId) {
-        return targets.some((t) => t.toString() === line.categoryId!.toString());
-    }
-    if (rule.appliesTo === "category" && !line.categoryId) {
-        return false;
+    if (rule.appliesTo === "category") {
+        if (!line.categoryId) return false;
+        return targets.some((t) => idKey(t) === line.categoryId);
     }
     if (rule.appliesTo === "collection" && line.collectionIds?.length) {
-        return targets.some((t) => line.collectionIds!.some((c) => c.toString() === t.toString()));
+        return targets.some((t) => line.collectionIds!.some((c) => c === idKey(t)));
     }
     return false;
 }
@@ -134,20 +153,20 @@ export async function enrichCartLinesWithProductMeta(
 
     return items.map((item) => {
         const p = productMap.get(item.product.toString());
-        const categories = (p?.categories as ObjectId[] | undefined) ?? [];
-        const collections = (p?.collections as ObjectId[] | undefined) ?? [];
+        const categories = p?.categories ?? [];
+        const collections = p?.collections ?? [];
         return {
             productId: item.product.toString(),
             variantId: item.variant?.toString(),
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            categoryId: categories[0]?.toString(),
-            collectionIds: collections.map((c) => c.toString()),
+            categoryId: categories[0] ? idKey(categories[0]) : undefined,
+            collectionIds: collections.map((c) => idKey(c)),
         };
     });
 }
 
 export async function getCustomerGroupIdsForUser(userId: ObjectId, companyId: ObjectId): Promise<ObjectId[]> {
     const members = await CustomerGroupMember.find({user: userId, company: companyId, deletedAt: null}).select("customerGroup").lean();
-    return members.map((m) => m.customerGroup as ObjectId);
+    return members.map((m) => toObjectId(m.customerGroup));
 }

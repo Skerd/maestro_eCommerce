@@ -6,15 +6,19 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
+import {
+    notifyMerchantsNewOrder,
+    notifyProductOrderCustomer,
+} from "@eCommerceModule/utilities/services/productOrderNotify";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {paymentTransactionService} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction.service";
-import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
+import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
 import {calculateTax} from "@eCommerceModule/utilities/services/taxCalculationService";
@@ -30,7 +34,8 @@ import {
     isOfflinePaymentMethod,
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
-import {productOrderToDTO} from "@eCommerceModule/utilities/mappers/productOrderMapper.dto";
+import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
+import {productOrderToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -39,29 +44,6 @@ import {confirmCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eComm
 
 export const basePath = "/api/eCommerce/checkout";
 export const router = Router();
-
-function checkoutToDTO(checkout: any) {
-    return {
-        _id: checkout._id.toString(),
-        status: checkout.status,
-        items: checkout.items ?? [],
-        shippingAddress: checkout.shippingAddress,
-        billingAddress: checkout.billingAddress,
-        availableShippingRates: checkout.availableShippingRates ?? [],
-        selectedShippingRate: checkout.selectedShippingRate,
-        subtotal: checkout.subtotal,
-        discountTotal: checkout.discountTotal,
-        shippingTotal: checkout.shippingTotal,
-        taxTotal: checkout.taxTotal,
-        grandTotal: checkout.grandTotal,
-        giftCard: checkout.giftCard
-            ? {code: checkout.giftCard.code, amount: checkout.giftCard.amount}
-            : undefined,
-        paymentMethod: checkout.paymentMethod,
-        stripeClientSecret: checkout.stripeClientSecret,
-        expiresAt: checkout.expiresAt?.toISOString(),
-    };
-}
 
 /**
  * Currency for a checkout: the cart's currency, else the first line's product
@@ -91,7 +73,10 @@ router.post(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, idempotencyKey} = params;
 
-        const existing = await Checkout.findOne({idempotencyKey, company: company._id, status: {$in: ["pending", "payment_processing"]}});
+        const existing = await checkoutService.findOne(
+            {idempotencyKey, company: company._id, status: {$in: ["pending", "payment_processing"]}},
+            {logger: params.logger, languageCode},
+        );
         if (existing) return {data: checkoutToDTO(existing)};
 
         const cart = await Cart.findOne({user: actionUserCtx.userId, company: company._id});
@@ -277,7 +262,8 @@ router.post(
 
         await paymentTransactionService.createPending(
             {
-                checkout: checkout._id as ObjectId,
+                sourceType: "checkout",
+                sourceId: checkout._id as ObjectId,
                 gateway: adapter.gateway,
                 amount: checkout.grandTotal,
                 currency: currencyId,
@@ -294,7 +280,7 @@ router.post(
 
 /**
  * Confirm checkout — creates the ProductOrder and reserves inventory inside
- * one transaction. Online methods (stripe/paypal) must have a succeeded
+ * one transaction. Online methods (stripe/PayPal) must have a succeeding
  * charge first; offline methods (cod/bank_transfer) create the order unpaid.
  */
 router.post(
@@ -331,7 +317,13 @@ router.post(
         } else if (!isOfflinePaymentMethod(checkout.paymentMethod!)) {
             const gateway = paymentMethodToGateway(checkout.paymentMethod);
             chargeTransaction = await paymentTransactionService.findOne(
-                {checkout: checkout._id, gateway, type: "charge", company: company._id},
+                {
+                    sourceType: "checkout",
+                    sourceId: checkout._id,
+                    gateway,
+                    type: "charge",
+                    company: company._id,
+                },
                 {logger, languageCode, session},
             );
             if (!chargeTransaction) throw apiValidationException("payment_not_initiated", null, null, languageCode);
@@ -442,10 +434,10 @@ router.post(
         await order.save({session});
 
         if (chargeTransaction) {
-            await paymentTransactionService.updateByIdOrThrow(
+            await paymentTransactionService.attachProductOrder(
                 chargeTransaction._id,
-                {$set: {order: order._id}},
-                {logger, languageCode, session},
+                order._id as ObjectId,
+                {logger, languageCode, session, checkoutId: checkout._id as ObjectId},
             );
         }
 
@@ -453,14 +445,17 @@ router.post(
         if (fullyCoveredByGiftCard) {
             await paymentTransactionService.create(
                 {
-                    order: order._id,
-                    checkout: checkout._id,
+                    sourceType: "productOrder",
+                    sourceId: order._id,
                     gateway: "wallet",
                     type: "charge",
                     status: "succeeded",
                     amount: checkout.giftCard!.amount,
                     currency: (checkout.currency as any)?._id ?? checkout.currency,
-                    metadata: {giftCardCode: checkout.giftCard!.code},
+                    metadata: {
+                        giftCardCode: checkout.giftCard!.code,
+                        checkoutId: checkout._id.toString(),
+                    },
                     company: company._id,
                 } as any,
                 {logger, languageCode, session, auditUserId: actionUserCtx.userId},
@@ -483,16 +478,31 @@ router.post(
         );
 
         const customerId = actionUserCtx.userId?.toString?.() ?? String(actionUserCtx.userId);
-        emitNotificationEvent(NotificationEventCodes.PRODUCT_ORDER_PLACED, {
-            receiverIds: [customerId],
-            payload: {companyId: company._id.toString(), languageCode, orderId: order._id.toString(), orderNumber},
+        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PLACED, {
+            companyId: company._id,
+            languageCode,
+            order,
+            customerId,
+            orderEmail: email,
+            extra: {grandTotal: order.grandTotal},
         });
         if (paymentStatus === "paid") {
-            emitNotificationEvent(NotificationEventCodes.PRODUCT_ORDER_PAID, {
-                receiverIds: [customerId],
-                payload: {companyId: company._id.toString(), languageCode, orderId: order._id.toString(), orderNumber},
+            await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {
+                companyId: company._id,
+                languageCode,
+                order,
+                customerId,
+                orderEmail: email,
+                extra: {grandTotal: order.grandTotal},
             });
         }
+        await notifyMerchantsNewOrder({
+            companyId: company._id,
+            languageCode,
+            orderId: order._id.toString(),
+            orderNumber,
+            grandTotal: order.grandTotal,
+        });
 
         return {data: productOrderToDTO(order)};
     }),

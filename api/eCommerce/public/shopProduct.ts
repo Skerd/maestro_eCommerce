@@ -7,7 +7,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {toShopProductDetail} from "@eCommerceModule/utilities/shop/shopCatalog.mapper";
+import {toShopProductDetail} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 

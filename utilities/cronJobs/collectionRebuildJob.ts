@@ -1,6 +1,6 @@
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
-import {rebuildDynamicCollectionMembership} from "@eCommerceModule/utilities/services/rebuildDynamicCollection";
+import {rebuildDynamicCollectionMembership} from "@eCommerceModule/utilities/services/collection/rebuildDynamicCollection";
 import {CronJob} from "cron";
 
 let collectionRebuildJob: CronJob | null = null;

@@ -1,10 +1,6 @@
 import type {IPricingRule} from "@eCommerceModule/database/schemas/pricingRule/pricingRule";
-import type {PricingRule} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.dto";
-import {
-    dateToISOString,
-    mapPopulatedRef,
-    objectIdToString,
-} from "@coreModule/utilities/mappers/common.mapper";
+import type {PricingRule, PricingRuleRef} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.dto";
+import {dateToISOString, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -14,65 +10,69 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import CustomerGroup from "@eCommerceModule/database/schemas/customerGroup/customerGroup";
-import {loadNamedRefs, type NamedRef} from "@eCommerceModule/utilities/mappers/helpers/namedRefs";
+import {loadNamedRefs} from "@eCommerceModule/utilities/mappers/helpers/namedRefs";
 
-export async function resolvePricingRuleRefs(rule: IPricingRule): Promise<{
-    targets: NamedRef[];
-    customerGroupRefs: NamedRef[];
-}> {
-    const [customerGroupRefs, targets] = await Promise.all([
-        loadNamedRefs(CustomerGroup as any, rule.customerGroups as any, "name"),
-        (async () => {
-            const ids = rule.targetIds as any;
-            if (!ids?.length) return [] as NamedRef[];
-            if (rule.appliesTo === "product") return loadNamedRefs(Product as any, ids, "title");
-            if (rule.appliesTo === "collection") return loadNamedRefs(ProductCollection as any, ids, "name");
-            if (rule.appliesTo === "category") return loadNamedRefs(ProductCategory as any, ids, "name");
-            return [];
-        })(),
-    ]);
-
-    return {targets, customerGroupRefs};
+function ids(values: unknown[] | undefined): string[] | undefined {
+    if (!values) return undefined;
+    return values.map((v: any) => objectIdToString(v?._id ?? v));
 }
 
-export function pricingRuleToDTO(
-    rule: IPricingRule,
-    refs?: {
-        targets?: NamedRef[];
-        customerGroupRefs?: NamedRef[];
-    },
-): PricingRule {
-    const targets = refs?.targets ?? [];
-    const appliesTo = rule.appliesTo;
+function withTitle(refs: {_id: string; name: string}[]): PricingRuleRef[] {
+    return refs.map((r) => ({_id: r._id, name: r.name, title: r.name}));
+}
 
+/** Polymorphic `targetIds` — resolve names by `appliesTo` (no single mongoose ref). */
+async function loadTargets(rule: IPricingRule): Promise<PricingRuleRef[]> {
+    const {appliesTo, targetIds} = rule;
+    if (!targetIds?.length) return [];
+    if (appliesTo === "product") return withTitle(await loadNamedRefs(Product as any, targetIds as any, "title"));
+    if (appliesTo === "collection") return loadNamedRefs(ProductCollection as any, targetIds as any, "name");
+    if (appliesTo === "category") return loadNamedRefs(ProductCategory as any, targetIds as any, "name");
+    return [];
+}
+
+function buildPricingRuleDTO(
+    rule: IPricingRule,
+    targets: PricingRuleRef[],
+    customerGroupRefs: PricingRuleRef[],
+): PricingRule {
+    const {appliesTo} = rule;
     return {
         _id: rule._id.toString(),
         name: rule.name,
         type: rule.type,
         value: rule.value,
         appliesTo,
-        targetIds: rule.targetIds?.map((id: any) => objectIdToString(id?._id ?? id)),
+        targetIds: ids(rule.targetIds as any),
         targets,
-        productTargets: appliesTo === "product" ? targets.map((r) => ({_id: r._id, name: r.name, title: r.name})) : [],
+        productTargets: appliesTo === "product" ? targets : [],
         collectionTargets: appliesTo === "collection" ? targets : [],
         categoryTargets: appliesTo === "category" ? targets : [],
-        customerGroups: rule.customerGroups?.map((id: any) => objectIdToString(id?._id ?? id)),
-        customerGroupRefs: refs?.customerGroupRefs ?? [],
+        customerGroups: ids(rule.customerGroups as any),
+        customerGroupRefs,
         minimumOrderAmount: rule.minimumOrderAmount,
         minimumQuantity: rule.minimumQuantity,
         priority: rule.priority,
         isActive: rule.isActive,
         startsAt: dateToISOString(rule.startsAt) || undefined,
         endsAt: dateToISOString(rule.endsAt) || undefined,
-        company: mapPopulatedRef(rule.company as any),
         ...mapSoftDeleteToDTO(rule),
         ...mapOwnershipToDTO(rule),
         ...mapLifeCycleToDTO(rule),
     };
 }
 
+/** Sync create-response path — chip labels come from `pricingRuleToDTOWithLabels` (enrich). */
+export function pricingRuleToDTO(rule: IPricingRule): PricingRule {
+    return buildPricingRuleDTO(rule, [], []);
+}
+
 export async function pricingRuleToDTOWithLabels(rule: IPricingRule): Promise<PricingRule> {
-    return pricingRuleToDTO(rule, await resolvePricingRuleRefs(rule));
+    const [targets, customerGroupRefs] = await Promise.all([
+        loadTargets(rule),
+        loadNamedRefs(CustomerGroup as any, rule.customerGroups as any, "name"),
+    ]);
+    return buildPricingRuleDTO(rule, targets, customerGroupRefs);
 }
 
 export async function pricingRulesToDTOWithLabels(rules: IPricingRule[]): Promise<PricingRule[]> {
@@ -80,5 +80,5 @@ export async function pricingRulesToDTOWithLabels(rules: IPricingRule[]): Promis
 }
 
 export function pricingRulesToDTO(rules: IPricingRule[]): PricingRule[] {
-    return rules.map((r) => pricingRuleToDTO(r));
+    return rules.map(pricingRuleToDTO);
 }

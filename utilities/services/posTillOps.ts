@@ -8,12 +8,13 @@ import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
-import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSessionMapper.dto";
+import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
+import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 import {
     hasAnyManagerPin,
     managerPinMatchesForUser,
 } from "@eCommerceModule/utilities/services/posManagerPin";
+import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
 
 type Ctx = {
     logger: any;
@@ -200,7 +201,7 @@ async function buildReceiptFiscalQr(
         const QRCodeMod = await import("qrcode");
         const toDataURL = (QRCodeMod as any).toDataURL ?? (QRCodeMod as any).default?.toDataURL;
         if (typeof toDataURL !== "function") return {qrVerifyUrl, nslf, nivf};
-        const qrCodeDataUrl = await toDataURL(qrVerifyUrl, {
+        const qrCodeDataUrl = toDataURL(qrVerifyUrl, {
             width: 168,
             margin: 1,
             errorCorrectionLevel: "M",
@@ -276,6 +277,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
         deletedAt: null,
     }).session(ctx.session ?? null);
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
+    await assertPosTillMutable(config, ctx);
 
     const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx);
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));

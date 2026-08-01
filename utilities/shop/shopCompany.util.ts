@@ -31,5 +31,5 @@ export async function resolveShopCompany(
         return wildcard;
     }
 
-    throw apiValidationException("company_not_found_for_origin", "origin", normalizedOrigin || origin, languageCode);
+    throw apiValidationException("company_not_found_for_origin", "origin", [normalizedOrigin || origin], languageCode);
 }

@@ -1,5 +1,8 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {ICountry} from "@coreModule/database/schemas/country/country";
+import {IState} from "@coreModule/database/schemas/state/state";
+import {ICity} from "@coreModule/database/schemas/city/city";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
@@ -19,20 +22,22 @@ import {applyWarehouseIndexes} from "./warehouse.indexes";
 import {warehouseViews} from "./warehouse.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
+export interface IWarehouseAddress {
+    country?: ICountry;
+    state?: IState;
+    city?: ICity;
+    street?: string;
+    postalCode?: string;
+    latitude?: number;
+    longitude?: number;
+}
+
 export interface IWarehouse extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     code: string;
-    address?: {
-        country?: Schema.Types.ObjectId;
-        state?: Schema.Types.ObjectId;
-        city?: Schema.Types.ObjectId;
-        street?: string;
-        postalCode?: string;
-        latitude?: number;
-        longitude?: number;
-    };
-    isDefault?: boolean;
-    isActive?: boolean;
+    address?: IWarehouseAddress;
+    isDefault: boolean;
+    isActive: boolean;
     company: ICompany;
 }
 

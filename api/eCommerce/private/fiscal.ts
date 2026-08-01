@@ -14,8 +14,8 @@ import {
     registerTcr,
 } from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
-import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfigMapper.dto";
+import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
+import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.dto";
 import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
 
 export const basePath = "/api/eCommerce/fiscal";

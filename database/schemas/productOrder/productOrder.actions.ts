@@ -6,36 +6,28 @@ import {cancelProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {refundProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/refundProductOrder.form.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
-import {giftCardService} from "@eCommerceModule/database/schemas/giftCard/giftCard.service";
+import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import Fulfillment from "@eCommerceModule/database/schemas/fulfillment/fulfillment";
 import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
-import {paymentTransactionService} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction.service";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {releaseCheckoutReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
+import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 
-function customerIdOf(order: any): string {
-    return ((order.customer as any)?._id ?? order.customer)?.toString?.() ?? "";
-}
-
-function notifyCustomer(order: any, code: any, companyId: ObjectId, languageCode: string, extra: Record<string, unknown> = {}): void {
-    const customerId = customerIdOf(order);
-    if (!customerId) return;
-    emitNotificationEvent(code, {
-        receiverIds: [customerId],
-        payload: {
-            companyId: companyId.toString(),
-            languageCode,
-            orderId: order._id.toString(),
-            orderNumber: (order as any).orderNumber ?? "",
-            ...extra,
-        },
-    });
+async function notifyCustomer(
+    order: IProductOrder,
+    code: string,
+    companyId: ObjectId,
+    languageCode: string,
+    extra: Record<string, unknown> = {},
+): Promise<void> {
+    await notifyProductOrderCustomer(code, {companyId, languageCode, order, extra});
 }
 
 export class ProductOrderActions {
@@ -52,22 +44,35 @@ export class ProductOrderActions {
         logger.start(`Confirming product order: ${_id}...`);
 
         const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
+            {
+                _id: new ObjectId(_id),
+                company: company._id
+            },
             {session, logger, languageCode},
         );
 
-        if ((order as any).status !== "pending") {
+        if (order.status !== "pending") {
             throw apiValidationException("order_not_pending", null, null, languageCode);
         }
 
         await productOrderService.updateByIdOrThrow(
             order._id,
             {
-                $set: {status: "confirmed"},
-                $push: {timeline: {event: "order_confirmed", timestamp: new Date(), userId: actionUserCtx.userId}} as any,
+                $set: {
+                    status: "confirmed"
+                },
+                $push: {
+                    timeline: {
+                        event: "order_confirmed",
+                        timestamp: new Date(),
+                        userId: actionUserCtx.userId
+                    }
+                }
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
+
+        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CONFIRMED, company._id, languageCode);
 
         logger.finish(`Successfully confirmed product order: ${_id}`);
 
@@ -87,19 +92,30 @@ export class ProductOrderActions {
         logger.start(`Marking product order processing: ${_id}...`);
 
         const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
+            {
+                _id: new ObjectId(_id),
+                company: company._id
+            },
             {session, logger, languageCode},
         );
 
-        if ((order as any).status !== "confirmed") {
+        if (order.status !== "confirmed") {
             throw apiValidationException("order_must_be_confirmed_first", null, null, languageCode);
         }
 
         await productOrderService.updateByIdOrThrow(
             order._id,
             {
-                $set: {status: "processing"},
-                $push: {timeline: {event: "order_processing", timestamp: new Date(), userId: actionUserCtx.userId}} as any,
+                $set: {
+                    status: "processing"
+                },
+                $push: {
+                    timeline: {
+                        event: "order_processing",
+                        timestamp: new Date(),
+                        userId: actionUserCtx.userId
+                    }
+                }
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
@@ -122,11 +138,14 @@ export class ProductOrderActions {
         logger.start(`Shipping product order: ${_id}...`);
 
         const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
+            {
+                _id: new ObjectId(_id),
+                company: company._id
+            },
             {session, logger, languageCode},
         );
 
-        if (!["confirmed", "processing"].includes((order as any).status)) {
+        if (!["confirmed", "processing"].includes((order).status)) {
             throw apiValidationException("order_not_ready_to_ship", null, null, languageCode);
         }
 
@@ -136,27 +155,47 @@ export class ProductOrderActions {
             {
                 order: order._id,
                 company: company._id,
-                items: ((order as any).items ?? []).map((item: any) => ({orderItemId: item._id, quantity: item.quantity})),
+                items: (order.items ?? []).map((item) => ({orderItemId: item._id, quantity: item.quantity})),
                 carrier: carrier?.trim?.() || undefined,
                 trackingNumber: trackingNumber?.trim?.() || undefined,
                 trackingUrl: trackingUrl?.trim?.() || undefined,
                 shippedAt: new Date(),
                 status: "shipped",
                 notes: notes?.trim?.() || undefined,
-            } as any,
+            },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
         await productOrderService.updateByIdOrThrow(
             order._id,
             {
-                $set: {status: "shipped", fulfillmentStatus: "fulfilled"},
-                $push: {timeline: {event: "order_shipped", timestamp: new Date(), userId: actionUserCtx.userId, note: trackingNumber || undefined}} as any,
+                $set: {
+                    status: "shipped",
+                    fulfillmentStatus: "fulfilled"
+                },
+                $push: {
+                    timeline: {
+                        event: "order_shipped",
+                        timestamp: new Date(),
+                        userId: actionUserCtx.userId,
+                        note: trackingNumber || undefined
+                    }
+                },
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_SHIPPED, company._id, languageCode, {trackingNumber: trackingNumber ?? ""});
+        await notifyCustomer(
+            order,
+            NotificationEventCodes.PRODUCT_ORDER_SHIPPED,
+            company._id,
+            languageCode,
+            {
+                trackingNumber: trackingNumber ?? "",
+                trackingUrl: trackingUrl ?? "",
+                carrier: carrier ?? "",
+            },
+        );
 
         logger.finish(`Successfully shipped product order: ${_id}`);
 
@@ -180,18 +219,21 @@ export class ProductOrderActions {
         logger.start(`Cancelling product order: ${_id}...`);
 
         const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
+            {
+                _id: new ObjectId(_id),
+                company: company._id
+            },
             {session, logger, languageCode},
         );
 
-        if (["shipped", "delivered", "cancelled", "refunded"].includes((order as any).status)) {
+        if (["shipped", "delivered", "cancelled", "refunded"].includes(order.status)) {
             throw apiValidationException("order_cannot_be_cancelled", null, null, languageCode);
         }
-        if (["paid", "partially_refunded"].includes((order as any).paymentStatus)) {
+        if (["paid", "partially_refunded"].includes(order.paymentStatus)) {
             throw apiValidationException("refund_order_before_cancelling", null, null, languageCode);
         }
 
-        const checkout = await Checkout.findOne({idempotencyKey: (order as any).idempotencyKey, company: company._id}).session(session);
+        const checkout = await Checkout.findOne({idempotencyKey: order.idempotencyKey, company: company._id}).session(session);
         if (checkout && (checkout.reservations ?? []).some(r => r.state === "reserved")) {
             await releaseCheckoutReservations(checkout, {session, logger, languageCode, auditUserId: actionUserCtx.userId});
         }
@@ -199,13 +241,27 @@ export class ProductOrderActions {
         await productOrderService.updateByIdOrThrow(
             order._id,
             {
-                $set: {status: "cancelled"},
-                $push: {timeline: {event: "order_cancelled", timestamp: new Date(), userId: actionUserCtx.userId, note: reason?.trim?.() || undefined}} as any,
+                $set: {
+                    status: "cancelled"
+                },
+                $push: {
+                    timeline: {
+                        event: "order_cancelled",
+                        timestamp: new Date(),
+                        userId: actionUserCtx.userId,
+                        note: reason?.trim?.() || undefined
+                    }
+                },
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CANCELLED, company._id, languageCode);
+        await notifyCustomer(
+            order,
+            NotificationEventCodes.PRODUCT_ORDER_CANCELLED,
+            company._id,
+            languageCode,
+        );
 
         logger.finish(`Successfully cancelled product order: ${_id}`);
 
@@ -229,52 +285,64 @@ export class ProductOrderActions {
         logger.start(`Refunding product order: ${_id}...`);
 
         const order = await productOrderService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
+            {
+                _id: new ObjectId(_id),
+                company: company._id
+            },
             {session, logger, languageCode},
         );
 
-        if (!["paid", "partially_refunded"].includes((order as any).paymentStatus)) {
+        if (!["paid", "partially_refunded"].includes(order.paymentStatus)) {
             throw apiValidationException("order_not_refundable", null, null, languageCode);
         }
 
         const charge = await paymentTransactionService.findOne(
-            {order: order._id, type: "charge", status: {$in: ["succeeded", "partially_refunded"]}, company: company._id},
+            {
+                sourceType: "productOrder",
+                sourceId: order._id,
+                type: "charge",
+                status: {
+                    $in: ["succeeded", "partially_refunded"]
+                },
+                company: company._id
+            },
             {session, logger, languageCode},
         );
         if (!charge) {
             throw apiValidationException("no_charge_transaction_found", null, null, languageCode);
         }
 
-        const remaining = (charge as any).amount - ((charge as any).refundedAmount ?? 0);
+        const remaining = charge.amount - (charge.refundedAmount ?? 0);
         const refundAmount = amount ?? remaining;
         if (refundAmount <= 0 || refundAmount > remaining) {
             throw apiValidationException("invalid_refund_amount", null, null, languageCode);
         }
 
-        const currencyId = ((order as any).currency as any)?._id ?? (order as any).currency;
+        const currencyId = order.currency?._id ?? order.currency;
 
         let gatewayRefundId: string | undefined;
-        if ((charge as any).gateway !== "manual" && (charge as any).gatewayTransactionId) {
-            const adapter = getPaymentAdapter((charge as any).gateway);
+        if (charge.gateway !== "manual" && charge.gatewayTransactionId) {
+            const adapter = getPaymentAdapter(charge.gateway);
             if (!adapter || !adapter.isEnabled()) {
                 throw apiValidationException("payment_gateway_not_configured", null, null, languageCode);
             }
             const currency = await Currency.findById(currencyId, {abbreviation: 1}).session(session);
             const result = await adapter.createRefund({
-                gatewayTransactionId: (charge as any).gatewayTransactionId,
+                gatewayTransactionId: charge.gatewayTransactionId,
                 amount: refundAmount < remaining ? refundAmount : undefined,
                 currencyCode: currency?.abbreviation ?? "usd",
                 reason: reason?.trim?.() || undefined,
-                idempotencyKey: `refund-${order._id.toString()}-${Math.round(refundAmount * 100)}-${((charge as any).refundedAmount ?? 0)}`,
+                idempotencyKey: `refund-${order._id.toString()}-${Math.round(refundAmount * 100)}-${(charge.refundedAmount ?? 0)}`,
             });
             gatewayRefundId = result.id;
         }
 
         await paymentTransactionService.recordRefund(
             {
-                order: order._id as ObjectId,
-                chargeTransactionId: (charge as any)._id,
-                gateway: (charge as any).gateway,
+                sourceType: "productOrder",
+                sourceId: order._id as ObjectId,
+                chargeTransactionId: charge._id,
+                gateway: charge.gateway,
                 amount: refundAmount,
                 currency: currencyId,
                 gatewayTransactionId: gatewayRefundId,
@@ -288,7 +356,7 @@ export class ProductOrderActions {
 
         // Full refunds also return the store-credit portion to the gift card
         // (partial refunds stay gateway-only — documented behavior).
-        const giftCardEntry = (order as any).giftCard;
+        const giftCardEntry = order.giftCard;
         if (fullyRefunded && (giftCardEntry?.amount ?? 0) > 0) {
             const giftCardId = new ObjectId((giftCardEntry.giftCard?._id ?? giftCardEntry.giftCard).toString());
             const recredited = await giftCardService.recreditAmount(
@@ -308,12 +376,27 @@ export class ProductOrderActions {
                     paymentStatus: fullyRefunded ? "refunded" : "partially_refunded",
                     ...(fullyRefunded ? {status: "refunded"} : {}),
                 },
-                $push: {timeline: {event: fullyRefunded ? "order_refunded" : "order_partially_refunded", timestamp: new Date(), userId: actionUserCtx.userId, note: reason?.trim?.() || undefined}} as any,
+                $push: {
+                    timeline: {
+                        event: fullyRefunded ? "order_refunded" : "order_partially_refunded",
+                        timestamp: new Date(),
+                        userId: actionUserCtx.userId,
+                        note: reason?.trim?.() || undefined
+                    }
+                },
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_REFUNDED, company._id, languageCode, {amount: refundAmount});
+        await notifyCustomer(
+            order,
+            NotificationEventCodes.PRODUCT_ORDER_REFUNDED,
+            company._id,
+            languageCode,
+            {
+                amount: refundAmount,
+            },
+        );
 
         logger.finish(`Successfully refunded product order: ${_id}`);
 

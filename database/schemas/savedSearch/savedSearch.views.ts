@@ -1,5 +1,23 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 
+const savedSearchFormFields: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 1},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "name",
+                    widget: "#Input",
+                    label: "form.nameLabel",
+                    required: true,
+                },
+            },
+        ],
+    },
+];
+
 export const savedSearchSheetView: ViewConfig = {
     model: "savedsearches",
     viewType: "sheet",
@@ -13,7 +31,39 @@ export const savedSearchSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {title: "filters"},
+            props: {title: "overview", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "name"},
+                            field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}},
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "user"},
+                            field: {
+                                name: "user",
+                                widget: "#SmallInfoCard",
+                                label: "user",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "user",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "filters", defaultOpen: true},
             children: [
                 {
                     render: "#ExpandableText",
@@ -22,7 +72,46 @@ export const savedSearchSheetView: ViewConfig = {
                         name: "filters",
                         widget: "#ExpandableText",
                         label: "filters",
+                        widgetProps: {className: "text-sm whitespace-pre-wrap font-mono"},
                     },
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "deletion", defaultOpen: false},
+            dependent: "deletedAt",
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "deletedAt"},
+                            field: {
+                                name: "deletedAt",
+                                widget: "#SmallInfoCard",
+                                label: "deletedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "deletedBy"},
+                            field: {
+                                name: "deletedBy",
+                                widget: "#SmallInfoCard",
+                                label: "deletedBy",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "deletedBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
+                    ],
                 },
             ],
         },
@@ -36,23 +125,21 @@ export const savedSearchCreateFormView: ViewConfig = {
     accessModel: "savedsearches",
     apiUrl: "/api/eCommerce/savedSearch",
     method: "PUT",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 1},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "name",
-                        widget: "#Input",
-                        label: "form.nameLabel",
-                        required: true,
-                    },
-                },
-            ],
-        },
-    ],
+    nodes: savedSearchFormFields,
 };
 
-export const savedSearchViews: ViewConfig[] = [savedSearchSheetView, savedSearchCreateFormView];
+export const savedSearchEditFormView: ViewConfig = {
+    model: "savedsearches",
+    viewType: "form",
+    viewMode: "edit",
+    accessModel: "savedsearches",
+    apiUrl: "/api/eCommerce/savedSearch",
+    method: "PATCH",
+    nodes: savedSearchFormFields,
+};
+
+export const savedSearchViews: ViewConfig[] = [
+    savedSearchSheetView,
+    savedSearchCreateFormView,
+    savedSearchEditFormView,
+];

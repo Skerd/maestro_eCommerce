@@ -5,11 +5,8 @@ import {createFiscalConfigFormSchema} from "armonia/src/modules/eCommerce/api/eC
 import {editFiscalConfigFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/editFiscalConfig.form.validator";
 import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
 import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
-import {
-    fiscalConfigToDTO,
-    fiscalConfigsToDTO,
-    fiscalConfigsToSelect,
-} from "@eCommerceModule/utilities/mappers/fiscalConfigMapper.dto";
+import {fiscalConfigToDTO, fiscalConfigsToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.dto";
+import {fiscalConfigsToSelect} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.select";
 import {FiscalConfigActions} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.actions";
 
 const buildFiscalConfigCreateFromSchemaDef = buildCreateDataFromSchemaDef(FiscalConfigSchemaDef);
@@ -29,7 +26,7 @@ function applyCertificateFields(data: Record<string, unknown>, params: any, isCr
     }
     if (params.certificateBase64?.trim()) {
         if (!params.certificatePassword?.trim() && isCreate) {
-            // Require password with new cert on create — leave unset so validation surfaces via missing hasCertificate usage
+            // Require password with new cert on creation — leave unset so validation surfaces via missing hasCertificate usage
             return;
         }
         data.certificateBase64 = String(params.certificateBase64).replace(/\s+/g, "");

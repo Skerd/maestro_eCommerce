@@ -435,11 +435,7 @@ const productFormFields: ViewConfig["nodes"] = [
 
 ];
 
-const productRefSheetGroup = (
-    title: string,
-    field: string,
-    storageKey: string,
-): NonNullable<ViewConfig["nodes"]>[number] => ({
+const productRefSheetGroup = (title: string, field: string, storageKey: string,): NonNullable<ViewConfig["nodes"]>[number] => ({
     render: "#ReferencesViewModeScope",
     props: {
         storageKey,

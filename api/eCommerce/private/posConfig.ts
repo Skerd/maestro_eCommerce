@@ -13,58 +13,55 @@ import {
     hasAnyManagerPin,
     pruneManagerPinsToAssigned,
 } from "@eCommerceModule/utilities/services/posManagerPin";
-import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
+import {
+    getCompanyPosLock,
+    isCompanyPosLockActive,
+    isCompanyPosLocked,
+} from "@eCommerceModule/utilities/services/posKillSwitch";
+import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import {ObjectId} from "mongodb";
-
-/** Leaf read permissions skip populate — always hydrate label refs for DTO/chips. */
-const POS_CONFIG_LABEL_POPULATE = [
-    {path: "paymentMethods", select: "name type isActive cashQuickAmounts terminalEnabled terminalProvider terminalHost terminalPort terminalId terminalPath"},
-    {path: "managers", select: "name surname username"},
-    {path: "warehouses", select: "name code isActive"},
-    {path: "currency", select: "name symbol abbreviation"},
-];
+import "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
 
 async function assertWarehousesActive(
     warehouseIds: ObjectId[],
     companyId: ObjectId,
-    languageCode: string,
+    opts: {session?: any; logger?: any; languageCode: string},
 ): Promise<void> {
     if (!warehouseIds.length) return;
-    const activeCount = await Warehouse.countDocuments({
-        _id: {$in: warehouseIds},
-        company: companyId,
-        isActive: true,
-        deletedAt: null,
-    });
+    const {session, logger, languageCode} = opts;
+    const activeCount = await warehouseService.count(
+        {_id: {$in: warehouseIds}, company: companyId, isActive: true},
+        {session, logger, languageCode, withDeleted: false},
+    );
     if (activeCount !== warehouseIds.length) {
         throw apiValidationException("pos_config_warehouse_inactive", "warehouses", null, languageCode);
     }
 }
 
-async function withPosConfigLabels(doc: IPosConfig): Promise<IPosConfig> {
-    // Migrate legacy single `warehouse` → `warehouses[]` on read (idempotent).
-    const warehouses = ((doc as any).warehouses as any[]) ?? [];
-    const legacy = (doc as any).warehouse;
-    if ((!warehouses || warehouses.length === 0) && legacy) {
-        const legacyId = legacy?._id ?? legacy;
-        await PosConfig.updateOne(
-            {_id: doc._id},
-            {$set: {warehouses: [legacyId]}, $unset: {warehouse: 1}},
-        );
-        (doc as any).warehouses = [legacyId];
-        (doc as any).warehouse = undefined;
-    }
-    await doc.populate(POS_CONFIG_LABEL_POPULATE);
-    return doc;
+type CompanyLockDtoOpts = {
+    companyLockActive: boolean;
+    companyPauseReason: string | null;
+};
+
+function dtoOpts(params: Record<string, any>, lock: CompanyLockDtoOpts) {
+    return {
+        actionUserId: params?.actionUserCtx?.userId?.toString?.() ?? params?.actionUserCtx?.userId,
+        companyLockActive: lock.companyLockActive,
+        companyPauseReason: lock.companyPauseReason,
+    };
 }
 
-function dtoOpts(params: Record<string, any>) {
-    return {actionUserId: params?.actionUserCtx?.userId?.toString?.() ?? params?.actionUserCtx?.userId};
+async function companyLockDtoOpts(params: Record<string, any>): Promise<CompanyLockDtoOpts> {
+    const lock = await getCompanyPosLock(params.company._id, params.session);
+    return {
+        companyLockActive: isCompanyPosLockActive(lock),
+        companyPauseReason: lock?.pauseReason ?? null,
+    };
 }
 
 async function prunePinsAfterManagerChange(doc: IPosConfig, params: Record<string, any>) {
     const pruned = pruneManagerPinsToAssigned(doc);
-    const prev = ((doc as any).managerPins as any[] | undefined) ?? [];
+    const prev = doc.managerPins ?? [];
     if (pruned.length === prev.length) return;
 
     const update: Record<string, unknown> = {managerPins: pruned};
@@ -83,11 +80,11 @@ async function prunePinsAfterManagerChange(doc: IPosConfig, params: Record<strin
             auditUserId: params.actionUserCtx?.userId,
         },
     );
-    (doc as any).managerPins = pruned;
+    doc.managerPins = pruned;
     if (!hasAnyManagerPin(doc)) {
-        (doc as any).pinForDiscount = false;
-        (doc as any).pinForCashOut = false;
-        (doc as any).pinForRefund = false;
+        doc.pinForDiscount = false;
+        doc.pinForCashOut = false;
+        doc.pinForRefund = false;
     }
 }
 
@@ -104,21 +101,33 @@ export const {router} = createCrudRouter({
     toDTO: (doc) => posConfigToDTO(doc),
     toDTOArray: (docs) => posConfigsToDTO(docs),
     toSelect: posConfigsToSelect,
+    /** Till picker: active and not paused; company lock → empty. */
+    extraSelectFilter: async (params) => {
+        if (await isCompanyPosLocked(params.company._id)) {
+            return {_id: {$in: []}};
+        }
+        return {
+            isActive: true,
+            $or: [{pausedAt: null}, {pausedAt: {$exists: false}}],
+        };
+    },
     buildCreateData: async (params) => {
         const data = buildCreateDataFromSchemaDef(PosConfigSchemaDef)(params);
-        if (!Array.isArray(data.warehouses) || data.warehouses.length === 0) {
-            throw apiValidationException("pos_config_warehouse_required", "warehouses", null, params.languageCode);
-        }
-        await assertWarehousesActive(data.warehouses as ObjectId[], params.company._id, params.languageCode);
+        await assertWarehousesActive(data.warehouses as ObjectId[], params.company._id, {
+            session: params.session,
+            logger: params.logger,
+            languageCode: params.languageCode,
+        });
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = buildUpdateDataFromSchemaDef(PosConfigSchemaDef)(params, writeFields);
         if (data.warehouses !== undefined) {
-            if (!Array.isArray(data.warehouses) || data.warehouses.length === 0) {
-                throw apiValidationException("pos_config_warehouse_required", "warehouses", null, params.languageCode);
-            }
-            await assertWarehousesActive(data.warehouses as ObjectId[], params.company._id, params.languageCode);
+            await assertWarehousesActive(data.warehouses as ObjectId[], params.company._id, {
+                session: params.session,
+                logger: params.logger,
+                languageCode: params.languageCode,
+            });
         }
         return data;
     },
@@ -133,10 +142,7 @@ export const {router} = createCrudRouter({
         });
         if (fresh) await prunePinsAfterManagerChange(fresh, params);
     },
-    enrichList: async (docs, params) => {
-        await Promise.all(docs.map((doc) => withPosConfigLabels(doc)));
-        return posConfigsToDTO(docs, dtoOpts(params));
-    },
-    enrichSingle: async (doc, params) => posConfigToDTO(await withPosConfigLabels(doc), dtoOpts(params)),
-    enrichUpdate: async (doc, params) => posConfigToDTO(await withPosConfigLabels(doc), dtoOpts(params)),
+    enrichList: async (docs, params) => posConfigsToDTO(docs, dtoOpts(params, await companyLockDtoOpts(params))),
+    enrichSingle: async (doc, params) => posConfigToDTO(doc, dtoOpts(params, await companyLockDtoOpts(params))),
+    enrichUpdate: async (doc, params) => posConfigToDTO(doc, dtoOpts(params, await companyLockDtoOpts(params))),
 });

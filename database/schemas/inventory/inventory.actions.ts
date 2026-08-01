@@ -4,7 +4,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {restockInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/restockInventory.form.validator";
 import {deductInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/deductInventory.form.validator";
 import type {Inventory} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/inventory.dto";
-import {inventoryToDTO} from "@eCommerceModule/utilities/mappers/inventoryMapper.dto";
+import {inventoryToDTO} from "@eCommerceModule/utilities/mappers/inventory/inventoryMapper.dto";
 import {inventoryService} from "./inventory.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import type {InventoryMovementReason} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement";

@@ -22,7 +22,6 @@ export function taxZoneToDTO(taxZone: ITaxZone): TaxZone {
         })),
         priority: taxZone.priority,
         isActive: taxZone.isActive,
-        company: mapPopulatedRef(taxZone.company),
         ...mapSoftDeleteToDTO(taxZone),
         ...mapOwnershipToDTO(taxZone),
         ...mapLifeCycleToDTO(taxZone),

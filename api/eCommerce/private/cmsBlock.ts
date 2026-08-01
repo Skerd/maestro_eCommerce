@@ -9,7 +9,8 @@ import {createCmsBlockFormSchema} from "armonia/src/modules/eCommerce/api/eComme
 import {editCmsBlockFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/cmsBlock/editCmsBlock.form.validator";
 import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
 import {cmsBlockService} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.service";
-import {cmsBlockToDTO, cmsBlocksToDTO, cmsBlockToSelect, cmsBlocksToSelect} from "@eCommerceModule/utilities/mappers/cmsBlockMapper.dto";
+import {cmsBlockToDTO, cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.dto";
+import {cmsBlocksToSelect} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.select";
 import {CmsBlockActions} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.actions";
 
 const buildCmsBlockCreateFromSchemaDef = buildCreateDataFromSchemaDef(CmsBlockSchemaDef);

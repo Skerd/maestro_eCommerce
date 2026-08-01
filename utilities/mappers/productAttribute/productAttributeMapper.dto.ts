@@ -1,6 +1,5 @@
 import type {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import type {ProductAttribute} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.dto";
-import {mapPopulatedRef} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -17,7 +16,6 @@ export function productAttributeToDTO(attr: IProductAttribute): ProductAttribute
         isUsedForVariants: attr.isUsedForVariants,
         position: attr.position,
         valueCount: values.length,
-        company: mapPopulatedRef(attr.company as any),
         ...mapSoftDeleteToDTO(attr),
         ...mapOwnershipToDTO(attr),
         ...mapLifeCycleToDTO(attr),

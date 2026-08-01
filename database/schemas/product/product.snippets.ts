@@ -1,3 +1,5 @@
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+
 export const ProductSimpleSnippet = {
     keys: {
         _id: {},
@@ -6,5 +8,6 @@ export const ProductSimpleSnippet = {
         sku: {},
         status: {},
         type: {},
+        currency: CurrencySimpleSnippet,
     },
 };

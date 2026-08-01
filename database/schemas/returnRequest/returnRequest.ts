@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
@@ -6,9 +6,13 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {
+    ILifeCyclePluginFields,
+    IOwnershipPluginFields,
+    ISoftDeletePluginFields,
+} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
-import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {applyReturnRequestIndexes} from "./returnRequest.indexes";
@@ -19,11 +23,15 @@ import {ReturnRequestSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerc
 export type ReturnRequestType = "return" | "exchange" | "refund";
 export type ReturnRequestStatus = "pending" | "approved" | "rejected" | "received" | "completed";
 
-export interface IReturnRequest extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IReturnRequest extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IProductOrder;
     type: ReturnRequestType;
     status: ReturnRequestStatus;
-    items: {orderItemId: Schema.Types.ObjectId; quantity: number; reason: string}[];
+    items: {
+        orderItemId: Types.ObjectId;
+        quantity: number;
+        reason: string;
+    }[];
     refundAmount?: number;
     customerNote?: string;
     adminNote?: string;
@@ -34,8 +42,17 @@ export interface IReturnRequest extends Document, IOwnershipPluginFields, ISoftD
 
 const ReturnRequestSchema = new Schema<IReturnRequest>(
     {
-        order: {type: SchemaTypes.ObjectId, ref: "ProductOrder", required: true, refAllowlist: ProductOrderSimpleSnippet},
-        type: {type: SchemaTypes.String, enum: ["return", "exchange", "refund"], required: true},
+        order: {
+            type: SchemaTypes.ObjectId, 
+            ref: "ProductOrder", 
+            required: true, 
+            refAllowlist: ProductOrderSimpleSnippet
+        },
+        type: {
+            type: SchemaTypes.String, 
+            enum: ["return", "exchange", "refund"], 
+            required: true
+        },
         status: {
             type: SchemaTypes.String,
             enum: ["pending", "approved", "rejected", "received", "completed"],
@@ -44,27 +61,51 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
         items: {
             type: [
                 {
-                    orderItemId: {type: SchemaTypes.ObjectId, required: true},
-                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
-                    reason: {type: SchemaTypes.String, required: true},
+                    orderItemId: {
+                        type: SchemaTypes.ObjectId, 
+                        required: true
+                    },
+                    quantity: {
+                        type: SchemaTypes.Number, 
+                        required: true, 
+                        min: 1
+                    },
+                    reason: {
+                        type: SchemaTypes.String, 
+                        required: true
+                    },
                     _id: false,
                 },
             ],
             default: [],
         },
-        refundAmount: {type: SchemaTypes.Number, min: 0},
-        customerNote: {type: SchemaTypes.String},
-        adminNote: {type: SchemaTypes.String},
-        resolvedBy: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
-        resolvedAt: {type: SchemaTypes.Date},
+        refundAmount: {
+            type: SchemaTypes.Number, 
+            min: 0
+        },
+        customerNote: {
+            type: SchemaTypes.String
+        },
+        adminNote: {
+            type: SchemaTypes.String
+        },
+        resolvedBy: {
+            type: SchemaTypes.ObjectId, 
+            ref: "User", 
+            refAllowlist: SimpleUserSnippet
+        },
+        resolvedAt: {
+            type: SchemaTypes.Date
+        },
     },
-    {accessMode: "loose", timestamps: true},
+    {accessMode: "loose"},
 );
 
 ownershipPlugin(ReturnRequestSchema);
 auditPlugin(ReturnRequestSchema);
 softDeletePlugin(ReturnRequestSchema);
 applyReturnRequestIndexes(ReturnRequestSchema);
+lifeCyclePlugin(ReturnRequestSchema);
 const ReturnRequest = model<IReturnRequest>("ReturnRequest", ReturnRequestSchema);
 normalizeSchemaPermissions(ReturnRequest);
 export default ReturnRequest;

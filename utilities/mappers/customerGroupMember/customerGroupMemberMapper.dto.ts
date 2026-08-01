@@ -11,7 +11,7 @@ export function customerGroupMemberToDTO(member: ICustomerGroupMember): Customer
     return {
         _id: member._id.toString(),
         user: mapPopulatedUserWithPhoto(member.user) ?? {_id: "", name: "", surname: ""},
-        customerGroup: mapPopulatedRef(member.customerGroup as any) ?? {_id: "", name: ""},
+        customerGroup: mapPopulatedRef(member.customerGroup) ?? {_id: "", name: ""},
         ...mapSoftDeleteToDTO(member),
         ...mapOwnershipToDTO(member),
         ...mapLifeCycleToDTO(member),

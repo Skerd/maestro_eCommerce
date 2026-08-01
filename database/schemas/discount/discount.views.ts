@@ -36,14 +36,23 @@ const discountFormFields: ViewConfig["nodes"] = [
                         },
                     },
                     {
-                        render: "#Field",
-                        field: {
-                            name: "appliesTo",
-                            widget: "#Select",
-                            label: "form.appliesToLabel",
-                            required: true,
-                            widgetProps: {options: discountAppliesToOptions, className: "grow w-full"},
+                        render: "#FormWhenFieldValueIn",
+                        props: {
+                            watchField: "type",
+                            whenValues: ["percentage", "fixed", "free_shipping"],
                         },
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "appliesTo",
+                                    widget: "#Select",
+                                    label: "form.appliesToLabel",
+                                    required: true,
+                                    widgetProps: {options: discountAppliesToOptions, className: "grow w-full"},
+                                },
+                            },
+                        ],
                     },
                     {
                         render: "#FormWhenFieldValueIn",
@@ -119,106 +128,116 @@ const discountFormFields: ViewConfig["nodes"] = [
         ],
     },
     {
-        // Clear targets when leaving product/collection/category (e.g. → order).
-        // Sibling setFieldsOnMatch clears again when switching between those three.
+        // Targets only for non-BXGY (BXGY eligibility lives under buyXGetY.getProductIds).
         render: "#FormWhenFieldValueIn",
         props: {
-            watchField: "appliesTo",
-            whenValues: ["product", "collection", "category"],
-            clearFields: ["targetIds"],
+            watchField: "type",
+            whenValues: ["percentage", "fixed", "free_shipping"],
         },
         children: [
             {
+                // Clear targets when leaving product/collection/category (e.g. → order).
+                // Sibling setFieldsOnMatch clears again when switching between those three.
                 render: "#FormWhenFieldValueIn",
                 props: {
                     watchField: "appliesTo",
-                    whenValues: ["product"],
-                    setFieldsOnMatch: {targetIds: []},
+                    whenValues: ["product", "collection", "category"],
+                    clearFields: ["targetIds"],
                 },
                 children: [
                     {
-                        render: "#TitleWithCollapse",
-                        props: {title: "form.productsLabel", defaultOpen: true},
+                        render: "#FormWhenFieldValueIn",
+                        props: {
+                            watchField: "appliesTo",
+                            whenValues: ["product"],
+                            setFieldsOnMatch: {targetIds: []},
+                        },
                         children: [
                             {
-                                render: "#Field",
-                                field: {
-                                    name: "targetIds",
-                                    widget: "#FormObjectIdChips",
-                                    widgetProps: {
-                                        apiUrl: "/api/eCommerce/product/select",
-                                        method: "POST",
-                                        placeholderKey: "form.selectProduct",
-                                        removeTooltipKey: "form.removeTarget",
-                                        selectPageSizeCreate: 50,
-                                        selectPageSizeEdit: 200,
-                                        labelRefFormExtraKey: "targetIds",
+                                render: "#TitleWithCollapse",
+                                props: {title: "form.productsLabel", defaultOpen: true},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "targetIds",
+                                            widget: "#FormObjectIdChips",
+                                            widgetProps: {
+                                                apiUrl: "/api/eCommerce/product/select",
+                                                method: "POST",
+                                                placeholderKey: "form.selectProduct",
+                                                removeTooltipKey: "form.removeTarget",
+                                                selectPageSizeCreate: 50,
+                                                selectPageSizeEdit: 200,
+                                                labelRefFormExtraKey: "targetIds",
+                                            },
+                                        },
                                     },
-                                },
+                                ],
                             },
                         ],
                     },
-                ],
-            },
-            {
-                render: "#FormWhenFieldValueIn",
-                props: {
-                    watchField: "appliesTo",
-                    whenValues: ["collection"],
-                    setFieldsOnMatch: {targetIds: []},
-                },
-                children: [
                     {
-                        render: "#TitleWithCollapse",
-                        props: {title: "form.collectionsLabel", defaultOpen: true},
+                        render: "#FormWhenFieldValueIn",
+                        props: {
+                            watchField: "appliesTo",
+                            whenValues: ["collection"],
+                            setFieldsOnMatch: {targetIds: []},
+                        },
                         children: [
                             {
-                                render: "#Field",
-                                field: {
-                                    name: "targetIds",
-                                    widget: "#FormObjectIdChips",
-                                    widgetProps: {
-                                        apiUrl: "/api/eCommerce/collection/select",
-                                        method: "POST",
-                                        placeholderKey: "form.selectCollection",
-                                        removeTooltipKey: "form.removeTarget",
-                                        selectPageSizeCreate: 50,
-                                        selectPageSizeEdit: 200,
-                                        labelRefFormExtraKey: "targetIds",
+                                render: "#TitleWithCollapse",
+                                props: {title: "form.collectionsLabel", defaultOpen: true},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "targetIds",
+                                            widget: "#FormObjectIdChips",
+                                            widgetProps: {
+                                                apiUrl: "/api/eCommerce/collection/select",
+                                                method: "POST",
+                                                placeholderKey: "form.selectCollection",
+                                                removeTooltipKey: "form.removeTarget",
+                                                selectPageSizeCreate: 50,
+                                                selectPageSizeEdit: 200,
+                                                labelRefFormExtraKey: "targetIds",
+                                            },
+                                        },
                                     },
-                                },
+                                ],
                             },
                         ],
                     },
-                ],
-            },
-            {
-                render: "#FormWhenFieldValueIn",
-                props: {
-                    watchField: "appliesTo",
-                    whenValues: ["category"],
-                    setFieldsOnMatch: {targetIds: []},
-                },
-                children: [
                     {
-                        render: "#TitleWithCollapse",
-                        props: {title: "form.categoriesLabel", defaultOpen: true},
+                        render: "#FormWhenFieldValueIn",
+                        props: {
+                            watchField: "appliesTo",
+                            whenValues: ["category"],
+                            setFieldsOnMatch: {targetIds: []},
+                        },
                         children: [
                             {
-                                render: "#Field",
-                                field: {
-                                    name: "targetIds",
-                                    widget: "#FormObjectIdChips",
-                                    widgetProps: {
-                                        apiUrl: "/api/eCommerce/category/select",
-                                        method: "POST",
-                                        placeholderKey: "form.selectCategory",
-                                        removeTooltipKey: "form.removeTarget",
-                                        selectPageSizeCreate: 50,
-                                        selectPageSizeEdit: 200,
-                                        labelRefFormExtraKey: "targetIds",
+                                render: "#TitleWithCollapse",
+                                props: {title: "form.categoriesLabel", defaultOpen: true},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "targetIds",
+                                            widget: "#FormObjectIdChips",
+                                            widgetProps: {
+                                                apiUrl: "/api/eCommerce/category/select",
+                                                method: "POST",
+                                                placeholderKey: "form.selectCategory",
+                                                removeTooltipKey: "form.removeTarget",
+                                                selectPageSizeCreate: 50,
+                                                selectPageSizeEdit: 200,
+                                                labelRefFormExtraKey: "targetIds",
+                                            },
+                                        },
                                     },
-                                },
+                                ],
                             },
                         ],
                     },
@@ -250,12 +269,21 @@ const discountFormFields: ViewConfig["nodes"] = [
     },
     {
         render: "#FormWhenFieldValueIn",
-        props: {watchField: "type", whenValues: ["buy_x_get_y"], clearFields: ["buyXGetY"]},
+        props: {
+            watchField: "type",
+            whenValues: ["buy_x_get_y"],
+            clearFields: ["buyXGetY"],
+            setFieldsOnMatch: {appliesTo: "product", value: 0, targetIds: []},
+        },
         children: [
             {
                 render: "#TitleWithCollapse",
                 props: {title: "form.buyXGetYSectionTitle", defaultOpen: true},
                 children: [
+                    {
+                        render: "#FormAlert",
+                        props: {message: "form.buyXGetYAnyOfSetHint"},
+                    },
                     {
                         render: "#FormGrid",
                         props: {columns: 2},
@@ -385,8 +413,11 @@ export const discountSheetView: ViewConfig = {
             ],
         },
         {
+            // Hidden for BXGY (eligibility is under buyXGetY; appliesTo/value are forced product/0).
             render: "#SheetGroup",
             props: {title: "offer"},
+            dependent: "hasOfferScoping",
+            dependentRuntimeOnly: true,
             children: [
                 {
                     render: "#SheetGrid",

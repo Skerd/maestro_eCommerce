@@ -9,15 +9,15 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
-import PosSession, {IPosSession} from "@eCommerceModule/database/schemas/posSession/posSession";
+import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
-import {paymentTransactionService} from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction.service";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
-import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrderMapper.dto";
-import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSessionMapper.dto";
+import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
+import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 import {posConfigToDTO} from "@eCommerceModule/utilities/mappers/posConfig/posConfigMapper.dto";
 import {
     buildReceiptFromPosOrder,
@@ -25,6 +25,14 @@ import {
     rebuildPaidPosResult,
 } from "@eCommerceModule/utilities/services/posTillOps";
 import {warehouseIdsFromPosConfig} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
+import {
+    assertPosTillMutable,
+    clearInFlightTerminalCharge,
+    getCompanyPosLock,
+    isCompanyPosLockActive,
+    registerInFlightTerminalCharge,
+} from "@eCommerceModule/utilities/services/posKillSwitch";
+import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
 
 type Ctx = {
     logger: any;
@@ -234,11 +242,12 @@ export async function openPosSession(
     const config = await PosConfig.findOne({
         _id: body.configId,
         company: ctx.company._id,
-        isActive: true,
         deletedAt: null,
     }).populate("paymentMethods warehouses currency managers");
 
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
+
+    await assertPosTillMutable(config, ctx);
 
     const existing = await PosSession.findOne({
         company: ctx.company._id,
@@ -276,9 +285,14 @@ export async function openPosSession(
     const populated = await PosSession.findById(doc._id)
         .populate("config openedBy")
         .session(ctx.session ?? null);
+    const companyLock = await getCompanyPosLock(ctx.company._id, ctx.session);
+    const companyLockActive = isCompanyPosLockActive(companyLock);
     return {
         session: posSessionToDTO(populated!),
-        config: posConfigToDTO(config),
+        config: posConfigToDTO(config, {
+            companyLockActive,
+            companyPauseReason: companyLock?.pauseReason ?? null,
+        }),
     };
 }
 
@@ -301,11 +315,18 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
     if (!session) return null;
 
     const config = await PosConfig.findById(session.config).populate(
-        "paymentMethods warehouses currency managers",
+        "paymentMethods warehouses currency managers pausedBy",
     );
+    const companyLock = await getCompanyPosLock(ctx.company._id);
+    const companyLockActive = isCompanyPosLockActive(companyLock);
     return {
         session: posSessionToDTO(session),
-        config: config ? posConfigToDTO(config) : undefined,
+        config: config
+            ? posConfigToDTO(config, {
+                  companyLockActive,
+                  companyPauseReason: companyLock?.pauseReason ?? null,
+              })
+            : undefined,
     };
 }
 
@@ -318,6 +339,12 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "_id", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "_id", null, ctx.languageCode);
+    }
+
+    {
+        const gateConfig = await PosConfig.findById(sessionDoc.config);
+        if (!gateConfig) throw apiValidationException("pos_config_not_found", "_id", null, ctx.languageCode);
+        await assertPosTillMutable(gateConfig, ctx);
     }
 
     if (body.type === "out") {
@@ -607,6 +634,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             deletedAt: null,
         }).session(ctx.session ?? null);
         if (existing?.state === "paid") {
+            // Idempotent replay succeeds even if the till is now paused/inactive.
             return rebuildPaidPosResult(existing, ctx);
         }
     }
@@ -617,6 +645,8 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         deletedAt: null,
     }).populate("warehouses currency paymentMethods");
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
+
+    await assertPosTillMutable(config, ctx);
 
     const warehouseIds = warehouseIdsFromPosConfig(config as any);
     if (!warehouseIds.length) {
@@ -701,6 +731,10 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     }
     const amountReturn = round2(Math.max(0, amountPaid - amountTotal));
 
+    if (!currencyId) {
+        throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
+    }
+
     let posOrder: IPosOrder;
     if (body.heldOrderId) {
         const held = await PosOrder.findOne({
@@ -771,16 +805,6 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         });
     }
 
-    // Resolve currency: config → first product → company demo euro fallback handled by caller if missing
-    let orderCurrency = currencyId;
-    if (!orderCurrency) {
-        const firstProduct = await Product.findById(lines[0].product).select("currency").session(ctx.session ?? null);
-        orderCurrency = (firstProduct as any)?.currency;
-    }
-    if (!orderCurrency) {
-        throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
-    }
-
     const orderNumber = await generateOrderNumber(ctx.company._id);
     const productOrder = new ProductOrder({
         company: ctx.company._id,
@@ -797,7 +821,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             totalPrice: l.priceTotal,
             snapshot: {title: l.productName, sku: l.productSku},
         })),
-        currency: orderCurrency,
+        currency: currencyId,
         shippingAddress: {
             firstName: "POS",
             lastName: "Sale",
@@ -833,12 +857,13 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         const method = methodById.get(payment.paymentMethodId);
         await paymentTransactionService.create(
             {
-                order: productOrder._id,
+                sourceType: "productOrder",
+                sourceId: productOrder._id,
                 gateway: "manual",
                 type: "charge",
                 status: "succeeded",
                 amount: Number(payment.amount),
-                currency: orderCurrency,
+                currency: currencyId,
                 refundedAmount: 0,
                 metadata: {
                     posOrderId: posOrder._id.toString(),
@@ -971,6 +996,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
 
     const config = await PosConfig.findById(original.config);
     if (!config) throw apiValidationException("pos_config_not_found", "config", null, ctx.languageCode);
+    await assertPosTillMutable(config, ctx);
     const warehouseIds = warehouseIdsFromPosConfig(config as any);
     const warehouseId = warehouseIds[0];
     if (!warehouseId) {
@@ -1230,7 +1256,7 @@ export {testPosTerminalConnection} from "./posTerminalConnection";
 /**
  * Charge a bank payment terminal configured on a card/bank POS payment method.
  * - `manual`: staff confirms on an external terminal; we only validate config and return approved.
- * - `local_http`: POST JSON to http://{host}:{port}{path} (local ECR / bank POS bridge).
+ * - `local_http`: POST JSON to {http|https}://{host}:{port}{path} (local ECR / bank POS bridge).
  */
 export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): Promise<ChargePosTerminalResult> {
     const sessionDoc = await PosSession.findOne({
@@ -1242,6 +1268,10 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
     }
+
+    const gateConfig = await PosConfig.findById(sessionDoc.config).session(ctx.session ?? null);
+    if (!gateConfig) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
+    await assertPosTillMutable(gateConfig, ctx);
 
     const method = await PosPaymentMethod.findOne({
         _id: body.paymentMethodId,
@@ -1262,91 +1292,113 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
 
     const reference = (body.reference || `POS-${Date.now()}`).slice(0, 120);
     const provider = method.terminalProvider || "manual";
-
-    if (provider === "manual") {
-        return {
-            approved: true,
-            provider,
-            terminalId: method.terminalId,
-            authCode: `MANUAL-${reference}`,
-            reference,
-        };
-    }
-
-    const host = (method.terminalHost || "").trim();
-    const port = Number(method.terminalPort || 0);
-    if (!host || !port) {
-        throw apiValidationException("pos_terminal_not_configured", "terminalHost", null, ctx.languageCode);
-    }
-
-    const path = (method.terminalPath || "/payment").startsWith("/")
-        ? method.terminalPath || "/payment"
-        : `/${method.terminalPath || "payment"}`;
-    const url = `http://${host}:${port}${path}`;
-    const payload = {
-        amount,
-        currency: body.currency || "EUR",
-        terminalId: method.terminalId,
-        reference,
+    const flight = {
         sessionId: body.sessionId,
         paymentMethodId: body.paymentMethodId,
+        companyId: ctx.company._id.toString(),
+        reference,
+        provider,
+        protocol: method.terminalProtocol || undefined,
+        host: method.terminalHost || undefined,
+        port: method.terminalPort || undefined,
+        cancelPath: (method as any).terminalCancelPath || "/cancel",
+        amount,
+        currency: body.currency || "EUR",
+        terminalId: method.terminalId || undefined,
     };
+    registerInFlightTerminalCharge(flight);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
-        const res = await fetch(url, {
-            method: "POST",
-            headers: {"Content-Type": "application/json", Accept: "application/json"},
-            body: JSON.stringify(payload),
-            signal: controller.signal,
+        if (provider === "manual") {
+            return {
+                approved: true,
+                provider,
+                terminalId: method.terminalId,
+                authCode: `MANUAL-${reference}`,
+                reference,
+            };
+        }
+
+        const host = (method.terminalHost || "").trim();
+        const port = Number(method.terminalPort || 0);
+        if (!host || !port) {
+            throw apiValidationException("pos_terminal_not_configured", "terminalHost", null, ctx.languageCode);
+        }
+
+        const path = normalizePosTerminalPath(method.terminalPath, "/payment");
+        const url = buildPosTerminalUrl({
+            protocol: method.terminalProtocol,
+            host,
+            port,
+            path,
         });
-        const text = await res.text();
-        let raw: any = null;
-        try {
-            raw = text ? JSON.parse(text) : null;
-        } catch {
-            raw = {raw: text};
-        }
-
-        if (!res.ok) {
-            ctx.logger?.warn?.({url, status: res.status, raw}, "POS terminal HTTP error");
-            throw apiValidationException("pos_terminal_declined", "amount", null, ctx.languageCode);
-        }
-
-        const approved =
-            raw?.approved === true ||
-            raw?.success === true ||
-            raw?.status === "approved" ||
-            raw?.result === "approved" ||
-            raw?.SaleToPOIResponse?.PaymentResponse?.Response?.Result === "Success";
-
-        if (!approved) {
-            ctx.logger?.info?.({url, raw}, "POS terminal declined");
-            throw apiValidationException("pos_terminal_declined", "amount", null, ctx.languageCode);
-        }
-
-        return {
-            approved: true,
-            provider,
+        const payload = {
+            amount,
+            currency: body.currency || "EUR",
             terminalId: method.terminalId,
-            authCode:
-                raw?.authCode ||
-                raw?.authorizationCode ||
-                raw?.SaleToPOIResponse?.PaymentResponse?.PaymentResult?.PaymentAcquirerData?.ApprovalCode ||
-                `TERM-${reference}`,
             reference,
-            raw,
+            sessionId: body.sessionId,
+            paymentMethodId: body.paymentMethodId,
         };
-    } catch (err: any) {
-        if (err?.name === "AbortError") {
-            throw apiValidationException("pos_terminal_timeout", "amount", null, ctx.languageCode);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90_000);
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {"Content-Type": "application/json", Accept: "application/json"},
+                body: JSON.stringify(payload),
+                signal: controller.signal,
+            });
+            const text = await res.text();
+            let raw: any;
+            try {
+                raw = text ? JSON.parse(text) : null;
+            } catch {
+                raw = {raw: text};
+            }
+
+            if (!res.ok) {
+                ctx.logger?.warn?.({url, status: res.status, raw}, "POS terminal HTTP error");
+                throw apiValidationException("pos_terminal_declined", "amount", null, ctx.languageCode);
+            }
+
+            const approved =
+                raw?.approved === true ||
+                raw?.success === true ||
+                raw?.status === "approved" ||
+                raw?.result === "approved" ||
+                raw?.SaleToPOIResponse?.PaymentResponse?.Response?.Result === "Success";
+
+            if (!approved) {
+                ctx.logger?.info?.({url, raw}, "POS terminal declined");
+                throw apiValidationException("pos_terminal_declined", "amount", null, ctx.languageCode);
+            }
+
+            return {
+                approved: true,
+                provider,
+                terminalId: method.terminalId,
+                authCode:
+                    raw?.authCode ||
+                    raw?.authorizationCode ||
+                    raw?.SaleToPOIResponse?.PaymentResponse?.PaymentResult?.PaymentAcquirerData?.ApprovalCode ||
+                    `TERM-${reference}`,
+                reference,
+                raw,
+            };
+        } catch (err: any) {
+            if (err?.name === "AbortError") {
+                throw apiValidationException("pos_terminal_timeout", "amount", null, ctx.languageCode);
+            }
+            if (err?.statusCode || err?.whatException) throw err;
+            ctx.logger?.error?.({err, url}, "POS terminal connection failed");
+            throw apiValidationException("pos_terminal_unreachable", "terminalHost", null, ctx.languageCode);
+        } finally {
+            clearTimeout(timeout);
         }
-        if (err?.statusCode || err?.whatException) throw err;
-        ctx.logger?.error?.({err, url}, "POS terminal connection failed");
-        throw apiValidationException("pos_terminal_unreachable", "terminalHost", null, ctx.languageCode);
     } finally {
-        clearTimeout(timeout);
+        clearInFlightTerminalCharge(body.sessionId, reference);
     }
 }
 

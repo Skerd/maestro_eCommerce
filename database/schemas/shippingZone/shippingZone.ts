@@ -1,5 +1,7 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {ICountry} from "@coreModule/database/schemas/country/country";
+import {IState} from "@coreModule/database/schemas/state/state";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
@@ -20,8 +22,8 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
-    countries?: Schema.Types.ObjectId[];
-    states?: Schema.Types.ObjectId[];
+    countries?: ICountry[];
+    states?: IState[];
     postalCodePatterns?: string[];
     rates: {
         name: string;
@@ -29,7 +31,12 @@ export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDe
         price?: number;
         carrier?: string;
         estimatedDeliveryDays?: number;
-        conditions?: {minWeight?: number; maxWeight?: number; minOrderAmount?: number; maxOrderAmount?: number};
+        conditions?: {
+            minWeight?: number;
+            maxWeight?: number;
+            minOrderAmount?: number;
+            maxOrderAmount?: number;
+        };
     }[];
     isActive: boolean;
     company: ICompany;
@@ -37,18 +44,55 @@ export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDe
 
 const ShippingZoneSchema = new Schema<IShippingZone>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
-        countries: {type: [{type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet}], default: []},
-        states: {type: [{type: SchemaTypes.ObjectId, ref: "State", refAllowlist: StateSimpleSnippet}], default: []},
-        postalCodePatterns: {type: [SchemaTypes.String], default: []},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true
+        },
+        countries: {
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Country",
+                refAllowlist: CountrySimpleSnippet
+            }],
+            default: []
+        },
+        states: {
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "State",
+                refAllowlist: StateSimpleSnippet
+            }],
+            default: []
+        },
+        postalCodePatterns: {
+            type: [SchemaTypes.String],
+            default: []
+        },
         rates: {
             type: [
                 {
-                    name: {type: SchemaTypes.String, required: true},
-                    type: {type: SchemaTypes.String, enum: ["flat", "weight", "price", "quantity", "free"], required: true},
-                    price: {type: SchemaTypes.Number, min: 0},
-                    carrier: {type: SchemaTypes.String},
-                    estimatedDeliveryDays: {type: SchemaTypes.Number, min: 0},
+                    name: {
+                        type: SchemaTypes.String,
+                        required: true,
+                        trim: true
+                    },
+                    type: {
+                        type: SchemaTypes.String,
+                        enum: ["flat", "weight", "price", "quantity", "free"],
+                        required: true
+                    },
+                    price: {
+                        type: SchemaTypes.Number,
+                        min: 0
+                    },
+                    carrier: {
+                        type: SchemaTypes.String
+                    },
+                    estimatedDeliveryDays: {
+                        type: SchemaTypes.Number,
+                        min: 0
+                    },
                     conditions: {
                         type: {
                             minWeight: SchemaTypes.Number,
@@ -62,7 +106,7 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                 },
             ],
             default: [],
-        },
+        } as any,
         isActive: {type: SchemaTypes.Boolean, default: true},
     },
     {accessMode: "loose"},

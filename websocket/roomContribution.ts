@@ -8,19 +8,15 @@ import {registerRoomDisplayNames} from "@coreModule/websocket/roomRegistry";
  */
 export function registerECommerceRoomContributions(): void {
     registerRoomDisplayNames({
-        escrowdashboard: "Escrow dashboard",
         products: "Products",
         collections: "Collections",
         categories: "Categories",
         productorders: "Product orders",
         fulfillments: "Fulfillments",
         returnrequests: "Return requests",
-        paymenttransactions: "Payment transactions",
         customeraddresses: "Customer addresses",
         productreviews: "Product reviews",
-        giftcards: "Gift cards",
         inventories: "Inventories",
-        cmsblocks: "CMS blocks",
         analytics: "Analytics",
         // Tenancy system-settings resource owned by this module
         categories_configurations: "Categories configurations",
@@ -34,5 +30,7 @@ export function registerECommerceRoomContributions(): void {
         taxZones_configurations: "Tax zones configurations",
         posConfigs_configurations: "POS configs configurations",
         posPaymentMethods_configurations: "POS payment methods configurations",
+        fiscalConfigs_configurations: "Fiscal configs configurations",
+        cmsBlocks_configurations: "CMS blocks configurations",
     });
 }

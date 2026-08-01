@@ -1,4 +1,5 @@
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
 
 export type TestPosTerminalConnectionResult = {
     ok: boolean;
@@ -11,6 +12,7 @@ type TerminalMethod = {
     type?: string;
     terminalEnabled?: boolean;
     terminalProvider?: string;
+    terminalProtocol?: string;
     terminalHost?: string;
     terminalPort?: number;
     terminalId?: string;
@@ -55,10 +57,13 @@ export async function testPosTerminalConnection(
         throw apiValidationException("pos_terminal_not_configured", "terminalHost", null, ctx.languageCode);
     }
 
-    const path = (method.terminalPath || "/payment").startsWith("/")
-        ? method.terminalPath || "/payment"
-        : `/${method.terminalPath || "payment"}`;
-    const url = `http://${host}:${port}${path}`;
+    const path = normalizePosTerminalPath(method.terminalPath, "/payment");
+    const url = buildPosTerminalUrl({
+        protocol: method.terminalProtocol,
+        host,
+        port,
+        path,
+    });
     const payload = {
         probe: true,
         test: true,

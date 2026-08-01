@@ -5,62 +5,37 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import PaymentTransaction from "@eCommerceModule/database/schemas/paymentTransaction/paymentTransaction";
+import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
-import {productOrderToDTO, productOrdersToDTO, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrderMapper.dto";
-import {paymentTransactionsToDTO} from "@eCommerceModule/utilities/mappers/paymentTransactionMapper.dto";
+import {productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
+import {productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
+import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {z} from "zod";
 
-const orderStatuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"] as const;
-const paymentStatuses = ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"] as const;
-const fulfillmentStatuses = ["unfulfilled", "partially_fulfilled", "fulfilled", "returned"] as const;
+async function enrichProductOrderSingle(doc: any, params: any) {
+    const dto = productOrderToDTO(doc);
+    const {user} = params;
 
-function orderListSchema(_lang: string) {
-    return z.object({
-        page: z.coerce.number().optional(),
-        limit: z.coerce.number().optional(),
-        status: z.enum(orderStatuses).optional(),
-        paymentStatus: z.enum(paymentStatuses).optional(),
-        fulfillmentStatus: z.enum(fulfillmentStatuses).optional(),
-        customerId: z.string().optional(),
-        orderNumber: z.string().optional(),
-    });
-}
-
-function asObjectId(value: unknown): ObjectId | null {
-    if (!value) return null;
-    if (value instanceof ObjectId) return value;
-    if (typeof value === "object" && (value as any)._id) return asObjectId((value as any)._id);
-    try {
-        return new ObjectId(String(value));
-    } catch {
-        return null;
-    }
-}
-
-async function enrichProductOrderSingle(doc: any) {
-    const dto = productOrderToDTO(doc) as ReturnType<typeof productOrderToDTO> & {
-        paymentTransactions?: ReturnType<typeof paymentTransactionsToDTO>;
-    };
-
-    const orderId = asObjectId(doc._id);
-    const companyId = asObjectId(doc.company);
+    const orderId = doc._id;
+    const companyId = user?.company?._id;
     if (!orderId) {
         dto.paymentTransactions = [];
         return dto;
     }
 
-    const or: Record<string, unknown>[] = [{order: orderId}];
+    const or: Record<string, unknown>[] = [
+        {sourceType: "productOrder", sourceId: orderId},
+    ];
 
-    // Charges created at checkout may still only reference checkout until confirm links them.
+    // Charges created at checkout may still only reference checkout until confirm re-points them.
     if (doc.idempotencyKey && companyId) {
         const checkout = await Checkout.findOne({idempotencyKey: doc.idempotencyKey, company: companyId})
             .select("_id")
             .lean();
         if (checkout?._id) {
-            or.push({checkout: checkout._id});
+            or.push({sourceType: "checkout", sourceId: checkout._id});
         }
     }
 
@@ -70,46 +45,32 @@ async function enrichProductOrderSingle(doc: any) {
     const txs = await PaymentTransaction.find(filter)
         .populate("currency", "name symbol abbreviation")
         .sort({_id: -1})
-        .limit(50)
-        .lean();
-    dto.paymentTransactions = paymentTransactionsToDTO(txs as any);
+        .limit(50);
+    dto.paymentTransactions = paymentTransactionsToDTO(txs);
     return dto;
 }
 
 export const basePath = "/api/eCommerce/productOrder";
+/**
+ * Product orders are created by checkout/system flows only. Panel is read +
+ * lifecycle actions (confirm/ship/cancel/refund) — no CRUD create/edit.
+ * List filtering uses the standard DSL (`body.filter`), not top-level extras.
+ */
 export const {router} = createCrudRouter({
     collectionName: "productOrders",
     model: ProductOrder,
     service: productOrderService,
     entityName: "ProductOrder",
     defaultSort: {createdAt: -1},
-    listSchema: orderListSchema,
     createSchema: (_lang: string) => z.object({}),
     editSchema: (_lang: string) => z.object({_id: z.string()}),
     toDTO: productOrderToDTO,
     toDTOArray: productOrdersToDTO,
     toSelect: productOrdersToSelect,
-    enrichSingle: async (doc) => enrichProductOrderSingle(doc),
-    extraListFilter: async ({status, paymentStatus, fulfillmentStatus, customerId, orderNumber}) => {
-        const filter: Record<string, unknown> = {};
-        if (status) filter.status = status;
-        if (paymentStatus) filter.paymentStatus = paymentStatus;
-        if (fulfillmentStatus) filter.fulfillmentStatus = fulfillmentStatus;
-        if (customerId) filter.customer = new ObjectId(customerId as string);
-        if (orderNumber) filter.orderNumber = {$regex: String(orderNumber), $options: "i"};
-        return filter;
-    },
+    enrichSingle: enrichProductOrderSingle,
     buildCreateData: async () => ({}),
-    buildUpdateData: async ({status, paymentStatus, fulfillmentStatus, notes}, writeFields) => {
-        const update: Record<string, unknown> = {};
-        if (status !== undefined && (writeFields as any).status) update.status = status;
-        if (paymentStatus !== undefined && (writeFields as any).paymentStatus) update.paymentStatus = paymentStatus;
-        if (fulfillmentStatus !== undefined && (writeFields as any).fulfillmentStatus) update.fulfillmentStatus = fulfillmentStatus;
-        if (notes !== undefined && (writeFields as any).notes) update.notes = notes;
-        return update;
-    },
+    buildUpdateData: async () => ({}),
     rateLimits: {read: 60, write: 30, delete: 10},
-    // Lifecycle mutations: POST /api/eCommerce/productOrder/{confirm|markProcessing|ship|cancel|refund}
     actions: ProductOrderActions,
 });
 
@@ -133,12 +94,11 @@ router.post(
                 .select("orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt")
                 .sort({createdAt: -1})
                 .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
+                .limit(limit),
             ProductOrder.countDocuments(filter),
         ]);
 
-        return {data: orders.map(productOrderToDTO as any), total, page, limit};
+        return {data: orders.map(productOrderToDTO), total, page, limit};
     }),
 );
 
@@ -156,10 +116,10 @@ router.post(
             company: company._id,
             customer: new ObjectId(actionUserCtx.userId),
             deletedAt: null,
-        }).lean();
+        });
 
         if (!order) throw apiValidationException("order_not_found", null, null, languageCode);
 
-        return {data: productOrderToDTO(order as any)};
+        return {data: productOrderToDTO(order)};
     }),
 );

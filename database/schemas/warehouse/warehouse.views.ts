@@ -7,7 +7,6 @@ const warehouseFormFields: ViewConfig["nodes"] = [
         children: [
             {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", placeholder: "form.namePlaceholder", required: true}},
             {render: "#Field", field: {name: "code", widget: "#Input", label: "form.codeLabel", placeholder: "form.codePlaceholder", required: true}},
-            {render: "#Field", field: {name: "isDefault", widget: "#Switch", label: "form.isDefaultLabel"}},
         ],
     },
     {

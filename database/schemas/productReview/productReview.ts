@@ -1,16 +1,15 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {IUser} from "@coreModule/database/schemas/user/user";
-import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
-import {IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {ILifeCyclePluginFields, IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {ProductReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
-import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
@@ -23,16 +22,27 @@ import {productReviewViews} from "./productReview.views";
  * product), one per (order, product). Aggregates into product.ratingAverage /
  * ratingCount / reviewCount — kept separate from the marketplace Review
  * (listing/gig reviews) on purpose.
+ *
+ * Create-only from the buyer API; panel moderates via delete/restore. All
+ * fields are write-locked after create (NoWritePermission).
  */
-export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields {
+export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IProductOrder;
     product: IProduct;
     rating: number;
     title?: string;
     comment?: string;
     reviewer: IUser;
-    company: ICompany;
 }
+
+const NoWritePermission = {
+    self: {
+        write: "no-permission",
+    },
+    others: {
+        write: "no-permission",
+    },
+};
 
 const ProductReviewSchema = new Schema<IProductReview>(
     {
@@ -41,6 +51,7 @@ const ProductReviewSchema = new Schema<IProductReview>(
             ref: "ProductOrder",
             required: true,
             refAllowlist: ProductOrderSimpleSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["orderNumber"],
             },
@@ -50,6 +61,7 @@ const ProductReviewSchema = new Schema<IProductReview>(
             ref: "Product",
             required: true,
             refAllowlist: ProductSimpleSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["title"],
             },
@@ -59,41 +71,37 @@ const ProductReviewSchema = new Schema<IProductReview>(
             required: true,
             min: 1,
             max: 5,
+            permissions: NoWritePermission,
         },
         title: {
             type: SchemaTypes.String,
             trim: true,
+            permissions: NoWritePermission,
         },
         comment: {
             type: SchemaTypes.String,
             trim: true,
+            permissions: NoWritePermission,
         },
         reviewer: {
             type: SchemaTypes.ObjectId,
             ref: "User",
             required: true,
             refAllowlist: SimpleUserSnippet,
+            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["name", "surname"],
             },
         },
-        company: {
-            type: SchemaTypes.ObjectId,
-            ref: "Company",
-            required: true,
-            refAllowlist: CompanyBlankSnippet,
-            dynamicTableConfiguration: {
-                refDisplayKey: ["name"],
-            },
-        },
     },
-    {accessMode: "loose", timestamps: true},
+    {accessMode: "loose"},
 );
 
 ownershipPlugin(ProductReviewSchema);
 auditPlugin(ProductReviewSchema);
 softDeletePlugin(ProductReviewSchema);
 applyProductReviewIndexes(ProductReviewSchema);
+lifeCyclePlugin(ProductReviewSchema);
 const ProductReview = model<IProductReview>("ProductReview", ProductReviewSchema);
 normalizeSchemaPermissions(ProductReview);
 export default ProductReview;
