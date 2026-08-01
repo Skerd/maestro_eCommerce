@@ -36,7 +36,6 @@ Routes are discovered from `api/eCommerce/private/`. Each file exports `basePath
 | `cart.ts` | `/api/eCommerce/cart` | Shopping carts |
 | `checkout.ts` | `/api/eCommerce/checkout` | Checkout flow |
 | `productOrder.ts` | `/api/eCommerce/productOrder` | Orders |
-| `orderChannel.ts` | `/api/eCommerce/orderChannel` | Order channels |
 | `fulfillment.ts` | `/api/eCommerce/fulfillment` | Fulfillment |
 | `pricingRule.ts` | `/api/eCommerce/pricingRule` | Pricing rules |
 | `discount.ts` | `/api/eCommerce/discount` | Discounts |
