@@ -9,7 +9,7 @@ import PosSession from "@eCommerceModule/database/schemas/posSession/posSession"
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import {pushWebsocketMessage} from "@coreModule/domain/websocket/pushWebsocketMessage";
-import {WebSocketMessageCodes} from "armonia/src/modules/core/websocket/types";
+import {ECommerceWebSocketMessageCodes} from "armonia/src/modules/eCommerce/websocket/types";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
 
 type LoggerLike = {info?: (...a: any[]) => void; warn?: (...a: any[]) => void; error?: (...a: any[]) => void};
@@ -281,12 +281,12 @@ export function notifyPosTillsKilled(opts: {
 
     if (cashierUserIds.length) {
         pushWebsocketMessage({
-            code: WebSocketMessageCodes.POS_CONFIG_PAUSED,
+            code: ECommerceWebSocketMessageCodes.POS_CONFIG_PAUSED,
             payload: pausedPayload,
             userIds: cashierUserIds,
         });
         pushWebsocketMessage({
-            code: WebSocketMessageCodes.POS_SESSION_FORCE_CLOSED,
+            code: ECommerceWebSocketMessageCodes.POS_SESSION_FORCE_CLOSED,
             payload: pausedPayload,
             userIds: cashierUserIds,
         });
