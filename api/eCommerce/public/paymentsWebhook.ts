@@ -16,6 +16,8 @@ import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/pr
 import type {WebhookEvent} from "@financeModule/utilities/services/payment/paymentProvider.types";
 
 export const basePath = "/api/eCommerce/paymentsWebhook";
+/** Opt into raw body retention for Stripe signature verification. */
+export const needsRawBody = true;
 export const router = Router();
 
 const MONGO_DUPLICATE_KEY = 11000;
@@ -50,9 +52,9 @@ async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; lan
 }
 
 /**
- * Stripe webhook — authenticated by signature over the raw body (stashed by
- * the apiServer body parser for this route), not by JWT. Idempotent per event
- * id via the PaymentWebhookEvent unique index.
+ * Stripe webhook — authenticated by signature over the raw body (retained via
+ * `needsRawBody` + body-parser verify), not by JWT. Idempotent per event id
+ * via the PaymentWebhookEvent unique index.
  */
 router.post(
     "/stripe",
