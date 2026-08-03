@@ -1,6 +1,10 @@
 import type {IProductCategory} from "@eCommerceModule/database/schemas/category/category";
 import type {Category} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.dto";
-import {mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
+import {
+    mapLifeCycleToDTO,
+    mapOwnershipToDTO,
+    mapSoftDeleteToDTO,
+} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function categoryToDTO(cat: IProductCategory | any): Category {
     return {
@@ -15,6 +19,7 @@ export function categoryToDTO(cat: IProductCategory | any): Category {
         order: cat.order,
         ...mapSoftDeleteToDTO(cat),
         ...mapOwnershipToDTO(cat),
+        ...mapLifeCycleToDTO(cat),
     };
 }
 

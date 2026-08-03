@@ -43,24 +43,6 @@ export const productReviewSheetView: ViewConfig = {
                                 widgetProps: {icon: "#IconTag"},
                             },
                         },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "createdAt",
-                                widget: "#SmallInfoCard",
-                                label: "createdAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "updatedAt",
-                                widget: "#SmallInfoCard",
-                                label: "updatedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
                     ],
                 },
             ],
@@ -142,28 +124,13 @@ export const productReviewSheetView: ViewConfig = {
                                 },
                             },
                         },
-                        {
-                            render: "#SmallInfoCard",
-                            field: {
-                                name: "createdBy",
-                                widget: "#SmallInfoCard",
-                                label: "createdBy",
-                                widgetProps: {
-                                    icon: "#IconUser",
-                                    parent: "createdBy",
-                                    valuePath: ["name", "surname"],
-                                    joinSeparator: " ",
-                                },
-                            },
-                        },
                     ],
                 },
             ],
         },
         {
             render: "#SheetGroup",
-            props: {title: "deletion", defaultOpen: false},
-            dependent: "deletedAt",
+            props: {title: "lifecycle", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
@@ -171,6 +138,43 @@ export const productReviewSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdBy"},
+                            field: {
+                                name: "createdBy",
+                                widget: "#SmallInfoCard",
+                                label: "createdBy",
+                                widgetProps: {
+                                    icon: "#User",
+                                    parent: "createdBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            dependent: "deletedAt",
+                            permissions: {read: "deletedAt"},
                             field: {
                                 name: "deletedAt",
                                 widget: "#SmallInfoCard",
@@ -180,12 +184,14 @@ export const productReviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#SmallInfoCard",
+                            dependent: "deletedBy",
+                            permissions: {read: "deletedBy"},
                             field: {
                                 name: "deletedBy",
                                 widget: "#SmallInfoCard",
                                 label: "deletedBy",
                                 widgetProps: {
-                                    icon: "#IconUser",
+                                    icon: "#User",
                                     parent: "deletedBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",

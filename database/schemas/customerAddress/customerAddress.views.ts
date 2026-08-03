@@ -424,11 +424,57 @@ export const customerAddressSheetView: ViewConfig = {
                         {
                             render: "#SmallInfoCard",
                             field: {
+                                name: "company",
+                                widget: "#SmallInfoCard",
+                                label: "company",
+                                widgetProps: {
+                                    icon: "#IconBuilding",
+                                    parent: "company",
+                                    valuePath: ["name"],
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "lifecycle", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdBy"},
+                            field: {
                                 name: "createdBy",
                                 widget: "#SmallInfoCard",
                                 label: "createdBy",
                                 widgetProps: {
-                                    icon: "#IconUser",
+                                    icon: "#User",
                                     parent: "createdBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
@@ -437,14 +483,28 @@ export const customerAddressSheetView: ViewConfig = {
                         },
                         {
                             render: "#SmallInfoCard",
+                            dependent: "deletedAt",
+                            permissions: {read: "deletedAt"},
                             field: {
-                                name: "company",
+                                name: "deletedAt",
                                 widget: "#SmallInfoCard",
-                                label: "company",
+                                label: "deletedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            dependent: "deletedBy",
+                            permissions: {read: "deletedBy"},
+                            field: {
+                                name: "deletedBy",
+                                widget: "#SmallInfoCard",
+                                label: "deletedBy",
                                 widgetProps: {
-                                    icon: "#IconBuilding",
-                                    parent: "company",
-                                    valuePath: ["name"],
+                                    icon: "#User",
+                                    parent: "deletedBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
                                 },
                             },
                         },

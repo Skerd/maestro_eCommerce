@@ -22,6 +22,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#SmallInfoCard",
+                            permissions: {read: "reason"},
                             field: {
                                 name: "reason",
                                 widget: "#SmallInfoCard",
@@ -29,18 +30,18 @@ export const inventoryMovementSheetView: ViewConfig = {
                                 widgetProps: {icon: "#Tag", languageKeyCategory: "reasons"},
                             },
                         },
-                        {render: "#SmallInfoCard", field: {name: "quantity", widget: "#SmallInfoCard", label: "quantity", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", field: {name: "quantityBefore", widget: "#SmallInfoCard", label: "quantityBefore", widgetProps: {icon: "#IconChevronLeft"}}},
-                        {render: "#SmallInfoCard", field: {name: "quantityAfter", widget: "#SmallInfoCard", label: "quantityAfter", widgetProps: {icon: "#IconChevronRight"}}},
-                        {render: "#SmallInfoCard", field: {name: "occurredAt", widget: "#SmallInfoCard", label: "occurredAt", widgetProps: {icon: "#Calendar", format: "dateTime"}}},
-                        {render: "#SmallInfoCard", field: {name: "createdAt", widget: "#SmallInfoCard", label: "createdAt", widgetProps: {icon: "#Calendar", format: "dateTime"}}},
-                        {render: "#SmallInfoCard", field: {name: "manufacturer", widget: "#SmallInfoCard", label: "manufacturer", widgetProps: {icon: "#IconBuilding"}}},
-                        {render: "#SmallInfoCard", field: {name: "receiptNumber", widget: "#SmallInfoCard", label: "receiptNumber", widgetProps: {icon: "#IconReceipt"}}},
-                        {render: "#SmallInfoCard", field: {name: "unitCost", widget: "#SmallInfoCard", label: "unitCost", widgetProps: {icon: "#IconCurrencyDollar"}}},
-                        {render: "#SmallInfoCard", field: {name: "batchLot", widget: "#SmallInfoCard", label: "batchLot", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", field: {name: "expiryDate", widget: "#SmallInfoCard", label: "expiryDate", widgetProps: {icon: "#Calendar", format: "date"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantity"}, field: {name: "quantity", widget: "#SmallInfoCard", label: "quantity", widgetProps: {icon: "#Hash"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantityBefore"}, field: {name: "quantityBefore", widget: "#SmallInfoCard", label: "quantityBefore", widgetProps: {icon: "#IconChevronLeft"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantityAfter"}, field: {name: "quantityAfter", widget: "#SmallInfoCard", label: "quantityAfter", widgetProps: {icon: "#IconChevronRight"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "occurredAt"}, field: {name: "occurredAt", widget: "#SmallInfoCard", label: "occurredAt", widgetProps: {icon: "#Calendar", format: "dateTime"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "manufacturer"}, field: {name: "manufacturer", widget: "#SmallInfoCard", label: "manufacturer", widgetProps: {icon: "#IconBuilding"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "receiptNumber"}, field: {name: "receiptNumber", widget: "#SmallInfoCard", label: "receiptNumber", widgetProps: {icon: "#IconReceipt"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "unitCost"}, field: {name: "unitCost", widget: "#SmallInfoCard", label: "unitCost", widgetProps: {icon: "#IconCurrencyDollar"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "batchLot"}, field: {name: "batchLot", widget: "#SmallInfoCard", label: "batchLot", widgetProps: {icon: "#IconTag"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "expiryDate"}, field: {name: "expiryDate", widget: "#SmallInfoCard", label: "expiryDate", widgetProps: {icon: "#Calendar", format: "date"}}},
                         {
                             render: "#SmallInfoCard",
+                            permissions: {read: "performedBy"},
                             field: {
                                 name: "performedBy",
                                 widget: "#SmallInfoCard",
@@ -149,6 +150,53 @@ export const inventoryMovementSheetView: ViewConfig = {
                                     linkedSheetModel: "warehouses",
                                     linkedSheetWidget: "#WarehouseSheetView",
                                     linkedSheetEntityProp: "warehouse",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "lifecycle", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdBy"},
+                            field: {
+                                name: "createdBy",
+                                widget: "#SmallInfoCard",
+                                label: "createdBy",
+                                widgetProps: {
+                                    icon: "#User",
+                                    parent: "createdBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
                                 },
                             },
                         },

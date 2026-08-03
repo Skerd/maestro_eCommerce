@@ -15,11 +15,11 @@ export const inventorySheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 3},
                     children: [
-                        {render: "#SmallInfoCard", field: {name: "quantityOnHand", widget: "#SmallInfoCard", label: "quantityOnHand", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", field: {name: "quantityReserved", widget: "#SmallInfoCard", label: "quantityReserved", widgetProps: {icon: "#IconLock"}}},
-                        {render: "#SmallInfoCard", field: {name: "quantityAvailable", widget: "#SmallInfoCard", label: "quantityAvailable", widgetProps: {icon: "#IconBox"}}},
-                        {render: "#SmallInfoCard", field: {name: "reorderPoint", widget: "#SmallInfoCard", label: "reorderPoint", widgetProps: {icon: "#IconAlertTriangle"}}},
-                        {render: "#SmallInfoCard", field: {name: "reorderQuantity", widget: "#SmallInfoCard", label: "reorderQuantity", widgetProps: {icon: "#IconPackage"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantityOnHand"}, field: {name: "quantityOnHand", widget: "#SmallInfoCard", label: "quantityOnHand", widgetProps: {icon: "#Hash"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantityReserved"}, field: {name: "quantityReserved", widget: "#SmallInfoCard", label: "quantityReserved", widgetProps: {icon: "#IconLock"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "quantityAvailable"}, field: {name: "quantityAvailable", widget: "#SmallInfoCard", label: "quantityAvailable", widgetProps: {icon: "#IconBox"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "reorderPoint"}, field: {name: "reorderPoint", widget: "#SmallInfoCard", label: "reorderPoint", widgetProps: {icon: "#IconAlertTriangle"}}},
+                        {render: "#SmallInfoCard", permissions: {read: "reorderQuantity"}, field: {name: "reorderQuantity", widget: "#SmallInfoCard", label: "reorderQuantity", widgetProps: {icon: "#IconPackage"}}},
                     ],
                 },
             ],
@@ -80,6 +80,80 @@ export const inventorySheetView: ViewConfig = {
                                     linkedSheetModel: "warehouses",
                                     linkedSheetWidget: "#WarehouseSheetView",
                                     linkedSheetEntityProp: "warehouse",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "lifecycle", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdBy"},
+                            field: {
+                                name: "createdBy",
+                                widget: "#SmallInfoCard",
+                                label: "createdBy",
+                                widgetProps: {
+                                    icon: "#User",
+                                    parent: "createdBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                },
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            dependent: "deletedAt",
+                            permissions: {read: "deletedAt"},
+                            field: {
+                                name: "deletedAt",
+                                widget: "#SmallInfoCard",
+                                label: "deletedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            dependent: "deletedBy",
+                            permissions: {read: "deletedBy"},
+                            field: {
+                                name: "deletedBy",
+                                widget: "#SmallInfoCard",
+                                label: "deletedBy",
+                                widgetProps: {
+                                    icon: "#User",
+                                    parent: "deletedBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
                                 },
                             },
                         },

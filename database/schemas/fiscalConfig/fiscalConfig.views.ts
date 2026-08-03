@@ -247,26 +247,6 @@ export const fiscalConfigSheetView: ViewConfig = {
                                 widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
                             },
                         },
-                        {
-                            render: "#SmallInfoCard",
-                            permissions: {read: "createdAt"},
-                            field: {
-                                name: "createdAt",
-                                widget: "#SmallInfoCard",
-                                label: "createdAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            permissions: {read: "updatedAt"},
-                            field: {
-                                name: "updatedAt",
-                                widget: "#SmallInfoCard",
-                                label: "updatedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
                     ],
                 },
             ],
@@ -343,6 +323,38 @@ export const fiscalConfigSheetView: ViewConfig = {
                                 },
                             },
                         },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "lifecycle", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "createdAt"},
+                            field: {
+                                name: "createdAt",
+                                widget: "#SmallInfoCard",
+                                label: "createdAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#SmallInfoCard",
+                            permissions: {read: "updatedAt"},
+                            field: {
+                                name: "updatedAt",
+                                widget: "#SmallInfoCard",
+                                label: "updatedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
                         {
                             render: "#SmallInfoCard",
                             permissions: {read: "createdBy"},
@@ -351,28 +363,16 @@ export const fiscalConfigSheetView: ViewConfig = {
                                 widget: "#SmallInfoCard",
                                 label: "createdBy",
                                 widgetProps: {
-                                    icon: "#IconUser",
+                                    icon: "#User",
                                     parent: "createdBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
                                 },
                             },
                         },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "deletion", defaultOpen: false},
-            dependent: "deletedAt",
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
                         {
                             render: "#SmallInfoCard",
+                            dependent: "deletedAt",
                             permissions: {read: "deletedAt"},
                             field: {
                                 name: "deletedAt",
@@ -383,13 +383,14 @@ export const fiscalConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#SmallInfoCard",
+                            dependent: "deletedBy",
                             permissions: {read: "deletedBy"},
                             field: {
                                 name: "deletedBy",
                                 widget: "#SmallInfoCard",
                                 label: "deletedBy",
                                 widgetProps: {
-                                    icon: "#IconUser",
+                                    icon: "#User",
                                     parent: "deletedBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
