@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const inventoryMovementSheetView: ViewConfig = {
     model: "inventoryMovements",
@@ -157,53 +158,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                 },
             ],
         },
-        {
-            render: "#SheetGroup",
-            props: {title: "lifecycle", defaultOpen: true},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#SmallInfoCard",
-                            permissions: {read: "createdAt"},
-                            field: {
-                                name: "createdAt",
-                                widget: "#SmallInfoCard",
-                                label: "createdAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            permissions: {read: "updatedAt"},
-                            field: {
-                                name: "updatedAt",
-                                widget: "#SmallInfoCard",
-                                label: "updatedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                        {
-                            render: "#SmallInfoCard",
-                            permissions: {read: "createdBy"},
-                            field: {
-                                name: "createdBy",
-                                widget: "#SmallInfoCard",
-                                label: "createdBy",
-                                widgetProps: {
-                                    icon: "#User",
-                                    parent: "createdBy",
-                                    valuePath: ["name", "surname"],
-                                    joinSeparator: " ",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
+        lifecycleSheetGroup,
     ],
 };
 
