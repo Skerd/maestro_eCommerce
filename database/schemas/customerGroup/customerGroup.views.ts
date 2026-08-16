@@ -36,24 +36,24 @@ export const customerGroupSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 1},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "memberCount"}, field: {name: "memberCount", widget: "#SmallInfoCard", label: "memberCount", widgetProps: {icon: "#IconUsers"}}},
+                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#Tag"}}},
+                        {render: "#DisplayCard", permissions: {read: "memberCount"}, field: {name: "memberCount", widget: "#DisplayCard", label: "memberCount", widgetProps: {icon: "#IconUsers", type: "number"}}},
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isDefault"},
                             field: {
                                 name: "isDefault",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isDefault",
-                                widgetProps: {icon: "#IconStar", valueType: "boolean"},
+                                widgetProps: {icon: "#IconStar", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },

@@ -21,41 +21,41 @@ export const categorySheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "name"},
                             field: {
                                 name: "name",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "name",
                                 widgetProps: {icon: "#Tag"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "slug"},
                             field: {
                                 name: "slug",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "slug",
                                 widgetProps: {icon: "#IconInfoCircle"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "order"},
                             field: {
                                 name: "order",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "order",
-                                widgetProps: {icon: "#Hash"},
+                                widgetProps: {icon: "#Hash", type: "number"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "parent"},
                             field: {
                                 name: "parent.name",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "parentCategory",
                                 widgetProps: {
                                     icon: "#IconCategory2",

@@ -162,39 +162,39 @@ export const returnRequestSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "type",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "type",
-                                widgetProps: {icon: "#IconRefresh", languageKeyCategory: "returnType"},
+                                widgetProps: {icon: "#IconRefresh", languageKeyCategory: "returnType", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "status",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "returnStatus"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "returnStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "refundAmount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "refundAmount",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "resolvedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "resolvedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                     ],
@@ -210,19 +210,19 @@ export const returnRequestSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "customerNote",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "customerNote",
                                 widgetProps: {icon: "#IconNote"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "adminNote",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "adminNote",
                                 widgetProps: {icon: "#IconNote"},
                             },
@@ -240,10 +240,10 @@ export const returnRequestSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "order",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "order",
                                 widgetProps: {
                                     icon: "#IconShoppingCart",
@@ -257,23 +257,24 @@ export const returnRequestSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "resolvedBy",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "resolvedBy",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "resolvedBy",
                                     valuePath: ["name"],
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",

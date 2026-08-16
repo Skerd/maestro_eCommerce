@@ -255,76 +255,76 @@ export const collectionSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "name"},
-                            field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}},
+                            field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#IconTag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "type",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "collectionType"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "collectionType", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "slug"},
-                            field: {name: "slug", widget: "#SmallInfoCard", label: "slug", widgetProps: {icon: "#IconLink"}},
+                            field: {name: "slug", widget: "#DisplayCard", label: "slug", widgetProps: {icon: "#IconLink"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isVisible"},
                             field: {
                                 name: "isVisible",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isVisible",
                                 widgetProps: {icon: "#IconEye", valueType: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "position"},
-                            field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}},
+                            field: {name: "position", widget: "#DisplayCard", label: "position", widgetProps: {icon: "#Hash"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "productCount"},
                             field: {
                                 name: "productCount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "productCount",
                                 widgetProps: {icon: "#IconBox"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "ruleCondition"},
                             field: {
                                 name: "ruleCondition",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "ruleCondition",
-                                widgetProps: {icon: "#IconFilter", languageKeyCategory: "ruleCondition"},
+                                widgetProps: {icon: "#IconFilter", languageKeyCategory: "ruleCondition", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "publishedAt"},
                             field: {
                                 name: "publishedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "publishedAt",
                                 widgetProps: {icon: "#IconCalendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -342,11 +342,11 @@ export const collectionSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "description"},
                             field: {
                                 name: "description",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "description",
                                 widgetProps: {icon: "#IconAlignLeft"},
                             },
@@ -506,21 +506,21 @@ export const collectionSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "seoTitle"},
                             field: {
                                 name: "seoTitle",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "seoTitle",
                                 widgetProps: {icon: "#IconSeo"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "seoDescription"},
                             field: {
                                 name: "seoDescription",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "seoDescription",
                                 widgetProps: {icon: "#IconAlignLeft"},
                             },

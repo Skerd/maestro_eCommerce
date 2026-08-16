@@ -16,11 +16,11 @@ export const inventorySheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 3},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "quantityOnHand"}, field: {name: "quantityOnHand", widget: "#SmallInfoCard", label: "quantityOnHand", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "quantityReserved"}, field: {name: "quantityReserved", widget: "#SmallInfoCard", label: "quantityReserved", widgetProps: {icon: "#IconLock"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "quantityAvailable"}, field: {name: "quantityAvailable", widget: "#SmallInfoCard", label: "quantityAvailable", widgetProps: {icon: "#IconBox"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "reorderPoint"}, field: {name: "reorderPoint", widget: "#SmallInfoCard", label: "reorderPoint", widgetProps: {icon: "#IconAlertTriangle"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "reorderQuantity"}, field: {name: "reorderQuantity", widget: "#SmallInfoCard", label: "reorderQuantity", widgetProps: {icon: "#IconPackage"}}},
+                        {render: "#DisplayCard", permissions: {read: "quantityOnHand"}, field: {name: "quantityOnHand", widget: "#DisplayCard", label: "quantityOnHand", widgetProps: {icon: "#Hash"}}},
+                        {render: "#DisplayCard", permissions: {read: "quantityReserved"}, field: {name: "quantityReserved", widget: "#DisplayCard", label: "quantityReserved", widgetProps: {icon: "#IconLock"}}},
+                        {render: "#DisplayCard", permissions: {read: "quantityOnHand"}, field: {name: "quantityAvailable", widget: "#DisplayCard", label: "quantityAvailable", widgetProps: {icon: "#IconBox"}}},
+                        {render: "#DisplayCard", permissions: {read: "reorderPoint"}, field: {name: "reorderPoint", widget: "#DisplayCard", label: "reorderPoint", widgetProps: {icon: "#IconAlertTriangle"}}},
+                        {render: "#DisplayCard", permissions: {read: "reorderQuantity"}, field: {name: "reorderQuantity", widget: "#DisplayCard", label: "reorderQuantity", widgetProps: {icon: "#IconPackage"}}},
                     ],
                 },
             ],
@@ -34,10 +34,10 @@ export const inventorySheetView: ViewConfig = {
                     props: {columns: 3},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "product",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "product",
                                 widgetProps: {
                                     icon: "#IconPackage",
@@ -51,10 +51,10 @@ export const inventorySheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "variant",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "variant",
                                 widgetProps: {
                                     icon: "#IconTag",
@@ -68,10 +68,10 @@ export const inventorySheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "warehouse",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "warehouse",
                                 widgetProps: {
                                     icon: "#IconBuildingWarehouse",

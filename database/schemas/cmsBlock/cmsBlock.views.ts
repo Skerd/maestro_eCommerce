@@ -134,61 +134,61 @@ export const cmsBlockSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "title"},
-                            field: {name: "title", widget: "#SmallInfoCard", label: "title", widgetProps: {icon: "#IconTag"}},
+                            field: {name: "title", widget: "#DisplayCard", label: "title", widgetProps: {icon: "#IconTag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "type",
-                                widgetProps: {icon: "#IconLayout", languageKeyCategory: "cmsBlockType"},
+                                widgetProps: {icon: "#IconLayout", languageKeyCategory: "cmsBlockType", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "position"},
-                            field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}},
+                            field: {name: "position", widget: "#DisplayCard", label: "position", widgetProps: {icon: "#Hash", type: "number"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "startsAt"},
                             field: {
                                 name: "startsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "startsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "endsAt"},
                             field: {
                                 name: "endsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "endsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "abTestVariant"},
                             field: {
                                 name: "abTestVariant",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "abTestVariant",
                                 widgetProps: {icon: "#IconTag"},
                             },
@@ -257,11 +257,11 @@ export const cmsBlockSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",

@@ -39,26 +39,26 @@ export const productAttributeSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "position"}, field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}}},
+                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#Tag"}}},
+                        {render: "#DisplayCard", permissions: {read: "position"}, field: {name: "position", widget: "#DisplayCard", label: "position", widgetProps: {icon: "#Hash", type: "number"}}},
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isVisibleOnProductPage"},
                             field: {
                                 name: "isVisibleOnProductPage",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isVisibleOnProductPage",
-                                widgetProps: {icon: "#IconEye", valueType: "boolean"},
+                                widgetProps: {icon: "#IconEye", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isUsedForVariants"},
                             field: {
                                 name: "isUsedForVariants",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isUsedForVariants",
-                                widgetProps: {icon: "#IconStack", valueType: "boolean"},
+                                widgetProps: {icon: "#IconStack", type: "boolean"},
                             },
                         },
                     ],
@@ -68,11 +68,11 @@ export const productAttributeSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "values"},
                             field: {
                                 name: "values",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "values",
                                 widgetProps: {icon: "#IconList", valueType: "stringBadgeList"},
                             },

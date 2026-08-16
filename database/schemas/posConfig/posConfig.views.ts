@@ -155,18 +155,18 @@ export const posConfigSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#SmallInfoCard", label: "isActive", widgetProps: {icon: "#IconToggleRight", valueType: "boolean"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pausedAt"}, field: {name: "isPaused", widget: "#SmallInfoCard", label: "isPaused", widgetProps: {icon: "#IconPlayerPause", valueType: "boolean"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pausedAt"}, dependent: "isCompanyPaused", field: {name: "isCompanyPaused", widget: "#SmallInfoCard", label: "isCompanyPaused", widgetProps: {icon: "#IconBuilding", valueType: "boolean"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pauseReason"}, dependent: "isCompanyPaused", field: {name: "companyPauseReason", widget: "#SmallInfoCard", label: "companyPauseReason", widgetProps: {icon: "#IconAlertTriangle"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pauseReason"}, field: {name: "pauseReason", widget: "#SmallInfoCard", label: "pauseReason", widgetProps: {icon: "#IconMessage"}}},
+                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#IconTag"}}},
+                        {render: "#DisplayCard", permissions: {read: "isActive"}, field: {name: "isActive", widget: "#DisplayCard", label: "isActive", widgetProps: {icon: "#IconToggleRight", type: "boolean"}}},
+                        {render: "#DisplayCard", permissions: {read: "pausedAt"}, field: {name: "isPaused", widget: "#DisplayCard", label: "isPaused", widgetProps: {icon: "#IconPlayerPause", type: "boolean"}}},
+                        {render: "#DisplayCard", permissions: {read: "pausedAt"}, dependent: "isCompanyPaused", field: {name: "isCompanyPaused", widget: "#DisplayCard", label: "isCompanyPaused", widgetProps: {icon: "#IconBuilding", type: "boolean"}}},
+                        {render: "#DisplayCard", permissions: {read: "pauseReason"}, dependent: "isCompanyPaused", field: {name: "companyPauseReason", widget: "#DisplayCard", label: "companyPauseReason", widgetProps: {icon: "#IconAlertTriangle"}}},
+                        {render: "#DisplayCard", permissions: {read: "pauseReason"}, field: {name: "pauseReason", widget: "#DisplayCard", label: "pauseReason", widgetProps: {icon: "#IconMessage"}}},
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "currency"},
                             field: {
                                 name: "currency",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "currency",
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
@@ -181,11 +181,11 @@ export const posConfigSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",
@@ -195,13 +195,13 @@ export const posConfigSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "managers"},
                             field: {
                                 name: "hasManagerPin",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "hasManagerPin",
-                                widgetProps: {icon: "#IconLock", valueType: "boolean"},
+                                widgetProps: {icon: "#IconLock", type: "boolean"},
                             },
                         },
                     ],
@@ -317,11 +317,11 @@ export const posConfigSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "managers"},
                             field: {
                                 name: "managers",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "managers",
                                 widgetProps: {
                                     icon: "#IconUsers",
@@ -348,11 +348,11 @@ export const posConfigSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "ifaceBarcodeScanner"}, field: {name: "ifaceBarcodeScanner", widget: "#SmallInfoCard", label: "ifaceBarcodeScanner", widgetProps: {icon: "#IconBarcode"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "ifaceCashControl"}, field: {name: "ifaceCashControl", widget: "#SmallInfoCard", label: "ifaceCashControl", widgetProps: {icon: "#IconCash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "allowDiscount"}, field: {name: "allowDiscount", widget: "#SmallInfoCard", label: "allowDiscount", widgetProps: {icon: "#IconPercentage"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "allowQuantityChange"}, field: {name: "allowQuantityChange", widget: "#SmallInfoCard", label: "allowQuantityChange", widgetProps: {icon: "#Hash"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "allowOversell"}, field: {name: "allowOversell", widget: "#SmallInfoCard", label: "allowOversell", widgetProps: {icon: "#IconPackageOff"}}},
+                        {render: "#DisplayCard", permissions: {read: "ifaceBarcodeScanner"}, field: {name: "ifaceBarcodeScanner", widget: "#DisplayCard", label: "ifaceBarcodeScanner", widgetProps: {icon: "#IconBarcode"}}},
+                        {render: "#DisplayCard", permissions: {read: "ifaceCashControl"}, field: {name: "ifaceCashControl", widget: "#DisplayCard", label: "ifaceCashControl", widgetProps: {icon: "#IconCash"}}},
+                        {render: "#DisplayCard", permissions: {read: "allowDiscount"}, field: {name: "allowDiscount", widget: "#DisplayCard", label: "allowDiscount", widgetProps: {icon: "#IconPercentage"}}},
+                        {render: "#DisplayCard", permissions: {read: "allowQuantityChange"}, field: {name: "allowQuantityChange", widget: "#DisplayCard", label: "allowQuantityChange", widgetProps: {icon: "#Hash"}}},
+                        {render: "#DisplayCard", permissions: {read: "allowOversell"}, field: {name: "allowOversell", widget: "#DisplayCard", label: "allowOversell", widgetProps: {icon: "#IconPackageOff"}}},
                     ],
                 },
             ],
@@ -365,9 +365,9 @@ export const posConfigSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "pinForDiscount"}, field: {name: "pinForDiscount", widget: "#SmallInfoCard", label: "pinForDiscount", widgetProps: {icon: "#IconLock"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pinForCashOut"}, field: {name: "pinForCashOut", widget: "#SmallInfoCard", label: "pinForCashOut", widgetProps: {icon: "#IconCashBanknote"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "pinForRefund"}, field: {name: "pinForRefund", widget: "#SmallInfoCard", label: "pinForRefund", widgetProps: {icon: "#IconReceiptRefund"}}},
+                        {render: "#DisplayCard", permissions: {read: "pinForDiscount"}, field: {name: "pinForDiscount", widget: "#DisplayCard", label: "pinForDiscount", widgetProps: {icon: "#IconLock"}}},
+                        {render: "#DisplayCard", permissions: {read: "pinForCashOut"}, field: {name: "pinForCashOut", widget: "#DisplayCard", label: "pinForCashOut", widgetProps: {icon: "#IconCashBanknote"}}},
+                        {render: "#DisplayCard", permissions: {read: "pinForRefund"}, field: {name: "pinForRefund", widget: "#DisplayCard", label: "pinForRefund", widgetProps: {icon: "#IconReceiptRefund"}}},
                     ],
                 },
             ],
@@ -380,8 +380,8 @@ export const posConfigSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 1},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "receiptHeader"}, field: {name: "receiptHeader", widget: "#SmallInfoCard", label: "receiptHeader", widgetProps: {icon: "#IconReceipt"}}},
-                        {render: "#SmallInfoCard", permissions: {read: "receiptFooter"}, field: {name: "receiptFooter", widget: "#SmallInfoCard", label: "receiptFooter", widgetProps: {icon: "#IconReceipt"}}},
+                        {render: "#DisplayCard", permissions: {read: "receiptHeader"}, field: {name: "receiptHeader", widget: "#DisplayCard", label: "receiptHeader", widgetProps: {icon: "#IconReceipt"}}},
+                        {render: "#DisplayCard", permissions: {read: "receiptFooter"}, field: {name: "receiptFooter", widget: "#DisplayCard", label: "receiptFooter", widgetProps: {icon: "#IconReceipt"}}},
                     ],
                 },
             ],

@@ -167,66 +167,66 @@ export const fulfillmentSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "status",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "fulfillmentStatus"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "fulfillmentStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "carrier",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "carrier",
                                 widgetProps: {icon: "#IconTruck"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "trackingNumber",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "trackingNumber",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "trackingUrl",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "trackingUrl",
                                 widgetProps: {icon: "#IconLink"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "shippedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "estimatedDeliveryAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "estimatedDeliveryAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "deliveredAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "deliveredAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                     ],
@@ -263,10 +263,10 @@ export const fulfillmentSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "order",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "order",
                                 widgetProps: {
                                     icon: "#IconShoppingCart",
@@ -280,10 +280,10 @@ export const fulfillmentSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",

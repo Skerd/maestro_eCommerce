@@ -350,41 +350,41 @@ export const discountSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "title"},
-                            field: {name: "title", widget: "#SmallInfoCard", label: "title", widgetProps: {icon: "#Tag"}},
+                            field: {name: "title", widget: "#DisplayCard", label: "title", widgetProps: {icon: "#Tag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "code"},
-                            field: {name: "code", widget: "#SmallInfoCard", label: "code", widgetProps: {icon: "#IconTag"}},
+                            field: {name: "code", widget: "#DisplayCard", label: "code", widgetProps: {icon: "#IconTag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "type",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "discountType"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "discountType", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -405,23 +405,23 @@ export const discountSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "appliesTo"},
                             field: {
                                 name: "appliesTo",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "appliesTo",
-                                widgetProps: {icon: "#IconTarget", languageKeyCategory: "discountAppliesTo"},
+                                widgetProps: {icon: "#IconTarget", languageKeyCategory: "discountAppliesTo", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "value"},
                             field: {
                                 name: "value",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "value",
-                                widgetProps: {icon: "#IconPercent"},
+                                widgetProps: {icon: "#IconPercent", type: "number"},
                             },
                         },
                     ],
@@ -437,21 +437,21 @@ export const discountSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "startsAt"},
                             field: {
                                 name: "startsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "startsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "endsAt"},
                             field: {
                                 name: "endsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "endsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
@@ -469,51 +469,51 @@ export const discountSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "usageCount"},
                             field: {
                                 name: "usageCount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "usageCount",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "usageLimit"},
                             field: {
                                 name: "usageLimit",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "usageLimit",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "usageLimitPerCustomer"},
                             field: {
                                 name: "usageLimitPerCustomer",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "usageLimitPerCustomer",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "minimumOrderAmount"},
                             field: {
                                 name: "minimumOrderAmount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "minimumOrderAmount",
                                 widgetProps: {icon: "#IconCurrencyDollar"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "minimumQuantity"},
                             field: {
                                 name: "minimumQuantity",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "minimumQuantity",
                                 widgetProps: {icon: "#Hash"},
                             },
@@ -728,21 +728,21 @@ export const discountSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "buyXGetY"},
                             field: {
                                 name: "buyXGetY.buyQuantity",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "buyQuantity",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "buyXGetY"},
                             field: {
                                 name: "buyXGetY.getQuantity",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "getQuantity",
                                 widgetProps: {icon: "#Hash"},
                             },

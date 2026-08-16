@@ -177,11 +177,11 @@ export const productVariantSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "product"},
                             field: {
                                 name: "product",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "product",
                                 widgetProps: {
                                     icon: "#IconPackage",
@@ -197,46 +197,46 @@ export const productVariantSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "sku"},
-                            field: {name: "sku", widget: "#SmallInfoCard", label: "sku", widgetProps: {icon: "#IconBarcode"}},
+                            field: {name: "sku", widget: "#DisplayCard", label: "sku", widgetProps: {icon: "#IconBarcode"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "barcode"},
-                            field: {name: "barcode", widget: "#SmallInfoCard", label: "barcode", widgetProps: {icon: "#IconBarcode"}},
+                            field: {name: "barcode", widget: "#DisplayCard", label: "barcode", widgetProps: {icon: "#IconBarcode"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "status"},
                             field: {
                                 name: "status",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "variantStatus"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "variantStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "position"},
-                            field: {name: "position", widget: "#SmallInfoCard", label: "position", widgetProps: {icon: "#Hash"}},
+                            field: {name: "position", widget: "#DisplayCard", label: "position", widgetProps: {icon: "#Hash", type: "number"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "trackInventory"},
                             field: {
                                 name: "trackInventory",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "trackInventory",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -254,36 +254,36 @@ export const productVariantSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "price"},
-                            field: {name: "price", widget: "#SmallInfoCard", label: "price", widgetProps: {icon: "#IconCurrencyDollar", format: "locale"}},
+                            field: {name: "price", widget: "#DisplayCard", label: "price", widgetProps: {icon: "#IconCurrencyDollar", type: "number", format: "locale"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "compareAtPrice"},
                             field: {
                                 name: "compareAtPrice",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "compareAtPrice",
                                 widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "costPrice"},
                             field: {
                                 name: "costPrice",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "costPrice",
                                 widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "currency"},
                             field: {
                                 name: "currency",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "currency",
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
@@ -310,36 +310,36 @@ export const productVariantSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "weight"},
-                            field: {name: "weight", widget: "#SmallInfoCard", label: "weight", widgetProps: {icon: "#IconWeight", format: "locale"}},
+                            field: {name: "weight", widget: "#DisplayCard", label: "weight", widgetProps: {icon: "#IconWeight", format: "locale"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.length",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "dimensionLength",
                                 widgetProps: {icon: "#IconRuler", format: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.width",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "dimensionWidth",
                                 widgetProps: {icon: "#IconRuler", format: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.height",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "dimensionHeight",
                                 widgetProps: {icon: "#IconRuler", format: "locale"},
                             },

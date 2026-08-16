@@ -281,41 +281,41 @@ export const pricingRuleSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "name"},
-                            field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#Tag"}},
+                            field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#Tag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "type",
-                                widgetProps: {icon: "#IconTag", languageKeyCategory: "pricingRuleType"},
+                                widgetProps: {icon: "#IconTag", languageKeyCategory: "pricingRuleType", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "priority"},
-                            field: {name: "priority", widget: "#SmallInfoCard", label: "priority", widgetProps: {icon: "#Hash"}},
+                            field: {name: "priority", widget: "#DisplayCard", label: "priority", widgetProps: {icon: "#Hash", type: "number"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -333,23 +333,23 @@ export const pricingRuleSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "appliesTo"},
                             field: {
                                 name: "appliesTo",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "appliesTo",
-                                widgetProps: {icon: "#IconTarget", languageKeyCategory: "pricingRuleAppliesTo"},
+                                widgetProps: {icon: "#IconTarget", languageKeyCategory: "pricingRuleAppliesTo", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "value"},
                             field: {
                                 name: "value",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "value",
-                                widgetProps: {icon: "#IconPercent"},
+                                widgetProps: {icon: "#IconPercent", type: "number"},
                             },
                         },
                     ],
@@ -365,21 +365,21 @@ export const pricingRuleSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "startsAt"},
                             field: {
                                 name: "startsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "startsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "endsAt"},
                             field: {
                                 name: "endsAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "endsAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
@@ -397,21 +397,21 @@ export const pricingRuleSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "minimumOrderAmount"},
                             field: {
                                 name: "minimumOrderAmount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "minimumOrderAmount",
                                 widgetProps: {icon: "#IconCurrencyDollar"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "minimumQuantity"},
                             field: {
                                 name: "minimumQuantity",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "minimumQuantity",
                                 widgetProps: {icon: "#Hash"},
                             },

@@ -17,28 +17,28 @@ export const posSessionSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "name",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "name",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "state",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "state",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "posSessionState"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "posSessionState", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "config",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "config",
                                 widgetProps: {
                                     icon: "#IconTag",
@@ -52,56 +52,58 @@ export const posSessionSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "openedBy",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "openedBy",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "openedBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "closedBy",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "closedBy",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "closedBy",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "openedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "openedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "closedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "closedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",
@@ -123,39 +125,39 @@ export const posSessionSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "openingBalance",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "openingBalance",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "closingBalance",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "closingBalance",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "expectedCash",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "expectedCash",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "cashRegisterBalance",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "cashRegisterBalance",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -171,39 +173,39 @@ export const posSessionSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "orderCount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "orderCount",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "totalSales",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "totalSales",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "totalCash",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "totalCash",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "totalCard",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "totalCard",
-                                widgetProps: {icon: "#IconCreditCard", format: "locale"},
+                                widgetProps: {icon: "#IconCreditCard", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -292,10 +294,10 @@ export const posSessionSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "notes",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "notes",
                                 widgetProps: {icon: "#IconNote"},
                             },

@@ -18,28 +18,28 @@ export const posOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "name",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "name",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "state",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "state",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "posOrderState"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "posOrderState", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "session",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "session",
                                 widgetProps: {
                                     icon: "#IconClock",
@@ -53,10 +53,10 @@ export const posOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "config",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "config",
                                 widgetProps: {
                                     icon: "#IconTag",
@@ -70,56 +70,58 @@ export const posOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "cashier",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "cashier",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "cashier",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "customer",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "customer",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "customer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "customerName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "customerName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "isRefund",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isRefund",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "productOrder",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "productOrder",
                                 widgetProps: {
                                     icon: "#IconShoppingCart",
@@ -133,10 +135,10 @@ export const posOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "refundOf",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "refundOf",
                                 widgetProps: {
                                     icon: "#IconReceipt",
@@ -150,10 +152,10 @@ export const posOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",
@@ -400,66 +402,66 @@ export const posOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "amountTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "amountTotal",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "amountTax",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "amountTax",
-                                widgetProps: {icon: "#IconReceipt", format: "locale"},
+                                widgetProps: {icon: "#IconReceipt", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "discountTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "discountTotal",
-                                widgetProps: {icon: "#IconPercent", format: "locale"},
+                                widgetProps: {icon: "#IconPercent", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "orderDiscountPercent",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "orderDiscountPercent",
                                 widgetProps: {icon: "#IconPercent"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "amountPaid",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "amountPaid",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "amountReturn",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "amountReturn",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "amountRefunded",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "amountRefunded",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -476,91 +478,91 @@ export const posOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "nslf",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "nslf",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "nivf",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "nivf",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "eic",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "eic",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fiscalInvNum",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fiscalInvNum",
                                 widgetProps: {icon: "#IconReceipt"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fiscalInvOrdNum",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fiscalInvOrdNum",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fiscalIssueDateTime",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fiscalIssueDateTime",
-                                widgetProps: {icon: "#Calendar"},
+                                widgetProps: {icon: "#Calendar", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fiscalizedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fiscalizedAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "einvoiceAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "einvoiceAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "qrVerifyUrl",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "qrVerifyUrl",
                                 widgetProps: {icon: "#IconLink"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fiscalError",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fiscalError",
                                 widgetProps: {icon: "#IconAlertTriangle"},
                             },
@@ -578,19 +580,19 @@ export const posOrderSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "note",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "note",
                                 widgetProps: {icon: "#IconNote"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "clientRequestId",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "clientRequestId",
                                 widgetProps: {icon: "#Hash"},
                             },

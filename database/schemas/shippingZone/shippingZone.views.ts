@@ -211,23 +211,23 @@ export const shippingZoneSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTruckDelivery"}}},
+                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#IconTruckDelivery"}}},
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -245,11 +245,11 @@ export const shippingZoneSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "countries"},
                             field: {
                                 name: "countries",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "countries",
                                 widgetProps: {
                                     icon: "#Globe",
@@ -265,11 +265,11 @@ export const shippingZoneSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "states"},
                             field: {
                                 name: "states",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "states",
                                 widgetProps: {
                                     icon: "#IconMapPin",
@@ -285,11 +285,11 @@ export const shippingZoneSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "postalCodePatterns"},
                             field: {
                                 name: "postalCodePatterns",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "postalCodePatterns",
                                 widgetProps: {icon: "#IconMail", valueType: "stringBadgeList"},
                             },

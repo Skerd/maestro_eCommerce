@@ -224,48 +224,48 @@ export const customerAddressSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "label",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "label",
                                 widgetProps: {icon: "#IconTag"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "isDefault",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isDefault",
-                                widgetProps: {icon: "#IconStar", valueType: "boolean"},
+                                widgetProps: {icon: "#IconStar", valueType: "boolean", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "firstName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "firstName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "lastName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "lastName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "phone",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "phone",
-                                widgetProps: {icon: "#IconPhone"},
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
                             },
                         },
                     ],
@@ -289,10 +289,10 @@ export const customerAddressSheetView: ViewConfig = {
                                     props: {columns: 2},
                                     children: [
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "country",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "country",
                                                 widgetProps: {
                                                     icon: "#Globe",
@@ -306,10 +306,10 @@ export const customerAddressSheetView: ViewConfig = {
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "state",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "state",
                                                 widgetProps: {
                                                     icon: "#IconMapPin",
@@ -323,10 +323,10 @@ export const customerAddressSheetView: ViewConfig = {
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "city",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "city",
                                                 widgetProps: {
                                                     icon: "#IconMapPin",
@@ -340,37 +340,37 @@ export const customerAddressSheetView: ViewConfig = {
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "postalCode",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "postalCode",
                                                 widgetProps: {icon: "#Hash"},
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "street",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "street",
                                                 widgetProps: {icon: "#IconMapPin"},
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "latitude",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "latitude",
                                                 widgetProps: {icon: "#IconMapPin", format: "locale"},
                                             },
                                         },
                                         {
-                                            render: "#SmallInfoCard",
+                                            render: "#DisplayCard",
                                             field: {
                                                 name: "longitude",
-                                                widget: "#SmallInfoCard",
+                                                widget: "#DisplayCard",
                                                 label: "longitude",
                                                 widgetProps: {icon: "#IconMapPin", format: "locale"},
                                             },
@@ -409,24 +409,25 @@ export const customerAddressSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "customer",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "customer",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "customer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",

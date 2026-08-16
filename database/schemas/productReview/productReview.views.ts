@@ -27,19 +27,19 @@ export const productReviewSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "rating",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "rating",
                                 widgetProps: {icon: "#IconStar"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "title",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "title",
                                 widgetProps: {icon: "#IconTag"},
                             },
@@ -78,10 +78,10 @@ export const productReviewSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "order",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "order",
                                 widgetProps: {
                                     icon: "#IconShoppingCart",
@@ -95,10 +95,10 @@ export const productReviewSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "product",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "product",
                                 widgetProps: {
                                     icon: "#IconPackage",
@@ -112,16 +112,17 @@ export const productReviewSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "reviewer",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "reviewer",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "reviewer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },

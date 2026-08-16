@@ -17,60 +17,61 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "orderNumber",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "orderNumber",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "status",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "productOrderStatus"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "productOrderStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "paymentStatus",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "paymentStatus",
-                                widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "productOrderPaymentStatus"},
+                                widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "productOrderPaymentStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "fulfillmentStatus",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "fulfillmentStatus",
-                                widgetProps: {icon: "#IconTruck", languageKeyCategory: "productOrderFulfillmentStatus"},
+                                widgetProps: {icon: "#IconTruck", languageKeyCategory: "productOrderFulfillmentStatus", type: "enum"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "customer",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "customer",
                                 widgetProps: {
                                     icon: "#IconUser",
                                     parent: "customer",
                                     valuePath: ["name", "surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {
                                     icon: "#IconBuilding",
@@ -80,28 +81,28 @@ export const productOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "email",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "email",
-                                widgetProps: {icon: "#IconMail"},
+                                widgetProps: {icon: "#IconMail", type: "email"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "phone",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "phone",
-                                widgetProps: {icon: "#IconPhone"},
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "currency",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "currency",
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
@@ -232,73 +233,73 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.firstName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressFirstName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.lastName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressLastName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.phone",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressPhone",
-                                widgetProps: {icon: "#IconPhone"},
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.street",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressStreet",
                                 widgetProps: {icon: "#IconMapPin"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.city",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressCity",
                                 widgetProps: {icon: "#IconBuilding"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.state",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressState",
                                 widgetProps: {icon: "#IconMapPin"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.postalCode",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressPostalCode",
                                 widgetProps: {icon: "#IconMail"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingAddress.country",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressCountry",
                                 widgetProps: {
                                     icon: "#Globe",
@@ -325,73 +326,73 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.firstName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressFirstName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.lastName",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressLastName",
                                 widgetProps: {icon: "#IconUser"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.phone",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressPhone",
-                                widgetProps: {icon: "#IconPhone"},
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.street",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressStreet",
                                 widgetProps: {icon: "#IconMapPin"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.city",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressCity",
                                 widgetProps: {icon: "#IconBuilding"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.state",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressState",
                                 widgetProps: {icon: "#IconMapPin"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.postalCode",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressPostalCode",
                                 widgetProps: {icon: "#IconMail"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "billingAddress.country",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "addressCountry",
                                 widgetProps: {
                                     icon: "#Globe",
@@ -417,48 +418,48 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "subtotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "subtotal",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "discountTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "discountTotal",
-                                widgetProps: {icon: "#IconPercent", format: "locale"},
+                                widgetProps: {icon: "#IconPercent", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "shippingTotal",
-                                widgetProps: {icon: "#IconTruck", format: "locale"},
+                                widgetProps: {icon: "#IconTruck", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "taxTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "taxTotal",
-                                widgetProps: {icon: "#IconReceipt", format: "locale"},
+                                widgetProps: {icon: "#IconReceipt", format: "locale", type: "locale"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "grandTotal",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "grandTotal",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -475,30 +476,30 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingRate.name",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "shippingRateName",
                                 widgetProps: {icon: "#IconTruck"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingRate.carrier",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "shippingRateCarrier",
                                 widgetProps: {icon: "#IconTruck"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "shippingRate.price",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "shippingRatePrice",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -629,10 +630,10 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "giftCard.giftCard",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "giftCardRef",
                                 widgetProps: {
                                     icon: "#IconGift",
@@ -646,21 +647,21 @@ export const productOrderSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "giftCard.code",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "giftCardCode",
                                 widgetProps: {icon: "#IconTag"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "giftCard.amount",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "giftCardAmount",
-                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale"},
+                                widgetProps: {icon: "#IconCurrencyDollar", format: "locale", type: "locale"},
                             },
                         },
                     ],
@@ -676,19 +677,19 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "notes",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "notes",
                                 widgetProps: {icon: "#IconNote"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "internalNotes",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "internalNotes",
                                 widgetProps: {icon: "#IconNote"},
                             },
@@ -829,19 +830,19 @@ export const productOrderSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "stripePaymentIntentId",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "stripePaymentIntentId",
                                 widgetProps: {icon: "#IconCreditCard"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             field: {
                                 name: "idempotencyKey",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "idempotencyKey",
                                 widgetProps: {icon: "#Hash"},
                             },

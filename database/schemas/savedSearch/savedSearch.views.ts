@@ -38,16 +38,16 @@ export const savedSearchSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "name"},
-                            field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconTag"}},
+                            field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#IconTag"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "user"},
                             field: {
                                 name: "user",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "user",
                                 widgetProps: {
                                     icon: "#IconUser",
@@ -87,21 +87,21 @@ export const savedSearchSheetView: ViewConfig = {
                     props: {columns: 2},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "deletedAt"},
                             field: {
                                 name: "deletedAt",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "deletedAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "deletedBy"},
                             field: {
                                 name: "deletedBy",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "deletedBy",
                                 widgetProps: {
                                     icon: "#IconUser",

@@ -154,28 +154,28 @@ export const taxZoneSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#SmallInfoCard", permissions: {read: "name"}, field: {name: "name", widget: "#SmallInfoCard", label: "name", widgetProps: {icon: "#IconReceiptTax"}}},
+                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#IconReceiptTax"}}},
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean"},
+                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "priority"},
-                            field: {name: "priority", widget: "#SmallInfoCard", label: "priority", widgetProps: {icon: "#Hash"}},
+                            field: {name: "priority", widget: "#DisplayCard", label: "priority", widgetProps: {icon: "#Hash", type: "number"}},
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "company"},
                             field: {
                                 name: "company",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "company",
                                 widgetProps: {icon: "#IconBuilding", parent: "company", valuePath: ["name"]},
                             },
@@ -193,11 +193,11 @@ export const taxZoneSheetView: ViewConfig = {
                     props: {columns: 1},
                     children: [
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "country"},
                             field: {
                                 name: "country",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "country",
                                 widgetProps: {
                                     icon: "#Globe",
@@ -211,11 +211,11 @@ export const taxZoneSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "states"},
                             field: {
                                 name: "states",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "states",
                                 widgetProps: {
                                     icon: "#IconMapPin",
@@ -231,11 +231,11 @@ export const taxZoneSheetView: ViewConfig = {
                             },
                         },
                         {
-                            render: "#SmallInfoCard",
+                            render: "#DisplayCard",
                             permissions: {read: "postalCodePatterns"},
                             field: {
                                 name: "postalCodePatterns",
-                                widget: "#SmallInfoCard",
+                                widget: "#DisplayCard",
                                 label: "postalCodePatterns",
                                 widgetProps: {icon: "#IconMail", valueType: "stringBadgeList"},
                             },
