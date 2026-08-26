@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
-import {AUTHENTICATION, CLIENT_SIDE} from "@coreModule/environment";
+import {AUTHENTICATION, clientHostFor} from "@coreModule/environment";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -485,7 +485,7 @@ export class PosConfigActions {
         });
 
         logger.finish(
-            `Manager PIN reset email dispatched for user ${userId} on PosConfig ${_id} (host=${CLIENT_SIDE.HOST ?? "n/a"})`,
+            `Manager PIN reset email dispatched for user ${userId} on PosConfig ${_id} (host=${clientHostFor("core") || "n/a"})`,
         );
         return {message: "Manager PIN reset email sent"};
     }

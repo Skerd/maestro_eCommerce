@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {CLIENT_SIDE, CONSTANTS, EMAIL} from "@coreModule/environment";
+import {CLIENT_SIDE, CONSTANTS, EMAIL, clientHostFor} from "@coreModule/environment";
 import {applyPlaceholders, loadEmailStrings} from "@coreModule/utilities/emails/emailLocale";
 import {sendMail} from "@coreModule/utilities/emails/mailDeliveryService";
 import type {ManagerPinResetEmailEvent} from "@eCommerceModule/kafka/types";
@@ -57,7 +57,7 @@ export async function sendManagerPinResetMail(
         securityReasons: strings.securityReasons ?? "",
     });
 
-    const resetUrl = `${CLIENT_SIDE.HOST}/authenticate/resetPosManagerPin/${event.resetCode}`;
+    const resetUrl = `${clientHostFor("core")}/authenticate/resetPosManagerPin/${event.resetCode}`;
     emailTemplate = emailTemplate.replace(/http:\/\/1234\.html/g, resetUrl);
     emailTemplate = applyPlaceholders(emailTemplate, {
         username: event.fullName,

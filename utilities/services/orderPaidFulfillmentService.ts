@@ -6,7 +6,7 @@ import GiftCard from "@financeModule/database/schemas/giftCard/giftCard";
 import {generateGiftCardCode} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {CrudOptions} from "@coreModule/database/services/baseCrudService";
-import {CLIENT_SIDE, CONSTANTS} from "@coreModule/environment";
+import {CONSTANTS, clientHostFor} from "@coreModule/environment";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 
@@ -97,13 +97,13 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
                 for (const mediaId of mediaIds) {
                     downloadLinks.push({
                         productTitle,
-                        url: `${CLIENT_SIDE.HOST}/api/eCommerce/digitalDownload/${delivery.token}/${mediaId}`,
+                        url: `${clientHostFor("shop")}/api/eCommerce/digitalDownload/${delivery.token}/${mediaId}`,
                     });
                 }
             } else {
                 downloadLinks.push({
                     productTitle,
-                    url: `${CLIENT_SIDE.HOST}/account/orders`,
+                    url: `${clientHostFor("shop")}/account/orders`,
                 });
             }
         }

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {CLIENT_SIDE, CONSTANTS, EMAIL} from "@coreModule/environment";
+import {CLIENT_SIDE, CONSTANTS, EMAIL, clientHostFor} from "@coreModule/environment";
 import {applyPlaceholders, loadEmailStrings} from "@coreModule/utilities/emails/emailLocale";
 import {sendMail} from "@coreModule/utilities/emails/mailDeliveryService";
 import type {ProductOrderClientEmailEvent, ProductOrderClientEmailKind} from "@eCommerceModule/kafka/types";
@@ -65,9 +65,9 @@ export async function sendProductOrderClientMail(data: ProductOrderClientEmailEv
     let emailTemplate = readTemplateHtml("productOrderClient.html");
     let bodyInner = readTemplateHtml(meta.bodyFile);
 
-    const ordersUrl = `${CLIENT_SIDE.HOST}/account/orders`;
-    const cartUrl = `${CLIENT_SIDE.HOST}/cart`;
-    const checkoutUrl = `${CLIENT_SIDE.HOST}/checkout`;
+    const ordersUrl = `${clientHostFor("shop")}/account/orders`;
+    const cartUrl = `${clientHostFor("shop")}/cart`;
+    const checkoutUrl = `${clientHostFor("shop")}/checkout`;
 
     const trackingLine = data.trackingNumber
         ? applyPlaceholders(strings.trackingLine ?? "Tracking: {trackingNumber}", {
