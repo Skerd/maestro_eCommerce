@@ -45,6 +45,18 @@ router.get(
             throw apiValidationException("file_not_in_delivery", null, null, languageCode);
         }
 
-        return serveMedia({mediaId, req, res, logger, languageCode});
+        return serveMedia({
+            mediaId,
+            req,
+            res,
+            logger,
+            languageCode,
+            cacheControl: "private",
+            accessCheck: async (_id, media) => {
+                const mediaCompany = String((media.company as {_id?: unknown})?._id ?? media.company ?? "");
+                const deliveryCompany = String((delivery.company as {_id?: unknown})?._id ?? delivery.company ?? "");
+                return mediaCompany !== "" && mediaCompany === deliveryCompany;
+            },
+        });
     }),
 );

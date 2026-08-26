@@ -3,6 +3,7 @@ import {IMedia} from "@coreModule/database/schemas/media/media";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import publicMediaPlugin from "@coreModule/database/plugins/publicMediaPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
 import {
@@ -162,6 +163,7 @@ CollectionSchema.pre("save", async function () {
 });
 
 ownershipPlugin(CollectionSchema);
+publicMediaPlugin(CollectionSchema, {schemaDef: CollectionSchemaDef});
 auditPlugin(CollectionSchema);
 softDeletePlugin(CollectionSchema);
 lifeCyclePlugin(CollectionSchema);

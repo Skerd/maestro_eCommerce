@@ -5,6 +5,7 @@ import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import publicMediaPlugin from "@coreModule/database/plugins/publicMediaPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
 import {
@@ -112,6 +113,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 );
 
 ownershipPlugin(ProductVariantSchema);
+publicMediaPlugin(ProductVariantSchema, {schemaDef: ProductVariantSchemaDef});
 auditPlugin(ProductVariantSchema);
 softDeletePlugin(ProductVariantSchema);
 applyProductVariantIndexes(ProductVariantSchema);
