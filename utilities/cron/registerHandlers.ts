@@ -5,14 +5,6 @@ import {runScheduledPublish} from "@eCommerceModule/utilities/cronJobs/scheduled
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
 
-const GLOBAL_CRON = {
-    type: "cron" as const,
-    timezone: "UTC",
-    singleton: true,
-    executionStrategy: "distributed" as const,
-    scope: "global" as const,
-};
-
 export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerce.lowStockAlert",
@@ -22,7 +14,6 @@ export function registerECommerceCronHandlers(): void {
         version: "1",
         defaultJob: {
             name: "Low stock alert",
-            ...GLOBAL_CRON,
             cronExpression: "0 0 * * * *",
             priority: 10,
         },
@@ -36,7 +27,6 @@ export function registerECommerceCronHandlers(): void {
         version: "1",
         defaultJob: {
             name: "Collection rebuild",
-            ...GLOBAL_CRON,
             cronExpression: "0 30 * * * *",
             priority: 5,
         },
@@ -50,7 +40,6 @@ export function registerECommerceCronHandlers(): void {
         version: "1",
         defaultJob: {
             name: "Scheduled publish",
-            ...GLOBAL_CRON,
             cronExpression: "0 */5 * * * *",
             priority: 25,
         },
@@ -64,7 +53,6 @@ export function registerECommerceCronHandlers(): void {
         version: "1",
         defaultJob: {
             name: "Checkout expiry",
-            ...GLOBAL_CRON,
             cronExpression: "0 15 * * * *",
             priority: 20,
         },
@@ -78,7 +66,6 @@ export function registerECommerceCronHandlers(): void {
         version: "1",
         defaultJob: {
             name: "Abandoned cart reminders",
-            ...GLOBAL_CRON,
             cronExpression: "0 45 * * * *",
             priority: 10,
         },
