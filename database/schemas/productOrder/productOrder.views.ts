@@ -303,6 +303,7 @@ export const productOrderSheetView: ViewConfig = {
                                 label: "addressCountry",
                                 widgetProps: {
                                     icon: "#Globe",
+                                    flagCodePath: "shippingAddress.country.code",
                                     parent: "shippingAddress.country",
                                     valuePath: ["name"],
                                     linkedRefPath: "shippingAddress.country",
@@ -396,6 +397,7 @@ export const productOrderSheetView: ViewConfig = {
                                 label: "addressCountry",
                                 widgetProps: {
                                     icon: "#Globe",
+                                    flagCodePath: "billingAddress.country.code",
                                     parent: "billingAddress.country",
                                     valuePath: ["name"],
                                     linkedRefPath: "billingAddress.country",

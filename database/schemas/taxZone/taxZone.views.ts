@@ -201,6 +201,7 @@ export const taxZoneSheetView: ViewConfig = {
                                 label: "country",
                                 widgetProps: {
                                     icon: "#Globe",
+                                    flagCodePath: "country.code",
                                     parent: "country",
                                     valuePath: ["name"],
                                     linkedRefPath: "country",

@@ -202,7 +202,7 @@ export const warehouseSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#DisplayCard", permissions: {read: "address"}, field: {name: "address.country.name", widget: "#DisplayCard", label: "country", widgetProps: {icon: "#Globe"}}},
+                        {render: "#DisplayCard", permissions: {read: "address"}, field: {name: "address.country.name", widget: "#DisplayCard", label: "country", widgetProps: {icon: "#Globe", flagCodePath: "address.country.code"}}},
                         {render: "#DisplayCard", permissions: {read: "address"}, field: {name: "address.state.name", widget: "#DisplayCard", label: "state", widgetProps: {icon: "#IconMapPin"}}},
                         {render: "#DisplayCard", permissions: {read: "address"}, field: {name: "address.city.name", widget: "#DisplayCard", label: "city", widgetProps: {icon: "#IconMapPin"}}},
                         {render: "#DisplayCard", permissions: {read: "address"}, field: {name: "address.street", widget: "#DisplayCard", label: "street", widgetProps: {icon: "#IconMapPin"}}},
