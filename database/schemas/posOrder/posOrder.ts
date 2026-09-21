@@ -151,6 +151,14 @@ const PosOrderSchema = new Schema<IPosOrder>(
             enum: ["draft", "paid", "cancel", "refunded"],
             default: "draft",
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                enumTones: {
+                    draft:      "neutral",
+                    paid:       "success",
+                    cancel:     "danger",
+                    refunded:   "danger",
+                },
+            },
         },
         cashier: {
             type: SchemaTypes.ObjectId,

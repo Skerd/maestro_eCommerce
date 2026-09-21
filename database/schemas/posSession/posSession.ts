@@ -84,6 +84,14 @@ const PosSessionSchema = new Schema<IPosSession>(
             enum: ["opening_control", "opened", "closing_control", "closed"],
             default: "opening_control",
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                enumTones: {
+                    opening_control:   "warning",
+                    opened:            "info",
+                    closing_control:   "warning",
+                    closed:            "neutral",
+                },
+            },
         },
         openedBy: {
             type: SchemaTypes.ObjectId,

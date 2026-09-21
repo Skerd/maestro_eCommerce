@@ -157,11 +157,28 @@ const CheckoutSchema = new Schema<ICheckout>(
                     variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
                     warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true},
                     quantity: {type: SchemaTypes.Number, required: true, min: 1},
-                    state: {type: SchemaTypes.String, enum: ["reserved", "consumed", "released"], default: "reserved"},
+                    state: {type: SchemaTypes.String, enum: ["reserved", "consumed", "released"], default: "reserved",
+                        dynamicTableConfiguration: {
+                            enumTones: {
+                                reserved:   "warning",
+                                consumed:   "neutral",
+                                released:   "success",
+                                reserved:   "warning",
+                            },
+                        },
+                    },
                     _id: false,
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {
+                enumTones: {
+                    reserved:   "warning",
+                    consumed:   "neutral",
+                    released:   "success",
+                    reserved:   "warning",
+                },
+            },
         },
         selectedShippingRate: {
             type: {
@@ -197,6 +214,15 @@ const CheckoutSchema = new Schema<ICheckout>(
             type: SchemaTypes.String,
             enum: ["pending", "payment_processing", "confirmed", "failed", "expired"],
             default: "pending",
+            dynamicTableConfiguration: {
+                enumTones: {
+                    pending:              "warning",
+                    payment_processing:   "warning",
+                    confirmed:            "success",
+                    failed:               "danger",
+                    expired:              "danger",
+                },
+            },
         },
         idempotencyKey: {type: SchemaTypes.String, required: true, unique: true},
         expiresAt: {type: SchemaTypes.Date, required: true},

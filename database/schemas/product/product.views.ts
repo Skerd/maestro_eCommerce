@@ -37,7 +37,7 @@ const productChip = (name: string) => ({
     render: "#Field",
     field: {
         name,
-        widget: "#FormObjectIdChips",
+        widget: "#ObjectIdChipsInput",
         label: `form.${name}Label`,
         widgetProps: {
             apiUrl: "/api/eCommerce/product/select",
@@ -73,7 +73,7 @@ const productFormFields: ViewConfig["nodes"] = [
             },
             {render: "#Field", field: {name: "shortDescription", widget: "#Textarea", label: "form.shortDescriptionLabel", placeholder: "form.shortDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
             {render: "#Field", field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {rows: 6, className: "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "tags", widget: "#StringArrayField", label: "form.tagsLabel", placeholder: "form.tagsPlaceholder", widgetProps: {removeTooltipKey: "form.removeTag"}}},
+            {render: "#Field", field: {name: "tags", widget: "#StringArrayInput", label: "form.tagsLabel", placeholder: "form.tagsPlaceholder", widgetProps: {removeTooltipKey: "form.removeTag"}}},
         ],
     },
 
@@ -192,7 +192,7 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "categories",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     label: "form.categoriesLabel",
                     widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
                 },
@@ -201,7 +201,7 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "collections",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     label: "form.collectionsLabel",
                     widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
                 },
@@ -219,7 +219,7 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "variantOptions",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     label: "form.variantOptionsLabel",
                     widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
                 },
@@ -295,7 +295,7 @@ const productFormFields: ViewConfig["nodes"] = [
             {render: "#Field", field: {name: "mainImage", widget: "#MediaField", label: "form.mainImageLabel", widgetProps: {mediaType: "image", mode: "single"}}},
             {render: "#Field", field: {name: "gallery", widget: "#MediaField", label: "form.galleryLabel", widgetProps: {mediaType: "image", mode: "multiple", maxCount: 20}}},
             {render: "#Field", field: {name: "documents", widget: "#MediaField", label: "form.documentsLabel", widgetProps: {mediaType: "file", mode: "multiple", maxCount: 20}}},
-            {render: "#Field", field: {name: "videoUrls", widget: "#StringArrayField", label: "form.videoUrlsLabel", placeholder: "form.videoUrlPlaceholder", widgetProps: {removeTooltipKey: "form.removeVideoUrl"}}},
+            {render: "#Field", field: {name: "videoUrls", widget: "#StringArrayInput", label: "form.videoUrlsLabel", placeholder: "form.videoUrlPlaceholder", widgetProps: {removeTooltipKey: "form.removeVideoUrl"}}},
         ],
     },
 
@@ -304,7 +304,7 @@ const productFormFields: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.contentSectionTitle"},
         children: [
-            {render: "#Field", field: {name: "highlights", widget: "#StringArrayField", label: "form.highlightsLabel", placeholder: "form.highlightsPlaceholder", widgetProps: {removeTooltipKey: "form.removeHighlight"}}},
+            {render: "#Field", field: {name: "highlights", widget: "#StringArrayInput", label: "form.highlightsLabel", placeholder: "form.highlightsPlaceholder", widgetProps: {removeTooltipKey: "form.removeHighlight"}}},
             {render: "#Field", field: {name: "careInstructions", widget: "#Textarea", label: "form.careInstructionsLabel", placeholder: "form.careInstructionsPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
             {render: "#Field", field: {name: "warranty", widget: "#Input", label: "form.warrantyLabel", placeholder: "form.warrantyPlaceholder"}},
             {
@@ -360,7 +360,7 @@ const productFormFields: ViewConfig["nodes"] = [
                                 props: {className: "space-y-4"},
                                 children: [
                                     {render: "#Field", field: {name: "name", widget: "#Input", label: "form.attributeNameLabel", placeholder: "form.attributeNamePlaceholder", required: true}},
-                                    {render: "#Field", field: {name: "values", widget: "#StringArrayField", label: "form.attributeValuesLabel", placeholder: "form.attributeValuesPlaceholder", widgetProps: {removeTooltipKey: "form.removeValue"}}},
+                                    {render: "#Field", field: {name: "values", widget: "#StringArrayInput", label: "form.attributeValuesLabel", placeholder: "form.attributeValuesPlaceholder", widgetProps: {removeTooltipKey: "form.removeValue"}}},
                                 ],
                             },
                         ],
@@ -405,7 +405,7 @@ const productFormFields: ViewConfig["nodes"] = [
             productChip("upsells"),
             productChip("crossSells"),
             productChip("frequentlyBoughtTogether"),
-            {render: "#Field", field: {name: "badges", widget: "#StringArrayField", label: "form.badgesLabel", placeholder: "form.badgesPlaceholder", widgetProps: {removeTooltipKey: "form.removeBadge"}}},
+            {render: "#Field", field: {name: "badges", widget: "#StringArrayInput", label: "form.badgesLabel", placeholder: "form.badgesPlaceholder", widgetProps: {removeTooltipKey: "form.removeBadge"}}},
         ],
     },
 
@@ -430,7 +430,7 @@ const productFormFields: ViewConfig["nodes"] = [
             },
             {render: "#Field", field: {name: "seo.metaDescription", widget: "#Textarea", label: "form.seoMetaDescriptionLabel", placeholder: "form.seoMetaDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
             {render: "#Field", field: {name: "seo.openGraphDescription", widget: "#Textarea", label: "form.seoOpenGraphDescriptionLabel", placeholder: "form.seoOpenGraphDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "seo.metaKeywords", widget: "#StringArrayField", label: "form.seoMetaKeywordsLabel", placeholder: "form.seoMetaKeywordsPlaceholder", widgetProps: {removeTooltipKey: "form.removeKeyword"}}},
+            {render: "#Field", field: {name: "seo.metaKeywords", widget: "#StringArrayInput", label: "form.seoMetaKeywordsLabel", placeholder: "form.seoMetaKeywordsPlaceholder", widgetProps: {removeTooltipKey: "form.removeKeyword"}}},
         ],
     },
 

@@ -527,6 +527,13 @@ const ProductSchema = new Schema<IProduct>(
             enum: ["draft", "active", "archived"],
             default: "draft",
             required: true,
+            dynamicTableConfiguration: {
+                enumTones: {
+                    draft:      "neutral",
+                    active:     "success",
+                    archived:   "neutral",
+                },
+            },
         },
         publishedAt: {
             type: SchemaTypes.Date

@@ -106,6 +106,12 @@ const ProductVariantSchema = new Schema<IProductVariant>(
             type: SchemaTypes.String,
             enum: ["active", "inactive"],
             default: "active",
+            dynamicTableConfiguration: {
+                enumTones: {
+                    active:     "success",
+                    inactive:   "neutral",
+                },
+            },
         },
         trackInventory: {type: SchemaTypes.Boolean, default: true},
     },

@@ -37,7 +37,7 @@ const posConfigFormFields: ViewConfig["nodes"] = [
         render: "#Field",
         field: {
             name: "warehouses",
-            widget: "#FormObjectIdChips",
+            widget: "#ObjectIdChipsInput",
             label: "form.warehousesLabel",
             required: true,
             widgetProps: {
@@ -55,7 +55,7 @@ const posConfigFormFields: ViewConfig["nodes"] = [
         render: "#Field",
         field: {
             name: "paymentMethods",
-            widget: "#FormObjectIdChips",
+            widget: "#ObjectIdChipsInput",
             label: "form.paymentMethodsLabel",
             widgetProps: {
                 apiUrl: "/api/eCommerce/posPaymentMethod/select",
@@ -72,7 +72,7 @@ const posConfigFormFields: ViewConfig["nodes"] = [
         render: "#Field",
         field: {
             name: "managers",
-            widget: "#FormObjectIdChips",
+            widget: "#ObjectIdChipsInput",
             label: "form.managersLabel",
             widgetProps: {
                 apiUrl: "/api/company/users/select",

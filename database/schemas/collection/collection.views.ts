@@ -117,7 +117,7 @@ const collectionFormFields: ViewConfig["nodes"] = [
                         render: "#Field",
                         field: {
                             name: "products",
-                            widget: "#FormObjectIdChips",
+                            widget: "#ObjectIdChipsInput",
                             label: "form.productsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",

@@ -329,7 +329,17 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             enum: ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"],
             default: "unpaid",
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                enumTones: {
+                    unpaid:               "danger",
+                    authorized:           "success",
+                    paid:                 "success",
+                    partially_refunded:   "warning",
+                    refunded:             "danger",
+                    voided:               "danger",
+                },
+            },
         },
         fulfillmentStatus: {
             type: SchemaTypes.String,
@@ -341,7 +351,18 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"],
             default: "pending",
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                enumTones: {
+                    pending:      "warning",
+                    confirmed:    "success",
+                    processing:   "warning",
+                    shipped:      "success",
+                    delivered:    "success",
+                    cancelled:    "danger",
+                    refunded:     "danger",
+                },
+            },
         },
         appliedDiscounts: {
             type: [{

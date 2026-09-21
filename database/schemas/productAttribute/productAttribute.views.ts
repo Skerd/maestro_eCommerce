@@ -16,7 +16,7 @@ const productAttributeFormFields: ViewConfig["nodes"] = [
         render: "#Field",
         field: {
             name: "values",
-            widget: "#StringArrayField",
+            widget: "#StringArrayInput",
             label: "form.valuesLabel",
             placeholder: "form.valuesPlaceholder",
             widgetProps: {removeTooltipKey: "form.removeValue"},

@@ -31,7 +31,7 @@ const shippingZoneFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "countries",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     label: "form.countriesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/country/select",
@@ -48,7 +48,7 @@ const shippingZoneFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "states",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     label: "form.statesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/state/select",
@@ -65,7 +65,7 @@ const shippingZoneFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "postalCodePatterns",
-                    widget: "#StringArrayField",
+                    widget: "#StringArrayInput",
                     label: "form.postalCodePatternsLabel",
                     placeholder: "form.postalCodePatternsPlaceholder",
                     widgetProps: {removeTooltipKey: "form.removePostalCodePattern"},

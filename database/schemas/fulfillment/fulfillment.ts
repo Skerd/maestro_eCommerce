@@ -86,6 +86,14 @@ const FulfillmentSchema = new Schema<IFulfillment>(
             type: SchemaTypes.String,
             enum: ["pending", "shipped", "delivered", "failed"],
             default: "pending",
+            dynamicTableConfiguration: {
+                enumTones: {
+                    pending:     "warning",
+                    shipped:     "success",
+                    delivered:   "success",
+                    failed:      "danger",
+                },
+            },
         },
         notes: {
             type: SchemaTypes.String

@@ -162,7 +162,7 @@ const discountFormFields: ViewConfig["nodes"] = [
                                         render: "#Field",
                                         field: {
                                             name: "targetIds",
-                                            widget: "#FormObjectIdChips",
+                                            widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/product/select",
                                                 method: "POST",
@@ -194,7 +194,7 @@ const discountFormFields: ViewConfig["nodes"] = [
                                         render: "#Field",
                                         field: {
                                             name: "targetIds",
-                                            widget: "#FormObjectIdChips",
+                                            widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/collection/select",
                                                 method: "POST",
@@ -226,7 +226,7 @@ const discountFormFields: ViewConfig["nodes"] = [
                                         render: "#Field",
                                         field: {
                                             name: "targetIds",
-                                            widget: "#FormObjectIdChips",
+                                            widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/category/select",
                                                 method: "POST",
@@ -254,7 +254,7 @@ const discountFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "customerGroups",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/customerGroup/select",
                         method: "POST",
@@ -315,7 +315,7 @@ const discountFormFields: ViewConfig["nodes"] = [
                         render: "#Field",
                         field: {
                             name: "buyXGetY.getProductIds",
-                            widget: "#FormObjectIdChips",
+                            widget: "#ObjectIdChipsInput",
                             label: "form.getProductIdsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",

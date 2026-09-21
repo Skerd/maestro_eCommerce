@@ -106,7 +106,7 @@ const cmsBlockFormFields: ViewConfig["nodes"] = [
                         render: "#Field",
                         field: {
                             name: "visibility.regions",
-                            widget: "#StringArrayField",
+                            widget: "#StringArrayInput",
                             label: "form.visibilityRegionsLabel",
                             placeholder: "form.visibilityRegionsPlaceholder",
                             widgetProps: {removeTooltipKey: "form.removeRegion"},

@@ -57,6 +57,15 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
             type: SchemaTypes.String,
             enum: ["pending", "approved", "rejected", "received", "completed"],
             default: "pending",
+            dynamicTableConfiguration: {
+                enumTones: {
+                    pending:     "warning",
+                    approved:    "success",
+                    rejected:    "danger",
+                    received:    "success",
+                    completed:   "success",
+                },
+            },
         },
         items: {
             type: [

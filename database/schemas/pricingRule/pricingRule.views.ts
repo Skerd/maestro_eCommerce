@@ -159,7 +159,7 @@ const pricingRuleFormFields: ViewConfig["nodes"] = [
                                 render: "#Field",
                                 field: {
                                     name: "targetIds",
-                                    widget: "#FormObjectIdChips",
+                                    widget: "#ObjectIdChipsInput",
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/product/select",
                                         method: "POST",
@@ -191,7 +191,7 @@ const pricingRuleFormFields: ViewConfig["nodes"] = [
                                 render: "#Field",
                                 field: {
                                     name: "targetIds",
-                                    widget: "#FormObjectIdChips",
+                                    widget: "#ObjectIdChipsInput",
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/collection/select",
                                         method: "POST",
@@ -223,7 +223,7 @@ const pricingRuleFormFields: ViewConfig["nodes"] = [
                                 render: "#Field",
                                 field: {
                                     name: "targetIds",
-                                    widget: "#FormObjectIdChips",
+                                    widget: "#ObjectIdChipsInput",
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/category/select",
                                         method: "POST",
@@ -249,7 +249,7 @@ const pricingRuleFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "customerGroups",
-                    widget: "#FormObjectIdChips",
+                    widget: "#ObjectIdChipsInput",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/customerGroup/select",
                         method: "POST",
