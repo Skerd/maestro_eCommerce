@@ -1,10 +1,12 @@
 import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import type {PosConfig} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.dto";
-import {
-    mapPopulatedRef,
-    mapPopulatedSimpleCurrency,
-    mapPopulatedSimpleUser,
-} from "@coreModule/utilities/mappers/common.mapper";
+import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
+import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
+import type {WarehouseSimple} from "armonia/src/modules/eCommerce/dto/warehouse.dto";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
+import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -54,12 +56,10 @@ export function posConfigToDTO(config: IPosConfig, opts: PosConfigDtoOptions = {
             username: m.username,
             hasPin: !!pinsByUser.get(m._id.toString())?.pinHash,
         })),
-        warehouses: config.warehouses?.map((warehouse) => ({
-            _id: warehouse._id.toString(),
-            name: mapPopulatedRef(warehouse)?.name ?? warehouse.name ?? "",
-            code: warehouse.code,
-        })),
-        currency: mapPopulatedSimpleCurrency(config.currency),
+        warehouses: config.warehouses
+            ?.map((warehouse) => mapSnippet<WarehouseSimple>()(warehouse, WarehouseSimpleSnippet))
+            .filter((w): w is WarehouseSimple => !!w) ?? [],
+        currency: mapSnippet<CurrencySimple>()(config.currency, CurrencySimpleSnippet),
         receiptHeader: config.receiptHeader,
         receiptFooter: config.receiptFooter,
         ifaceBarcodeScanner: config.ifaceBarcodeScanner,
@@ -78,7 +78,7 @@ export function posConfigToDTO(config: IPosConfig, opts: PosConfigDtoOptions = {
         isCompanyPaused: companyPaused,
         companyPauseReason: companyPaused ? (opts.companyPauseReason ?? null) : null,
         pausedAt: config.pausedAt ? new Date(config.pausedAt).toISOString() : null,
-        pausedBy: mapPopulatedSimpleUser(config.pausedBy as any) ?? null,
+        pausedBy: mapSnippet<SimpleBlankUser>()(config.pausedBy, SimpleBlankUserSnippet) ?? null,
         pauseReason: config.pauseReason ?? null,
         ...mapSoftDeleteToDTO(config),
         ...mapOwnershipToDTO(config),

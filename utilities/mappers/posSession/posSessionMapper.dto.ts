@@ -1,23 +1,24 @@
 import type {IPosSession} from "@eCommerceModule/database/schemas/posSession/posSession";
 import type {PosSession} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/posSession.dto";
+import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
+import type {PosConfigSimple} from "armonia/src/modules/eCommerce/dto/posConfig.dto";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-import {
-    mapPopulatedRef,
-    mapPopulatedSimpleUser,
-} from "@coreModule/utilities/mappers/common.mapper";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
+import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 
 export function posSessionToDTO(session: IPosSession): PosSession {
     return {
         _id: session._id.toString(),
         name: session.name,
-        config: mapPopulatedRef(session.config),
+        config: mapSnippet<PosConfigSimple>()(session.config, PosConfigSimpleSnippet)!,
         state: session.state,
-        openedBy: mapPopulatedSimpleUser(session.openedBy),
-        closedBy: mapPopulatedSimpleUser(session.closedBy),
+        openedBy: mapSnippet<SimpleBlankUser>()(session.openedBy, SimpleBlankUserSnippet),
+        closedBy: mapSnippet<SimpleBlankUser>()(session.closedBy, SimpleBlankUserSnippet),
         openedAt: session.openedAt?.toISOString?.(),
         closedAt: session.closedAt?.toISOString?.(),
         openingBalance: session.openingBalance,
@@ -29,7 +30,7 @@ export function posSessionToDTO(session: IPosSession): PosSession {
             amount: move.amount,
             reason: move.reason,
             at: move.at?.toISOString?.(),
-            by: mapPopulatedSimpleUser(move.by),
+            by: mapSnippet<SimpleBlankUser>()(move.by, SimpleBlankUserSnippet),
         })) ?? [],
         orderCount: session.orderCount,
         totalSales: session.totalSales,

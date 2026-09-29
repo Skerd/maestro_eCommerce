@@ -1,4 +1,8 @@
-export const PosPaymentMethodSimpleSnippet = {
+import type {PosPaymentMethodSimple} from "armonia/src/modules/eCommerce/dto/posPaymentMethod.dto";
+import type {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
+import {defineSnippet} from "@coreModule/database/utilities/snippet";
+
+export const PosPaymentMethodSimpleSnippet = defineSnippet<IPosPaymentMethod, PosPaymentMethodSimple>()({
     keys: {
         _id: {},
         name: {},
@@ -14,4 +18,4 @@ export const PosPaymentMethodSimpleSnippet = {
         terminalId: {},
         terminalPath: {},
     },
-};
+});

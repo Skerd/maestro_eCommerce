@@ -1,31 +1,27 @@
 import type {IProductReview} from "@eCommerceModule/database/schemas/productReview/productReview";
 import type {ProductReview, ShopProductReview} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.dto";
+import type {SimpleUser} from "armonia/src/modules/core/dto/user.dto";
+import type {ProductOrderSimple} from "armonia/src/modules/eCommerce/dto/productOrder.dto";
+import type {ProductSimple} from "armonia/src/modules/eCommerce/dto/product.dto";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-import {mapPopulatedUserWithPhoto} from "@coreModule/utilities/mappers/common.mapper";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
+import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
+import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 
 export function productReviewToDTO(review: IProductReview): ProductReview {
     return {
         _id: review._id.toString(),
-        order: review.order ? {
-            _id: review.order._id,
-            orderNumber: review.order.orderNumber,
-            status: review.order.status,
-            paymentStatus: review.order.paymentStatus,
-        } : undefined,
-        product: review.product ? {
-            _id: review.product._id,
-            title: review.product.title,
-            slug: review.product.slug,
-            sku: review.product.sku,
-        } : undefined,
+        order: mapSnippet<ProductOrderSimple>()(review.order, ProductOrderSimpleSnippet),
+        product: mapSnippet<ProductSimple>()(review.product, ProductSimpleSnippet),
         rating: review.rating,
         title: review.title,
         comment: review.comment,
-        reviewer: mapPopulatedUserWithPhoto(review.reviewer),
+        reviewer: mapSnippet<SimpleUser>()(review.reviewer, SimpleUserSnippet),
         ...mapSoftDeleteToDTO(review),
         ...mapOwnershipToDTO(review),
         ...mapLifeCycleToDTO(review),

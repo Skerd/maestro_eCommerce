@@ -1,6 +1,10 @@
 import type {ITaxZone} from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import type {TaxZone} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/taxZone.dto";
-import {mapPopulatedRef} from "@coreModule/utilities/mappers/common.mapper";
+import type {CountrySimple} from "armonia/src/modules/core/dto/country.dto";
+import type {StateSimple} from "armonia/src/modules/core/dto/state.dto";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
+import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -11,8 +15,10 @@ export function taxZoneToDTO(taxZone: ITaxZone): TaxZone {
     return {
         _id: taxZone._id.toString(),
         name: taxZone.name,
-        country: mapPopulatedRef(taxZone.country),
-        states: taxZone.states?.map((s) => mapPopulatedRef(s)) ?? undefined,
+        country: mapSnippet<CountrySimple>()(taxZone.country, CountrySimpleSnippet)!,
+        states: taxZone.states
+            ?.map((s) => mapSnippet<StateSimple>()(s, StateSimpleSnippet))
+            .filter((s): s is StateSimple => !!s),
         postalCodePatterns: taxZone.postalCodePatterns,
         rates: (taxZone.rates ?? []).map((r) => ({
             name: r.name,

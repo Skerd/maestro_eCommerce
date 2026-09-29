@@ -1,6 +1,12 @@
 import type {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import type {ProductVariant} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.dto";
-import {mapMedia, mapPopulatedRef, mapPopulatedSimpleCurrency} from "@coreModule/utilities/mappers/common.mapper";
+import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
+import type {ProductSimple} from "armonia/src/modules/eCommerce/dto/product.dto";
+import type {ProductAttributeSimple} from "armonia/src/modules/eCommerce/dto/productAttribute.dto";
+import {mapMedia, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
+import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -10,21 +16,17 @@ import {
 export function productVariantToDTO(variant: IProductVariant): ProductVariant {
     return {
         _id: variant._id.toString(),
-        product: variant.product ? {
-            _id: variant.product?._id?.toString(),
-            title: variant.product?.title,
-            slug: variant.product?.slug,
-        } : undefined,
+        product: mapSnippet<ProductSimple>()(variant.product, ProductSimpleSnippet)!,
         sku: variant.sku,
         barcode: variant.barcode,
-        attributeCombination: (variant.attributeCombination ?? []).map((ac: any) => ({
-            attribute: mapPopulatedRef(ac.attribute) ?? {_id: "", name: ""},
+        attributeCombination: (variant.attributeCombination ?? []).map((ac) => ({
+            attribute: mapSnippet<ProductAttributeSimple>()(ac.attribute, ProductAttributeSimpleSnippet)!,
             value: ac.value,
         })),
         price: variant.price,
         compareAtPrice: variant.compareAtPrice,
         costPrice: variant.costPrice,
-        currency: mapPopulatedSimpleCurrency(variant.currency),
+        currency: mapSnippet<CurrencySimple>()(variant.currency, CurrencySimpleSnippet),
         weight: variant.weight,
         dimensions: variant.dimensions,
         mainImage: variant.mainImage ? mapMedia(variant.mainImage) : undefined,

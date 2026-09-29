@@ -1,6 +1,12 @@
 import type {IWarehouse} from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import type {Warehouse} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/warehouse.dto";
-import {mapPopulatedRef} from "@coreModule/utilities/mappers/common.mapper";
+import type {CountrySimple} from "armonia/src/modules/core/dto/country.dto";
+import type {StateSimple} from "armonia/src/modules/core/dto/state.dto";
+import type {CitySimple} from "armonia/src/modules/core/dto/city.dto";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
+import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
+import {CitySimpleSnippet} from "@coreModule/database/schemas/city/city.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -13,9 +19,9 @@ export function warehouseToDTO(warehouse: IWarehouse): Warehouse {
         name: warehouse.name,
         code: warehouse.code,
         address: warehouse.address ? {
-            country: mapPopulatedRef(warehouse.address.country),
-            state: mapPopulatedRef(warehouse.address.state),
-            city: mapPopulatedRef(warehouse.address.city),
+            country: mapSnippet<CountrySimple>()(warehouse.address.country, CountrySimpleSnippet),
+            state: mapSnippet<StateSimple>()(warehouse.address.state, StateSimpleSnippet),
+            city: mapSnippet<CitySimple>()(warehouse.address.city, CitySimpleSnippet),
             street: warehouse.address.street,
             postalCode: warehouse.address.postalCode,
             latitude: warehouse.address.latitude,
