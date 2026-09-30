@@ -1,5 +1,5 @@
 import {getProducerInstance, isKafkaConnected} from "@coreModule/connections/connectToKafka";
-import {KAFKA} from "@coreModule/environment";
+import {ECOMMERCE_KAFKA} from "@eCommerceModule/environment";
 import type {ProductOrderClientEmailEvent} from "@eCommerceModule/kafka/types";
 import {publishProductOrderClientEmailEvent} from "@eCommerceModule/kafka/kafkaProducer";
 import {sendProductOrderClientMail} from "@eCommerceModule/utilities/emails/sendProductOrderClientMail";
@@ -29,7 +29,7 @@ export async function dispatchProductOrderClientEmail(
     const canUseKafka =
         isKafkaConnected()
         && !!getProducerInstance()
-        && !!KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL;
+        && !!ECOMMERCE_KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL;
 
     if (canUseKafka) {
         await publishProductOrderClientEmailEvent(event);

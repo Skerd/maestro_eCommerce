@@ -1,5 +1,6 @@
 import {getProducerInstance} from "@coreModule/connections/connectToKafka";
 import {KAFKA} from "@coreModule/environment";
+import {ECOMMERCE_KAFKA} from "@eCommerceModule/environment";
 import {canPublish, publishWithRetry} from "@coreModule/kafka/kafkaProducer";
 import {getLogger} from "@coreModule/loggers/serverLog";
 import type {ManagerPinResetEmailEvent, ProductOrderClientEmailEvent} from "./types";
@@ -17,7 +18,7 @@ export async function publishManagerPinResetEmailEvent(
     }
 
     const producer = getProducerInstance();
-    const topic = KAFKA.TOPICS.MANAGER_PIN_RESET_EMAIL;
+    const topic = ECOMMERCE_KAFKA.TOPICS.MANAGER_PIN_RESET_EMAIL;
     if (!producer || !topic) {
         logger.warn("Kafka producer or topic not available, skipping manager PIN reset email event");
         return;
@@ -56,7 +57,7 @@ export async function publishProductOrderClientEmailEvent(
     }
 
     const producer = getProducerInstance();
-    const topic = KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL;
+    const topic = ECOMMERCE_KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL;
     if (!producer || !topic) {
         logger.warn("Kafka producer or topic not available, skipping product order client email event");
         return;

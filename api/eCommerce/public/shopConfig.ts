@@ -2,7 +2,7 @@ import {Router} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import {PAYMENTS} from "@coreModule/environment";
+import {PAYMENTS} from "@financeModule/environment";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import type {ShopConfigResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";

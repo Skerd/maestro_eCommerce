@@ -1,4 +1,5 @@
 import {KAFKA} from "@coreModule/environment";
+import {ECOMMERCE_KAFKA} from "@eCommerceModule/environment";
 import {addKafkaTopicConsumer} from "@coreModule/kafka/kafkaConsumer";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import type {ManagerPinResetEmailEvent, ProductOrderClientEmailEvent} from "./types";
@@ -41,8 +42,8 @@ export async function startECommerceKafkaConsumers(parentLogger?: serverLogger):
         await addKafkaTopicConsumer(parentLogger, {
             registryKey: "managerPinResetEmail",
             displayName: "Manager PIN reset email",
-            groupId: KAFKA.CONSUMER_GROUP.MANAGER_PIN_RESET_EMAIL,
-            topic: KAFKA.TOPICS.MANAGER_PIN_RESET_EMAIL,
+            groupId: ECOMMERCE_KAFKA.CONSUMER_GROUP.MANAGER_PIN_RESET_EMAIL,
+            topic: ECOMMERCE_KAFKA.TOPICS.MANAGER_PIN_RESET_EMAIL,
             expectedEventType: "manager_pin_reset_email",
             processEvent: (d) => processManagerPinResetEmailEvent(d as ManagerPinResetEmailEvent),
         });
@@ -54,8 +55,8 @@ export async function startECommerceKafkaConsumers(parentLogger?: serverLogger):
         await addKafkaTopicConsumer(parentLogger, {
             registryKey: "productOrderClientEmail",
             displayName: "Product order client email",
-            groupId: KAFKA.CONSUMER_GROUP.PRODUCT_ORDER_CLIENT_EMAIL,
-            topic: KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL,
+            groupId: ECOMMERCE_KAFKA.CONSUMER_GROUP.PRODUCT_ORDER_CLIENT_EMAIL,
+            topic: ECOMMERCE_KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL,
             expectedEventType: "product_order_client_email",
             processEvent: (d) => processProductOrderClientEmailEvent(d as ProductOrderClientEmailEvent),
         });

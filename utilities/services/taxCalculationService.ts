@@ -1,5 +1,5 @@
 import {ObjectId} from "mongodb";
-import {COMMERCE_PROVIDERS} from "@coreModule/environment";
+import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 
 export type ShippingAddress = {
