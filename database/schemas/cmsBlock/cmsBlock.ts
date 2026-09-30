@@ -13,6 +13,7 @@ import {
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {CmsBlockSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/cmsBlock/cmsBlock.schema-def";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {applyCmsBlockIndexes} from "./cmsBlock.indexes";
 import {cmsBlockViews} from "./cmsBlock.views";
 
@@ -63,10 +64,12 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
             default: {}
         },
         startsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         endsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         visibility: {
             type: {

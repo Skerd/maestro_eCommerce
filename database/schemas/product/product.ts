@@ -280,10 +280,12 @@ const ProductSchema = new Schema<IProduct>(
             min: 0
         },
         saleStartsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         saleEndsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         taxable: {
             type: SchemaTypes.Boolean,
@@ -383,7 +385,8 @@ const ProductSchema = new Schema<IProduct>(
             default: false
         },
         preorderAvailableAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         availableForSale: {
             type: SchemaTypes.Boolean,
@@ -536,7 +539,8 @@ const ProductSchema = new Schema<IProduct>(
             },
         },
         publishedAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         // Legacy attributes / specifications
         attributes: {

@@ -17,6 +17,7 @@ import {applyFulfillmentIndexes} from "./fulfillment.indexes";
 import {fulfillmentViews} from "./fulfillment.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {FulfillmentSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillment.schema-def";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 
 export type FulfillmentStatus = "pending" | "shipped" | "delivered" | "failed";
 
@@ -74,13 +75,16 @@ const FulfillmentSchema = new Schema<IFulfillment>(
             type: SchemaTypes.String
         },
         shippedAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         estimatedDeliveryAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         deliveredAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         status: {
             type: SchemaTypes.String,

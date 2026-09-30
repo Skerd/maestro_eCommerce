@@ -13,6 +13,7 @@ import {
     ISoftDeletePluginFields,
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {applyReturnRequestIndexes} from "./returnRequest.indexes";
@@ -104,7 +105,8 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
             refAllowlist: SimpleUserSnippet
         },
         resolvedAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
     },
     {accessMode: "loose"},

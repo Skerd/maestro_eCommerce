@@ -142,7 +142,8 @@ const CollectionSchema = new Schema<ICollection>(
             type: SchemaTypes.String
         },
         publishedAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
     },
     {

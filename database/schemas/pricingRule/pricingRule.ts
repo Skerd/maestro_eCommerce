@@ -14,6 +14,7 @@ import {applyPricingRuleIndexes} from "./pricingRule.indexes";
 import {pricingRuleViews} from "./pricingRule.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {PricingRuleSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.schema-def";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
 import {IProductCategory} from "@eCommerceModule/database/schemas/category/category";
@@ -95,10 +96,12 @@ const PricingRuleSchema = new Schema<IPricingRule>(
             default: true
         },
         startsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         endsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
     },
     {accessMode: "loose"},

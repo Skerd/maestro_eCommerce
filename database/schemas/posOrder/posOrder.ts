@@ -451,10 +451,12 @@ const PosOrderSchema = new Schema<IPosOrder>(
         fiscalizedAt: {
             type: SchemaTypes.Date,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         einvoiceAt: {
             type: SchemaTypes.Date,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         fiscalError: {
             type: SchemaTypes.String,

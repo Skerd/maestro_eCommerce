@@ -11,6 +11,7 @@ import {
     ISoftDeletePluginFields
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
@@ -114,10 +115,12 @@ const PosSessionSchema = new Schema<IPosSession>(
         openedAt: {
             type: SchemaTypes.Date,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         closedAt: {
             type: SchemaTypes.Date,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         openingBalance: {
             type: SchemaTypes.Number,

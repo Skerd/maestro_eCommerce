@@ -8,6 +8,7 @@ import {IUser} from "@coreModule/database/schemas/user/user";
 import {IMedia} from "@coreModule/database/schemas/media/media";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import {addModelData} from "@coreModule/database/collections";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
@@ -142,6 +143,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
         occurredAt: {
             type: SchemaTypes.Date,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         unitCost: {
             type: SchemaTypes.Number,

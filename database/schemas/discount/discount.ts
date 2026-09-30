@@ -12,6 +12,7 @@ import {
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
 import {IProductCategory} from "@eCommerceModule/database/schemas/category/category";
@@ -123,10 +124,12 @@ const DiscountSchema = new Schema<IDiscount>(
         },
         startsAt: {
             type: SchemaTypes.Date, 
-            required: true
+            required: true,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         endsAt: {
-            type: SchemaTypes.Date
+            type: SchemaTypes.Date,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         buyXGetY: {
             type: {
