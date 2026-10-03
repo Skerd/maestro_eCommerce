@@ -3,49 +3,30 @@ import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import Cart, {ICart} from "@eCommerceModule/database/schemas/cart/cart";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {cartToDTO} from "@eCommerceModule/utilities/mappers/cart/cartMapper.dto";
-import {validateDiscount} from "@eCommerceModule/utilities/services/discountValidationService";
+import {validateDiscountForCustomer} from "@eCommerceModule/utilities/services/discountValidationService";
+import {repriceCart, toValidationCart} from "@eCommerceModule/utilities/services/cartPricingService";
+import {roundMoney} from "@eCommerceModule/utilities/services/money";
 import {
-    calculatePricing,
-    enrichCartLinesWithProductMeta,
-    getCustomerGroupIdsForUser,
-} from "@eCommerceModule/utilities/services/pricingCalculationService";
+    addCartItemFormSchema,
+    applyCartCodeFormSchema,
+    updateCartItemFormSchema,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.form.validator";
+import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 
 /**
  * Cart is authenticated-only: every route requires a JWT (storefront asks the
- * buyer to sign in before adding to cart). The earlier guest-token support was
- * phantom — the Cart schema never had a guestToken path.
+ * buyer to sign in before adding to cart). Prices are never trusted from the
+ * stored line: every mutation (and every read) re-prices from the live catalog
+ * via repriceCart, which also re-validates the applied discount.
  */
-
-async function applyPricingToCart(cart: any, companyId: ObjectId, userId?: ObjectId): Promise<void> {
-    const rawItems = (cart.items as any[]).map((item) => ({
-        product: item.product?._id ?? item.product,
-        variant: item.variant?._id ?? item.variant,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-    }));
-
-    const lines = await enrichCartLinesWithProductMeta(rawItems, companyId);
-    const customerGroupIds = userId ? await getCustomerGroupIdsForUser(userId, companyId) : [];
-    const originalSubtotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
-    const pricing = await calculatePricing({subtotal: originalSubtotal, items: lines, customerGroupIds}, companyId);
-
-    pricing.adjustedLines.forEach((adjLine, idx) => {
-        const item = (cart.items as any[])[idx];
-        if (!item) return;
-        item.unitPrice = adjLine.unitPrice;
-        item.totalPrice = adjLine.unitPrice * item.quantity;
-    });
-
-    cart.subtotal = pricing.adjustedSubtotal;
-}
 
 export const basePath = "/api/eCommerce/cart";
 export const router = Router();
@@ -63,7 +44,23 @@ function assertQuantityAllowed(product: any, quantity: number, languageCode: str
     }
 }
 
-// GET cart
+/** Re-prices, re-arms the abandoned-cart reminder, saves, and returns the DTO. */
+async function repriceAndSave(cart: ICart, params: any): Promise<{data: ReturnType<typeof cartToDTO>}> {
+    const {notices} = await repriceCart(cart as any, {
+        companyId: params.company._id,
+        userId: new ObjectId(params.actionUserCtx.userId),
+        languageCode: params.languageCode,
+    });
+    cart.abandonedNotifiedAt = undefined;
+    await cart.save();
+    return {data: withNotices(cartToDTO(cart.toObject() as ICart), notices)};
+}
+
+function withNotices(dto: ReturnType<typeof cartToDTO>, notices: CartNotices) {
+    return Object.keys(notices).length ? {...dto, notices} : dto;
+}
+
+// GET cart — re-priced on read so the buyer always sees live prices
 router.get(
     "/",
     authMW("private"),
@@ -71,13 +68,19 @@ router.get(
     asyncHandler(async (params: any) => {
         const {company, actionUserCtx} = params;
 
-        const cart = await cartService.findOne(
-            {company: company._id, user: actionUserCtx.userId},
-            {logger: params.logger, languageCode: params.languageCode},
-            [{path: "items.product", select: "title price mainImage slug"}],
-        );
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) return {data: null};
-        return {data: cartToDTO(cart)};
+
+        const before = JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]);
+        const {notices} = await repriceCart(cart as any, {
+            companyId: company._id,
+            userId: new ObjectId(actionUserCtx.userId),
+            languageCode: params.languageCode,
+        });
+        if (JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]) !== before) {
+            await cart.save();
+        }
+        return {data: withNotices(cartToDTO(cart.toObject() as ICart), notices)};
     }),
 );
 
@@ -86,33 +89,33 @@ router.put(
     "/item",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(addCartItemFormSchema),
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, productId, variantId, quantity} = params;
 
-        if (!productId || !quantity || quantity < 1) {
-            throw apiValidationException("product_and_quantity_required", "", null, languageCode);
-        }
-
-        const product = await Product.findOne({_id: new ObjectId(productId), company: company._id, status: "active"}).lean();
+        const product: any = await Product.findOne({
+            _id: new ObjectId(productId),
+            company: company._id,
+            status: "active",
+            deletedAt: null,
+        }).lean();
         if (!product) throw apiValidationException("product_not_found", "", null, languageCode);
 
-        let unitPrice = (product as any).price ?? 0;
-        let variantDoc: any = null;
-
+        if (product.hasVariants && !variantId) {
+            throw apiValidationException("variant_required", "variantId", null, languageCode);
+        }
         if (variantId) {
-            variantDoc = await ProductVariant.findOne({_id: new ObjectId(variantId), product: product._id}).lean();
+            const variantDoc = await ProductVariant.findOne({
+                _id: new ObjectId(variantId),
+                product: product._id,
+                company: company._id,
+                status: "active",
+            }).lean();
             if (!variantDoc) throw apiValidationException("variant_not_found", "", null, languageCode);
-            unitPrice = variantDoc.price ?? unitPrice;
         }
 
         const filter = {company: company._id, user: actionUserCtx.userId};
         let cart = await Cart.findOne(filter);
-
-        const snapshot = {
-            title: (product as any).title,
-            sku: variantDoc?.sku ?? (product as any).sku,
-            imageUrl: (product as any).mainImage?.toString(),
-        };
 
         if (!cart) {
             assertQuantityAllowed(product, quantity, languageCode);
@@ -120,62 +123,55 @@ router.put(
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + 30);
 
+            // unitPrice/totals are placeholders — repriceAndSave sets them from the catalog
             cart = new Cart({
                 ...filter,
                 items: [{
-                    product: new ObjectId(productId),
+                    product: product._id,
                     variant: variantId ? new ObjectId(variantId) : undefined,
                     quantity,
-                    unitPrice,
-                    totalPrice: unitPrice * quantity,
-                    snapshot,
+                    unitPrice: 0,
+                    totalPrice: 0,
+                    snapshot: {title: product.title},
                 }],
-                subtotal: unitPrice * quantity,
+                subtotal: 0,
                 discountTotal: 0,
                 expiresAt,
             });
         } else {
-            const existingIdx = cart.items.findIndex((item: any) => {
-                const itemProduct = item.product?.toString() ?? item.product;
-                const itemVariant = item.variant?.toString();
-                return itemProduct === productId && itemVariant === variantId;
-            });
+            const existing = (cart.items as any[]).find((item: any) =>
+                (item.product?._id ?? item.product).toString() === productId
+                && (item.variant?.toString() ?? undefined) === (variantId ?? undefined),
+            );
 
-            if (existingIdx >= 0) {
-                const item = cart.items[existingIdx] as any;
-                assertQuantityAllowed(product, item.quantity + quantity, languageCode);
-                item.quantity += quantity;
-                item.totalPrice = item.unitPrice * item.quantity;
+            if (existing) {
+                assertQuantityAllowed(product, existing.quantity + quantity, languageCode);
+                existing.quantity += quantity;
             } else {
                 assertQuantityAllowed(product, quantity, languageCode);
                 (cart.items as any[]).push({
-                    product: new ObjectId(productId),
+                    product: product._id,
                     variant: variantId ? new ObjectId(variantId) : undefined,
                     quantity,
-                    unitPrice,
-                    totalPrice: unitPrice * quantity,
-                    snapshot,
+                    unitPrice: 0,
+                    totalPrice: 0,
+                    snapshot: {title: product.title},
                 });
             }
-
-            cart.subtotal = (cart.items as any[]).reduce((s: number, i: any) => s + i.totalPrice, 0);
         }
 
-        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
-        await cart.save();
-        return {data: cartToDTO(cart.toObject())};
+        return repriceAndSave(cart, params);
     }),
 );
 
-// PATCH item quantity
+// PATCH item quantity (0 removes the line)
 router.patch(
     "/item",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(updateCartItemFormSchema),
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, itemId, quantity} = params;
-
-        if (!itemId) throw apiValidationException("item_id_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
@@ -186,17 +182,12 @@ router.patch(
         if (quantity <= 0) {
             cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
         } else {
-            const productId = item.product?._id ?? item.product;
-            const product = await Product.findOne({_id: productId, company: company._id}).lean();
+            const product = await Product.findOne({_id: item.product?._id ?? item.product, company: company._id}).lean();
             if (product) assertQuantityAllowed(product, quantity, languageCode);
             item.quantity = quantity;
-            item.totalPrice = item.unitPrice * quantity;
         }
 
-        cart.subtotal = cart.items.reduce((s: number, i) => s + i.totalPrice, 0);
-        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
-        await cart.save();
-        return {data: cartToDTO(cart.toObject())};
+        return repriceAndSave(cart, params);
     }),
 );
 
@@ -208,18 +199,13 @@ router.delete(
     asyncHandler(async (params: any, queryParams: any) => {
         const {languageCode, company, actionUserCtx} = params;
         const {itemId} = queryParams;
+        if (!ObjectId.isValid(itemId)) throw apiValidationException("item_not_found", "", null, languageCode);
 
-        const cart = await Cart.findOneAndUpdate(
-            {company: company._id, user: actionUserCtx.userId},
-            {$pull: {items: {_id: new ObjectId(itemId)}}},
-            {new: true},
-        );
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
-        cart.subtotal = cart.items.reduce((s: number, i) => s + i.totalPrice, 0);
-        await applyPricingToCart(cart, company._id, new ObjectId(actionUserCtx.userId));
-        await cart.save();
-        return {data: cartToDTO(cart.toObject())};
+        cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
+        return repriceAndSave(cart, params);
     }),
 );
 
@@ -228,10 +214,9 @@ router.post(
     "/apply-discount",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
+    validateFormZod(applyCartCodeFormSchema),
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, code} = params;
-
-        if (!code) throw apiValidationException("code_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
@@ -244,35 +229,47 @@ router.post(
             startsAt: {$lte: now},
             $or: [{endsAt: null}, {endsAt: {$gte: now}}],
         });
-
         if (!discount) return {valid: false, message: "discount_not_found"};
 
-        const items = (cart.items as any[]).map((item) => ({
-            productId: (item.product?._id ?? item.product) as ObjectId,
-            variantId: item.variant ? ((item.variant._id ?? item.variant) as ObjectId) : undefined,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-        }));
-        const result = validateDiscount({subtotal: cart.subtotal, items}, discount);
+        const userId = new ObjectId(actionUserCtx.userId);
+        const ctx = {companyId: company._id, userId, languageCode};
+
+        // Validate against freshly priced lines (never against stale stored totals)
+        cart.appliedDiscounts = [];
+        const {meta} = await repriceCart(cart as any, ctx);
+        const result = await validateDiscountForCustomer(toValidationCart(cart as any, meta, userId), discount, company._id);
         if (result.valid === false) return {valid: false, message: result.reason};
 
-        cart.discountTotal = result.discountAmount;
         cart.appliedDiscounts = [{discount: discount._id, code: discount.code, amount: result.discountAmount}] as any;
-        await cart.save();
-
-        return {valid: true, data: cartToDTO(cart.toObject()), discountAmount: result.discountAmount};
+        const saved = await repriceAndSave(cart, params);
+        return {valid: true, data: saved.data, discountAmount: cart.discountTotal};
     }),
 );
 
-// Apply gift card (store credit) — amount capped later at checkout totals
+// Remove the applied discount code
+router.delete(
+    "/discount",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 30}),
+    asyncHandler(async (params: any) => {
+        const {languageCode, company, actionUserCtx} = params;
+
+        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
+
+        cart.appliedDiscounts = [];
+        return repriceAndSave(cart, params);
+    }),
+);
+
+// Apply gift card (store credit) — amount re-capped on every reprice and at checkout
 router.post(
     "/apply-gift-card",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 20}),
+    validateFormZod(applyCartCodeFormSchema),
     asyncHandler(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, code} = params;
-
-        if (!code) throw apiValidationException("code_required", "", null, languageCode);
 
         const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
@@ -280,13 +277,13 @@ router.post(
         const giftCard = await giftCardService.findRedeemable(code, company._id, {logger, languageCode});
         if (!giftCard) return {valid: false, message: "gift_card_not_redeemable"};
 
-        const cartTotal = Math.max(0, cart.subtotal - (cart.discountTotal ?? 0));
-        const amount = Math.min(giftCard.balance, cartTotal);
-
-        cart.appliedGiftCard = {giftCard: giftCard._id as any, code: giftCard.code, amount};
-        await cart.save();
-
-        return {valid: true, data: cartToDTO(cart.toObject()), giftCardAmount: amount, balance: giftCard.balance};
+        cart.appliedGiftCard = {
+            giftCard: giftCard._id as any,
+            code: giftCard.code,
+            amount: roundMoney(Math.min(giftCard.balance, Math.max(0, cart.subtotal - (cart.discountTotal ?? 0)))),
+        };
+        const saved = await repriceAndSave(cart, params);
+        return {valid: true, data: saved.data, giftCardAmount: cart.appliedGiftCard?.amount ?? 0, balance: giftCard.balance};
     }),
 );
 
@@ -303,11 +300,11 @@ router.delete(
 
         cart.appliedGiftCard = undefined;
         await cart.save();
-        return {data: cartToDTO(cart.toObject())};
+        return {data: cartToDTO(cart.toObject() as ICart)};
     }),
 );
 
-// Clear cart
+// Clear cart (items, discount and store credit)
 router.delete(
     "/clear",
     authMW("private"),
@@ -317,7 +314,7 @@ router.delete(
 
         await Cart.findOneAndUpdate(
             {company: company._id, user: actionUserCtx.userId},
-            {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}},
+            {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}, $unset: {appliedGiftCard: 1}},
         );
         return {message: "Cart cleared"};
     }),

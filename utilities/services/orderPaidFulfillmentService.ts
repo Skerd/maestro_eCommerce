@@ -41,6 +41,11 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
 
     const productMap = new Map(specialProducts.map(product => [product._id.toString(), product]));
     const issuedGiftCodes: string[] = [];
+
+    // Cards carry no line reference, so allocate the order's existing cards to
+    // gift-card lines in line order: line N owns the cards after lines 0..N-1.
+    const existingGiftCards = await GiftCard.countDocuments({order: order._id, company: companyId}).session(ctx.session ?? null);
+    let giftCardsAccountedFor = 0;
     const downloadLinks: {productTitle: string; url: string}[] = [];
 
     for (const item of items) {
@@ -49,7 +54,8 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
         if (!product) continue;
 
         if (product.type === "gift_card") {
-            const existing = await GiftCard.countDocuments({order: order._id, company: companyId}).session(ctx.session ?? null);
+            const existing = Math.min(item.quantity, Math.max(0, existingGiftCards - giftCardsAccountedFor));
+            giftCardsAccountedFor += item.quantity;
             if (existing >= item.quantity) continue;
 
             for (let i = existing; i < item.quantity; i++) {

@@ -26,8 +26,9 @@ export interface ICheckoutItem {
 }
 
 /**
- * Inventory reservation created during /confirm. Consumed (sale) on payment
- * success, released on cancel / expiry. One entry per reserved order line.
+ * Inventory reservation created when the buyer picks a payment method (before
+ * any charge). Consumed (sale) once the order is paid, released on payment
+ * reset / cancel / expiry. One entry per reserved stock line.
  */
 export interface ICheckoutReservation {
     product: Types.ObjectId;
@@ -72,6 +73,8 @@ export interface ICheckout extends Document {
     paymentMethod?: CheckoutPaymentMethod;
     stripePaymentIntentId?: string;
     stripeClientSecret?: string;
+    /** Bumped each time the payment step is reset, so gateway idempotency keys differ per attempt. */
+    paymentAttempt: number;
     status: CheckoutStatus;
     idempotencyKey: string;
     expiresAt: Date;
@@ -163,7 +166,6 @@ const CheckoutSchema = new Schema<ICheckout>(
                                 reserved:   "warning",
                                 consumed:   "neutral",
                                 released:   "success",
-                                reserved:   "warning",
                             },
                         },
                     },
@@ -176,7 +178,6 @@ const CheckoutSchema = new Schema<ICheckout>(
                     reserved:   "warning",
                     consumed:   "neutral",
                     released:   "success",
-                    reserved:   "warning",
                 },
             },
         },
@@ -210,6 +211,7 @@ const CheckoutSchema = new Schema<ICheckout>(
         paymentMethod: {type: SchemaTypes.String, enum: ["stripe", "paypal", "cod", "bank_transfer"]},
         stripePaymentIntentId: {type: SchemaTypes.String},
         stripeClientSecret: {type: SchemaTypes.String},
+        paymentAttempt: {type: SchemaTypes.Number, default: 0, min: 0},
         status: {
             type: SchemaTypes.String,
             enum: ["pending", "payment_processing", "confirmed", "failed", "expired"],

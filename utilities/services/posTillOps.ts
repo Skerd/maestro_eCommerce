@@ -15,6 +15,8 @@ import {
     managerPinMatchesForUser,
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
+import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
 type Ctx = {
     logger: any;
@@ -24,9 +26,6 @@ type Ctx = {
     session?: ClientSession;
 };
 
-function round2(n: number): number {
-    return Math.round(n * 100) / 100;
-}
 
 async function generatePosOrderName(companyId: ObjectId, session?: ClientSession): Promise<string> {
     const year = new Date().getFullYear();
@@ -91,11 +90,11 @@ async function buildDraftLines(
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
 
         const qty = Number(line.quantity);
-        const unitPrice = line.unitPrice != null ? Number(line.unitPrice) : Number((product as any).price ?? 0);
+        const unitPrice = await resolvePosLineUnitPrice(product as any, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = round2(unitPrice * qty);
-        const discountAmount = round2((gross * discPct) / 100);
-        const priceTotal = round2(gross - discountAmount);
+        const gross = roundMoney(unitPrice * qty);
+        const discountAmount = roundMoney((gross * discPct) / 100);
+        const priceTotal = roundMoney(gross - discountAmount);
 
         lines.push({
             product: product._id as ObjectId,
@@ -111,8 +110,8 @@ async function buildDraftLines(
             productSku: (product as any).sku,
             barcode: (product as any).barcode ?? (product as any).ean,
         });
-        subtotal = round2(subtotal + gross);
-        lineDiscountTotal = round2(lineDiscountTotal + discountAmount);
+        subtotal = roundMoney(subtotal + gross);
+        lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
     }
 
     return {lines, subtotal, lineDiscountTotal};
@@ -281,10 +280,10 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
 
     const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx);
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
-    const afterLineDisc = round2(subtotal - lineDiscountTotal);
-    const orderDiscount = round2((afterLineDisc * orderDiscPct) / 100);
-    const discountTotal = round2(lineDiscountTotal + orderDiscount);
-    const amountTotal = round2(Math.max(0, subtotal - discountTotal));
+    const afterLineDisc = roundMoney(subtotal - lineDiscountTotal);
+    const orderDiscount = roundMoney((afterLineDisc * orderDiscPct) / 100);
+    const discountTotal = roundMoney(lineDiscountTotal + orderDiscount);
+    const amountTotal = roundMoney(Math.max(0, subtotal - discountTotal));
 
     let draft: IPosOrder | null = null;
     if (body._id) {
@@ -458,7 +457,7 @@ export async function getPosSessionReconciliation(
     for (const order of paidOrders as any[]) {
         for (const payment of order.payments ?? []) {
             const key = payment.paymentMethodType || "other";
-            salesByTender[key] = round2((salesByTender[key] ?? 0) + Number(payment.amount || 0));
+            salesByTender[key] = roundMoney((salesByTender[key] ?? 0) + Number(payment.amount || 0));
         }
     }
 
@@ -484,8 +483,8 @@ export async function getPosSessionReconciliation(
     };
 
     if (countedCash != null && !Number.isNaN(countedCash)) {
-        result.countedCash = round2(countedCash);
-        result.difference = round2(countedCash - result.expectedCash);
+        result.countedCash = roundMoney(countedCash);
+        result.difference = roundMoney(countedCash - result.expectedCash);
     }
 
     return result;

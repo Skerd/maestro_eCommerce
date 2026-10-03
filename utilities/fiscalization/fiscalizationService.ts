@@ -24,13 +24,11 @@ import {
     type OrderedDict,
 } from "./fiscalSoap";
 import {buildUblInvoiceXml} from "./ublInvoice";
+import {roundMoney} from "@eCommerceModule/utilities/services/money";
 
-function round2(n: number): number {
-    return Math.round(n * 100) / 100;
-}
 
 function money(n: number): string {
-    return round2(n).toFixed(2);
+    return roundMoney(n).toFixed(2);
 }
 
 export type FiscalCert = {certificateBase64: string; certificatePassword: string};
@@ -116,9 +114,9 @@ export async function registerPosInvoice(
     const invOrdNum = invOrdFromOrderName(order.name);
     const year = new Date().getFullYear();
     const invNum = `${invOrdNum}/${year}/${config.tcrCode}`;
-    const totPrice = round2(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
-    const totTax = round2(Number(order.isRefund ? -order.amountTax : order.amountTax));
-    const totWoVat = round2(totPrice - totTax);
+    const totPrice = roundMoney(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
+    const totTax = roundMoney(Number(order.isRefund ? -order.amountTax : order.amountTax));
+    const totWoVat = roundMoney(totPrice - totTax);
 
     const iicInput = buildIicInput({
         nipt,
@@ -142,13 +140,13 @@ export async function registerPosInvoice(
 
     const items: OrderedDict[] = ((order.lines as any[]) || []).map(line => {
         const qty = Number(line.quantity) * (order.isRefund ? -1 : 1);
-        const pb = round2(Number(line.priceSubtotal) - Number(line.discountAmount || 0));
+        const pb = roundMoney(Number(line.priceSubtotal) - Number(line.discountAmount || 0));
         // priceTotal is after discount; treat as gross when taxAmount present
-        const tax = round2(Number(line.taxAmount || 0));
-        const pa = round2(Number(line.priceTotal));
-        const net = round2(pa - tax);
-        const unitNet = qty !== 0 ? round2(net / Math.abs(qty)) : 0;
-        const unitGross = qty !== 0 ? round2(pa / Math.abs(qty)) : 0;
+        const tax = roundMoney(Number(line.taxAmount || 0));
+        const pa = roundMoney(Number(line.priceTotal));
+        const net = roundMoney(pa - tax);
+        const unitNet = qty !== 0 ? roundMoney(net / Math.abs(qty)) : 0;
+        const unitGross = qty !== 0 ? roundMoney(pa / Math.abs(qty)) : 0;
         const row: OrderedDict = {
             "1__N": line.productName || "Item",
             "2__C": line.productSku || line.productName || "Item",
@@ -161,7 +159,7 @@ export async function registerPosInvoice(
             "9__PA": money(order.isRefund ? -Math.abs(pa) : pa),
         };
         if (tax) {
-            const rate = net !== 0 ? round2((tax / Math.abs(net)) * 100) : 0;
+            const rate = net !== 0 ? roundMoney((tax / Math.abs(net)) * 100) : 0;
             row["10__VR"] = money(rate);
             row["11__VA"] = money(order.isRefund ? -Math.abs(tax) : tax);
         }
@@ -177,7 +175,7 @@ export async function registerPosInvoice(
 
     const sameTaxes: OrderedDict[] = [];
     if (config.isVatRegistered && totTax !== 0 && totWoVat !== 0) {
-        const rate = round2((Math.abs(totTax) / Math.abs(totWoVat)) * 100);
+        const rate = roundMoney((Math.abs(totTax) / Math.abs(totWoVat)) * 100);
         sameTaxes.push({
             "1__NumOfItems": String(items.length),
             "2__PriceBefVAT": money(totWoVat),
@@ -407,21 +405,21 @@ export async function registerEinvoiceForPosOrder(
     if ((order as any).eic) throw new Error("Order already has EIC");
 
     const nipt = resolveNipt(config, opts?.companyVat);
-    const totGross = round2(Number(order.amountTotal));
-    const totVat = round2(Number(order.amountTax));
-    const totNet = round2(totGross - totVat);
+    const totGross = roundMoney(Number(order.amountTotal));
+    const totVat = roundMoney(Number(order.amountTax));
+    const totNet = roundMoney(totGross - totVat);
     const lines = ((order.lines as any[]) || []).map(line => {
         const qty = Number(line.quantity);
-        const pa = round2(Number(line.priceTotal));
-        const tax = round2(Number(line.taxAmount || 0));
-        const net = round2(pa - tax);
+        const pa = roundMoney(Number(line.priceTotal));
+        const tax = roundMoney(Number(line.taxAmount || 0));
+        const net = roundMoney(pa - tax);
         return {
             name: line.productName || "Item",
             quantity: qty,
-            unitPriceNet: qty ? round2(net / qty) : 0,
+            unitPriceNet: qty ? roundMoney(net / qty) : 0,
             lineNet: net,
             lineGross: pa,
-            vatRate: net ? round2((tax / net) * 100) : 0,
+            vatRate: net ? roundMoney((tax / net) * 100) : 0,
             vatAmount: tax,
         };
     });

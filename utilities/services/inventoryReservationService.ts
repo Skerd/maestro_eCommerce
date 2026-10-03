@@ -79,8 +79,7 @@ export async function explodeBundleLines(
  * products) and skipped. Warehouse choice: the company's default warehouse
  * when it holds the item, otherwise the first inventory row with enough
  * available stock. Throws OutOfStockError when no warehouse can cover a
- * tracked line — the caller's transaction rollback undoes any partial
- * reservations.
+ * tracked line, after releasing the holds this call already made.
  */
 export async function reserveCheckoutStock(
     rawItems: {product: ObjectId; variant?: ObjectId; quantity: number}[],
@@ -137,6 +136,11 @@ export async function reserveCheckoutStock(
         }
 
         if (!reserved) {
+            // Undo this call's partial holds so callers that catch the error (and
+            // keep their transaction) never commit untracked reservations.
+            for (const held of reservations) {
+                await inventoryService.releaseReservation(held.product, held.variant, held.warehouse, held.quantity, ctx);
+            }
             throw new OutOfStockError(item.product.toString(), item.quantity);
         }
     }
@@ -211,4 +215,51 @@ export async function releaseCheckoutReservations(checkout: ICheckout, ctx: Rese
 
     checkout.markModified("reservations");
     await checkout.save({session: ctx.session});
+}
+
+/**
+ * Puts sold stock back (full refund of an order that never shipped): every
+ * "consumed" reservation is returned to its warehouse with a `return`
+ * movement and flipped to "released", so a second call is a no-op.
+ * Returns the number of lines restocked.
+ */
+export async function restockConsumedReservations(checkout: ICheckout, ctx: ReservationCtx & {referenceId?: ObjectId}): Promise<number> {
+    const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
+    let restocked = 0;
+
+    for (const reservation of checkout.reservations ?? []) {
+        if (reservation.state !== "consumed") continue;
+
+        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
+        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
+        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+
+        const updated = await inventoryService.adjust(productId, variantId, warehouseId, reservation.quantity, ctx);
+        if (!updated) continue; // inventory row deleted since the sale — nothing to return to
+
+        await inventoryMovementService.create(
+            {
+                inventory: updated._id,
+                product: productId,
+                variant: variantId,
+                warehouse: warehouseId,
+                quantity: reservation.quantity,
+                reason: "return",
+                quantityBefore: updated.quantityOnHand - reservation.quantity,
+                quantityAfter: updated.quantityOnHand,
+                performedBy: ctx.auditUserId ? new ObjectId(ctx.auditUserId.toString()) : undefined,
+                referenceType: ctx.referenceId ? "ProductOrder" : "Checkout",
+                referenceId: ctx.referenceId ?? checkout._id,
+                company: companyId,
+            } as any,
+            ctx,
+        );
+
+        reservation.state = "released";
+        restocked += 1;
+    }
+
+    checkout.markModified("reservations");
+    await checkout.save({session: ctx.session});
+    return restocked;
 }

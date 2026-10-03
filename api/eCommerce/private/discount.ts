@@ -4,6 +4,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
 import {createDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/createDiscount.form.validator";
 import {editDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/editDiscount.form.validator";
@@ -128,7 +129,13 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, code, subtotal, items: rawItems} = params;
+        const {logger, languageCode, company, actionUserCtx, code, subtotal, items: rawItems} = params;
+
+        // Staff tool: reveals the discount's configuration, so it needs read access to it
+        const readable = SchemaGuard.sanitizeFields(Discount, {code: {}, value: {}}, "read", actionUserCtx, languageCode);
+        if (!readable.code || !readable.value) {
+            throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+        }
 
         if (!code) throw apiValidationException("code_required", "code", null, languageCode);
 
@@ -155,7 +162,7 @@ router.post(
 
         const result = validateDiscount({subtotal: Number(subtotal) || 0, items}, discount);
 
-        if (!result.valid) {
+        if (result.valid === false) {
             return {valid: false, message: result.reason};
         }
 

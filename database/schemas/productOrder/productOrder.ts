@@ -329,7 +329,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             enum: ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"],
             default: "unpaid",
-            permissions: NoWritePermission,
+            // Write-tagged (not NoWritePermission) so lifecycle actions can gate on
+            // productorders[write:paymentStatus]; generic CRUD edit never writes it.
             dynamicTableConfiguration: {
                 enumTones: {
                     unpaid:               "danger",
@@ -351,7 +352,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"],
             default: "pending",
-            permissions: NoWritePermission,
+            // Write-tagged so lifecycle actions can gate on productorders[write:status].
             dynamicTableConfiguration: {
                 enumTones: {
                     pending:      "warning",

@@ -4,6 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
@@ -16,10 +17,9 @@ import {z} from "zod";
 
 async function enrichProductOrderSingle(doc: any, params: any) {
     const dto = productOrderToDTO(doc);
-    const {user} = params;
 
     const orderId = doc._id;
-    const companyId = user?.company?._id;
+    const companyId = params.company?._id;
     if (!orderId) {
         dto.paymentTransactions = [];
         return dto;
@@ -72,6 +72,17 @@ export const {router} = createCrudRouter({
     buildUpdateData: async () => ({}),
     rateLimits: {read: 60, write: 30, delete: 10},
     actions: ProductOrderActions,
+    /** Orders that moved money stay on record — only unpaid or closed-out orders can be removed. */
+    beforeDelete: async (params, doc) => {
+        const deletable = doc.status === "cancelled"
+            || doc.paymentStatus === "refunded"
+            || (doc.paymentStatus === "unpaid" && doc.status === "pending");
+        if (!deletable) {
+            throw apiValidationException("order_with_payment_cannot_be_deleted", null, null, params.languageCode);
+        }
+        // Keep the default relation check that a custom beforeDelete replaces
+        await assertCanDelete(ProductOrder.modelName, doc._id, params.languageCode, params.session);
+    },
 });
 
 /**

@@ -12,6 +12,10 @@ import {paymentTransactionService} from "@financeModule/database/schemas/payment
 import {consumeCheckoutReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
+import {
+    assertIntentMatchesCheckout,
+    placePaidCheckoutInBackground,
+} from "@eCommerceModule/utilities/services/checkoutPlacementService";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import type {WebhookEvent} from "@financeModule/utilities/services/payment/paymentProvider.types";
 
@@ -23,15 +27,19 @@ export const router = Router();
 const MONGO_DUPLICATE_KEY = 11000;
 
 /**
- * Marks the order behind a checkout as paid: paymentStatus, status, timeline,
- * reservation consumption, and buyer notification. No-ops when the order does
- * not exist yet (buyer has not confirmed) — /confirm settles payment state then.
+ * Settles a succeeded payment for a checkout. When the buyer never reached
+ * /confirm (closed tab, redirect-based payment, network error) the order is
+ * placed here, so captured money always ends up as an order. An order that
+ * already exists unpaid is marked paid.
  */
 async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; languageCode: string}): Promise<void> {
     const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
 
     const order = await ProductOrder.findOne({idempotencyKey: checkout.idempotencyKey, company: companyId});
-    if (!order) return;
+    if (!order) {
+        await placePaidCheckoutInBackground(checkout._id as any, ctx);
+        return;
+    }
 
     if (order.paymentStatus === "unpaid") {
         order.paymentStatus = "paid";
@@ -101,7 +109,18 @@ router.post(
             if (event.type === "payment_intent.succeeded") {
                 await paymentTransactionService.markSucceeded(intentId, {eventId: event.id}, {logger, languageCode});
                 if (checkout) {
-                    await applyPaymentSucceeded(checkout, {logger, languageCode});
+                    let amountMatches = true;
+                    try {
+                        await assertIntentMatchesCheckout(
+                            checkout,
+                            {amountMinor: Number(intent.amount), currencyCode: intent.currency},
+                            {logger, languageCode},
+                        );
+                    } catch {
+                        // Logged inside; the charge is recorded but no order is auto-placed
+                        amountMatches = false;
+                    }
+                    if (amountMatches) await applyPaymentSucceeded(checkout, {logger, languageCode});
                 }
             } else {
                 const failureReason = intent.last_payment_error?.message as string | undefined;

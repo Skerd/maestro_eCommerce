@@ -67,6 +67,12 @@ export class FulfillmentActions {
             throw apiValidationException("fulfillment_not_pending", "", null, languageCode);
         }
 
+        // Same gate as productOrder.ship: unconfirmed, cancelled or refunded orders don't ship
+        const order = await loadOrderForFulfillment(existing, company._id, {session, logger, languageCode});
+        if (["pending", "cancelled", "refunded"].includes(order.status)) {
+            throw apiValidationException("order_not_ready_to_ship", "", null, languageCode);
+        }
+
         const $set: Record<string, unknown> = {
             status: "shipped",
             shippedAt: new Date(),
@@ -92,8 +98,7 @@ export class FulfillmentActions {
             auditUserId: actionUserCtx.userId,
         });
 
-        const order = await loadOrderForFulfillment(existing, company._id, {session, logger, languageCode});
-        if (!["shipped", "delivered", "cancelled", "refunded"].includes(order.status)) {
+        if (["confirmed", "processing"].includes(order.status)) {
             await productOrderService.updateByIdOrThrow(
                 order._id,
                 {
@@ -161,7 +166,8 @@ export class FulfillmentActions {
         });
 
         const order = await loadOrderForFulfillment(existing, company._id, {session, logger, languageCode});
-        if (order.status !== "delivered") {
+        // Never overwrite a terminal state (cancelled / refunded) with "delivered"
+        if (["confirmed", "processing", "shipped"].includes(order.status)) {
             await productOrderService.updateByIdOrThrow(
                 order._id,
                 {

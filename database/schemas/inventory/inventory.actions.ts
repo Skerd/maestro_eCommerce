@@ -1,6 +1,9 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {getModelCollectedData} from "@coreModule/database/collections";
+import InventoryModel from "./inventory";
 import {restockInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/restockInventory.form.validator";
 import {deductInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/deductInventory.form.validator";
 import type {Inventory} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/inventory.dto";
@@ -26,7 +29,36 @@ function trimOptional(value: unknown): string | undefined {
     return t.length ? t : undefined;
 }
 
+/**
+ * Stock moves change `quantityOnHand`, so they require its field write tag
+ * (`inventories[write:quantityOnHand]`) — the same gate CRUD edit applies.
+ */
+export function assertStockWrite(params: Record<string, any>): void {
+    const {languageCode, actionUserCtx} = params;
+    const writeFields = SchemaGuard.sanitizeFields(
+        InventoryModel,
+        getModelCollectedData("inventories").writeFields!,
+        "write",
+        actionUserCtx,
+        languageCode,
+    );
+    if (!writeFields.quantityOnHand) {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+    }
+}
+
+/** Rejects a change that would leave less on hand than is reserved for open orders. */
+export function assertWithinReserved(inventory: {quantityOnHand: number; quantityReserved?: number}, delta: number, languageCode: string): void {
+    if (delta >= 0) return;
+    const after = inventory.quantityOnHand + delta;
+    if (after < 0 || after < (inventory.quantityReserved ?? 0)) {
+        throw apiValidationException("insufficient_stock", null, null, languageCode);
+    }
+}
+
 async function applyStockMove(params: Record<string, any>, direction: "restock" | "deduct"): Promise<Inventory> {
+    assertStockWrite(params);
+
     const {
         logger,
         languageCode,
@@ -59,9 +91,7 @@ async function applyStockMove(params: Record<string, any>, direction: "restock" 
     const reason: InventoryMovementReason = direction === "restock" ? "restock" : "write_off";
     const quantityBefore = inventory.quantityOnHand;
 
-    if (direction === "deduct" && quantityBefore + delta < 0) {
-        throw apiValidationException("insufficient_stock", null, null, languageCode);
-    }
+    assertWithinReserved(inventory, delta, languageCode);
 
     const productId = (inventory.product as any)?._id ?? (inventory.product as any);
     const variantId = (inventory.variant as any)?._id ?? (inventory.variant as any);

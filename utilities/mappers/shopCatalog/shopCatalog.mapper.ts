@@ -31,9 +31,13 @@ export function toShopProductCard(product: any): ShopProductCard {
     };
 }
 
-export function toShopProductVariant(variant: any): ShopProductVariant {
+/** Stock availability keyed by variant id ("" = the base product row). */
+export type ShopStockMap = Map<string, boolean>;
+
+export function toShopProductVariant(variant: any, stock?: ShopStockMap): ShopProductVariant {
     return {
         _id: variant._id.toString(),
+        inStock: stock?.get(variant._id.toString()) ?? true,
         sku: variant.sku,
         price: variant.price,
         compareAtPrice: variant.compareAtPrice,
@@ -47,9 +51,10 @@ export function toShopProductVariant(variant: any): ShopProductVariant {
     };
 }
 
-export function toShopProductDetail(product: any, variants: any[], related: any[]): ShopProductDetail {
+export function toShopProductDetail(product: any, variants: any[], related: any[], stock?: ShopStockMap): ShopProductDetail {
     return {
         ...toShopProductCard(product),
+        inStock: stock?.get("") ?? true,
         description: product.description,
         gallery: mediaIds(product.gallery),
         videoUrls: product.videoUrls?.length ? product.videoUrls : undefined,
@@ -58,7 +63,7 @@ export function toShopProductDetail(product: any, variants: any[], related: any[
         minOrderQty: product.minOrderQty,
         maxOrderQty: product.maxOrderQty,
         stepQty: product.stepQty,
-        variants: variants.map(toShopProductVariant),
+        variants: variants.map(variant => toShopProductVariant(variant, stock)),
         related: related.map(toShopProductCard),
         categories: Array.isArray(product.categories)
             ? product.categories

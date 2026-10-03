@@ -1,14 +1,36 @@
 /**
- * Hourly job: expire abandoned checkouts (pending / payment_processing past
- * expiresAt) and release any inventory reservations still held on them.
+ * Hourly job: settles checkouts past expiresAt (pending / payment_processing).
+ *  - A checkout whose gateway charge already succeeded is placed as an order
+ *    (safety net when both the buyer's /confirm and the webhook were lost).
+ *  - Everything else is expired and its held stock released.
+ * Also purges expired/failed checkouts older than PURGE_AFTER_DAYS — confirmed
+ * ones are kept, they hold the order's stock reservations.
  */
 
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
 import { releaseCheckoutReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
+import { placePaidCheckoutInBackground } from "@eCommerceModule/utilities/services/checkoutPlacementService";
+import { getPaymentAdapter } from "@eCommerceModule/utilities/services/payment/paymentService";
+import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 
 const BATCH_SIZE = 200;
+const PURGE_AFTER_DAYS = 30;
+
+/** True when the checkout's charge succeeded (locally recorded, or per the gateway). */
+async function chargeSucceeded(checkout: any): Promise<boolean> {
+    const intentId = checkout.stripePaymentIntentId as string | undefined;
+    if (!intentId) return false;
+
+    const local = await PaymentTransaction.exists({gatewayTransactionId: intentId, type: "charge", status: "succeeded"});
+    if (local) return true;
+
+    const adapter = getPaymentAdapter("stripe");
+    if (!adapter?.isEnabled()) return false;
+    const intent = await adapter.retrievePaymentIntent(intentId);
+    return intent.status === "succeeded";
+}
 
 export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("checkout_expiry", parentLogger);
@@ -17,16 +39,29 @@ export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<vo
     logger.start("Running checkout expiry job...");
 
     try {
-        const expired = await Checkout.find({
+        const due = await Checkout.find({
             status: { $in: ["pending", "payment_processing"] },
             expiresAt: { $lte: new Date() },
         }).limit(BATCH_SIZE);
 
         let expiredCount = 0;
-        for (const checkout of expired) {
+        let placedCount = 0;
+        for (const checkout of due) {
             try {
-                const hasHeldStock = (checkout.reservations ?? []).some(r => r.state === "reserved");
-                if (hasHeldStock) {
+                if (await chargeSucceeded(checkout)) {
+                    const order = await placePaidCheckoutInBackground(checkout._id as any, { logger, languageCode: lang });
+                    if (order) placedCount += 1;
+                    continue;
+                }
+
+                // Close the open intent first so it can't be paid after the stock is released
+                const adapter = getPaymentAdapter("stripe");
+                if (checkout.stripePaymentIntentId && adapter?.isEnabled()) {
+                    const intent = await adapter.cancelPaymentIntent(checkout.stripePaymentIntentId);
+                    if (intent.status === "succeeded") continue; // paid meanwhile — next run places it
+                }
+
+                if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
                     await releaseCheckoutReservations(checkout, { logger, languageCode: lang });
                 }
 
@@ -34,11 +69,20 @@ export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<vo
                 await checkout.save();
                 expiredCount += 1;
             } catch (e: any) {
-                logger.err(`Failed to expire checkout ${checkout._id}`, e);
+                logger.err(`Failed to settle checkout ${checkout._id}`, e);
             }
         }
 
-        logger.finish(`Checkout expiry finished: ${expiredCount}/${expired.length} expired.`);
+        const purgeBefore = new Date(Date.now() - PURGE_AFTER_DAYS * 86400000);
+        const purged = await Checkout.deleteMany({
+            status: { $in: ["expired", "failed"] },
+            updatedAt: { $lte: purgeBefore },
+        });
+
+        logger.finish(
+            `Checkout expiry finished: ${expiredCount} expired, ${placedCount} paid checkouts placed, ` +
+            `${due.length - expiredCount - placedCount} skipped, ${purged.deletedCount ?? 0} purged.`,
+        );
     } catch (e: any) {
         logger.err("Checkout expiry job failed", e);
         logger.finish("Checkout expiry finished with errors.");

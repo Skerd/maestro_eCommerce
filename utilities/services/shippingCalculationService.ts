@@ -47,7 +47,12 @@ function zoneMatchesAddress(
 function computeRatePrice(rate: ShippingZoneRate, cart: CartForShipping): number | null {
     const conditions = rate.conditions ?? {};
 
-    if (rate.type === "free") return 0;
+    // "Free over X": a free rate still honours its order-amount window
+    if (rate.type === "free") {
+        if (conditions.minOrderAmount != null && cart.subtotal < conditions.minOrderAmount) return null;
+        if (conditions.maxOrderAmount != null && cart.subtotal > conditions.maxOrderAmount) return null;
+        return 0;
+    }
 
     if (rate.type === "flat") return rate.price ?? 0;
 

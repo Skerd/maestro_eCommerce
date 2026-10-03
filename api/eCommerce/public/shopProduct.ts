@@ -6,13 +6,30 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {toShopProductDetail} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {toShopProductDetail, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
 export const basePath = "/api/eCommerce/shopProduct";
 export const router = Router();
+
+/**
+ * Availability per variant ("" = base product), using the same rule as checkout
+ * reservation: a product/variant with no inventory rows is untracked (always
+ * available); otherwise it needs on-hand minus reserved > 0 in some warehouse.
+ */
+async function stockAvailability(productId: unknown, companyId: unknown): Promise<ShopStockMap> {
+    const rows = await Inventory.find({product: productId, company: companyId}, {variant: 1, quantityOnHand: 1, quantityReserved: 1}).lean();
+    const stock: ShopStockMap = new Map();
+    for (const row of rows as any[]) {
+        const key = row.variant ? row.variant.toString() : "";
+        const available = (row.quantityOnHand ?? 0) - (row.quantityReserved ?? 0) > 0;
+        stock.set(key, (stock.get(key) ?? false) || available);
+    }
+    return stock;
+}
 
 const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants";
 const RELATED_LIMIT = 8;
@@ -76,6 +93,6 @@ router.post(
             }
         }
 
-        return {data: toShopProductDetail(product, variants, related)};
+        return {data: toShopProductDetail(product, variants, related, await stockAvailability(product._id, company._id))};
     }),
 );

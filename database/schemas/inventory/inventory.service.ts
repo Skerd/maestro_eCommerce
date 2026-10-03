@@ -1,6 +1,6 @@
 import {BaseCrudService} from "@coreModule/database/services/baseCrudService";
 import Inventory, {IInventory} from "@eCommerceModule/database/schemas/inventory/inventory";
-import type {CrudOptions} from "@coreModule/database/services";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import {ObjectId} from "mongodb";
 
 export class InventoryService extends BaseCrudService<IInventory, typeof Inventory> {
@@ -66,7 +66,11 @@ export class InventoryService extends BaseCrudService<IInventory, typeof Invento
         );
     }
 
-    /** Manual adjustment (restock, damage write-off, etc.). */
+    /**
+     * Manual adjustment (restock, damage write-off, return) of an existing row.
+     * Matches the exact variant (null = base product row) and never upserts —
+     * returns null when no such inventory row exists.
+     */
     async adjust(
         productId: ObjectId,
         variantId: ObjectId | undefined,
@@ -74,13 +78,10 @@ export class InventoryService extends BaseCrudService<IInventory, typeof Invento
         delta: number,
         opts: CrudOptions,
     ): Promise<IInventory | null> {
-        const filter: Record<string, unknown> = {product: productId, warehouse: warehouseId};
-        if (variantId) filter.variant = variantId;
-
         return Inventory.findOneAndUpdate(
-            filter,
+            {product: productId, warehouse: warehouseId, variant: variantId ?? null},
             {$inc: {quantityOnHand: delta}},
-            {new: true, upsert: true, session: opts.session},
+            {new: true, session: opts.session},
         );
     }
 }

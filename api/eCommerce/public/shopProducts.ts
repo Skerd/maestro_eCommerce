@@ -7,6 +7,7 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import Category from "@eCommerceModule/database/schemas/category/category";
 import Collection from "@eCommerceModule/database/schemas/collection/collection";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
@@ -38,7 +39,7 @@ router.post(
         };
 
         if (search) {
-            filter.title = {$regex: String(search).trim(), $options: "i"};
+            filter.title = {$regex: escapeRegex(String(search).trim()), $options: "i"};
         }
 
         if (categorySlug) {
