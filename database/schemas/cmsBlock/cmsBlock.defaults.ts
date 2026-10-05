@@ -1,13 +1,14 @@
 import dayjs from "dayjs";
-import CmsBlock, {type CmsBlockType} from "./cmsBlock";
+import CmsBlock, {type CmsBlockType, type ICmsBlockConfig} from "./cmsBlock";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import type {CreateCollectionsResult} from "@eCommerceModule/database/schemas/collection/collection.defaults";
 
 export type CmsBlockSeed = {
     title: string;
     type: CmsBlockType;
     position: number;
-    config: Record<string, unknown>;
+    config: ICmsBlockConfig & {collectionSlug?: string};
 };
 
 export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
@@ -15,25 +16,30 @@ export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
         title: "Summer Drop Hero",
         type: "hero_banner",
         position: 1,
-        config: {headline: "Summer studio essentials", cta: "Shop featured", collectionSlug: "featured"},
+        config: {
+            headline: "Summer studio essentials",
+            subheadline: "New cuts, lighter layers, and studio kit for the season.",
+            ctaLabel: "Shop featured",
+            ctaHref: "/products",
+        },
     },
     {
         title: "Free shipping bar",
         type: "announcement_bar",
         position: 0,
-        config: {text: "Free shipping on orders over €60 — use FREESHIP"},
+        config: {message: "Free shipping on orders over €60 — use FREESHIP", linkHref: "/products"},
     },
     {
         title: "Featured collection strip",
         type: "featured_collection",
         position: 2,
-        config: {collectionSlug: "featured", limit: 4},
+        config: {headline: "Featured", collectionSlug: "featured", limit: 4},
     },
     {
         title: "Flash sale teaser",
         type: "flash_sale",
         position: 3,
-        config: {collectionSlug: "sale", endsAt: dayjs().add(5, "day").toISOString()},
+        config: {headline: "Flash sale", collectionSlug: "sale", limit: 4},
     },
 ];
 
@@ -43,6 +49,7 @@ export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
 export async function createCmsBlocks(
     parentLogger: serverLogger,
     company: ICompany,
+    collections: CreateCollectionsResult,
 ): Promise<number> {
     const logger = getLogger("mongoDbInitialization-createCmsBlocks", parentLogger);
     logger.start("Creating CMS blocks...");
@@ -50,12 +57,23 @@ export async function createCmsBlocks(
     let count = 0;
     for (const seed of defaultCmsBlockSeeds) {
         try {
+            const {collectionSlug, ...restConfig} = seed.config;
+            const config: ICmsBlockConfig = {...restConfig};
+            if (collectionSlug) {
+                const collection = collections.bySlug[collectionSlug];
+                if (!collection) {
+                    logger.warn(`Skipping CMS block "${seed.title}": collection "${collectionSlug}" was not seeded.`);
+                    continue;
+                }
+                config.collectionId = collection._id;
+            }
+
             const payload = {
                 type: seed.type,
                 title: seed.title,
                 isActive: true,
                 position: seed.position,
-                config: seed.config,
+                config,
                 startsAt: dayjs().subtract(2, "day").toDate(),
                 endsAt: dayjs().add(30, "day").toDate(),
                 visibility: {devices: ["desktop", "mobile", "tablet"] as ("desktop" | "mobile" | "tablet")[], regions: []},

@@ -94,7 +94,7 @@ export async function seedECommerceDemoData(
     await createTaxZones(logger, company, geo);
     await createShippingZones(logger, company, geo);
     await createPricingRules(logger, company, groups, collections);
-    await createCmsBlocks(logger, company);
+    await createCmsBlocks(logger, company, collections);
     await createCustomerAddresses(logger, company, almirId, geo, addr);
     const orders = await createProductOrders(logger, company, currency._id, products, pickUser, geo, addr);
     const carts = await createCarts(logger, company, currency._id, products, almirId);

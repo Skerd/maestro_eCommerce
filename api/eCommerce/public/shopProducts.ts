@@ -28,7 +28,18 @@ router.post(
     rateLimiter({windowMs: 60000, max: 120}),
     validateFormZod(shopProductsFormSchema),
     asyncHandler(async (params: any): Promise<ShopProductsResponse> => {
-        const {languageCode, origin, search, categorySlug, collectionSlug, sort, page = 1, limit = 24} = params;
+        const {
+            languageCode,
+            origin,
+            search,
+            categorySlug,
+            categoryIds,
+            collectionSlug,
+            collectionId,
+            sort,
+            page = 1,
+            limit = 24,
+        } = params;
 
         const company = await resolveShopCompany(origin, languageCode);
 
@@ -42,16 +53,24 @@ router.post(
             filter.title = {$regex: escapeRegex(String(search).trim()), $options: "i"};
         }
 
-        if (categorySlug) {
+        if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+            const categories = await Category.find({company: company._id, _id: {$in: categoryIds}}, {_id: 1});
+            if (categories.length === 0) return {data: [], total: 0, page, limit};
+            filter.categories = {$in: categories.map((category) => category._id)};
+        } else if (categorySlug) {
             const category = await Category.findOne({company: company._id, slug: String(categorySlug).toLowerCase()}, {_id: 1});
             if (!category) return {data: [], total: 0, page, limit};
             filter.categories = category._id;
         }
 
-        if (collectionSlug) {
+        if (collectionId) {
+            const collection = await Collection.findOne({company: company._id, _id: collectionId}, {_id: 1, products: 1});
+            if (!collection) return {data: [], total: 0, page, limit};
+            filter._id = {$in: collection.products ?? []};
+        } else if (collectionSlug) {
             const collection = await Collection.findOne({company: company._id, slug: String(collectionSlug).toLowerCase()}, {_id: 1, products: 1});
             if (!collection) return {data: [], total: 0, page, limit};
-            filter._id = {$in: (collection.products as any[]) ?? []};
+            filter._id = {$in: collection.products ?? []};
         }
 
         const sortSpec = SORTS[sort as string] ?? SORTS.newest;
