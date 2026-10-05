@@ -1,5 +1,6 @@
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
+import {mediaUploadMW} from "@coreModule/utilities/middlewares/mediaUploadMW";
 import {FiscalConfigSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/fiscalConfig.schema-def";
 import {createFiscalConfigFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/createFiscalConfig.form.validator";
 import {editFiscalConfigFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/editFiscalConfig.form.validator";
@@ -12,30 +13,20 @@ import {FiscalConfigActions} from "@eCommerceModule/database/schemas/fiscalConfi
 const buildFiscalConfigCreateFromSchemaDef = buildCreateDataFromSchemaDef(FiscalConfigSchemaDef);
 const buildFiscalConfigUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(FiscalConfigSchemaDef);
 
-function applyCertificateFields(data: Record<string, unknown>, params: any, isCreate: boolean) {
-    delete data.certificateBase64;
-    delete data.certificatePassword;
-    delete data.clearCertificate;
-    delete data.hasCertificate;
+const mediaUpload = mediaUploadMW({
+    fields: {
+        certificate: 1,
+    },
+    fieldMimeTypes: {
+        certificate: ["application/x-pkcs12", "application/pkcs12"],
+    },
+    maxFileSize: 10 * 1024 * 1024,
+});
 
-    if (params.clearCertificate) {
-        data.certificateBase64 = null;
-        data.certificatePassword = null;
-        data.hasCertificate = false;
-        return;
-    }
-    if (params.certificateBase64?.trim()) {
-        if (!params.certificatePassword?.trim() && isCreate) {
-            // Require password with new cert on creation — leave unset so validation surfaces via missing hasCertificate usage
-            return;
-        }
-        data.certificateBase64 = String(params.certificateBase64).replace(/\s+/g, "");
-        data.hasCertificate = true;
-        if (params.certificatePassword != null && String(params.certificatePassword).length) {
-            data.certificatePassword = String(params.certificatePassword);
-        }
-    } else if (params.certificatePassword != null && String(params.certificatePassword).length) {
-        data.certificatePassword = String(params.certificatePassword);
+/** Edit always posts the password blank unless the user typed a new one. */
+function omitBlankCertificatePassword(data: Record<string, unknown>) {
+    if (typeof data.certificatePassword !== "string" || data.certificatePassword.length === 0) {
+        delete data.certificatePassword;
     }
 }
 
@@ -52,17 +43,16 @@ export const {router} = createCrudRouter({
     toDTO: fiscalConfigToDTO,
     toDTOArray: fiscalConfigsToDTO,
     toSelect: fiscalConfigsToSelect,
+    createMiddleware: [mediaUpload],
+    editMiddleware: [mediaUpload],
     buildCreateData: async params => {
         const data = await buildFiscalConfigCreateFromSchemaDef(params);
-        applyCertificateFields(data as any, params, true);
-        if (data.isActive === undefined) data.isActive = true;
+        omitBlankCertificatePassword(data);
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = await buildFiscalConfigUpdateFromSchemaDef(params, writeFields);
-        // Active state is managed via activate/deactivate actions, not the edit form.
-        delete data.isActive;
-        applyCertificateFields(data as any, params, false);
+        omitBlankCertificatePassword(data);
         return data;
     },
     actions: FiscalConfigActions,

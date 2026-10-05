@@ -8,7 +8,10 @@ function variantLabel(variant: IProductVariant): string {
 }
 
 export function productVariantToSelect(variant: IProductVariant): ApiSelectDatum {
-    return {value: variant._id.toString(), label: variantLabel(variant)};
+    return {
+        value: variant._id.toString(),
+        label: variantLabel(variant)
+    };
 }
 
 export function productVariantsToSelect(variants: IProductVariant[]): ApiSelectDatum[] {

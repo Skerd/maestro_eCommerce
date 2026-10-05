@@ -69,6 +69,8 @@ function buildDiscountDTO(
               }
             : undefined,
         ...(discount.type !== "buy_x_get_y" ? {hasOfferScoping: true as const} : {}),
+        ...(discount.type === "percentage" ? {hasPercentageValue: true as const} : {}),
+        ...(discount.type === "fixed" ? {hasFixedValue: true as const} : {}),
         ...mapSoftDeleteToDTO(discount),
         ...mapOwnershipToDTO(discount),
         ...mapLifeCycleToDTO(discount),

@@ -105,12 +105,14 @@ export async function seedECommerceDemoData(
     await createProductReviews(logger, company, orders, products);
     await createInventoryMovements(logger, company, products, warehouses.primaryWarehouseId, inventories);
     const posMethods = await createPosPaymentMethods(logger, company);
+    const fiscalConfig = await createFiscalConfigs(logger, company);
     const posConfig = await createPosConfigs(
         logger,
         company,
         currency._id,
         posMethods,
         warehouses.primaryWarehouseId,
+        fiscalConfig?._id,
     );
     const cashierId = (company.createdBy as Types.ObjectId) ?? staffIds[0];
     const posSession = await createPosSessions(logger, company, posConfig?._id, cashierId);
@@ -124,8 +126,6 @@ export async function seedECommerceDemoData(
         cashierId,
         almirId,
     );
-    await createFiscalConfigs(logger, company);
-
     const warehouseIds: Record<string, Types.ObjectId> = {};
     for (const [key, doc] of Object.entries(warehouses.bySeedKey)) {
         warehouseIds[key] = doc._id;

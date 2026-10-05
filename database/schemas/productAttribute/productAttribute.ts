@@ -11,7 +11,12 @@ import {
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ProductAttributeSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
+import {
+    PRODUCT_ATTRIBUTE_NAME_MAX,
+    PRODUCT_ATTRIBUTE_VALUE_MAX,
+    PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+    ProductAttributeSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
 import {applyProductAttributeIndexes} from "./productAttribute.indexes";
 import {productAttributeViews} from "./productAttribute.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -22,7 +27,6 @@ export interface IProductAttribute extends Document, IOwnershipPluginFields, ISo
     isVisibleOnProductPage?: boolean;
     isUsedForVariants?: boolean;
     position?: number;
-    company: ICompany;
 }
 
 const ProductAttributeSchema = new Schema<IProductAttribute>(
@@ -30,11 +34,22 @@ const ProductAttributeSchema = new Schema<IProductAttribute>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_ATTRIBUTE_NAME_MAX,
         },
         values: {
-            type: [SchemaTypes.String],
-            default: []
+            type: [{
+                type: SchemaTypes.String,
+                trim: true,
+                maxlength: PRODUCT_ATTRIBUTE_VALUE_MAX,
+            }],
+            default: [],
+            validate: {
+                validator(value: string[]) {
+                    return !value || value.length <= PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS;
+                },
+                message: `Cannot have more than ${PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS} values`,
+            },
         },
         isVisibleOnProductPage: {
             type: SchemaTypes.Boolean,

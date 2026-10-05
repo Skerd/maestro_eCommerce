@@ -14,7 +14,11 @@ import {addModelData} from "@coreModule/database/collections";
 import {applyCustomerGroupIndexes} from "./customerGroup.indexes";
 import {customerGroupViews} from "./customerGroup.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {CustomerGroupSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/customerGroup.schema-def";
+import {
+    CUSTOMER_GROUP_DESCRIPTION_MAX,
+    CUSTOMER_GROUP_NAME_MAX,
+    CustomerGroupSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/customerGroup.schema-def";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export interface ICustomerGroup extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
@@ -22,7 +26,6 @@ export interface ICustomerGroup extends Document, IOwnershipPluginFields, ISoftD
     description?: string;
     memberCount: number;
     isDefault: boolean;
-    company: ICompany;
 }
 
 export interface ICustomerGroupModel extends Model<ICustomerGroup> {
@@ -34,11 +37,13 @@ const CustomerGroupSchema = new Schema<ICustomerGroup, ICustomerGroupModel>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: CUSTOMER_GROUP_NAME_MAX,
         },
         description: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: CUSTOMER_GROUP_DESCRIPTION_MAX,
         },
         memberCount: {
             type: SchemaTypes.Number,

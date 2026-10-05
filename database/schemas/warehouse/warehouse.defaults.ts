@@ -34,7 +34,10 @@ export async function createWarehouses(
     const logger = getLogger("mongoDbInitialization-createWarehouses", parentLogger);
     logger.start("Creating warehouses...");
 
-    const seeds: readonly WarehouseSeed[] = [
+    const tiranaLat = addr.geoLocation?.latitude ?? 41.32426719964653;
+    const tiranaLng = addr.geoLocation?.longitude ?? 19.80706909189647;
+
+    const seeds: readonly (WarehouseSeed & {latitude: number; longitude: number})[] = [
         {
             seedKey: TIRANA_WAREHOUSE_SEED_KEY,
             name: "Tirana Main Warehouse",
@@ -42,6 +45,8 @@ export async function createWarehouses(
             isDefault: true,
             street: addr.street,
             postalCode: addr.postalCode,
+            latitude: tiranaLat,
+            longitude: tiranaLng,
         },
         {
             seedKey: DURRES_WAREHOUSE_SEED_KEY,
@@ -50,6 +55,8 @@ export async function createWarehouses(
             isDefault: false,
             street: "Rruga Taulantia",
             postalCode: "2001",
+            latitude: 41.3231,
+            longitude: 19.4414,
         },
     ];
 
@@ -68,6 +75,8 @@ export async function createWarehouses(
                     ...(geo.cityId ? {city: geo.cityId} : {}),
                     street: seed.street,
                     postalCode: seed.postalCode,
+                    latitude: seed.latitude,
+                    longitude: seed.longitude,
                 },
                 company: company._id,
                 createdBy: company.createdBy,

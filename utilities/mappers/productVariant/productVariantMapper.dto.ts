@@ -30,7 +30,7 @@ export function productVariantToDTO(variant: IProductVariant): ProductVariant {
         weight: variant.weight,
         dimensions: variant.dimensions,
         mainImage: variant.mainImage ? mapMedia(variant.mainImage) : undefined,
-        position: variant.position,
+        order: variant.order,
         status: variant.status,
         trackInventory: variant.trackInventory,
         ...mapSoftDeleteToDTO(variant),

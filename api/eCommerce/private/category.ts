@@ -25,13 +25,9 @@ export const {router} = createCrudRouter({
     toDTO: categoryToDTO,
     toDTOArray: categoriesToDTO,
     toSelect: categoriesToSelect,
-    extraSelectFilter: async ({parentId, excludeCategoryId}) => {
-        const filter: Record<string, unknown> = {};
-        if (parentId) filter.parent = new ObjectId(parentId as string);
-        if (excludeCategoryId && ObjectId.isValid(excludeCategoryId as string)) {
-            filter._id = {$ne: new ObjectId(excludeCategoryId as string)};
-        }
-        return filter;
+    extraSelectFilter: async ({excludeCategoryId}) => {
+        if (!excludeCategoryId || !ObjectId.isValid(excludeCategoryId as string)) return {};
+        return {_id: {$ne: new ObjectId(excludeCategoryId as string)}};
     },
     buildCreateData: buildCreateDataFromSchemaDef(CategorySchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(CategorySchemaDef),

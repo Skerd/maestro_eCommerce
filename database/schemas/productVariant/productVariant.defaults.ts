@@ -78,7 +78,7 @@ export async function createProductVariants(
                 compareAtPrice: 39.9,
                 costPrice: 12,
                 currency: currencyId,
-                position: i + 1,
+                order: i + 1,
                 status: "active" as const,
                 trackInventory: true,
                 company: company._id,

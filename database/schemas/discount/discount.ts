@@ -11,7 +11,11 @@ import {
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
+import {
+    DISCOUNT_CODE_MAX,
+    DISCOUNT_TITLE_MAX,
+    DiscountSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
@@ -63,14 +67,16 @@ const DiscountSchema = new Schema<IDiscount>(
             required: true,
         },
         title: {
-            type: SchemaTypes.String, 
-            required: true, 
-            trim: true
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            maxlength: DISCOUNT_TITLE_MAX,
         },
         code: {
-            type: SchemaTypes.String, 
-            trim: true, 
-            uppercase: true
+            type: SchemaTypes.String,
+            trim: true,
+            uppercase: true,
+            maxlength: DISCOUNT_CODE_MAX,
         },
         value: {
             type: SchemaTypes.Number, 

@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {CATEGORY_NAME_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const categorySheetView: ViewConfig = {
@@ -88,6 +89,7 @@ const categoryCreateFormNodes: ViewConfig["nodes"] = [
                     label: "form.nameLabel",
                     placeholder: "form.namePlaceholder",
                     required: true,
+                    widgetProps: {maxLength: CATEGORY_NAME_MAX},
                 },
             },
             {
@@ -130,7 +132,8 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.nameLabel",
                     placeholder: "form.namePlaceholder",
                     required: true,
-                },
+                    widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                }, permissions: {read: "name", write: "name"},
             },
             {
                 render: "#Field",
@@ -145,7 +148,7 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
                         postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
                         remountKeyFormField: "_id",
                     },
-                },
+                }, permissions: {read: "parent", write: "parent"},
             },
             {
                 render: "#Field",
@@ -155,7 +158,7 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.orderLabel",
                     placeholder: "form.orderPlaceholder",
                     widgetProps: {type: "number", min: 0, step: 1},
-                },
+                }, permissions: {read: "order", write: "order"},
             },
         ],
     },

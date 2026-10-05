@@ -15,7 +15,13 @@ import {addModelData} from "@coreModule/database/collections";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {TaxZoneSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/taxZone.schema-def";
+import {
+    TAX_ZONE_NAME_MAX,
+    TAX_ZONE_POSTAL_CODE_PATTERN_MAX,
+    TAX_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS,
+    TAX_ZONE_RATE_NAME_MAX,
+    TaxZoneSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/taxZone/taxZone.schema-def";
 import {applyTaxZoneIndexes} from "./taxZone.indexes";
 import {taxZoneViews} from "./taxZone.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -33,15 +39,15 @@ export interface ITaxZone extends Document, IOwnershipPluginFields, ISoftDeleteP
     }[];
     priority: number;
     isActive: boolean;
-    company: ICompany;
 }
 
 const TaxZoneSchema = new Schema<ITaxZone>(
     {
         name: {
-            type: SchemaTypes.String, 
-            required: true, 
-            trim: true
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            maxlength: TAX_ZONE_NAME_MAX,
         },
         country: {
             type: SchemaTypes.ObjectId, 
@@ -58,15 +64,27 @@ const TaxZoneSchema = new Schema<ITaxZone>(
             default: []
         },
         postalCodePatterns: {
-            type: [SchemaTypes.String], 
-            default: []
+            type: [{
+                type: SchemaTypes.String,
+                trim: true,
+                maxlength: TAX_ZONE_POSTAL_CODE_PATTERN_MAX,
+            }],
+            default: [],
+            validate: {
+                validator(value: string[]) {
+                    return !value || value.length <= TAX_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS;
+                },
+                message: `Cannot have more than ${TAX_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS} postal code patterns`,
+            },
         },
         rates: {
             type: [
                 {
                     name: {
-                        type: SchemaTypes.String, 
-                        required: true
+                        type: SchemaTypes.String,
+                        required: true,
+                        trim: true,
+                        maxlength: TAX_ZONE_RATE_NAME_MAX,
                     },
                     rate: {
                         type: SchemaTypes.Number, 

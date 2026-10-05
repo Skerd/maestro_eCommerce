@@ -25,6 +25,7 @@ import {
 } from "./fiscalSoap";
 import {buildUblInvoiceXml} from "./ublInvoice";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 
 
 function money(n: number): string {
@@ -32,6 +33,36 @@ function money(n: number): string {
 }
 
 export type FiscalCert = {certificateBase64: string; certificatePassword: string};
+
+/** Fiscal config id stored on the till that owns a POS order. */
+export async function fiscalConfigIdForPosConfig(
+    companyId: unknown,
+    posConfigId: unknown,
+): Promise<string | undefined> {
+    if (!posConfigId) return undefined;
+    const PosConfigModel = (await import("@eCommerceModule/database/schemas/posConfig/posConfig")).default;
+    const till = await PosConfigModel.findOne({
+        _id: posConfigId,
+        company: companyId,
+        deletedAt: null,
+    }).select("fiscalConfig").lean();
+    const ref = till?.fiscalConfig;
+    if (!ref) return undefined;
+    if (typeof ref === "object" && "_id" in ref && ref._id) return String(ref._id);
+    return String(ref);
+}
+
+async function pkcs12Base64(mediaRef: unknown): Promise<string | null> {
+    const mediaId = mediaRef && typeof mediaRef === "object" && "_id" in mediaRef
+        ? (mediaRef as {_id: unknown})._id
+        : mediaRef;
+    if (!mediaId) return null;
+    const MediaModel = (await import("@coreModule/database/schemas/media/media")).default;
+    const media = await MediaModel.findById(mediaId).select("fileId");
+    if (!media?.fileId) return null;
+    const buffer = await getGridFSStorage("en-US").getFileBuffer(media.fileId);
+    return buffer.toString("base64");
+}
 
 export async function loadFiscalConfigWithCert(
     companyId: unknown,
@@ -44,10 +75,13 @@ export async function loadFiscalConfigWithCert(
     };
     if (fiscalConfigId) filter._id = fiscalConfigId;
     const doc = await FiscalConfig.findOne(filter)
-        .select("+certificateBase64 +certificatePassword")
+        .select("+certificatePassword")
         .sort({updatedAt: -1});
-    if (!doc?.certificateBase64 || !doc.certificatePassword) return null;
-    return doc as IFiscalConfig & FiscalCert;
+    const mediaRef = doc?.certificate?.[0];
+    if (!doc || !mediaRef || !doc.certificatePassword) return null;
+    const certificateBase64 = await pkcs12Base64(mediaRef);
+    if (!certificateBase64) return null;
+    return Object.assign(doc.toObject(), {certificateBase64}) as IFiscalConfig & FiscalCert;
 }
 
 function resolveNipt(config: IFiscalConfig, companyVat?: string): string {
@@ -101,7 +135,6 @@ export async function registerPosInvoice(
     opts?: {
         companyVat?: string;
         companyName?: string;
-        isEinvoice?: boolean;
         buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
     },
 ): Promise<RegisterInvoiceResult> {
@@ -209,7 +242,7 @@ export async function registerPosInvoice(
         "13__IIC": iic,
         "14__IICSignature": iicSignature,
         "15__IsReverseCharge": "false",
-        "16__IsEinvoice": opts?.isEinvoice || config.autoEinvoice ? "true" : "false",
+        "16__IsEinvoice": "true",
         "18__PayMethods": {"1__PayMethod": payments},
         "26__Seller": seller,
         "30__Items": {"1__I": items},
@@ -477,7 +510,7 @@ export async function registerEinvoiceForPosOrder(
     return {eic, ublXml: ublSigned, fault, signedXml: response.signedXml};
 }
 
-/** Persist CIS result onto PosOrder and optionally e-invoice. */
+/** Persist CIS result onto PosOrder and register the e-invoice. */
 export async function fiscalizePosOrder(
     orderId: string,
     companyId: unknown,
@@ -485,7 +518,6 @@ export async function fiscalizePosOrder(
         fiscalConfigId?: string;
         companyVat?: string;
         companyName?: string;
-        createEinvoice?: boolean;
         currency?: string;
     },
 ): Promise<{order: IPosOrder; invoice: RegisterInvoiceResult; einvoice?: RegisterEinvoiceResult}> {
@@ -494,13 +526,14 @@ export async function fiscalizePosOrder(
     if (order.state !== "paid" && order.state !== "refunded") {
         throw new Error("Only paid/refunded orders can be fiscalized");
     }
-    const config = await loadFiscalConfigWithCert(companyId, opts?.fiscalConfigId);
+    const fiscalConfigId = opts?.fiscalConfigId ?? await fiscalConfigIdForPosConfig(companyId, order.config);
+    if (!fiscalConfigId) throw new Error("POS config has no fiscal config");
+    const config = await loadFiscalConfigWithCert(companyId, fiscalConfigId);
     if (!config) throw new Error("No active FiscalConfig with certificate found");
 
     const invoice = await registerPosInvoice(order, config, {
         companyVat: opts?.companyVat,
         companyName: opts?.companyName,
-        isEinvoice: opts?.createEinvoice ?? config.autoEinvoice,
     });
 
     (order as any).nslf = invoice.nslf;
@@ -521,27 +554,24 @@ export async function fiscalizePosOrder(
     }
 
     let einvoice: RegisterEinvoiceResult | undefined;
-    const wantEinvoice = opts?.createEinvoice ?? config.autoEinvoice;
-    if (wantEinvoice) {
-        try {
-            einvoice = await registerEinvoiceForPosOrder(order, config, {
-                companyVat: opts?.companyVat,
-                companyName: opts?.companyName,
-                currency: opts?.currency,
-            });
-            if (einvoice.eic) {
-                (order as any).eic = einvoice.eic;
-                (order as any).einvoiceAt = new Date();
-                (order as any).ublXml = einvoice.ublXml;
-                (order as any).fiscalError = undefined;
-            } else if (einvoice.fault) {
-                (order as any).fiscalError = einvoice.fault;
-            }
-            await order.save();
-        } catch (e: any) {
-            (order as any).fiscalError = e?.message || String(e);
-            await order.save();
+    try {
+        einvoice = await registerEinvoiceForPosOrder(order, config, {
+            companyVat: opts?.companyVat,
+            companyName: opts?.companyName,
+            currency: opts?.currency,
+        });
+        if (einvoice.eic) {
+            (order as any).eic = einvoice.eic;
+            (order as any).einvoiceAt = new Date();
+            (order as any).ublXml = einvoice.ublXml;
+            (order as any).fiscalError = undefined;
+        } else if (einvoice.fault) {
+            (order as any).fiscalError = einvoice.fault;
         }
+        await order.save();
+    } catch (e: any) {
+        (order as any).fiscalError = e?.message || String(e);
+        await order.save();
     }
 
     return {order, invoice, einvoice};

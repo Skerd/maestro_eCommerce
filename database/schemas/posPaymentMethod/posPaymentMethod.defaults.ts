@@ -8,7 +8,7 @@ export type PosPaymentMethodSeed = {
     name: string;
     type: "cash" | "card";
     sequence: number;
-    /** Card must keep `terminalEnabled: true` or the pre-save hook rewrites type to cash. */
+    /** Card saves with the terminal on. The pre-save hook sets this from `type`. */
     terminalEnabled: boolean;
     cashQuickAmounts?: string;
 };
@@ -27,8 +27,7 @@ export const defaultPosPaymentMethodSeeds: readonly PosPaymentMethodSeed[] = [
         name: "Card",
         type: "card",
         sequence: 2,
-        // Hook: terminalEnabled → type card; terminalEnabled false + type card → cash.
-        // Provider stays `manual` — no host / terminalId / secrets.
+        // Hook: type card → terminalEnabled. Provider stays `manual` — no host / terminalId / secrets.
         terminalEnabled: true,
     },
 ];

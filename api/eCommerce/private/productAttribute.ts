@@ -1,5 +1,6 @@
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createProductAttributeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/createProductAttribute.form.validator";
 import {editProductAttributeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/editProductAttribute.form.validator";
 import {ProductAttributeSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
@@ -24,16 +25,14 @@ export const {router} = createCrudRouter({
     toSelect: productAttributesToSelect,
     buildCreateData: buildCreateDataFromSchemaDef(ProductAttributeSchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(ProductAttributeSchemaDef),
-    beforeDelete: async (params, doc) => {
+    beforeDelete: async ({company, languageCode}, doc) => {
         const inUse = await ProductVariant.countDocuments({
-            company: params.company._id,
+            company: company._id,
             "attributeCombination.attribute": doc._id,
             deletedAt: null,
         });
         if (inUse > 0) {
-            const err: any = new Error("product_attribute_in_use_by_variants");
-            err.statusCode = 409;
-            throw err;
+            throw apiValidationException("product_attribute_in_use_by_variants", "", null, languageCode);
         }
     },
     rateLimits: {read: 60, write: 30, delete: 20},

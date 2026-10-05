@@ -1,5 +1,6 @@
 import type {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
 import type {FiscalConfig} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/fiscalConfig.dto";
+import {mapMedia} from "@coreModule/utilities/mappers/common.mapper";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -27,10 +28,11 @@ export function fiscalConfigToDTO(config: IFiscalConfig): FiscalConfig {
         sellerTown: config.sellerTown,
         sellerCountry: config.sellerCountry,
         isVatRegistered: !!config.isVatRegistered,
-        autoFiscalizePos: !!config.autoFiscalizePos,
-        autoEinvoice: !!config.autoEinvoice,
         environment: (config.environment as "test" | "production") || "test",
-        hasCertificate: !!config.hasCertificate,
+        certificate: config.certificate?.flatMap(item => {
+            const media = mapMedia(item);
+            return media ? [media] : [];
+        }),
         isActive: !!config.isActive,
         ...mapSoftDeleteToDTO(config),
         ...mapOwnershipToDTO(config),

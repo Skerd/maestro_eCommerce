@@ -8,5 +8,3 @@ export class ProductCategoryService extends BaseCrudService<IProductCategory, ty
 }
 
 export const categoryService = new ProductCategoryService();
-/** @deprecated */
-export const ListingCategoryService = ProductCategoryService;

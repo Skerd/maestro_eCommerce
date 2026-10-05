@@ -1,13 +1,19 @@
+import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW from "@coreModule/utilities/middlewares/authMW";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {DiscountSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/discount.schema-def";
 import {createDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/createDiscount.form.validator";
 import {editDiscountFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/editDiscount.form.validator";
+import {
+    validateDiscountFormSchema,
+    type ValidateDiscountFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/discount/validateDiscount.form.validator";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {DiscountActions} from "@eCommerceModule/database/schemas/discount/discount.actions";
@@ -22,7 +28,6 @@ import {
     validateDiscount,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
-import {ObjectId} from "mongodb";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
@@ -31,29 +36,19 @@ const discountTransforms = {
 const buildDiscountCreateFromSchemaDef = buildCreateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
 const buildDiscountUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(DiscountSchemaDef, discountTransforms);
 
-function isBuyXGetYConfigured(buyXGetY: unknown): boolean {
-    if (!buyXGetY || typeof buyXGetY !== "object") return false;
-    const bx = buyXGetY as {buyQuantity?: unknown; getQuantity?: unknown; getProductIds?: unknown};
-    const buyOk = typeof bx.buyQuantity === "number" && bx.buyQuantity >= 1 && !Number.isNaN(bx.buyQuantity);
-    const getOk = typeof bx.getQuantity === "number" && bx.getQuantity >= 1 && !Number.isNaN(bx.getQuantity);
-    const productsOk = Array.isArray(bx.getProductIds) && bx.getProductIds.length >= 1;
-    return buyOk && getOk && productsOk;
-}
-
-/** Persist product-only BXGY shape; strip stale buyXGetY for other types. */
+/**
+ * Persist type-dependent shape. Cross-field BXGY presence is enforced by
+ * `refineBuyXGetY` on create/edit — this only mutates stored fields.
+ */
 function normalizeDiscountTypeFields(
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     type: unknown,
-    languageCode: string,
     mode: "create" | "update",
 ): void {
     if (type === "buy_x_get_y") {
         data.appliesTo = "product";
         data.value = 0;
         data.targetIds = [];
-        if (!isBuyXGetYConfigured(data.buyXGetY)) {
-            throw apiValidationException("buy_x_get_y_misconfigured", "buyXGetY", null, languageCode);
-        }
         return;
     }
 
@@ -67,25 +62,16 @@ function normalizeDiscountTypeFields(
     }
 }
 
-function parseValidateItems(raw: unknown): CartForValidation["items"] {
-    if (!Array.isArray(raw)) return [];
-    const items: CartForValidation["items"] = [];
-    for (const row of raw) {
-        if (!row || typeof row !== "object") continue;
-        const productRaw = (row as any).productId ?? (row as any).product;
-        if (productRaw == null) continue;
-        const productId = productRaw instanceof ObjectId ? productRaw : new ObjectId(String(productRaw._id ?? productRaw));
-        const quantity = Number((row as any).quantity);
-        const unitPrice = Number((row as any).unitPrice);
-        if (!Number.isFinite(quantity) || quantity < 1 || !Number.isFinite(unitPrice)) continue;
-        const item: CartForValidation["items"][number] = {productId, quantity, unitPrice};
-        const variantRaw = (row as any).variantId ?? (row as any).variant;
-        if (variantRaw != null) {
-            item.variantId = variantRaw instanceof ObjectId ? variantRaw : new ObjectId(String(variantRaw._id ?? variantRaw));
-        }
-        items.push(item);
-    }
-    return items;
+function toValidationCart(form: ValidateDiscountFormType): CartForValidation {
+    const items: CartForValidation["items"] = (form.items ?? []).map((row) => ({
+        productId: new ObjectId(row.productId),
+        quantity: row.quantity,
+        unitPrice: row.unitPrice,
+        ...(row.variantId ? {variantId: new ObjectId(row.variantId)} : {}),
+        ...(row.categoryIds?.length ? {categoryIds: row.categoryIds} : {}),
+        ...(row.collectionIds?.length ? {collectionIds: row.collectionIds} : {}),
+    }));
+    return {subtotal: form.subtotal ?? 0, items};
 }
 
 export const basePath = "/api/eCommerce/discount";
@@ -103,18 +89,19 @@ export const {router} = createCrudRouter({
     toSelect: discountsToSelect,
     buildCreateData: async (params) => {
         const data = buildDiscountCreateFromSchemaDef(params);
-        normalizeDiscountTypeFields(data, data.type, params.languageCode, "create");
+        normalizeDiscountTypeFields(data, data.type, "create");
         data.usageCount = 0;
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = buildDiscountUpdateFromSchemaDef(params, writeFields);
-        const type = params.type ?? data.type ?? params.existing?.type;
-        // Ensure BXGY nested payload is available when type is BXGY (may live on params only).
+        const type = params.type ?? data.type ?? params.existing.type;
+        // Nested BXGY can be present on params but omitted from SchemaDef update when
+        // write allowlist is a boolean rather than `{keys:…}`.
         if (type === "buy_x_get_y" && data.buyXGetY == null && params.buyXGetY != null) {
             data.buyXGetY = params.buyXGetY;
         }
-        normalizeDiscountTypeFields(data, type, params.languageCode, "update");
+        normalizeDiscountTypeFields(data, type, "update");
         return data;
     },
     actions: DiscountActions,
@@ -128,8 +115,9 @@ router.post(
     "/validate",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, actionUserCtx, code, subtotal, items: rawItems} = params;
+    validateFormZod((languageCode, form) => validateDiscountFormSchema(languageCode ?? "en-US", form)),
+    asyncHandler(async (params: AuthenticatedMWType & ValidateDiscountFormType) => {
+        const {logger, languageCode, company, actionUserCtx, code} = params;
 
         // Staff tool: reveals the discount's configuration, so it needs read access to it
         const readable = SchemaGuard.sanitizeFields(Discount, {code: {}, value: {}}, "read", actionUserCtx, languageCode);
@@ -137,13 +125,11 @@ router.post(
             throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
         }
 
-        if (!code) throw apiValidationException("code_required", "code", null, languageCode);
-
         const now = new Date();
         const discount = await discountService.findOne(
             {
                 company: company._id,
-                code: String(code).trim().toUpperCase(),
+                code: code.trim().toUpperCase(),
                 isActive: true,
                 startsAt: {$lte: now},
                 $or: [{endsAt: null}, {endsAt: {$gte: now}}],
@@ -155,12 +141,12 @@ router.post(
             return {valid: false, message: "discount_not_found"};
         }
 
-        const items = parseValidateItems(rawItems);
-        if (discount.type === "buy_x_get_y" && items.length === 0) {
+        const cart = toValidationCart(params);
+        if (discount.type === "buy_x_get_y" && cart.items.length === 0) {
             return {valid: false, message: "buy_x_get_y_items_required"};
         }
 
-        const result = validateDiscount({subtotal: Number(subtotal) || 0, items}, discount);
+        const result = validateDiscount(cart, discount);
 
         if (result.valid === false) {
             return {valid: false, message: result.reason};

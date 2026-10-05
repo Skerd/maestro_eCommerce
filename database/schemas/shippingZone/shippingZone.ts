@@ -15,7 +15,14 @@ import {addModelData} from "@coreModule/database/collections";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ShippingZoneSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/shippingZone.schema-def";
+import {
+    SHIPPING_ZONE_CARRIER_MAX,
+    SHIPPING_ZONE_NAME_MAX,
+    SHIPPING_ZONE_POSTAL_CODE_PATTERN_MAX,
+    SHIPPING_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS,
+    SHIPPING_ZONE_RATE_NAME_MAX,
+    ShippingZoneSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/shippingZone.schema-def";
 import {applyShippingZoneIndexes} from "./shippingZone.indexes";
 import {shippingZoneViews} from "./shippingZone.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -39,7 +46,6 @@ export interface IShippingZone extends Document, IOwnershipPluginFields, ISoftDe
         };
     }[];
     isActive: boolean;
-    company: ICompany;
 }
 
 const ShippingZoneSchema = new Schema<IShippingZone>(
@@ -47,7 +53,8 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: SHIPPING_ZONE_NAME_MAX,
         },
         countries: {
             type: [{
@@ -66,8 +73,18 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
             default: []
         },
         postalCodePatterns: {
-            type: [SchemaTypes.String],
-            default: []
+            type: [{
+                type: SchemaTypes.String,
+                trim: true,
+                maxlength: SHIPPING_ZONE_POSTAL_CODE_PATTERN_MAX,
+            }],
+            default: [],
+            validate: {
+                validator(value: string[]) {
+                    return !value || value.length <= SHIPPING_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS;
+                },
+                message: `Cannot have more than ${SHIPPING_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS} postal code patterns`,
+            },
         },
         rates: {
             type: [
@@ -75,7 +92,8 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                     name: {
                         type: SchemaTypes.String,
                         required: true,
-                        trim: true
+                        trim: true,
+                        maxlength: SHIPPING_ZONE_RATE_NAME_MAX,
                     },
                     type: {
                         type: SchemaTypes.String,
@@ -87,7 +105,9 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                         min: 0
                     },
                     carrier: {
-                        type: SchemaTypes.String
+                        type: SchemaTypes.String,
+                        trim: true,
+                        maxlength: SHIPPING_ZONE_CARRIER_MAX,
                     },
                     estimatedDeliveryDays: {
                         type: SchemaTypes.Number,

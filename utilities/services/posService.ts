@@ -23,6 +23,7 @@ import {
     buildReceiptFromPosOrder,
     getPosSessionReconciliation,
     rebuildPaidPosResult,
+    refToId,
 } from "@eCommerceModule/utilities/services/posTillOps";
 import {warehouseIdsFromPosConfig} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
 import {
@@ -242,7 +243,7 @@ export async function openPosSession(
         _id: body.configId,
         company: ctx.company._id,
         deletedAt: null,
-    }).populate("paymentMethods warehouses currency managers");
+    }).populate("paymentMethods warehouses currency managers fiscalConfig");
 
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
 
@@ -314,7 +315,7 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
     if (!session) return null;
 
     const config = await PosConfig.findById(session.config).populate(
-        "paymentMethods warehouses currency managers pausedBy",
+        "paymentMethods warehouses currency managers pausedBy fiscalConfig",
     );
     const companyLock = await getCompanyPosLock(ctx.company._id);
     const companyLockActive = isCompanyPosLockActive(companyLock);
@@ -533,7 +534,7 @@ export async function loadPosCatalog(
               status: "active",
           })
               .select("product sku barcode price attributeCombination trackInventory")
-              .sort({position: 1})
+              .sort({order: 1})
               .lean()
         : [];
 
@@ -651,6 +652,15 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     if (!warehouseIds.length) {
         throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
     }
+    const assignedFiscalConfigId = refToId(config.fiscalConfig);
+    const FiscalConfigModel = (await import("@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig")).default;
+    const assignedFiscal = assignedFiscalConfigId
+        ? await FiscalConfigModel.findOne({
+            _id: assignedFiscalConfigId,
+            company: ctx.company._id,
+            deletedAt: null,
+        }).select("_id isActive certificate")
+        : null;
     const currencyId = ((config.currency as any)?._id ?? config.currency) as ObjectId | undefined;
 
     const lines: any[] = [];
@@ -914,21 +924,13 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     receipt.paidAt = now.toISOString();
     receipt.customerName = body.customerName || "Walk-in Customer";
 
-    // Optional Albanian CIS fiscalization (best-effort; pay succeeds even if CIS fails)
+    // Albanian CIS fiscalization when the till's fiscal config is active and has a certificate (best-effort; pay succeeds even if CIS fails)
     let fiscal: {nslf?: string; nivf?: string; eic?: string; qrVerifyUrl?: string; fault?: string} | undefined;
     try {
         const {fiscalizePosOrder} = await import("@eCommerceModule/utilities/fiscalization/fiscalizationService");
-        const FiscalConfigModel = (await import("@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig")).default;
-        const autoCfg = await FiscalConfigModel.findOne({
-            company: ctx.company._id,
-            deletedAt: null,
-            isActive: true,
-            autoFiscalizePos: true,
-            hasCertificate: true,
-        }).select("_id");
-        if (autoCfg) {
+        if (assignedFiscal?.isActive && (assignedFiscal.certificate?.length ?? 0) > 0) {
             const result = await fiscalizePosOrder(posOrder._id.toString(), ctx.company._id, {
-                fiscalConfigId: autoCfg._id.toString(),
+                fiscalConfigId: assignedFiscal._id.toString(),
                 companyVat: (ctx.company as any).vat,
                 companyName: (ctx.company as any).name,
             });
@@ -958,7 +960,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             };
         }
     } catch (err: any) {
-        ctx.logger?.warn?.(`POS auto-fiscalize skipped/failed: ${err?.message || err}`);
+        ctx.logger?.warn?.(`POS fiscalize skipped/failed: ${err?.message || err}`);
         fiscal = {fault: err?.message || String(err)};
     }
 

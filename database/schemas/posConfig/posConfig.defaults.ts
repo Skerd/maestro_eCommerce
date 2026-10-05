@@ -17,6 +17,7 @@ export async function createPosConfigs(
     currencyId: Types.ObjectId,
     methods: CreatePosPaymentMethodsResult,
     warehouseId: Types.ObjectId | undefined,
+    fiscalConfigId: Types.ObjectId | undefined,
 ): Promise<HydratedDocument<IPosConfig> | undefined> {
     const logger = getLogger("mongoDbInitialization-createPosConfigs", parentLogger);
     logger.start("Creating POS configs...");
@@ -26,7 +27,6 @@ export async function createPosConfigs(
         logger.finish("Finished creating POS configs!", 0);
         return undefined;
     }
-
     const cash = methods.byName["Cash"];
     const card = methods.byName["Card"];
     if (!cash || !card) {
@@ -41,6 +41,7 @@ export async function createPosConfigs(
             paymentMethods: [cash._id, card._id],
             warehouses: [warehouseId],
             currency: currencyId,
+            ...(fiscalConfigId ? {fiscalConfig: fiscalConfigId} : {}),
             receiptHeader: "Pronix — Tirana Front Till",
             receiptFooter: "Thank you — demo till",
             ifaceBarcodeScanner: true,

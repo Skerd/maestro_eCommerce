@@ -6,5 +6,6 @@ export const FiscalConfigSimpleSnippet = defineSnippet<IFiscalConfig, FiscalConf
     keys: {
         _id: {},
         name: {},
+        isActive: {},
     },
 });

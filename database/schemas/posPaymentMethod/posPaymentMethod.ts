@@ -12,7 +12,13 @@ import {
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {
+    POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
+    POS_PAYMENT_METHOD_NAME_MAX,
+    POS_PAYMENT_METHOD_TERMINAL_HOST_MAX,
+    POS_PAYMENT_METHOD_TERMINAL_ID_MAX,
+    POS_PAYMENT_METHOD_TERMINAL_PATH_MAX,
     PosPaymentMethodSchemaDef,
+    posPaymentMethodTypes,
     type PosPaymentMethodType,
     type PosTerminalProtocol,
     type PosTerminalProvider,
@@ -44,11 +50,12 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: POS_PAYMENT_METHOD_NAME_MAX,
         },
         type: {
             type: SchemaTypes.String,
-            enum: ["cash", "card", "bank", "customer_account", "other"],
+            enum: [...posPaymentMethodTypes],
             required: true,
         },
         isActive: {
@@ -62,7 +69,8 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
         },
         cashQuickAmounts: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
         },
         terminalEnabled: {
             type: SchemaTypes.Boolean,
@@ -80,7 +88,8 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
         },
         terminalHost: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: POS_PAYMENT_METHOD_TERMINAL_HOST_MAX,
         },
         terminalPort: {
             type: SchemaTypes.Number,
@@ -89,24 +98,22 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
         },
         terminalId: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: POS_PAYMENT_METHOD_TERMINAL_ID_MAX,
         },
         terminalPath: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: POS_PAYMENT_METHOD_TERMINAL_PATH_MAX,
             default: "/payment"
         },
     },
     {accessMode: "loose"},
 );
 
-/** Terminal on → card; off + card → cash. */
+/** Type is the source of truth: card enables the terminal, every other type turns it off. */
 PosPaymentMethodSchema.pre("save", function () {
-    if (this.terminalEnabled) {
-        this.type = "card";
-    } else if (this.type === "card") {
-        this.type = "cash";
-    }
+    this.terminalEnabled = this.type === "card";
 });
 
 // CRUD updates may use updateOne / findOneAndUpdate ($set), which bypass document save hooks.
@@ -116,17 +123,12 @@ PosPaymentMethodSchema.pre(["updateOne", "findOneAndUpdate"], async function () 
 
     const $set = update.$set
         ?? (Object.keys(update).some((key) => key.startsWith("$")) ? null : update);
-    if (!$set || $set.terminalEnabled === undefined) return;
-
-    if ($set.terminalEnabled) {
-        $set.type = "card";
-        return;
-    }
+    if (!$set || ($set.type === undefined && $set.terminalEnabled === undefined)) return;
 
     const type =
         $set.type
         ?? (await this.model.findOne(this.getQuery()).select("type").lean())?.type;
-    if (type === "card") $set.type = "cash";
+    $set.terminalEnabled = type === "card";
 });
 
 ownershipPlugin(PosPaymentMethodSchema);

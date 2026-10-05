@@ -13,11 +13,18 @@ import {
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {PosConfigSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.schema-def";
+import {
+    POS_CONFIG_NAME_MAX,
+    POS_CONFIG_RECEIPT_MAX,
+    PosConfigSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.schema-def";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
 import {PosPaymentMethodSimpleSnippet} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.snippets";
+import {FiscalConfigSimpleSnippet} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
+import {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {PosConfigManagerUserSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IWarehouse} from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import {applyPosConfigIndexes} from "./posConfig.indexes";
@@ -47,6 +54,8 @@ export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDelet
     /** Warehouses this till can sell from (stock is aggregated / allocated across them). */
     warehouses?: IWarehouse[];
     currency?: ICurrency;
+    /** When set, sales on this till fiscalize with this config. */
+    fiscalConfig?: IFiscalConfig;
     receiptHeader?: string;
     receiptFooter?: string;
     ifaceBarcodeScanner: boolean;
@@ -66,7 +75,6 @@ export interface IPosConfig extends Document, IOwnershipPluginFields, ISoftDelet
     pausedAt?: Date | null;
     pausedBy?: IUser | null;
     pauseReason?: string | null;
-    company: ICompany;
 }
 
 const PosConfigSchema = new Schema<IPosConfig>(
@@ -74,7 +82,8 @@ const PosConfigSchema = new Schema<IPosConfig>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: POS_CONFIG_NAME_MAX,
         },
         paymentMethods: {
             type: [{
@@ -83,12 +92,16 @@ const PosConfigSchema = new Schema<IPosConfig>(
                 refAllowlist: PosPaymentMethodSimpleSnippet
             }],
             default: [],
+            validate: {
+                validator: (v: unknown[]) => Array.isArray(v) && v.length > 0,
+                message: "At least one payment method is required",
+            },
         },
         managers: {
             type: [{
                 type: SchemaTypes.ObjectId,
                 ref: "User",
-                refAllowlist: SimpleUserSnippet
+                refAllowlist: PosConfigManagerUserSnippet
             }],
             default: [],
         },
@@ -137,11 +150,18 @@ const PosConfigSchema = new Schema<IPosConfig>(
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet
         },
+        fiscalConfig: {
+            type: SchemaTypes.ObjectId,
+            ref: "FiscalConfig",
+            refAllowlist: FiscalConfigSimpleSnippet,
+        },
         receiptHeader: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: POS_CONFIG_RECEIPT_MAX,
         },
         receiptFooter: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: POS_CONFIG_RECEIPT_MAX,
         },
         ifaceBarcodeScanner: {
             type: SchemaTypes.Boolean,
@@ -209,10 +229,4 @@ normalizeSchemaPermissions(PosConfig);
 export default PosConfig;
 
 addModelData(PosConfig, posConfigViews);
-validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", [
-    "managerPins",
-    "pausedAt",
-    "pausedBy",
-    "pauseReason",
-    "isActive",
-]);
+validateSchemaDefAgainstMongoose(PosConfigSchema, PosConfigSchemaDef, "PosConfig", ["managerPins", "pausedAt", "pausedBy", "pauseReason", "isActive"]);

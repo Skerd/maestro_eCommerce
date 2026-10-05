@@ -17,7 +17,13 @@ import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
 import {CitySimpleSnippet} from "@coreModule/database/schemas/city/city.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {WarehouseSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/warehouse.schema-def";
+import {
+    WAREHOUSE_CODE_MAX,
+    WAREHOUSE_NAME_MAX,
+    WAREHOUSE_POSTAL_CODE_MAX,
+    WAREHOUSE_STREET_MAX,
+    WarehouseSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/warehouse.schema-def";
 import {applyWarehouseIndexes} from "./warehouse.indexes";
 import {warehouseViews} from "./warehouse.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -38,27 +44,69 @@ export interface IWarehouse extends Document, IOwnershipPluginFields, ISoftDelet
     address?: IWarehouseAddress;
     isDefault: boolean;
     isActive: boolean;
-    company: ICompany;
 }
 
 const WarehouseSchema = new Schema<IWarehouse>(
     {
-        name: {type: SchemaTypes.String, required: true, trim: true},
-        code: {type: SchemaTypes.String, required: true, trim: true, uppercase: true},
+        name: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            maxlength: WAREHOUSE_NAME_MAX,
+        },
+        code: {
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            uppercase: true,
+            maxlength: WAREHOUSE_CODE_MAX,
+        },
         address: {
             type: {
-                country: {type: SchemaTypes.ObjectId, ref: "Country", refAllowlist: CountrySimpleSnippet},
-                state: {type: SchemaTypes.ObjectId, ref: "State", refAllowlist: StateSimpleSnippet},
-                city: {type: SchemaTypes.ObjectId, ref: "City", refAllowlist: CitySimpleSnippet},
-                street: {type: SchemaTypes.String},
-                postalCode: {type: SchemaTypes.String},
-                latitude: {type: SchemaTypes.Number},
-                longitude: {type: SchemaTypes.Number},
+                country: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "Country",
+                    refAllowlist: CountrySimpleSnippet
+                },
+                state: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "State",
+                    refAllowlist: StateSimpleSnippet
+                },
+                city: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "City",
+                    refAllowlist: CitySimpleSnippet
+                },
+                street: {
+                    type: SchemaTypes.String,
+                    maxlength: WAREHOUSE_STREET_MAX,
+                },
+                postalCode: {
+                    type: SchemaTypes.String,
+                    maxlength: WAREHOUSE_POSTAL_CODE_MAX,
+                },
+                latitude: {
+                    type: SchemaTypes.Number,
+                    min: -90,
+                    max: 90,
+                },
+                longitude: {
+                    type: SchemaTypes.Number,
+                    min: -180,
+                    max: 180,
+                },
             },
             required: false,
         },
-        isDefault: {type: SchemaTypes.Boolean, default: false},
-        isActive: {type: SchemaTypes.Boolean, default: true},
+        isDefault: {
+            type: SchemaTypes.Boolean,
+            default: false
+        },
+        isActive: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
     },
     {accessMode: "loose"},
 );

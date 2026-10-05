@@ -1,12 +1,15 @@
 import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
-import type {PosConfig} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.dto";
+import type {PosConfig, PosConfigManagerUser} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/posConfig.dto";
 import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
 import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
 import type {WarehouseSimple} from "armonia/src/modules/eCommerce/dto/warehouse.dto";
+import type {FiscalConfigSimple} from "armonia/src/modules/eCommerce/dto/fiscalConfig.dto";
 import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
+import {FiscalConfigSimpleSnippet} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
+import {PosConfigManagerUserSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -48,18 +51,22 @@ export function posConfigToDTO(config: IPosConfig, opts: PosConfigDtoOptions = {
             terminalPort: m.terminalPort,
             terminalId: m.terminalId,
             terminalPath: m.terminalPath,
-        })),
-        managers: config.managers?.map((m) => ({
-            _id: m._id.toString(),
-            name: m.name,
-            surname: m.surname,
-            username: m.username,
-            hasPin: !!pinsByUser.get(m._id.toString())?.pinHash,
-        })),
+        })) ?? [],
+        managers: config.managers
+            ?.map((m) => {
+                const user = mapSnippet<PosConfigManagerUser>()(m, PosConfigManagerUserSnippet);
+                if (!user) return null;
+                return {
+                    ...user,
+                    hasPin: !!pinsByUser.get(user._id)?.pinHash,
+                };
+            })
+            .filter((m): m is NonNullable<typeof m> => !!m),
         warehouses: config.warehouses
             ?.map((warehouse) => mapSnippet<WarehouseSimple>()(warehouse, WarehouseSimpleSnippet))
             .filter((w): w is WarehouseSimple => !!w) ?? [],
         currency: mapSnippet<CurrencySimple>()(config.currency, CurrencySimpleSnippet),
+        fiscalConfig: mapSnippet<FiscalConfigSimple>()(config.fiscalConfig, FiscalConfigSimpleSnippet),
         receiptHeader: config.receiptHeader,
         receiptFooter: config.receiptFooter,
         ifaceBarcodeScanner: config.ifaceBarcodeScanner,

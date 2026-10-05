@@ -4,7 +4,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import PosCompanyPosLock, {
     type IPosCompanyPosLock,
 } from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
-import PosConfig, {type IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
@@ -311,45 +311,6 @@ export async function upsertCompanyPosLock(
         {upsert: true, new: true, session: session ?? undefined},
     );
     return doc!;
-}
-
-export async function stampAllConfigsPaused(
-    companyId: ObjectId | string,
-    fields: {pausedAt: Date; pausedBy: ObjectId; pauseReason: string | null},
-    session?: ClientSession | null,
-): Promise<ObjectId[]> {
-    const configs = await PosConfig.find({
-        company: companyId,
-        deletedAt: null,
-    })
-        .select("_id")
-        .session(session ?? null);
-    const ids = configs.map((c) => c._id as ObjectId);
-    if (!ids.length) return ids;
-
-    await PosConfig.updateMany(
-        {_id: {$in: ids}},
-        {
-            $set: {
-                pausedAt: fields.pausedAt,
-                pausedBy: fields.pausedBy,
-                pauseReason: fields.pauseReason,
-            },
-        },
-        {session: session ?? undefined},
-    );
-    return ids;
-}
-
-export async function clearAllConfigPauses(
-    companyId: ObjectId | string,
-    session?: ClientSession | null,
-): Promise<void> {
-    await PosConfig.updateMany(
-        {company: companyId, deletedAt: null},
-        {$set: {pausedAt: null, pausedBy: null, pauseReason: null}},
-        {session: session ?? undefined},
-    );
 }
 
 /** Resolve terminal cancel path from payment method for in-flight registry. */

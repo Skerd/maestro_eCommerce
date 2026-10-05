@@ -19,7 +19,12 @@ import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snipp
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
+import {
+    PRODUCT_VARIANT_ATTRIBUTE_VALUE_MAX,
+    PRODUCT_VARIANT_BARCODE_MAX,
+    PRODUCT_VARIANT_SKU_MAX,
+    ProductVariantSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
 import {applyProductVariantIndexes} from "./productVariant.indexes";
 import {productVariantViews} from "./productVariant.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -40,10 +45,9 @@ export interface IProductVariant extends Document, IOwnershipPluginFields, ISoft
     weight?: number;
     dimensions?: {length?: number; width?: number; height?: number};
     mainImage?: IMedia;
-    position: number;
+    order: number;
     status: "active" | "inactive";
     trackInventory?: boolean;
-    company: ICompany;
 }
 
 const ProductVariantSchema = new Schema<IProductVariant>(
@@ -56,11 +60,13 @@ const ProductVariantSchema = new Schema<IProductVariant>(
         },
         sku: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_VARIANT_SKU_MAX,
         },
         barcode: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_VARIANT_BARCODE_MAX,
         },
         attributeCombination: {
             type: [
@@ -72,27 +78,49 @@ const ProductVariantSchema = new Schema<IProductVariant>(
                     },
                     value: {
                         type: SchemaTypes.String,
-                        required: true
+                        required: true,
+                        maxlength: PRODUCT_VARIANT_ATTRIBUTE_VALUE_MAX,
                     },
                     _id: false,
                 },
             ],
             default: [],
         },
-        price: {type: SchemaTypes.Number, min: 0},
-        compareAtPrice: {type: SchemaTypes.Number, min: 0},
-        costPrice: {type: SchemaTypes.Number, min: 0},
+        price: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        compareAtPrice: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
+        costPrice: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
         currency: {
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet,
         },
-        weight: {type: SchemaTypes.Number, min: 0},
+        weight: {
+            type: SchemaTypes.Number,
+            min: 0
+        },
         dimensions: {
             type: {
-                length: {type: SchemaTypes.Number, min: 0},
-                width: {type: SchemaTypes.Number, min: 0},
-                height: {type: SchemaTypes.Number, min: 0},
+                length: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
+                width: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
+                height: {
+                    type: SchemaTypes.Number,
+                    min: 0
+                },
             },
             _id: false,
         },
@@ -101,7 +129,10 @@ const ProductVariantSchema = new Schema<IProductVariant>(
             ref: "Media",
             refAllowlist: MediaSimpleSnippet,
         },
-        position: {type: SchemaTypes.Number, default: 0},
+        order: {
+            type: SchemaTypes.Number,
+            default: 0
+        },
         status: {
             type: SchemaTypes.String,
             enum: ["active", "inactive"],
@@ -113,7 +144,10 @@ const ProductVariantSchema = new Schema<IProductVariant>(
                 },
             },
         },
-        trackInventory: {type: SchemaTypes.Boolean, default: true},
+        trackInventory: {
+            type: SchemaTypes.Boolean,
+            default: true
+        },
     },
     {accessMode: "loose"},
 );

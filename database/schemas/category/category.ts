@@ -15,8 +15,12 @@ import { addModelData } from "@coreModule/database/collections";
 import { categoryViews } from "./category.views";
 import { CategorySimpleSnippet } from "@eCommerceModule/database/schemas/category/category.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {CategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
+import {
+    CATEGORY_NAME_MAX,
+    CategorySchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
 
 export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
@@ -26,19 +30,16 @@ export interface IProductCategory extends Document, IOwnershipPluginFields, ISof
     order: number;
 }
 
-/** @deprecated Prefer IProductCategory */
-export type ICategory = IProductCategory;
-
 const ProductCategorySchema = new Schema<IProductCategory>(
     {
         name: {
             type: SchemaTypes.String,
             required: true,
             trim: true,
+            maxlength: CATEGORY_NAME_MAX,
         },
         slug: {
             type: SchemaTypes.String,
-            // Set by hooks from name; not required so create validation can pass first.
             required: false,
             trim: true,
             lowercase: true,
@@ -68,41 +69,26 @@ ProductCategorySchema.pre("save", async function () {
     if (!this.isNew && !this.isModified("name")) return;
     const companyId = (this.company as {_id?: unknown} | null)?._id ?? this.company;
     if (!companyId) {
-        throw new Error("ProductCategory company is required to generate slug");
+        throw apiValidationException("product_category_company_required", "company", null, DEFAULT_EXCEPTION_LANGUAGE);
     }
-    this.slug = await generateUniqueSlug(
-        this.name,
-        this.constructor,
-        companyId as any,
-        this.isNew ? undefined : this._id,
-    );
+    this.slug = await generateUniqueSlug(this.name, this.constructor, companyId as any, this.isNew ? undefined : this._id);
 });
 
-// CRUD updates use updateOne ($set), which bypasses document save hooks.
+// CRUD edit uses updateOne($set), which skips pre("save").
 ProductCategorySchema.pre(["updateOne", "findOneAndUpdate"], async function () {
-    const update = this.getUpdate() as Record<string, any> | null;
-    if (!update) return;
-
-    const $set = update.$set
-        ?? (Object.keys(update).some((key) => key.startsWith("$")) ? null : update);
+    const update = this.getUpdate();
+    if (!update || Array.isArray(update)) return;
+    const {$set} = update;
     if (!$set || $set.name === undefined || $set.slug !== undefined) return;
 
-    const session = this.getOptions()?.session ?? null;
     const existing = await this.model
         .findOne(this.getQuery())
         .select("_id company")
-        .session(session)
+        .session(this.getOptions()?.session ?? null)
         .lean();
     if (!existing?.company) return;
 
-    const slug = await generateUniqueSlug(
-        String($set.name),
-        this.model,
-        existing.company as any,
-        existing._id as any,
-    );
-    if (update.$set) update.$set.slug = slug;
-    else update.slug = slug;
+    $set.slug = await generateUniqueSlug(String($set.name), this.model, existing.company, existing._id);
 });
 
 ownershipPlugin(ProductCategorySchema);
@@ -113,8 +99,6 @@ lifeCyclePlugin(ProductCategorySchema);
 const ProductCategory = model<IProductCategory>("ProductCategory", ProductCategorySchema);
 normalizeSchemaPermissions(ProductCategory);
 export default ProductCategory;
-/** @deprecated Prefer default ProductCategory export */
-export const ListingCategory = ProductCategory;
 
 addModelData(ProductCategory, categoryViews);
 validateSchemaDefAgainstMongoose(ProductCategorySchema, CategorySchemaDef, "ProductCategory");

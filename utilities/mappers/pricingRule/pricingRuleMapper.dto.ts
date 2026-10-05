@@ -56,6 +56,8 @@ function buildPricingRuleDTO(
         isActive: rule.isActive,
         startsAt: dateToISOString(rule.startsAt) || undefined,
         endsAt: dateToISOString(rule.endsAt) || undefined,
+        ...(rule.type === "percentage_discount" ? {hasPercentageValue: true as const} : {}),
+        ...(rule.type !== "percentage_discount" ? {hasFixedValue: true as const} : {}),
         ...mapSoftDeleteToDTO(rule),
         ...mapOwnershipToDTO(rule),
         ...mapLifeCycleToDTO(rule),

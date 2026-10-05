@@ -11,8 +11,22 @@ import {
     ISoftDeletePluginFields,
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
+import type {IMedia} from "@coreModule/database/schemas/media/media";
+import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {FiscalConfigSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/fiscalConfig.schema-def";
+import {
+    FISCAL_CONFIG_CERTIFICATE_PASSWORD_MAX,
+    FISCAL_CONFIG_CIS_CODE_MAX,
+    FISCAL_CONFIG_NAME_MAX,
+    FISCAL_CONFIG_NIPT_MAX,
+    FISCAL_CONFIG_SELLER_ADDRESS_MAX,
+    FISCAL_CONFIG_SELLER_COUNTRY_MAX,
+    FISCAL_CONFIG_SELLER_NAME_MAX,
+    FISCAL_CONFIG_SELLER_TOWN_MAX,
+    FISCAL_CONFIG_TCR_INT_ID_MAX,
+    FISCAL_CONFIG_URL_MAX,
+    FiscalConfigSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscalConfig/fiscalConfig.schema-def";
 import {applyFiscalConfigIndexes} from "./fiscalConfig.indexes";
 import {fiscalConfigViews} from "./fiscalConfig.views";
 
@@ -35,13 +49,9 @@ export interface IFiscalConfig extends Document, IOwnershipPluginFields, ISoftDe
     sellerTown?: string;
     sellerCountry?: string;
     isVatRegistered: boolean;
-    autoFiscalizePos: boolean;
-    autoEinvoice: boolean;
     environment: "test" | "production";
-    certificateBase64?: string;
+    certificate: IMedia[];
     certificatePassword?: string;
-    hasCertificate: boolean;
-    clearCertificate?: boolean;
     isActive: boolean;
     company: ICompany;
 }
@@ -51,38 +61,46 @@ const FiscalConfigSchema = new Schema<IFiscalConfig>(
         name: {
             type: SchemaTypes.String, 
             required: true, 
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_NAME_MAX,
         },
         nipt: {
             type: SchemaTypes.String, 
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_NIPT_MAX,
         },
         softCode: {
             type: SchemaTypes.String, 
             required: true, 
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_CIS_CODE_MAX,
         },
         maintainerCode: {
             type: SchemaTypes.String, 
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_CIS_CODE_MAX,
         },
         businessUnitCode: {
             type: SchemaTypes.String, 
             required: true, 
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_CIS_CODE_MAX,
         },
         operatorCode: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_CIS_CODE_MAX,
         },
         tcrCode: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_CIS_CODE_MAX,
         },
         tcrIntId: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_TCR_INT_ID_MAX,
         },
         tcrType: {
             type: SchemaTypes.String,
@@ -92,71 +110,66 @@ const FiscalConfigSchema = new Schema<IFiscalConfig>(
         fiscalizationUrl: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_URL_MAX,
         },
         einvoiceUrl: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_URL_MAX,
         },
         selfcareUrl: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_URL_MAX,
         },
         proxyUrl: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_URL_MAX,
         },
         sellerName: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_SELLER_NAME_MAX,
         },
         sellerAddress: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_SELLER_ADDRESS_MAX,
         },
         sellerTown: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: FISCAL_CONFIG_SELLER_TOWN_MAX,
         },
         sellerCountry: {
             type: SchemaTypes.String,
             trim: true,
-            default: "ALB"
+            default: "ALB",
+            maxlength: FISCAL_CONFIG_SELLER_COUNTRY_MAX,
         },
         isVatRegistered: {
             type: SchemaTypes.Boolean,
             default: true
-        },
-        autoFiscalizePos: {
-            type: SchemaTypes.Boolean,
-            default: false
-        },
-        autoEinvoice: {
-            type: SchemaTypes.Boolean,
-            default: false
         },
         environment: {
             type: SchemaTypes.String,
             enum: ["test", "production"],
             default: "test"
         },
-        certificateBase64: {
-            type: SchemaTypes.String,
-            select: false
+        certificate: {
+            type: [{type: SchemaTypes.ObjectId, ref: "Media"}],
+            default: [],
+            refAllowlist: MediaSimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         certificatePassword: {
             type: SchemaTypes.String,
-            select: false
-        },
-        hasCertificate: {
-            type: SchemaTypes.Boolean,
-            default: false
-        },
-        clearCertificate: {
-            type: SchemaTypes.Boolean,
-            select: false
+            select: false,
+            maxlength: FISCAL_CONFIG_CERTIFICATE_PASSWORD_MAX,
         },
         isActive: {
             type: SchemaTypes.Boolean,
@@ -176,5 +189,4 @@ normalizeSchemaPermissions(FiscalConfig);
 export default FiscalConfig;
 
 addModelData(FiscalConfig, fiscalConfigViews);
-// hasCertificate is server-managed (set when cert is uploaded); not a form SchemaDef field.
-validateSchemaDefAgainstMongoose(FiscalConfigSchema, FiscalConfigSchemaDef, "FiscalConfig", ["hasCertificate"]);
+validateSchemaDefAgainstMongoose(FiscalConfigSchema, FiscalConfigSchemaDef, "FiscalConfig");

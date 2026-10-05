@@ -1,4 +1,3 @@
-import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
@@ -19,7 +18,7 @@ export const {router} = createCrudRouter({
     service: productVariantService,
     entityName: "ProductVariant",
     selectSearchField: "sku",
-    defaultSort: {position: 1},
+    defaultSort: {order: 1},
     createSchema: createProductVariantFormSchema,
     editSchema: editProductVariantFormSchema,
     toDTO: productVariantToDTO,
@@ -27,10 +26,6 @@ export const {router} = createCrudRouter({
     toSelect: productVariantsToSelect,
     createMiddleware: [mediaUpload],
     editMiddleware: [mediaUpload],
-    extraListFilter: async ({productId}) => {
-        if (!productId) return {};
-        return {product: new ObjectId(productId as string)};
-    },
     buildCreateData: buildCreateDataFromSchemaDef(ProductVariantSchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(ProductVariantSchemaDef),
     rateLimits: {read: 60, write: 30, delete: 20},

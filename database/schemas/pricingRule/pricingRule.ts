@@ -13,7 +13,10 @@ import {addModelData} from "@coreModule/database/collections";
 import {applyPricingRuleIndexes} from "./pricingRule.indexes";
 import {pricingRuleViews} from "./pricingRule.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {PricingRuleSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.schema-def";
+import {
+    PRICING_RULE_NAME_MAX,
+    PricingRuleSchemaDef,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/pricingRule.schema-def";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
@@ -41,15 +44,15 @@ export interface IPricingRule extends Document, IOwnershipPluginFields, ISoftDel
     isActive: boolean;
     startsAt?: Date;
     endsAt?: Date;
-    company: ICompany;
 }
 
 const PricingRuleSchema = new Schema<IPricingRule>(
     {
         name: {
-            type: SchemaTypes.String, 
-            required: true, 
-            trim: true
+            type: SchemaTypes.String,
+            required: true,
+            trim: true,
+            maxlength: PRICING_RULE_NAME_MAX,
         },
         type: {
             type: SchemaTypes.String,

@@ -1,28 +1,10 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {
+    PRODUCT_ATTRIBUTE_NAME_MAX,
+    PRODUCT_ATTRIBUTE_VALUE_MAX,
+    PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
-
-const productAttributeFormFields: ViewConfig["nodes"] = [
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
-        children: [
-            {render: "#Field", field: {name: "name", widget: "#Input", label: "form.nameLabel", required: true}},
-            {render: "#Field", field: {name: "position", widget: "#Input", label: "form.positionLabel", widgetProps: {type: "number", min: 0}}},
-            {render: "#Field", field: {name: "isVisibleOnProductPage", widget: "#Switch", label: "form.isVisibleOnProductPageLabel"}},
-            {render: "#Field", field: {name: "isUsedForVariants", widget: "#Switch", label: "form.isUsedForVariantsLabel"}},
-        ],
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "values",
-            widget: "#StringArrayInput",
-            label: "form.valuesLabel",
-            placeholder: "form.valuesPlaceholder",
-            widgetProps: {removeTooltipKey: "form.removeValue"},
-        },
-    },
-];
 
 export const productAttributeSheetView: ViewConfig = {
     model: "productAttributes",
@@ -85,6 +67,154 @@ export const productAttributeSheetView: ViewConfig = {
     ],
 };
 
+const productAttributeCreateFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "name",
+                    widget: "#Input",
+                    label: "form.nameLabel",
+                    placeholder: "form.namePlaceholder",
+                    required: true,
+                    widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
+                }
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "position",
+                    widget: "#Input",
+                    label: "form.positionLabel",
+                    placeholder: "form.positionPlaceholder",
+                    widgetProps: {
+                        type: "number",
+                        min: 0
+                    }
+                }
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        field: {
+            name: "values",
+            widget: "#StringArrayInput",
+            label: "form.valuesLabel",
+            placeholder: "form.valuesPlaceholder",
+            widgetProps: {
+                removeTooltipKey: "form.removeValue",
+                maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+                maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
+            },
+        },
+    },
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "isVisibleOnProductPage",
+                            widget: "#Switch", label: "form.isVisibleOnProductPageLabel"
+                        }
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "isUsedForVariants",
+                            widget: "#Switch",
+                            label: "form.isUsedForVariantsLabel"
+                        }
+                    }
+                ],
+            },
+        ],
+    },
+];
+
+const productAttributeEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "name",
+                    widget: "#Input",
+                    label: "form.nameLabel",
+                    placeholder: "form.namePlaceholder",
+                    required: true,
+                    widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
+                }, permissions: {read: "name", write: "name"}
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "position",
+                    widget: "#Input",
+                    label: "form.positionLabel",
+                    placeholder: "form.positionPlaceholder",
+                    widgetProps: {
+                        type: "number",
+                        min: 0
+                    }
+                }, permissions: {read: "position", write: "position"}
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        field: {
+            name: "values",
+            widget: "#StringArrayInput",
+            label: "form.valuesLabel",
+            placeholder: "form.valuesPlaceholder",
+            widgetProps: {
+                removeTooltipKey: "form.removeValue",
+                maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+                maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
+            },
+        }, permissions: {read: "values", write: "values"},
+    },
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "isVisibleOnProductPage",
+                            widget: "#Switch", label: "form.isVisibleOnProductPageLabel"
+                        }, permissions: {read: "isVisibleOnProductPage", write: "isVisibleOnProductPage"}
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "isUsedForVariants",
+                            widget: "#Switch",
+                            label: "form.isUsedForVariantsLabel"
+                        }, permissions: {read: "isUsedForVariants", write: "isUsedForVariants"}
+                    }
+                ],
+            },
+        ],
+    },
+];
+
 export const productAttributeCreateFormView: ViewConfig = {
     model: "productAttributes",
     viewType: "form",
@@ -92,7 +222,7 @@ export const productAttributeCreateFormView: ViewConfig = {
     accessModel: "productAttributes",
     apiUrl: "/api/eCommerce/productAttribute",
     method: "PUT",
-    nodes: productAttributeFormFields,
+    nodes: productAttributeCreateFormNodes,
 };
 
 export const productAttributeEditFormView: ViewConfig = {
@@ -102,7 +232,7 @@ export const productAttributeEditFormView: ViewConfig = {
     accessModel: "productAttributes",
     apiUrl: "/api/eCommerce/productAttribute",
     method: "PATCH",
-    nodes: productAttributeFormFields,
+    nodes: productAttributeEditFormNodes,
 };
 
 export const productAttributeViews: ViewConfig[] = [productAttributeSheetView, productAttributeCreateFormView, productAttributeEditFormView];

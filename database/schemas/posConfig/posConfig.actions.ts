@@ -30,13 +30,11 @@ import {
     userRefId,
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {
-    clearAllConfigPauses,
     forceCloseOpenSessionsForConfig,
     forceCloseOpenSessionsForConfigs,
     getCompanyPosLock,
     isCompanyPosLockActive,
     notifyPosTillsKilled,
-    stampAllConfigsPaused,
     upsertCompanyPosLock,
     type PosKillReason,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
@@ -249,11 +247,10 @@ export class PosConfigActions {
             {pausedAt: now, pausedBy: userId, pauseReason: reason},
             session,
         );
-        const configIds = await stampAllConfigsPaused(
-            company._id,
-            {pausedAt: now, pausedBy: userId, pauseReason: reason},
-            session,
-        );
+        const configs = await PosConfigModel.find({company: company._id, deletedAt: null})
+            .select("_id")
+            .session(session ?? null);
+        const configIds = configs.map((c) => c._id as ObjectId);
 
         await runKillPipeline(configIds[0] ?? company._id, "pauseAll", params, {
             pauseReason: reason,
@@ -281,7 +278,6 @@ export class PosConfigActions {
             {pausedAt: null, pausedBy: null, pauseReason: null},
             session,
         );
-        await clearAllConfigPauses(company._id, session);
 
         logger?.info?.("Company POS resume-all applied");
         return {message: "All POS configs resumed", isPaused: false};

@@ -156,9 +156,24 @@ export type PosReceiptPayload = {
 const PLACEHOLDER_SELFCARE =
     "https://efiskalizimi-app-test.tatime.gov.al/invoice-check/#/";
 
+/** ObjectId or populated ref → hex id. */
+export function refToId(value: unknown): string | undefined {
+    if (value == null || value === "") return undefined;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+        if ("_id" in value && (value as {_id?: unknown})._id != null) {
+            return refToId((value as {_id: unknown})._id);
+        }
+        const text = String(value);
+        if (text && text !== "[object Object]") return text;
+    }
+    return undefined;
+}
+
 async function buildReceiptFiscalQr(
     order: IPosOrder,
     ctx: Ctx,
+    fiscalConfigId?: string,
 ): Promise<Pick<PosReceiptPayload, "qrVerifyUrl" | "nslf" | "nivf" | "qrCodeDataUrl">> {
     const nslf = ((order as any).nslf as string | undefined) || undefined;
     const nivf = ((order as any).nivf as string | undefined) || undefined;
@@ -168,14 +183,16 @@ async function buildReceiptFiscalQr(
     let tin = "DEMO";
     try {
         const FiscalConfig = (await import("@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig")).default;
-        const fiscalCfg = await FiscalConfig.findOne({
-            company: ctx.company._id,
-            deletedAt: null,
-            isActive: true,
-        })
-            .select("selfcareUrl nipt")
-            .session(ctx.session ?? null)
-            .lean();
+        const fiscalCfg = fiscalConfigId
+            ? await FiscalConfig.findOne({
+                _id: fiscalConfigId,
+                company: ctx.company._id,
+                deletedAt: null,
+            })
+                .select("selfcareUrl nipt")
+                .session(ctx.session ?? null)
+                .lean()
+            : null;
         if (fiscalCfg) {
             if ((fiscalCfg as any).selfcareUrl) selfcareUrl = String((fiscalCfg as any).selfcareUrl);
             if ((fiscalCfg as any).nipt) tin = String((fiscalCfg as any).nipt).trim() || tin;
@@ -233,7 +250,7 @@ export async function buildReceiptFromPosOrder(
               ? (order as any).createdAt.toISOString()
               : new Date().toISOString();
 
-    const fiscalQr = await buildReceiptFiscalQr(order, ctx);
+    const fiscalQr = await buildReceiptFiscalQr(order, ctx, refToId(config?.fiscalConfig));
 
     return {
         companyName: ctx.company?.name || config?.name,

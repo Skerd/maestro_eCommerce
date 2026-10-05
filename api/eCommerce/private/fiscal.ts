@@ -9,6 +9,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {
     fiscalizePosOrder,
     getTaxpayer,
+    fiscalConfigIdForPosConfig,
     loadFiscalConfigWithCert,
     registerEinvoiceForPosOrder,
     registerTcr,
@@ -25,7 +26,6 @@ function fiscalizeFormSchema(languageCode: string, form: any = null) {
     return z.object({
         posOrderId: isObjectIdZod(form?.["posOrderIdLabel"] ?? "posOrderId", languageCode),
         fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode).optional(),
-        createEinvoice: z.boolean().optional(),
     });
 }
 
@@ -57,13 +57,12 @@ router.post(
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(fiscalizeFormSchema),
     asyncHandler(async (params: any) => {
-        const {company, languageCode, posOrderId, fiscalConfigId, createEinvoice} = params;
+        const {company, languageCode, posOrderId, fiscalConfigId} = params;
         try {
             const result = await fiscalizePosOrder(posOrderId, company._id, {
                 fiscalConfigId,
                 companyVat: company.vat,
                 companyName: company.name,
-                createEinvoice,
             });
             return {
                 data: {
@@ -90,7 +89,8 @@ router.post(
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
         const order = await PosOrder.findOne({_id: posOrderId, company: company._id, deletedAt: null});
         if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
-        const config = await loadFiscalConfigWithCert(company._id, fiscalConfigId);
+        const resolvedFiscalConfigId = fiscalConfigId ?? await fiscalConfigIdForPosConfig(company._id, order.config);
+        const config = await loadFiscalConfigWithCert(company._id, resolvedFiscalConfigId);
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
         try {
             const result = await registerEinvoiceForPosOrder(order, config, {

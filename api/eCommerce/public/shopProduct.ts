@@ -59,9 +59,9 @@ router.post(
 
         const variants = (product as any).hasVariants
             ? await ProductVariant.find({product: product._id, company: company._id, status: "active"})
-                  .select("sku price compareAtPrice attributeCombination mainImage position")
+                  .select("sku price compareAtPrice attributeCombination mainImage order")
                   .populate("attributeCombination.attribute", "name")
-                  .sort({position: 1})
+                  .sort({order: 1})
                   .lean()
             : [];
 
