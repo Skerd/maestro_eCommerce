@@ -471,7 +471,7 @@ export const posOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "fiscalization", defaultOpen: false},
-            dependent: "nslf",
+            dependentAny: ["nslf", "nivf", "fiscalInvNum", "fiscalError"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -519,6 +519,42 @@ export const posOrderSheetView: ViewConfig = {
                                 name: "fiscalInvOrdNum",
                                 widget: "#DisplayCard",
                                 label: "fiscalInvOrdNum",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "fiscalTypeOfInv",
+                                widget: "#DisplayCard",
+                                label: "fiscalTypeOfInv",
+                                widgetProps: {icon: "#IconReceipt"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "fiscalTcrCode",
+                                widget: "#DisplayCard",
+                                label: "fiscalTcrCode",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "fiscalOperatorCode",
+                                widget: "#DisplayCard",
+                                label: "fiscalOperatorCode",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "fiscalBusinessUnitCode",
+                                widget: "#DisplayCard",
+                                label: "fiscalBusinessUnitCode",
                                 widgetProps: {icon: "#Hash"},
                             },
                         },

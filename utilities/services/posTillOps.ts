@@ -117,6 +117,11 @@ async function buildDraftLines(
     return {lines, subtotal, lineDiscountTotal};
 }
 
+export type PosReceiptVatRow = {
+    rate: number;
+    amount: number;
+};
+
 export type PosReceiptPayload = {
     companyName?: string;
     header?: string;
@@ -135,6 +140,9 @@ export type PosReceiptPayload = {
     amountTotal: number;
     amountPaid: number;
     amountReturn: number;
+    amountTax: number;
+    amountWithoutVat: number;
+    vatRows: PosReceiptVatRow[];
     payments: {
         method: string;
         type?: string;
@@ -145,16 +153,20 @@ export type PosReceiptPayload = {
     }[];
     customerName?: string;
     paidAt?: string;
-    /** Albanian CIS verify URL (real or placeholder for demo). */
     qrVerifyUrl?: string;
     nslf?: string;
     nivf?: string;
-    /** PNG data URL for thermal receipt / on-screen print. */
     qrCodeDataUrl?: string;
+    fiscalIssueDateTime?: string;
+    fiscalInvNum?: string;
+    fiscalTcrCode?: string;
+    fiscalOperatorCode?: string;
+    fiscalBusinessUnitCode?: string;
+    fiscalTypeOfInv?: string;
+    fiscalError?: string;
+    fiscalized: boolean;
+    fiscalAttempted: boolean;
 };
-
-const PLACEHOLDER_SELFCARE =
-    "https://efiskalizimi-app-test.tatime.gov.al/invoice-check/#/";
 
 /** ObjectId or populated ref → hex id. */
 export function refToId(value: unknown): string | undefined {
@@ -170,63 +182,87 @@ export function refToId(value: unknown): string | undefined {
     return undefined;
 }
 
-async function buildReceiptFiscalQr(
-    order: IPosOrder,
-    ctx: Ctx,
-    fiscalConfigId?: string,
-): Promise<Pick<PosReceiptPayload, "qrVerifyUrl" | "nslf" | "nivf" | "qrCodeDataUrl">> {
-    const nslf = ((order as any).nslf as string | undefined) || undefined;
-    const nivf = ((order as any).nivf as string | undefined) || undefined;
-    let qrVerifyUrl = ((order as any).qrVerifyUrl as string | undefined) || undefined;
+type QrCodeModule = {
+    toDataURL?: (text: string, opts: object) => Promise<string>;
+    default?: {toDataURL?: (text: string, opts: object) => Promise<string>};
+};
 
-    let selfcareUrl = PLACEHOLDER_SELFCARE;
-    let tin = "DEMO";
+async function qrCodeDataUrl(payload: string): Promise<string | undefined> {
     try {
-        const FiscalConfig = (await import("@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig")).default;
-        const fiscalCfg = fiscalConfigId
-            ? await FiscalConfig.findOne({
-                _id: fiscalConfigId,
-                company: ctx.company._id,
-                deletedAt: null,
-            })
-                .select("selfcareUrl nipt")
-                .session(ctx.session ?? null)
-                .lean()
-            : null;
-        if (fiscalCfg) {
-            if ((fiscalCfg as any).selfcareUrl) selfcareUrl = String((fiscalCfg as any).selfcareUrl);
-            if ((fiscalCfg as any).nipt) tin = String((fiscalCfg as any).nipt).trim() || tin;
-        }
-    } catch {
-        // Fiscal config optional — still emit a demo QR.
-    }
-
-    if (!qrVerifyUrl) {
-        const base = selfcareUrl.replace(/\/?$/, "/");
-        const q = new URLSearchParams({
-            iic: nslf || "DEMO0000000000000000000000000000",
-            tin,
-            crtd: new Date().toISOString().replace(/\.\d{3}Z$/, ""),
-            ord: String(order.name || order._id || "DEMO"),
-            prc: Number(order.amountTotal ?? 0).toFixed(2),
-        });
-        qrVerifyUrl = `${base}verify?${q.toString()}`;
-    }
-
-    try {
-        const QRCodeMod = await import("qrcode");
-        const toDataURL = (QRCodeMod as any).toDataURL ?? (QRCodeMod as any).default?.toDataURL;
-        if (typeof toDataURL !== "function") return {qrVerifyUrl, nslf, nivf};
-        const qrCodeDataUrl = toDataURL(qrVerifyUrl, {
+        // qrcode has no bundled types in this package.
+        // @ts-expect-error
+        const QRCodeMod = (await import("qrcode")) as QrCodeModule;
+        const toDataURL = QRCodeMod.toDataURL ?? QRCodeMod.default?.toDataURL;
+        if (typeof toDataURL !== "function") return undefined;
+        return await toDataURL(payload, {
             width: 168,
             margin: 1,
             errorCorrectionLevel: "M",
             color: {dark: "#000000", light: "#ffffff"},
         });
-        return {qrVerifyUrl, nslf, nivf, qrCodeDataUrl};
     } catch {
-        return {qrVerifyUrl, nslf, nivf};
+        return undefined;
     }
+}
+
+function vatRowsFromOrder(order: IPosOrder): PosReceiptVatRow[] {
+    const byRate = new Map<number, number>();
+    for (const line of order.lines ?? []) {
+        const tax = roundMoney(Number(line.taxAmount || 0));
+        const gross = roundMoney(Number(line.priceTotal || 0));
+        const net = roundMoney(gross - tax);
+        const rate = net !== 0 && tax !== 0 ? roundMoney((Math.abs(tax) / Math.abs(net)) * 100) : 0;
+        byRate.set(rate, roundMoney((byRate.get(rate) ?? 0) + tax));
+    }
+    if (byRate.size === 0) return [{rate: 0, amount: 0}];
+    return [...byRate.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([rate, amount]) => ({rate, amount}));
+}
+
+function isoFromDate(value: unknown): string | undefined {
+    return value instanceof Date ? value.toISOString() : undefined;
+}
+
+async function buildReceiptFiscalQr(order: IPosOrder): Promise<
+    Pick<
+        PosReceiptPayload,
+        "qrVerifyUrl" | "nslf" | "nivf" | "qrCodeDataUrl" | "fiscalError" | "fiscalized" | "fiscalAttempted"
+    >
+> {
+    const nslf = order.nslf || undefined;
+    const nivf = order.nivf || undefined;
+    const fiscalError = order.fiscalError || undefined;
+    const fiscalized = Boolean(nivf);
+    const fiscalAttempted = Boolean(
+        fiscalized || fiscalError || nslf || order.fiscalInvNum || order.fiscalTcrCode || order.fiscalConfig,
+    );
+
+    if (!fiscalAttempted) {
+        return {nslf, nivf, fiscalError, fiscalized: false, fiscalAttempted: false};
+    }
+
+    if (fiscalized && order.qrVerifyUrl) {
+        return {
+            qrVerifyUrl: order.qrVerifyUrl,
+            nslf,
+            nivf,
+            qrCodeDataUrl: await qrCodeDataUrl(order.qrVerifyUrl),
+            fiscalError,
+            fiscalized: true,
+            fiscalAttempted: true,
+        };
+    }
+
+    const message = fiscalError ? `NOT FISCALIZED: ${fiscalError}` : "NOT FISCALIZED";
+    return {
+        nslf,
+        nivf,
+        qrCodeDataUrl: await qrCodeDataUrl(message),
+        fiscalError,
+        fiscalized: false,
+        fiscalAttempted: true,
+    };
 }
 
 export async function buildReceiptFromPosOrder(
@@ -240,17 +276,17 @@ export async function buildReceiptFromPosOrder(
             .select("orderNumber")
             .session(ctx.session ?? null)
             .lean();
-        productOrderNumber = (po as any)?.orderNumber;
+        productOrderNumber = (po as {orderNumber?: string} | null)?.orderNumber;
     }
 
     const paidAt =
-        (order as any).updatedAt instanceof Date
-            ? (order as any).updatedAt.toISOString()
-            : (order as any).createdAt instanceof Date
-              ? (order as any).createdAt.toISOString()
-              : new Date().toISOString();
+        isoFromDate((order as {updatedAt?: Date}).updatedAt)
+        ?? isoFromDate((order as {createdAt?: Date}).createdAt)
+        ?? new Date().toISOString();
 
-    const fiscalQr = await buildReceiptFiscalQr(order, ctx, refToId(config?.fiscalConfig));
+    const fiscalQr = await buildReceiptFiscalQr(order);
+    const amountTax = order.amountTax ?? 0;
+    const amountTotal = order.amountTotal ?? 0;
 
     return {
         companyName: ctx.company?.name || config?.name,
@@ -259,27 +295,36 @@ export async function buildReceiptFromPosOrder(
         shopName: config?.name,
         orderName: order.name,
         productOrderNumber,
-        lines: ((order.lines as any[]) ?? []).map(l => ({
-            productName: l.productName,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            discountPercent: l.discountPercent ?? 0,
-            priceTotal: l.priceTotal,
+        lines: (order.lines ?? []).map((line) => ({
+            productName: line.productName,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            discountPercent: line.discountPercent ?? 0,
+            priceTotal: line.priceTotal,
         })),
         discountTotal: order.discountTotal ?? 0,
-        amountTotal: order.amountTotal ?? 0,
+        amountTotal,
         amountPaid: order.amountPaid ?? 0,
         amountReturn: order.amountReturn ?? 0,
-        payments: ((order.payments as any[]) ?? []).map(p => ({
-            method: p.paymentMethodName ?? "Payment",
-            type: p.paymentMethodType,
-            amount: p.amount,
-            terminalAuthCode: p.terminalAuthCode,
-            terminalReference: p.terminalReference,
-            terminalId: p.terminalId,
+        amountTax,
+        amountWithoutVat: roundMoney(amountTotal - amountTax),
+        vatRows: vatRowsFromOrder(order),
+        payments: (order.payments ?? []).map((payment) => ({
+            method: payment.paymentMethodName ?? "Payment",
+            type: payment.paymentMethodType,
+            amount: payment.amount,
+            terminalAuthCode: payment.terminalAuthCode,
+            terminalReference: payment.terminalReference,
+            terminalId: payment.terminalId,
         })),
         customerName: order.customerName || "Walk-in Customer",
         paidAt,
+        fiscalIssueDateTime: order.fiscalIssueDateTime,
+        fiscalInvNum: order.fiscalInvNum,
+        fiscalTcrCode: order.fiscalTcrCode,
+        fiscalOperatorCode: order.fiscalOperatorCode,
+        fiscalBusinessUnitCode: order.fiscalBusinessUnitCode,
+        fiscalTypeOfInv: order.fiscalTypeOfInv,
         ...fiscalQr,
     };
 }
@@ -412,7 +457,9 @@ export async function reprintPosOrder(_id: string, ctx: Ctx) {
         company: ctx.company._id,
         deletedAt: null,
         state: {$in: ["paid", "refunded"]},
-    }).session(ctx.session ?? null);
+    })
+        .populate("session config cashier customer payments.paymentMethod")
+        .session(ctx.session ?? null);
     if (!order) throw apiValidationException("pos_order_not_found", "_id", null, ctx.languageCode);
 
     const receipt = await buildReceiptFromPosOrder(order, ctx);

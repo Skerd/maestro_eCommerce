@@ -127,6 +127,10 @@ export type RegisterInvoiceResult = {
     qrVerifyUrl: string;
     signedXml: string;
     fault?: string;
+    tcrCode?: string;
+    operatorCode: string;
+    businessUnitCode: string;
+    typeOfInv: string;
 };
 
 export async function registerPosInvoice(
@@ -138,7 +142,7 @@ export async function registerPosInvoice(
         buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
     },
 ): Promise<RegisterInvoiceResult> {
-    if ((order as any).nivf) {
+    if (order.nivf) {
         throw new Error("Order already fiscalized (has NIVF/FIC)");
     }
     const nipt = assertReady(config, opts?.companyVat);
@@ -312,6 +316,10 @@ export async function registerPosInvoice(
         qrVerifyUrl,
         signedXml: response.signedXml,
         fault,
+        tcrCode: config.tcrCode,
+        operatorCode: config.operatorCode,
+        businessUnitCode: config.businessUnitCode,
+        typeOfInv,
     };
 }
 
@@ -536,17 +544,21 @@ export async function fiscalizePosOrder(
         companyName: opts?.companyName,
     });
 
-    (order as any).nslf = invoice.nslf;
-    (order as any).iicSignature = invoice.iicSignature;
-    (order as any).nivf = invoice.nivf;
-    (order as any).qrVerifyUrl = invoice.qrVerifyUrl;
-    (order as any).fiscalIssueDateTime = invoice.issueDateTime;
-    (order as any).fiscalInvNum = invoice.invNum;
-    (order as any).fiscalInvOrdNum = invoice.invOrdNum;
-    (order as any).fiscalConfig = config._id;
-    (order as any).fiscalizedAt = invoice.nivf ? new Date() : undefined;
-    (order as any).fiscalError = invoice.fault || undefined;
-    (order as any).fiscalRequestXml = invoice.signedXml;
+    order.nslf = invoice.nslf;
+    order.iicSignature = invoice.iicSignature;
+    order.nivf = invoice.nivf;
+    order.qrVerifyUrl = invoice.nivf ? invoice.qrVerifyUrl : undefined;
+    order.fiscalIssueDateTime = invoice.issueDateTime;
+    order.fiscalInvNum = invoice.invNum;
+    order.fiscalInvOrdNum = invoice.invOrdNum;
+    order.fiscalTcrCode = invoice.tcrCode;
+    order.fiscalOperatorCode = invoice.operatorCode;
+    order.fiscalBusinessUnitCode = invoice.businessUnitCode;
+    order.fiscalTypeOfInv = invoice.typeOfInv;
+    order.set("fiscalConfig", config._id);
+    order.fiscalizedAt = invoice.nivf ? new Date() : undefined;
+    order.fiscalError = invoice.fault || undefined;
+    order.fiscalRequestXml = invoice.signedXml;
     await order.save();
 
     if (invoice.fault || !invoice.nivf) {
@@ -561,16 +573,16 @@ export async function fiscalizePosOrder(
             currency: opts?.currency,
         });
         if (einvoice.eic) {
-            (order as any).eic = einvoice.eic;
-            (order as any).einvoiceAt = new Date();
-            (order as any).ublXml = einvoice.ublXml;
-            (order as any).fiscalError = undefined;
+            order.eic = einvoice.eic;
+            order.einvoiceAt = new Date();
+            order.ublXml = einvoice.ublXml;
+            order.fiscalError = undefined;
         } else if (einvoice.fault) {
-            (order as any).fiscalError = einvoice.fault;
+            order.fiscalError = einvoice.fault;
         }
         await order.save();
-    } catch (e: any) {
-        (order as any).fiscalError = e?.message || String(e);
+    } catch (e: unknown) {
+        order.fiscalError = e instanceof Error ? e.message : String(e);
         await order.save();
     }
 

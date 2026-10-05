@@ -98,6 +98,12 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
     fiscalIssueDateTime?: string;
     fiscalInvNum?: string;
     fiscalInvOrdNum?: string;
+    /** TCR cash-register code at the time of fiscalization. */
+    fiscalTcrCode?: string;
+    fiscalOperatorCode?: string;
+    fiscalBusinessUnitCode?: string;
+    /** CIS TypeOfInv: CASH or NONCASH. */
+    fiscalTypeOfInv?: string;
     fiscalConfig?: IFiscalConfig;
     fiscalizedAt?: Date;
     einvoiceAt?: Date;
@@ -441,6 +447,26 @@ const PosOrderSchema = new Schema<IPosOrder>(
         },
         fiscalInvOrdNum: {
             type: SchemaTypes.String,
+            permissions: NoWritePermission,
+        },
+        fiscalTcrCode: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
+        fiscalOperatorCode: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
+        fiscalBusinessUnitCode: {
+            type: SchemaTypes.String,
+            trim: true,
+            permissions: NoWritePermission,
+        },
+        fiscalTypeOfInv: {
+            type: SchemaTypes.String,
+            trim: true,
             permissions: NoWritePermission,
         },
         fiscalConfig: {

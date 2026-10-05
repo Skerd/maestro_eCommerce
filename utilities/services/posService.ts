@@ -915,14 +915,19 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         .populate("session config cashier customer payments.paymentMethod")
         .session(ctx.session ?? null);
 
-    const receipt = await buildReceiptFromPosOrder(populated!, {
+    const receiptCtx = {
         ...ctx,
         company: {_id: ctx.company._id, name: ctx.company?.name || config.name},
-    });
-    // Prefer live receipt fields from this payment (product order number just created)
-    receipt.productOrderNumber = orderNumber;
-    receipt.paidAt = now.toISOString();
-    receipt.customerName = body.customerName || "Walk-in Customer";
+    };
+    const decorateReceipt = async (doc: typeof populated) => {
+        const next = await buildReceiptFromPosOrder(doc!, receiptCtx);
+        next.productOrderNumber = orderNumber;
+        next.paidAt = now.toISOString();
+        next.customerName = body.customerName || "Walk-in Customer";
+        return next;
+    };
+
+    const receipt = await decorateReceipt(populated);
 
     // Albanian CIS fiscalization when the till's fiscal config is active and has a certificate (best-effort; pay succeeds even if CIS fails)
     let fiscal: {nslf?: string; nivf?: string; eic?: string; qrVerifyUrl?: string; fault?: string} | undefined;
@@ -931,37 +936,41 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         if (assignedFiscal?.isActive && (assignedFiscal.certificate?.length ?? 0) > 0) {
             const result = await fiscalizePosOrder(posOrder._id.toString(), ctx.company._id, {
                 fiscalConfigId: assignedFiscal._id.toString(),
-                companyVat: (ctx.company as any).vat,
-                companyName: (ctx.company as any).name,
+                companyVat: (ctx.company as {vat?: string}).vat,
+                companyName: (ctx.company as {name?: string}).name,
             });
             fiscal = {
                 nslf: result.invoice.nslf,
                 nivf: result.invoice.nivf,
                 eic: result.einvoice?.eic,
-                qrVerifyUrl: result.invoice.qrVerifyUrl,
-                fault: result.invoice.fault || result.einvoice?.fault || (result.order as any).fiscalError,
+                qrVerifyUrl: result.invoice.nivf ? result.invoice.qrVerifyUrl : undefined,
+                fault: result.invoice.fault || result.einvoice?.fault || result.order.fiscalError,
             };
-            // Refresh DTO + receipt QR with fiscal fields (pay already built a placeholder QR)
             const refreshed = await PosOrder.findById(posOrder._id)
                 .populate("session config cashier customer payments.paymentMethod")
                 .session(ctx.session ?? null);
-            const fiscalReceipt = await buildReceiptFromPosOrder(refreshed || populated!, {
-                ...ctx,
-                company: {_id: ctx.company._id, name: ctx.company?.name || config.name},
-            });
-            fiscalReceipt.productOrderNumber = orderNumber;
-            fiscalReceipt.paidAt = now.toISOString();
-            fiscalReceipt.customerName = body.customerName || "Walk-in Customer";
             return {
                 order: posOrderToDTO(refreshed || populated!),
-                receipt: fiscalReceipt,
+                receipt: await decorateReceipt(refreshed || populated!),
                 session: posSessionToDTO(sessionDoc),
                 fiscal,
             };
         }
-    } catch (err: any) {
-        ctx.logger?.warn?.(`POS fiscalize skipped/failed: ${err?.message || err}`);
-        fiscal = {fault: err?.message || String(err)};
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        ctx.logger?.warn?.(`POS fiscalize skipped/failed: ${message}`);
+        fiscal = {fault: message};
+        posOrder.fiscalError = message;
+        await posOrder.save({session: ctx.session});
+        const failed = await PosOrder.findById(posOrder._id)
+            .populate("session config cashier customer payments.paymentMethod")
+            .session(ctx.session ?? null);
+        return {
+            order: posOrderToDTO(failed || populated!),
+            receipt: await decorateReceipt(failed || populated!),
+            session: posSessionToDTO(sessionDoc),
+            fiscal,
+        };
     }
 
     return {
