@@ -38,7 +38,6 @@ export interface ICustomerAddress extends Document, IOwnershipPluginFields, ISof
     longitude: number;
     isDefault: boolean;
     label?: string;
-    company: ICompany;
 }
 
 const CustomerAddressSchema = new Schema<ICustomerAddress>(

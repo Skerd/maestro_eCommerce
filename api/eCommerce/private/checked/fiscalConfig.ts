@@ -46,12 +46,12 @@ export const {router} = createCrudRouter({
     createMiddleware: [mediaUpload],
     editMiddleware: [mediaUpload],
     buildCreateData: async params => {
-        const data = await buildFiscalConfigCreateFromSchemaDef(params);
+        const data = buildFiscalConfigCreateFromSchemaDef(params);
         omitBlankCertificatePassword(data);
         return data;
     },
     buildUpdateData: async (params, writeFields) => {
-        const data = await buildFiscalConfigUpdateFromSchemaDef(params, writeFields);
+        const data = buildFiscalConfigUpdateFromSchemaDef(params, writeFields);
         omitBlankCertificatePassword(data);
         return data;
     },

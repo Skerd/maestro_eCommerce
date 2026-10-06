@@ -21,8 +21,6 @@ export const {router} = createCrudRouter({
     toDTO: customerAddressToDTO,
     toDTOArray: customerAddressesToDTO,
     toSelect: customerAddressesToSelect,
-    // Panel staff with model access manage any customer in the company.
-    // Storefront self-service uses a separate public/client endpoint that injects customer from session.
     buildCreateData: buildCreateDataFromSchemaDef(CustomerAddressSchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(CustomerAddressSchemaDef),
     actions: CustomerAddressActions,

@@ -18,15 +18,18 @@ export class CustomerAddressActions {
     async setDefault(params: Record<string, any>): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, _id} = params;
 
-        const writeFields = SchemaGuard.sanitizeFields(
-            CustomerAddressModel,
-            getModelCollectedData("customerAddresses").writeFields!,
-            "write",
-            actionUserCtx,
-            languageCode,
-        );
-        if (!writeFields.isDefault) {
-            throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+        let canWriteDefault = false;
+        try {
+            const writeFields = SchemaGuard.sanitizeFields(
+                CustomerAddressModel,
+                getModelCollectedData("customerAddresses").writeFields!,
+                "write",
+                actionUserCtx,
+                languageCode,
+            );
+            canWriteDefault = !!writeFields.isDefault;
+        } catch {
+            canWriteDefault = false;
         }
 
         const filter: Record<string, unknown> = {
@@ -41,6 +44,10 @@ export class CustomerAddressActions {
         }
 
         const ownerCustomerId = (existing.customer as {_id?: unknown})?._id ?? existing.customer;
+        const isOwner = actionUserCtx.isSelf && String(ownerCustomerId) === String(actionUserCtx.userId);
+        if (!isOwner && !canWriteDefault) {
+            throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+        }
 
         await CustomerAddressModel.updateMany(
             {customer: ownerCustomerId, company: company._id, isDefault: true, _id: {$ne: existing._id}},

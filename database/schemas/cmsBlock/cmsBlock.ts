@@ -112,7 +112,7 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
         },
         isActive: {
             type: SchemaTypes.Boolean,
-            default: true,
+            default: false,
         },
         position: {
             type: SchemaTypes.Number,

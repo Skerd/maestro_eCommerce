@@ -513,6 +513,12 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {type: "number", min: 0},
                         },
                     },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
                     {
                         render: "#Field",
                         field: {
@@ -533,8 +539,8 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
                         },
                     },
-                ],
-            },
+                ]
+            }
         ],
     },
     {
@@ -960,34 +966,40 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {
-                        render: "#Field",
-                        field: {
-                            name: "visibility.devices",
-                            widget: "#Select",
-                            label: "form.visibilityDevicesLabel",
-                            placeholder: "form.visibilityDevicesPlaceholder",
-                            widgetProps: {
-                                options: [
-                                    {value: "desktop", label: "form.visibilityDevice.desktop"},
-                                    {value: "mobile", label: "form.visibilityDevice.mobile"},
-                                    {value: "tablet", label: "form.visibilityDevice.tablet"},
-                                ],
-                                className: "grow w-full",
-                                multiple: true
+                        render: "#FormGrid",
+                        props: {columns: 1},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "visibility.devices",
+                                    widget: "#Select",
+                                    label: "form.visibilityDevicesLabel",
+                                    placeholder: "form.visibilityDevicesPlaceholder",
+                                    widgetProps: {
+                                        options: [
+                                            {value: "desktop", label: "form.visibilityDevice.desktop"},
+                                            {value: "mobile", label: "form.visibilityDevice.mobile"},
+                                            {value: "tablet", label: "form.visibilityDevice.tablet"},
+                                        ],
+                                        className: "grow w-full",
+                                        multiple: true
+                                    },
+                                },
                             },
-                        },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "visibility.regions",
+                                    widget: "#StringArrayInput",
+                                    label: "form.visibilityRegionsLabel",
+                                    placeholder: "form.visibilityRegionsPlaceholder",
+                                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
+                                },
+                            },
+                        ],
                     },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "visibility.regions",
-                            widget: "#StringArrayInput",
-                            label: "form.visibilityRegionsLabel",
-                            placeholder: "form.visibilityRegionsPlaceholder",
-                            widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
-                        },
-                    },
-                ],
+                ]
             },
         ],
     },
@@ -1087,6 +1099,12 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {type: "number", min: 0},
                         }, permissions: {read: "position", write: "position"},
                     },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
                     {
                         render: "#Field",
                         field: {
@@ -1107,8 +1125,8 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
                         }, permissions: {read: "endsAt", write: "endsAt"},
                     },
-                ],
-            },
+                ]
+            }
         ],
     },
     {
@@ -1578,35 +1596,41 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {
-                        render: "#Field",
-                        field: {
-                            name: "visibility.devices",
-                            widget: "#Select",
-                            label: "form.visibilityDevicesLabel",
-                            placeholder: "form.visibilityDevicesPlaceholder",
-                            widgetProps: {
-                                options: [
-                                    {value: "desktop", label: "form.visibilityDevice.desktop"},
-                                    {value: "mobile", label: "form.visibilityDevice.mobile"},
-                                    {value: "tablet", label: "form.visibilityDevice.tablet"},
-                                ],
-                                className: "grow w-full",
-                                multiple: true
+                        render: "#FormGrid",
+                        props: {columns: 1},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "visibility.devices",
+                                    widget: "#Select",
+                                    label: "form.visibilityDevicesLabel",
+                                    placeholder: "form.visibilityDevicesPlaceholder",
+                                    widgetProps: {
+                                        options: [
+                                            {value: "desktop", label: "form.visibilityDevice.desktop"},
+                                            {value: "mobile", label: "form.visibilityDevice.mobile"},
+                                            {value: "tablet", label: "form.visibilityDevice.tablet"},
+                                        ],
+                                        className: "grow w-full",
+                                        multiple: true
+                                    },
+                                }, permissions: {read: "visibility.devices", write: "visibility.devices"},
                             },
-                        }, permissions: {read: "visibility.devices", write: "visibility.devices"},
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "visibility.regions",
+                                    widget: "#StringArrayInput",
+                                    label: "form.visibilityRegionsLabel",
+                                    placeholder: "form.visibilityRegionsPlaceholder",
+                                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
+                                }, permissions: {read: "visibility.regions", write: "visibility.regions"},
+                            },
+                        ],
                     },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "visibility.regions",
-                            widget: "#StringArrayInput",
-                            label: "form.visibilityRegionsLabel",
-                            placeholder: "form.visibilityRegionsPlaceholder",
-                            widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
-                        }, permissions: {read: "visibility.regions", write: "visibility.regions"},
-                    },
-                ],
-            },
+                ]
+            }
         ],
     },
 ];

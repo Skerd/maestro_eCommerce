@@ -1,6 +1,4 @@
-import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
@@ -13,9 +11,6 @@ import {cmsBlockToDTO, cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/
 import {cmsBlocksToSelect} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.select";
 import {CmsBlockActions} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.actions";
 
-const buildCmsBlockCreateFromSchemaDef = buildCreateDataFromSchemaDef(CmsBlockSchemaDef);
-const buildCmsBlockUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(CmsBlockSchemaDef);
-
 export const basePath = "/api/eCommerce/cmsBlock";
 export const {router} = createCrudRouter({
     collectionName: "cmsBlocks",
@@ -23,51 +18,17 @@ export const {router} = createCrudRouter({
     service: cmsBlockService,
     entityName: "CmsBlock",
     selectSearchField: "title",
-    defaultSort: {position: 1},
+    defaultSort: {createdAt: -1},
     createSchema: createCmsBlockFormSchema,
     editSchema: editCmsBlockFormSchema,
     toDTO: cmsBlockToDTO,
     toDTOArray: cmsBlocksToDTO,
     toSelect: cmsBlocksToSelect,
-    buildCreateData: async (params) => {
-        const data = buildCmsBlockCreateFromSchemaDef(params);
-        if (data.isActive === undefined) data.isActive = true;
-        if (data.visibility === undefined) {
-            data.visibility = {devices: ["desktop", "mobile", "tablet"], regions: []};
-        }
-        if (data.config === undefined) data.config = {};
-        return data;
-    },
-    buildUpdateData: async (params, writeFields) => {
-        const update = buildCmsBlockUpdateFromSchemaDef(params, writeFields);
-        delete update.isActive;
-        return update;
-    },
+    buildCreateData: buildCreateDataFromSchemaDef(CmsBlockSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(CmsBlockSchemaDef),
     actions: CmsBlockActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });
-
-router.post(
-    "/reorder",
-    authMW("private"),
-    rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const {orderedIds} = req.body;
-
-        if (!Array.isArray(orderedIds)) return res.status(400).json({message: "orderedIds array required"});
-
-        const bulkOps = orderedIds.map((id: string, index: number) => ({
-            updateOne: {
-                filter: {_id: new ObjectId(id), company: company._id},
-                update: {$set: {position: index}},
-            },
-        }));
-
-        await CmsBlock.bulkWrite(bulkOps);
-        return res.json({message: "Blocks reordered successfully"});
-    }),
-);
 
 router.get(
     "/public",
