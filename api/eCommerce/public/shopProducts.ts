@@ -11,6 +11,7 @@ import {escapeRegex} from "@coreModule/utilities/helpers";
 import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
+import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 
 export const basePath = "/api/eCommerce/shopProducts";
 export const router = Router();
@@ -63,14 +64,18 @@ router.post(
             filter.categories = category._id;
         }
 
-        if (collectionId) {
-            const collection = await Collection.findOne({company: company._id, _id: collectionId}, {_id: 1, products: 1});
+        if (collectionId || collectionSlug) {
+            const collection = collectionId
+                ? await Collection.findOne(
+                    {company: company._id, _id: collectionId, isVisible: true},
+                    {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1},
+                )
+                : await Collection.findOne(
+                    {company: company._id, slug: String(collectionSlug).toLowerCase(), isVisible: true},
+                    {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1},
+                );
             if (!collection) return {data: [], total: 0, page, limit};
-            filter._id = {$in: collection.products ?? []};
-        } else if (collectionSlug) {
-            const collection = await Collection.findOne({company: company._id, slug: String(collectionSlug).toLowerCase()}, {_id: 1, products: 1});
-            if (!collection) return {data: [], total: 0, page, limit};
-            filter._id = {$in: collection.products ?? []};
+            applyCollectionMembershipToProductFilter(collection, filter);
         }
 
         const sortSpec = SORTS[sort as string] ?? SORTS.newest;

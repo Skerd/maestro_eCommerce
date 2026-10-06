@@ -1,6 +1,5 @@
 import {registerCronHandler} from "@coreModule/cronjobs/registry/handlerRegistry";
 import {runLowStockAlert} from "@eCommerceModule/utilities/cronJobs/lowStockAlertJob";
-import {runCollectionRebuild} from "@eCommerceModule/utilities/cronJobs/collectionRebuildJob";
 import {runScheduledPublish} from "@eCommerceModule/utilities/cronJobs/scheduledPublishJob";
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
@@ -16,19 +15,6 @@ export function registerECommerceCronHandlers(): void {
             name: "Low stock alert",
             cronExpression: "0 0 * * * *",
             priority: 10,
-        },
-    });
-
-    registerCronHandler({
-        code: "eCommerce.collectionRebuild",
-        handler: async ctx => {
-            await runCollectionRebuild(ctx.logger);
-        },
-        version: "1",
-        defaultJob: {
-            name: "Collection rebuild",
-            cronExpression: "0 30 * * * *",
-            priority: 5,
         },
     });
 

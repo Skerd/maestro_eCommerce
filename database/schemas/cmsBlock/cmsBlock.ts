@@ -79,18 +79,20 @@ export interface ICmsBlock extends Document, IOwnershipPluginFields, ISoftDelete
     visibility?: {devices?: ("desktop" | "mobile" | "tablet")[]; regions?: string[]};
 }
 
+const HideFromTable = {hideColumn: true} as const;
+
 const CmsBlockSlideSchema = {
-    headline: {type: SchemaTypes.String, required: true, trim: true, maxlength: CMS_BLOCK_HEADLINE_MAX},
-    subheadline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_SUBHEADLINE_MAX},
-    imageUrl: {type: SchemaTypes.String, required: true, trim: true, maxlength: CMS_BLOCK_URL_MAX},
-    ctaLabel: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_CTA_LABEL_MAX},
-    ctaHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
+    headline: {type: SchemaTypes.String, required: true, trim: true, maxlength: CMS_BLOCK_HEADLINE_MAX, dynamicTableConfiguration: HideFromTable},
+    subheadline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_SUBHEADLINE_MAX, dynamicTableConfiguration: HideFromTable},
+    imageUrl: {type: SchemaTypes.String, required: true, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
+    ctaLabel: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_CTA_LABEL_MAX, dynamicTableConfiguration: HideFromTable},
+    ctaHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
 };
 
 const CmsBlockGridItemSchema = {
-    title: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_TITLE_MAX},
-    imageUrl: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
-    href: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
+    title: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_TITLE_MAX, dynamicTableConfiguration: HideFromTable},
+    imageUrl: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
+    href: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
 };
 
 const CmsBlockSchema = new Schema<ICmsBlock>(
@@ -120,19 +122,20 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
         },
         config: {
             type: {
-                headline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_HEADLINE_MAX},
-                subheadline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_SUBHEADLINE_MAX},
-                imageUrl: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
-                ctaLabel: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_CTA_LABEL_MAX},
-                ctaHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
-                message: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_MESSAGE_MAX},
-                linkHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
-                html: {type: SchemaTypes.String, maxlength: CMS_BLOCK_HTML_MAX},
-                url: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX},
+                headline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_HEADLINE_MAX, dynamicTableConfiguration: HideFromTable},
+                subheadline: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_SUBHEADLINE_MAX, dynamicTableConfiguration: HideFromTable},
+                imageUrl: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
+                ctaLabel: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_CTA_LABEL_MAX, dynamicTableConfiguration: HideFromTable},
+                ctaHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
+                message: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_MESSAGE_MAX, dynamicTableConfiguration: HideFromTable},
+                linkHref: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
+                html: {type: SchemaTypes.String, maxlength: CMS_BLOCK_HTML_MAX, dynamicTableConfiguration: HideFromTable},
+                url: {type: SchemaTypes.String, trim: true, maxlength: CMS_BLOCK_URL_MAX, dynamicTableConfiguration: HideFromTable},
                 collectionId: {
                     type: SchemaTypes.ObjectId,
                     ref: "ProductCollection",
                     refAllowlist: CollectionSimpleSnippet,
+                    dynamicTableConfiguration: HideFromTable,
                 },
                 categoryIds: {
                     type: [{
@@ -140,22 +143,26 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
                         ref: "ProductCategory",
                         refAllowlist: CategorySimpleSnippet,
                     }],
+                    dynamicTableConfiguration: HideFromTable,
                 },
-                limit: {type: SchemaTypes.Number, min: 1, max: 24},
+                limit: {type: SchemaTypes.Number, min: 1, max: 24, dynamicTableConfiguration: HideFromTable},
                 slides: {
                     type: [{
                         _id: false,
                         ...CmsBlockSlideSchema,
                     }],
+                    dynamicTableConfiguration: HideFromTable,
                 },
                 items: {
                     type: [{
                         _id: false,
                         ...CmsBlockGridItemSchema,
                     }],
+                    dynamicTableConfiguration: HideFromTable,
                 },
             },
             default: {},
+            dynamicTableConfiguration: HideFromTable,
             _id: false,
         },
         startsAt: {

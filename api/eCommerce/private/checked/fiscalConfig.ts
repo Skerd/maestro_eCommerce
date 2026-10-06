@@ -43,6 +43,8 @@ export const {router} = createCrudRouter({
     toDTO: fiscalConfigToDTO,
     toDTOArray: fiscalConfigsToDTO,
     toSelect: fiscalConfigsToSelect,
+    /** Needed so the DTO can expose certificatePassword as a boolean presence flag. */
+    extraDocumentSelect: "+certificatePassword",
     createMiddleware: [mediaUpload],
     editMiddleware: [mediaUpload],
     buildCreateData: async params => {

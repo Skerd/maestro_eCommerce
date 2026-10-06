@@ -33,6 +33,7 @@ export function fiscalConfigToDTO(config: IFiscalConfig): FiscalConfig {
             const media = mapMedia(item);
             return media ? [media] : [];
         }),
+        certificatePassword: !!config.certificatePassword,
         isActive: !!config.isActive,
         ...mapSoftDeleteToDTO(config),
         ...mapOwnershipToDTO(config),

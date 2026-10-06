@@ -33,7 +33,6 @@ export function collectionToDTO(collection: ICollection): Collection {
         rules: collection.rules,
         seoTitle: collection.seoTitle,
         seoDescription: collection.seoDescription,
-        publishedAt: collection.publishedAt?.toISOString(),
         ...mapSoftDeleteToDTO(collection),
         ...mapOwnershipToDTO(collection),
         ...mapLifeCycleToDTO(collection)

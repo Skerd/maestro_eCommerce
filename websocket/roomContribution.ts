@@ -9,7 +9,6 @@ import {registerRoomDisplayNames} from "@coreModule/websocket/roomRegistry";
 export function registerECommerceRoomContributions(): void {
     registerRoomDisplayNames({
         products: "Products",
-        collections: "Collections",
         categories: "Categories",
         productorders: "Product orders",
         fulfillments: "Fulfillments",
@@ -22,6 +21,7 @@ export function registerECommerceRoomContributions(): void {
         categories_configurations: "Categories configurations",
         productAttributes_configurations: "Product attributes configurations",
         productVariants_configurations: "Product variants configurations",
+        productCollections_configurations: "Product collections configurations",
         customerGroups_configurations: "Customer groups configurations",
         customerAddresses_configurations: "Customer addresses configurations",
         discounts_configurations: "Discounts configurations",

@@ -14,6 +14,7 @@ import {addModelData} from "@coreModule/database/collections";
 import type {IMedia} from "@coreModule/database/schemas/media/media";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {
     FISCAL_CONFIG_CERTIFICATE_PASSWORD_MAX,
     FISCAL_CONFIG_CIS_CODE_MAX,
@@ -170,6 +171,12 @@ const FiscalConfigSchema = new Schema<IFiscalConfig>(
             type: SchemaTypes.String,
             select: false,
             maxlength: FISCAL_CONFIG_CERTIFICATE_PASSWORD_MAX,
+            /** DTO maps presence to boolean — never expose the plaintext in the table. */
+            dynamicTableConfiguration: {
+                cellType: COLUMN_TYPE.BOOLEAN,
+                filterable: false,
+                sortable: false,
+            },
         },
         isActive: {
             type: SchemaTypes.Boolean,

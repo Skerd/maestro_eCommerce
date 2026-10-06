@@ -20,6 +20,12 @@ import {
     CollectionSchemaDef,
     collectionRuleFields,
     collectionRuleOperators,
+    COLLECTION_NAME_MAX,
+    COLLECTION_DESCRIPTION_MAX,
+    COLLECTION_SEO_TITLE_MAX,
+    COLLECTION_SEO_DESCRIPTION_MAX,
+    COLLECTION_RULE_VALUE_MAX,
+    COLLECTION_RULES_MAX_ITEMS,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/collection/collection.schema-def";
 import {applyCollectionIndexes} from "./collection.indexes";
 import {collectionViews} from "./collection.views";
@@ -38,6 +44,8 @@ export interface ICollection extends Document, IOwnershipPluginFields, ISoftDele
     isVisible?: boolean;
     position?: number;
     products?: IProduct[];
+    /** DTO-only count from enrich; schema path for table column only. */
+    productCount?: number;
     ruleCondition?: "all" | "any";
     rules?: {
         field: string;
@@ -46,7 +54,6 @@ export interface ICollection extends Document, IOwnershipPluginFields, ISoftDele
     }[];
     seoTitle?: string;
     seoDescription?: string;
-    publishedAt?: Date;
     company: ICompany;
 }
 
@@ -60,7 +67,8 @@ const CollectionSchema = new Schema<ICollection>(
         name: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: COLLECTION_NAME_MAX,
         },
         slug: {
             type: SchemaTypes.String,
@@ -78,7 +86,8 @@ const CollectionSchema = new Schema<ICollection>(
             }
         },
         description: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: COLLECTION_DESCRIPTION_MAX,
         },
         mainImage: {
             type: SchemaTypes.ObjectId,
@@ -92,7 +101,7 @@ const CollectionSchema = new Schema<ICollection>(
         },
         isVisible: {
             type: SchemaTypes.Boolean,
-            default: true
+            default: false
         },
         position: {
             type: SchemaTypes.Number,
@@ -107,12 +116,24 @@ const CollectionSchema = new Schema<ICollection>(
             default: [],
             dynamicTableConfiguration: {
                 refDisplayKey: ["title"],
+                maxInlineItems: 3,
+            },
+        },
+        /** Runtime count from enrichList/Single (DTO); not persisted. */
+        productCount: {
+            type: SchemaTypes.Number,
+            required: false,
+            permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}},
+            dynamicTableConfiguration: {
+                cellType: COLUMN_TYPE.NUMBER,
+                filterable: false,
+                sortable: false,
+                dtoPath: "productCount",
             },
         },
         ruleCondition: {
             type: SchemaTypes.String,
             enum: ["all", "any"],
-            default: "all"
         },
         rules: {
             type: [
@@ -120,30 +141,35 @@ const CollectionSchema = new Schema<ICollection>(
                     field: {
                         type: SchemaTypes.String,
                         required: true,
-                        enum: collectionRuleFields
+                        enum: collectionRuleFields,
                     },
                     operator: {
                         type: SchemaTypes.String,
                         required: true,
-                        enum: collectionRuleOperators
+                        enum: collectionRuleOperators,
                     },
                     value: {
                         type: SchemaTypes.String,
-                        required: true
-                    }
+                        required: true,
+                        maxlength: COLLECTION_RULE_VALUE_MAX,
+                    },
                 },
             ],
-            default: [],
+            default: undefined,
+            validate: {
+                validator(value: unknown[]) {
+                    return !value || value.length <= COLLECTION_RULES_MAX_ITEMS;
+                },
+                message: `Cannot have more than ${COLLECTION_RULES_MAX_ITEMS} rules`,
+            },
         },
         seoTitle: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: COLLECTION_SEO_TITLE_MAX,
         },
         seoDescription: {
-            type: SchemaTypes.String
-        },
-        publishedAt: {
-            type: SchemaTypes.Date,
-            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
+            type: SchemaTypes.String,
+            maxlength: COLLECTION_SEO_DESCRIPTION_MAX,
         },
     },
     {
@@ -175,4 +201,4 @@ normalizeSchemaPermissions(ProductCollection);
 export default ProductCollection;
 
 addModelData(ProductCollection, collectionViews);
-validateSchemaDefAgainstMongoose(CollectionSchema, CollectionSchemaDef, "ProductCollection");
+validateSchemaDefAgainstMongoose(CollectionSchema, CollectionSchemaDef, "ProductCollection", ["productCount"]);

@@ -1,4 +1,3 @@
-import dayjs from "dayjs";
 import type {HydratedDocument} from "mongoose";
 import type {Types} from "mongoose";
 import Collection, {type ICollection} from "./collection";
@@ -83,7 +82,6 @@ export async function createCollections(
                 isVisible: true,
                 position: seed.position,
                 products: productIds,
-                publishedAt: dayjs().subtract(7, "day").toDate(),
                 company: company._id,
                 createdBy: company.createdBy,
             };

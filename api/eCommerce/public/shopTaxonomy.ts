@@ -21,7 +21,7 @@ router.post(
 
         const [categories, collections] = await Promise.all([
             Category.find({company: company._id, deletedAt: null}).select("name slug parent").sort({name: 1}).lean(),
-            Collection.find({company: company._id, deletedAt: null}).select("title slug").sort({title: 1}).lean(),
+            Collection.find({company: company._id, deletedAt: null, isVisible: true}).select("name slug").sort({name: 1}).lean(),
         ]);
 
         return {
@@ -34,7 +34,7 @@ router.post(
                 })),
                 collections: collections.map((c: any) => ({
                     _id: c._id.toString(),
-                    title: c.title ?? "",
+                    title: c.name ?? "",
                     slug: c.slug ?? "",
                 })),
             },

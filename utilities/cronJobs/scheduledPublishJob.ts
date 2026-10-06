@@ -1,7 +1,6 @@
 import {CronJob} from "cron";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
 
 let scheduledPublishJob: CronJob | null = null;
 
@@ -12,18 +11,12 @@ export async function runScheduledPublish(parentLogger?: serverLogger): Promise<
     const now = new Date();
 
     try {
-        const [productResult, collectionResult] = await Promise.all([
-            Product.updateMany(
-                {status: "draft", publishedAt: {$lte: now, $ne: null}, deletedAt: null},
-                {$set: {status: "active"}},
-            ),
-            ProductCollection.updateMany(
-                {isVisible: false, publishedAt: {$lte: now, $ne: null}, deletedAt: null},
-                {$set: {isVisible: true}},
-            ),
-        ]);
+        const productResult = await Product.updateMany(
+            {status: "draft", publishedAt: {$lte: now, $ne: null}, deletedAt: null},
+            {$set: {status: "active"}},
+        );
 
-        logger.debug(`Published ${productResult.modifiedCount} products, ${collectionResult.modifiedCount} collections`);
+        logger.debug(`Published ${productResult.modifiedCount} products`);
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         logger.err(`Scheduled publish job error: ${msg}`);

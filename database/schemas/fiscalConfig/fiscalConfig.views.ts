@@ -92,6 +92,19 @@ export const fiscalConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "certificatePassword"},
+                            field: {
+                                name: "certificatePassword",
+                                widget: "#DisplayCard",
+                                label: "certificatePassword",
+                                widgetProps: {
+                                    icon: "#IconLock",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
                             permissions: {read: "isActive"},
                             field: {
                                 name: "isActive",
