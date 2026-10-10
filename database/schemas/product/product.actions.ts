@@ -42,7 +42,20 @@ export class ProductActions {
         );
 
         // Omit slug so Product pre-save derives a unique slug from the new title.
-        const {_id: _origId, createdAt, updatedAt, deletedAt, deletedBy, slug: _slug, ...rest} = original.toObject();
+        // Omit child id lists so the copy does not share variants / stock / reviews.
+        const {
+            _id: _origId,
+            createdAt,
+            updatedAt,
+            deletedAt,
+            deletedBy,
+            slug: _slug,
+            variants: _variants,
+            inventories: _inventories,
+            reviews: _reviews,
+            defaultVariant: _defaultVariant,
+            ...rest
+        } = original.toObject();
 
         const duplicate = await productService.create(
             {
@@ -52,6 +65,8 @@ export class ProductActions {
                 ratingAverage: 0,
                 ratingCount: 0,
                 reviewCount: 0,
+                hasVariants: false,
+                variantCount: 0,
             },
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );

@@ -6,6 +6,8 @@ import type {CollectionSimple} from "armonia/src/modules/eCommerce/dto/collectio
 import type {ProductAttributeSimple} from "armonia/src/modules/eCommerce/dto/productAttribute.dto";
 import type {ProductSimple} from "armonia/src/modules/eCommerce/dto/product.dto";
 import type {ProductVariantSimple} from "armonia/src/modules/eCommerce/dto/productVariant.dto";
+import type {InventorySimple} from "armonia/src/modules/eCommerce/dto/inventory.dto";
+import type {ProductReviewSimple} from "armonia/src/modules/eCommerce/dto/productReview.dto";
 import {mapMedia, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
@@ -13,6 +15,8 @@ import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collect
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
+import {InventorySimpleSnippet} from "@eCommerceModule/database/schemas/inventory/inventory.snippets";
+import {ProductReviewSimpleSnippet} from "@eCommerceModule/database/schemas/productReview/productReview.snippets";
 import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function productToDTO(product: IProduct): Product {
@@ -78,6 +82,15 @@ export function productToDTO(product: IProduct): Product {
         variantOptions: product.variantOptions?.map((variant) => mapSnippet<ProductAttributeSimple>()(variant, ProductAttributeSimpleSnippet)).filter((v): v is ProductAttributeSimple => !!v),
         hasVariants: product.hasVariants,
         defaultVariant: mapSnippet<ProductVariantSimple>()(product.defaultVariant, ProductVariantSimpleSnippet),
+        variants: product.variants
+            ?.map((variant) => mapSnippet<ProductVariantSimple>()(variant, ProductVariantSimpleSnippet))
+            .filter((variant): variant is ProductVariantSimple => !!variant) ?? [],
+        inventories: product.inventories
+            ?.map((inventory) => mapSnippet<InventorySimple>()(inventory, InventorySimpleSnippet))
+            .filter((inventory): inventory is InventorySimple => !!inventory) ?? [],
+        reviews: product.reviews
+            ?.map((review) => mapSnippet<ProductReviewSimple>()(review, ProductReviewSimpleSnippet))
+            .filter((review): review is ProductReviewSimple => !!review) ?? [],
         variantCount: product.variantCount,
         relatedProducts: product.relatedProducts?.map((related) => mapSnippet<ProductSimple>()(related, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),
         upsells: product.upsells?.map((upsell) => mapSnippet<ProductSimple>()(upsell, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),

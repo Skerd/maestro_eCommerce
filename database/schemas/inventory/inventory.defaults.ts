@@ -1,5 +1,6 @@
 import type {HydratedDocument} from "mongoose";
 import type {Types} from "mongoose";
+import Product from "@eCommerceModule/database/schemas/product/product";
 import Inventory, {type IInventory} from "./inventory";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
@@ -134,6 +135,20 @@ export async function createInventories(
             console.log(e);
             logger.err(`Error creating inventory for '${seed.seedKey}': ${message}`);
         }
+    }
+
+    const inventoriesByProduct = new Map<string, Types.ObjectId[]>();
+    for (const inv of rows) {
+        const productId = String(inv.product);
+        const list = inventoriesByProduct.get(productId) ?? [];
+        list.push(inv._id);
+        inventoriesByProduct.set(productId, list);
+    }
+    for (const [productId, ids] of inventoriesByProduct) {
+        await Product.updateOne(
+            {_id: productId},
+            {$addToSet: {inventories: {$each: ids}}},
+        );
     }
 
     logger.finish("Finished creating inventory!", rows.length);

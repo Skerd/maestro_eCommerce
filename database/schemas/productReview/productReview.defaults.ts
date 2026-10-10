@@ -1,4 +1,5 @@
 import type {HydratedDocument} from "mongoose";
+import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductReview, {type IProductReview} from "./productReview";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
@@ -50,6 +51,10 @@ export async function createProductReviews(
             doc.set(payload);
             await doc.save();
         }
+        await Product.updateOne(
+            {_id: product._id},
+            {$addToSet: {reviews: doc._id}},
+        );
         logger.finish("Finished creating product reviews!", 1);
         return doc;
     } catch (e: unknown) {

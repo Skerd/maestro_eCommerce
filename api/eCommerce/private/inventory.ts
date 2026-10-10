@@ -16,6 +16,8 @@ import {
     assertWithinReserved,
 } from "@eCommerceModule/database/schemas/inventory/inventory.actions";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {inventoryToDTO, inventoriesToDTO} from "@eCommerceModule/utilities/mappers/inventory/inventoryMapper.dto";
 import {inventoriesToSelect} from "@eCommerceModule/utilities/mappers/inventory/inventoryMapper.select";
 import {inventoryMovementsToDTO} from "@eCommerceModule/utilities/mappers/inventoryMovement/inventoryMovementMapper.dto";
@@ -74,10 +76,19 @@ export const {router} = createCrudRouter({
         return data;
     },
     afterCreate: async (created, params) => {
+        const {session, logger, languageCode, actionUserCtx} = params;
+        const productId = nestedEntityToRef(created.product);
+        if (productId) {
+            await productService.updateByIdOrThrow(
+                productId,
+                {$push: {inventories: created._id}},
+                {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "create"},
+            );
+        }
+
         const qty = Number(created.quantityOnHand ?? 0);
         if (!qty) return;
 
-        const productId = nestedEntityToRef(created.product);
         const warehouseId = nestedEntityToRef(created.warehouse);
         if (!productId || !warehouseId) return;
 
@@ -103,6 +114,36 @@ export const {router} = createCrudRouter({
                 session: params.session,
             },
         );
+    },
+    afterDelete: async (params, doc) => {
+        const {session, logger, languageCode, actionUserCtx} = params;
+        const productId = nestedEntityToRef(doc.product);
+        if (!productId) return;
+        await productService.updateByIdOrThrow(
+            productId,
+            {$pull: {inventories: doc._id}},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+    },
+    overrideRestoreHandler: async (params) => {
+        const {logger, languageCode, session, _id, company, actionUserCtx} = params;
+        SchemaGuard.checkModelPermission(Inventory, "restore", actionUserCtx, languageCode);
+
+        const restored = await inventoryService.restoreOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+
+        const productId = nestedEntityToRef(restored.product);
+        if (productId) {
+            await productService.updateByIdOrThrow(
+                productId,
+                {$push: {inventories: restored._id}},
+                {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "restore"},
+            );
+        }
+
+        return {message: "Inventory successfully restored"};
     },
     rateLimits: {read: 120, write: 30, delete: 10},
     actions: InventoryActions,

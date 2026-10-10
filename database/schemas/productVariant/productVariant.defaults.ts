@@ -110,6 +110,7 @@ export async function createProductVariants(
                     variantCount: variantIds.length,
                     hasVariants: true,
                 },
+                $addToSet: {variants: {$each: variantIds}},
             },
         );
     }

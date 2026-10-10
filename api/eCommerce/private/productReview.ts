@@ -103,6 +103,17 @@ export const {router} = createCrudRouter({
     afterCreate: async (created, params) => {
         const productId = productIdFromReview(created);
         if (productId) {
+            await productService.updateByIdOrThrow(
+                productId,
+                {$push: {reviews: created._id}},
+                {
+                    session: params.session,
+                    logger: params.logger,
+                    languageCode: params.languageCode,
+                    auditUserId: params.actionUserCtx.userId,
+                    auditAction: "create",
+                },
+            );
             await recalculateProductRating(productId, {
                 session: params.session,
                 logger: params.logger,
@@ -118,6 +129,16 @@ export const {router} = createCrudRouter({
     afterDelete: async (params, doc) => {
         const productId = productIdFromReview(doc);
         if (productId) {
+            await productService.updateByIdOrThrow(
+                productId,
+                {$pull: {reviews: doc._id}},
+                {
+                    session: params.session,
+                    logger: params.logger,
+                    languageCode: params.languageCode,
+                    auditUserId: params.actionUserCtx.userId,
+                },
+            );
             await recalculateProductRating(productId, {
                 session: params.session,
                 logger: params.logger,
@@ -166,6 +187,11 @@ export const {router} = createCrudRouter({
 
         const ratingProductId = productIdFromReview(restored);
         if (ratingProductId) {
+            await productService.updateByIdOrThrow(
+                ratingProductId,
+                {$push: {reviews: restored._id}},
+                {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "restore"},
+            );
             await recalculateProductRating(ratingProductId, {session, logger, languageCode});
         }
 

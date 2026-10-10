@@ -344,7 +344,7 @@ export const productSheetView: ViewConfig = {
                                                 icon: "#IconCategory2",
                                                 label: "category",
                                                 valuePath: ["name"],
-                                                linkedSheetModel: "categories",
+                                                linkedSheetModel: "productcategories",
                                                 linkedSheetWidget: "#CategorySheetView",
                                                 linkedSheetEntityProp: "category",
                                             },
@@ -392,7 +392,7 @@ export const productSheetView: ViewConfig = {
                                                 icon: "#IconBox",
                                                 label: "collection",
                                                 valuePath: ["name"],
-                                                linkedSheetModel: "collections",
+                                                linkedSheetModel: "productCollections",
                                                 linkedSheetWidget: "#CollectionSheetView",
                                                 linkedSheetEntityProp: "collection",
                                             },
@@ -1657,12 +1657,12 @@ export const productSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGroup",
+                    permissions: {read: "variants"},
                     props: {
                         title: "productVariants",
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependentRuntimeOnly: true,
                     children: [
                         {
                             render: "div",
@@ -1670,6 +1670,7 @@ export const productSheetView: ViewConfig = {
                             children: [
                                 {
                                     render: "#ReferencesRender",
+                                    permissions: {read: "variants"},
                                     field: {
                                         name: "variants",
                                         widget: "#ReferencesRender",
@@ -1705,12 +1706,12 @@ export const productSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGroup",
+                    permissions: {read: "inventories"},
                     props: {
                         title: "inventories",
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependentRuntimeOnly: true,
                     children: [
                         {
                             render: "div",
@@ -1718,6 +1719,7 @@ export const productSheetView: ViewConfig = {
                             children: [
                                 {
                                     render: "#ReferencesRender",
+                                    permissions: {read: "inventories"},
                                     field: {
                                         name: "inventories",
                                         widget: "#ReferencesRender",
@@ -1753,12 +1755,12 @@ export const productSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGroup",
+                    permissions: {read: "reviews"},
                     props: {
                         title: "reviews",
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependentRuntimeOnly: true,
                     children: [
                         {
                             render: "div",
@@ -1766,6 +1768,7 @@ export const productSheetView: ViewConfig = {
                             children: [
                                 {
                                     render: "#ReferencesRender",
+                                    permissions: {read: "reviews"},
                                     field: {
                                         name: "reviews",
                                         widget: "#ReferencesRender",
@@ -1781,7 +1784,7 @@ export const productSheetView: ViewConfig = {
                                                 joinSeparator: " · ",
                                                 linkedSheetModel: "productReviews",
                                                 linkedSheetWidget: "#ProductReviewSheetView",
-                                                linkedSheetEntityProp: "review",
+                                                linkedSheetEntityProp: "entity",
                                             },
                                         },
                                     },

@@ -33,12 +33,16 @@ import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/pro
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
 import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
 import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collection/collection.snippets";
+import {InventorySimpleSnippet} from "@eCommerceModule/database/schemas/inventory/inventory.snippets";
+import {ProductReviewSimpleSnippet} from "@eCommerceModule/database/schemas/productReview/productReview.snippets";
 import {applyProductIndexes} from "./product.indexes";
 import {productViews} from "./product.views";
 import {IProductCategory} from "@eCommerceModule/database/schemas/category/category";
 import {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
 import {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import type {IInventory} from "@eCommerceModule/database/schemas/inventory/inventory";
+import type {IProductReview} from "@eCommerceModule/database/schemas/productReview/productReview";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
@@ -120,6 +124,9 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     variantOptions?: IProductAttribute[];
     hasVariants?: boolean;
     defaultVariant?: IProductVariant;
+    variants?: IProductVariant[];
+    inventories?: IInventory[];
+    reviews?: IProductReview[];
     variantCount?: number;
     // Bundles (type "bundle")
     bundleComponents?: {
@@ -469,6 +476,50 @@ const ProductSchema = new Schema<IProduct>(
             type: SchemaTypes.ObjectId,
             ref: "ProductVariant",
             refAllowlist: ProductVariantSimpleSnippet,
+        },
+        variants: {
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "ProductVariant",
+            }],
+            required: false,
+            default: [],
+            refAllowlist: ProductVariantSimpleSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["sku"],
+                hideColumn: true,
+            },
+        },
+        inventories: {
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "Inventory",
+            }],
+            required: false,
+            default: [],
+            refAllowlist: InventorySimpleSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["quantityOnHand"],
+                hideColumn: true,
+            },
+        },
+        reviews: {
+            type: [{
+                type: SchemaTypes.ObjectId,
+                ref: "ProductReview",
+            }],
+            required: false,
+            default: [],
+            refAllowlist: ProductReviewSimpleSnippet,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["title"],
+                hideColumn: true,
+            },
+        },
+        variantCount: {
+            type: SchemaTypes.Number,
+            min: 0,
+            default: 0,
         },
         // Bundles (type "bundle")
         bundleComponents: {
