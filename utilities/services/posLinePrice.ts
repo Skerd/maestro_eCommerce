@@ -22,5 +22,5 @@ export async function resolvePosLineUnitPrice(
     ).session(ctx.session ?? null);
     if (!variant) throw apiValidationException("pos_variant_not_found", "variantId", null, ctx.languageCode);
 
-    return Number((variant as any).price ?? product.price ?? 0);
+    return Number(variant.price ?? product.price ?? 0);
 }

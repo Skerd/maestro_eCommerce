@@ -16,7 +16,7 @@ import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/produ
 import {applyFulfillmentIndexes} from "./fulfillment.indexes";
 import {fulfillmentViews} from "./fulfillment.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {FulfillmentSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillment.schema-def";
+import {FulfillmentSchemaDef, FULFILLMENT_CARRIER_MAX, FULFILLMENT_TRACKING_NUMBER_MAX, FULFILLMENT_TRACKING_URL_MAX, FULFILLMENT_NOTES_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillment.schema-def";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 
 export type FulfillmentStatus = "pending" | "shipped" | "delivered" | "failed";
@@ -66,13 +66,16 @@ const FulfillmentSchema = new Schema<IFulfillment>(
             default: [],
         },
         carrier: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: FULFILLMENT_CARRIER_MAX,
         },
         trackingNumber: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: FULFILLMENT_TRACKING_NUMBER_MAX,
         },
         trackingUrl: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: FULFILLMENT_TRACKING_URL_MAX,
         },
         shippedAt: {
             type: SchemaTypes.Date,
@@ -100,7 +103,8 @@ const FulfillmentSchema = new Schema<IFulfillment>(
             },
         },
         notes: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: FULFILLMENT_NOTES_MAX,
         },
     },
     {accessMode: "loose"},

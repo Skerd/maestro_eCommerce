@@ -1,9 +1,11 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {approveReturnRequestFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/approveReturnRequest.form.validator";
 import {rejectReturnRequestFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/rejectReturnRequest.form.validator";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
@@ -74,11 +76,13 @@ export class ReturnRequestActions {
             auditUserId: actionUserCtx.userId,
         });
 
-        const orderId = ((existing.order as any)?._id ?? existing.order) as ObjectId;
-        const order = await productOrderService.findOne(
-            {_id: orderId, company: company._id},
-            {session, logger, languageCode},
-        );
+        const orderId = nestedEntityToRef(existing.order);
+        const order = orderId
+            ? await productOrderService.findOne(
+                {_id: orderId, company: company._id},
+                {session, logger, languageCode},
+            )
+            : null;
         if (order) {
             await notifyProductOrderCustomer(NotificationEventCodes.RETURN_REQUEST_APPROVED, {
                 companyId: company._id,
@@ -128,11 +132,13 @@ export class ReturnRequestActions {
             auditUserId: actionUserCtx.userId,
         });
 
-        const orderId = ((existing.order as any)?._id ?? existing.order) as ObjectId;
-        const order = await productOrderService.findOne(
-            {_id: orderId, company: company._id},
-            {session, logger, languageCode},
-        );
+        const orderId = nestedEntityToRef(existing.order);
+        const order = orderId
+            ? await productOrderService.findOne(
+                {_id: orderId, company: company._id},
+                {session, logger, languageCode},
+            )
+            : null;
         if (order) {
             await notifyProductOrderCustomer(NotificationEventCodes.RETURN_REQUEST_REJECTED, {
                 companyId: company._id,
@@ -143,5 +149,61 @@ export class ReturnRequestActions {
         }
 
         return {message: "Return request rejected"};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: validateSingleForm,
+        transaction: true,
+    })
+    async receive(params: Record<string, any>): Promise<ActionMessage> {
+        const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+        assertStatusWrite(params);
+
+        const existing = await returnRequestService.findOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode},
+        );
+
+        if (existing.status !== "approved") {
+            throw apiValidationException("return_request_not_approved", "", null, languageCode);
+        }
+
+        await returnRequestService.updateByIdOrThrow(
+            existing._id,
+            {status: "received"},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+
+        return {message: "Return request received"};
+    }
+
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 30},
+        schema: validateSingleForm,
+        transaction: true,
+    })
+    async complete(params: Record<string, any>): Promise<ActionMessage> {
+        const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+        assertStatusWrite(params);
+
+        const existing = await returnRequestService.findOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode},
+        );
+
+        if (existing.status !== "received") {
+            throw apiValidationException("return_request_not_received", "", null, languageCode);
+        }
+
+        await returnRequestService.updateByIdOrThrow(
+            existing._id,
+            {status: "completed"},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+
+        return {message: "Return request completed"};
     }
 }

@@ -1,6 +1,10 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import type {UserContext} from "@coreModule/utilities/types/types";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import type {RestockInventoryFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/restockInventory.form.validator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import InventoryModel from "./inventory";
@@ -33,7 +37,7 @@ function trimOptional(value: unknown): string | undefined {
  * Stock moves change `quantityOnHand`, so they require its field write tag
  * (`inventories[write:quantityOnHand]`) — the same gate CRUD edit applies.
  */
-export function assertStockWrite(params: Record<string, any>): void {
+export function assertStockWrite(params: {languageCode: string; actionUserCtx: UserContext}): void {
     const {languageCode, actionUserCtx} = params;
     const writeFields = SchemaGuard.sanitizeFields(
         InventoryModel,
@@ -56,7 +60,7 @@ export function assertWithinReserved(inventory: {quantityOnHand: number; quantit
     }
 }
 
-async function applyStockMove(params: Record<string, any>, direction: "restock" | "deduct"): Promise<Inventory> {
+async function applyStockMove(params: TransactionRequiredParams & RestockInventoryFormType, direction: "restock" | "deduct"): Promise<Inventory> {
     assertStockWrite(params);
 
     const {
@@ -93,9 +97,12 @@ async function applyStockMove(params: Record<string, any>, direction: "restock" 
 
     assertWithinReserved(inventory, delta, languageCode);
 
-    const productId = (inventory.product as any)?._id ?? (inventory.product as any);
-    const variantId = (inventory.variant as any)?._id ?? (inventory.variant as any);
-    const warehouseId = (inventory.warehouse as any)?._id ?? (inventory.warehouse as any);
+    const productId = nestedEntityToRef(inventory.product);
+    const warehouseId = nestedEntityToRef(inventory.warehouse);
+    if (!productId || !warehouseId) {
+        throw apiValidationException("inventory_not_found", null, null, languageCode);
+    }
+    const variantId = nestedEntityToRef(inventory.variant);
 
     await inventoryService.adjust(productId, variantId, warehouseId, delta, {logger, languageCode, session});
 
@@ -121,7 +128,7 @@ async function applyStockMove(params: Record<string, any>, direction: "restock" 
             referenceType: "Inventory",
             referenceId: inventory._id,
             company: company._id,
-        } as any,
+        },
         {logger, languageCode, session},
     );
 
@@ -139,7 +146,7 @@ export class InventoryActions {
         transaction: true,
         schema: restockInventoryFormSchema,
     })
-    async restock(params: Record<string, any>): Promise<Inventory> {
+    async restock(params: TransactionRequiredParams & RestockInventoryFormType): Promise<Inventory> {
         return applyStockMove(params, "restock");
     }
 
@@ -149,7 +156,7 @@ export class InventoryActions {
         transaction: true,
         schema: deductInventoryFormSchema,
     })
-    async deduct(params: Record<string, any>): Promise<Inventory> {
+    async deduct(params: TransactionRequiredParams & RestockInventoryFormType): Promise<Inventory> {
         return applyStockMove(params, "deduct");
     }
 }

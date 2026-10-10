@@ -71,6 +71,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#ExpandableText",
+                            permissions: {read: "note"},
                             field: {
                                 name: "note",
                                 widget: "#ExpandableText",
@@ -106,6 +107,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "product"},
                             field: {
                                 name: "product",
                                 widget: "#DisplayCard",
@@ -123,6 +125,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "variant"},
                             field: {
                                 name: "variant",
                                 widget: "#DisplayCard",
@@ -140,6 +143,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "warehouse"},
                             field: {
                                 name: "warehouse",
                                 widget: "#DisplayCard",

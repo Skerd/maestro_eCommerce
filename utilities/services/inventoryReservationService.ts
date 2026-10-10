@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
@@ -9,11 +10,9 @@ import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 
 type ReservationCtx = CrudOptions & {auditUserId?: ObjectId | string};
 
-function toObjectId(value: unknown): ObjectId {
-    if (value instanceof ObjectId) return value;
-    if (value && typeof value === "object" && "_id" in value) {
-        return toObjectId((value as {_id: unknown})._id);
-    }
+function refId(value: unknown): ObjectId {
+    const id = nestedEntityToRef(value);
+    if (id) return id;
     return new ObjectId(String(value));
 }
 
@@ -41,8 +40,8 @@ export async function explodeBundleLines(
     );
     if (bundles.length === 0) return items;
 
-    const bundleMap = new Map<string, {product: any; quantity: number}[]>(
-        bundles.map(bundle => [bundle._id.toString(), (bundle.bundleComponents as any[]) ?? []]),
+    const bundleMap = new Map(
+        bundles.map(bundle => [bundle._id.toString(), bundle.bundleComponents ?? []]),
     );
 
     const exploded: {product: ObjectId; variant?: ObjectId; quantity: number}[] = [];
@@ -53,9 +52,10 @@ export async function explodeBundleLines(
             continue;
         }
         for (const component of components) {
-            const componentId = (component.product as any)?._id ?? component.product;
+            const componentId = nestedEntityToRef(component.product);
+            if (!componentId) continue;
             exploded.push({
-                product: new ObjectId(componentId.toString()),
+                product: componentId,
                 quantity: (component.quantity ?? 1) * item.quantity,
             });
         }
@@ -108,13 +108,13 @@ export async function reserveCheckoutStock(
 
         const ordered = defaultWarehouse
             ? [...rows].sort((a, b) =>
-                  (a.warehouse as any).toString() === defaultWarehouse._id.toString() ? -1
-                  : (b.warehouse as any).toString() === defaultWarehouse._id.toString() ? 1 : 0)
+                  nestedEntityToRef(a.warehouse)?.toString() === defaultWarehouse._id.toString() ? -1
+                  : nestedEntityToRef(b.warehouse)?.toString() === defaultWarehouse._id.toString() ? 1 : 0)
             : rows;
 
         let reserved = false;
         for (const row of ordered) {
-            const warehouseId = toObjectId(row.warehouse);
+            const warehouseId = refId(row.warehouse);
             const result = await inventoryService.reserveStock(
                 item.product,
                 item.variant,
@@ -154,14 +154,16 @@ export async function reserveCheckoutStock(
  * Idempotent — already-consumed/released entries are skipped.
  */
 export async function consumeCheckoutReservations(checkout: ICheckout, ctx: ReservationCtx): Promise<void> {
-    const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
+    const companyId = nestedEntityToRef(checkout.company);
+    if (!companyId) return;
 
     for (const reservation of checkout.reservations ?? []) {
         if (reservation.state !== "reserved") continue;
 
-        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
-        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
-        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+        const productId = nestedEntityToRef(reservation.product);
+        const variantId = nestedEntityToRef(reservation.variant);
+        const warehouseId = nestedEntityToRef(reservation.warehouse);
+        if (!productId || !warehouseId) continue;
 
         const before = await Inventory.findOne(
             {product: productId, warehouse: warehouseId, company: companyId, variant: variantId ?? null},
@@ -182,11 +184,11 @@ export async function consumeCheckoutReservations(checkout: ICheckout, ctx: Rese
                 reason: "sale",
                 quantityBefore,
                 quantityAfter: quantityBefore - reservation.quantity,
-                performedBy: ctx.auditUserId ? new ObjectId(ctx.auditUserId.toString()) : undefined,
+                performedBy: ctx.auditUserId,
                 referenceType: "Checkout",
                 referenceId: checkout._id,
                 company: companyId,
-            } as any,
+            },
             ctx,
         );
 
@@ -205,9 +207,10 @@ export async function releaseCheckoutReservations(checkout: ICheckout, ctx: Rese
     for (const reservation of checkout.reservations ?? []) {
         if (reservation.state !== "reserved") continue;
 
-        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
-        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
-        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+        const productId = nestedEntityToRef(reservation.product);
+        const variantId = nestedEntityToRef(reservation.variant);
+        const warehouseId = nestedEntityToRef(reservation.warehouse);
+        if (!productId || !warehouseId) continue;
 
         await inventoryService.releaseReservation(productId, variantId, warehouseId, reservation.quantity, ctx);
         reservation.state = "released";
@@ -224,15 +227,17 @@ export async function releaseCheckoutReservations(checkout: ICheckout, ctx: Rese
  * Returns the number of lines restocked.
  */
 export async function restockConsumedReservations(checkout: ICheckout, ctx: ReservationCtx & {referenceId?: ObjectId}): Promise<number> {
-    const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
+    const companyId = nestedEntityToRef(checkout.company);
+    if (!companyId) return 0;
     let restocked = 0;
 
     for (const reservation of checkout.reservations ?? []) {
         if (reservation.state !== "consumed") continue;
 
-        const productId = (reservation.product as any)?._id ?? (reservation.product as any);
-        const variantId = (reservation.variant as any)?._id ?? (reservation.variant as any);
-        const warehouseId = (reservation.warehouse as any)?._id ?? (reservation.warehouse as any);
+        const productId = nestedEntityToRef(reservation.product);
+        const variantId = nestedEntityToRef(reservation.variant);
+        const warehouseId = nestedEntityToRef(reservation.warehouse);
+        if (!productId || !warehouseId) continue;
 
         const updated = await inventoryService.adjust(productId, variantId, warehouseId, reservation.quantity, ctx);
         if (!updated) continue; // inventory row deleted since the sale — nothing to return to
@@ -247,11 +252,11 @@ export async function restockConsumedReservations(checkout: ICheckout, ctx: Rese
                 reason: "return",
                 quantityBefore: updated.quantityOnHand - reservation.quantity,
                 quantityAfter: updated.quantityOnHand,
-                performedBy: ctx.auditUserId ? new ObjectId(ctx.auditUserId.toString()) : undefined,
+                performedBy: ctx.auditUserId,
                 referenceType: ctx.referenceId ? "ProductOrder" : "Checkout",
                 referenceId: ctx.referenceId ?? checkout._id,
                 company: companyId,
-            } as any,
+            },
             ctx,
         );
 

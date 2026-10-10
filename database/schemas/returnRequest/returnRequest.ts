@@ -19,7 +19,7 @@ import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/produ
 import {applyReturnRequestIndexes} from "./returnRequest.indexes";
 import {returnRequestViews} from "./returnRequest.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ReturnRequestSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
+import {ReturnRequestSchemaDef, RETURN_REQUEST_NOTE_MAX, RETURN_REQUEST_REASON_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
 
 export type ReturnRequestType = "return" | "exchange" | "refund";
 export type ReturnRequestStatus = "pending" | "approved" | "rejected" | "received" | "completed";
@@ -81,8 +81,9 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
                         min: 1
                     },
                     reason: {
-                        type: SchemaTypes.String, 
-                        required: true
+                        type: SchemaTypes.String,
+                        required: true,
+                        maxlength: RETURN_REQUEST_REASON_MAX,
                     },
                     _id: false,
                 },
@@ -94,10 +95,12 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
             min: 0
         },
         customerNote: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: RETURN_REQUEST_NOTE_MAX,
         },
         adminNote: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: RETURN_REQUEST_NOTE_MAX,
         },
         resolvedBy: {
             type: SchemaTypes.ObjectId, 

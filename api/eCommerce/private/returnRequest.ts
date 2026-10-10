@@ -1,4 +1,5 @@
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {ReturnRequestSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
@@ -30,9 +31,9 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(ReturnRequestSchemaDef),
     rateLimits: {read: 60, write: 30, delete: 10},
     afterCreate: async (created, params) => {
-        const {company, languageCode, logger, session} = params as any;
+        const {company, languageCode, logger, session} = params;
         const companyId = company._id;
-        const orderId = ((created as any).order?._id ?? (created as any).order);
+        const orderId = nestedEntityToRef(created.order);
         const order = orderId
             ? await productOrderService.findOne(
                 {_id: orderId, company: companyId},
@@ -45,9 +46,9 @@ export const {router} = createCrudRouter({
             receiverIds,
             payload: {
                 companyId: companyId.toString(),
-                languageCode: languageCode ?? "en-US",
-                returnRequestId: (created as any)._id.toString(),
-                orderId: order?._id?.toString?.() ?? String(orderId ?? ""),
+                languageCode,
+                returnRequestId: created._id.toString(),
+                orderId: order?._id.toString() ?? orderId?.toString() ?? "",
                 orderNumber: order?.orderNumber ?? "",
             },
         });

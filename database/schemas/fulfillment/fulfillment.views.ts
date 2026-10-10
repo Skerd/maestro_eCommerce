@@ -1,12 +1,11 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
-
-const fulfillmentStatusOptions = [
-    {value: "pending", label: "form.fulfillmentStatus.pending"},
-    {value: "shipped", label: "form.fulfillmentStatus.shipped"},
-    {value: "delivered", label: "form.fulfillmentStatus.delivered"},
-    {value: "failed", label: "form.fulfillmentStatus.failed"},
-];
+import {
+    FULFILLMENT_CARRIER_MAX,
+    FULFILLMENT_TRACKING_NUMBER_MAX,
+    FULFILLMENT_TRACKING_URL_MAX,
+    FULFILLMENT_NOTES_MAX,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillment.schema-def";
 
 const textareaScrollClass = "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto";
 
@@ -33,19 +32,11 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
             {
                 render: "#Field",
                 field: {
-                    name: "status",
-                    widget: "#Select",
-                    label: "form.statusLabel",
-                    widgetProps: {options: fulfillmentStatusOptions, className: "grow w-full"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
                     name: "carrier",
                     widget: "#Input",
                     label: "form.carrierLabel",
                     placeholder: "form.carrierPlaceholder",
+                    widgetProps: {maxLength: FULFILLMENT_CARRIER_MAX},
                 },
             },
             {
@@ -55,6 +46,7 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
                     widget: "#Input",
                     label: "form.trackingNumberLabel",
                     placeholder: "form.trackingNumberPlaceholder",
+                    widgetProps: {maxLength: FULFILLMENT_TRACKING_NUMBER_MAX},
                 },
             },
             {
@@ -64,15 +56,7 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
                     widget: "#Input",
                     label: "form.trackingUrlLabel",
                     placeholder: "form.trackingUrlPlaceholder",
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "shippedAt",
-                    widget: "#DateInput",
-                    label: "form.shippedAtLabel",
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                    widgetProps: {maxLength: FULFILLMENT_TRACKING_URL_MAX},
                 },
             },
             {
@@ -81,15 +65,6 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
                     name: "estimatedDeliveryAt",
                     widget: "#DateInput",
                     label: "form.estimatedDeliveryAtLabel",
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "deliveredAt",
-                    widget: "#DateInput",
-                    label: "form.deliveredAtLabel",
                     widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
                 },
             },
@@ -102,7 +77,7 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
             widget: "#Textarea",
             label: "form.notesLabel",
             placeholder: "form.notesPlaceholder",
-            widgetProps: {rows: 4, className: textareaScrollClass},
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: FULFILLMENT_NOTES_MAX},
         },
     },
     {
@@ -151,6 +126,133 @@ const fulfillmentFormFields: ViewConfig["nodes"] = [
     },
 ];
 
+const fulfillmentEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        permissions: {writeAny: ["order", "carrier", "trackingNumber", "trackingUrl", "estimatedDeliveryAt"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "order", write: "order"},
+                field: {
+                    name: "order",
+                    widget: "#ApiSelect",
+                    label: "form.orderLabel",
+                    placeholder: "form.orderPlaceholder",
+                    required: true,
+                    widgetProps: {
+                        apiUrl: "/api/eCommerce/productOrder/select",
+                        method: "POST",
+                        normalizeEmptyToUndefined: true,
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "carrier", write: "carrier"},
+                field: {
+                    name: "carrier",
+                    widget: "#Input",
+                    label: "form.carrierLabel",
+                    placeholder: "form.carrierPlaceholder",
+                    widgetProps: {maxLength: FULFILLMENT_CARRIER_MAX},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "trackingNumber", write: "trackingNumber"},
+                field: {
+                    name: "trackingNumber",
+                    widget: "#Input",
+                    label: "form.trackingNumberLabel",
+                    placeholder: "form.trackingNumberPlaceholder",
+                    widgetProps: {maxLength: FULFILLMENT_TRACKING_NUMBER_MAX},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "trackingUrl", write: "trackingUrl"},
+                field: {
+                    name: "trackingUrl",
+                    widget: "#Input",
+                    label: "form.trackingUrlLabel",
+                    placeholder: "form.trackingUrlPlaceholder",
+                    widgetProps: {maxLength: FULFILLMENT_TRACKING_URL_MAX},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "estimatedDeliveryAt", write: "estimatedDeliveryAt"},
+                field: {
+                    name: "estimatedDeliveryAt",
+                    widget: "#DateInput",
+                    label: "form.estimatedDeliveryAtLabel",
+                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                },
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        permissions: {read: "notes", write: "notes"},
+        field: {
+            name: "notes",
+            widget: "#Textarea",
+            label: "form.notesLabel",
+            placeholder: "form.notesPlaceholder",
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: FULFILLMENT_NOTES_MAX},
+        },
+    },
+    {
+        render: "#Field",
+        permissions: {read: "items", write: "items"},
+        field: {
+            name: "items",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.itemsSectionTitle",
+                arrayField: "items",
+                defaultItem: {orderItemId: "", quantity: 1},
+                addLabel: "form.itemAddRow",
+                removeLabel: "form.itemRemoveRow",
+                rowTitleFields: ["orderItemId"],
+                rowTitlePlaceholder: "form.itemRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 2},
+                        children: [
+                            {
+                                render: "#Field",
+                                permissions: {read: "items", write: "items"},
+                                field: {
+                                    name: "orderItemId",
+                                    widget: "#Input",
+                                    label: "form.orderItemIdLabel",
+                                    placeholder: "form.orderItemIdPlaceholder",
+                                    required: true,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                permissions: {read: "items", write: "items"},
+                                field: {
+                                    name: "quantity",
+                                    widget: "#Input",
+                                    label: "form.quantityLabel",
+                                    required: true,
+                                    widgetProps: {type: "number", min: 1},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+];
+
 export const fulfillmentSheetView: ViewConfig = {
     model: "fulfillments",
     viewType: "sheet",
@@ -168,6 +270,7 @@ export const fulfillmentSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "status"},
                             field: {
                                 name: "status",
                                 widget: "#DisplayCard",
@@ -177,6 +280,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "carrier"},
                             field: {
                                 name: "carrier",
                                 widget: "#DisplayCard",
@@ -186,6 +290,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "trackingNumber"},
                             field: {
                                 name: "trackingNumber",
                                 widget: "#DisplayCard",
@@ -195,6 +300,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "trackingUrl"},
                             field: {
                                 name: "trackingUrl",
                                 widget: "#DisplayCard",
@@ -204,6 +310,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippedAt"},
                             field: {
                                 name: "shippedAt",
                                 widget: "#DisplayCard",
@@ -213,6 +320,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "estimatedDeliveryAt"},
                             field: {
                                 name: "estimatedDeliveryAt",
                                 widget: "#DisplayCard",
@@ -222,6 +330,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "deliveredAt"},
                             field: {
                                 name: "deliveredAt",
                                 widget: "#DisplayCard",
@@ -244,6 +353,7 @@ export const fulfillmentSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#ExpandableText",
+                            permissions: {read: "notes"},
                             field: {
                                 name: "notes",
                                 widget: "#ExpandableText",
@@ -264,6 +374,7 @@ export const fulfillmentSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "order"},
                             field: {
                                 name: "order",
                                 widget: "#DisplayCard",
@@ -281,6 +392,7 @@ export const fulfillmentSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "company"},
                             field: {
                                 name: "company",
                                 widget: "#DisplayCard",
@@ -368,7 +480,7 @@ export const fulfillmentEditFormView: ViewConfig = {
     accessModel: "fulfillments",
     apiUrl: "/api/eCommerce/fulfillment",
     method: "PATCH",
-    nodes: fulfillmentFormFields,
+    nodes: fulfillmentEditFormNodes,
 };
 
 export const fulfillmentViews: ViewConfig[] = [fulfillmentSheetView, fulfillmentCreateFormView, fulfillmentEditFormView];

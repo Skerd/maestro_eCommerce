@@ -2,11 +2,13 @@ import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import {z} from "zod";
 import {createProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/createProductReview.form.validator";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
 import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
-import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {
     productReviewToDTO,
@@ -18,10 +20,7 @@ import {productReviewsToSelect} from "@eCommerceModule/utilities/mappers/product
  * Ratings are system-computed denormalizations on the product (schema-def
  * marks them as such) — recomputed on every review create/delete/restore.
  */
-async function recalculateProductRating(
-    productId: ObjectId,
-    ctx: {session: any; logger: any; languageCode: string},
-): Promise<void> {
+async function recalculateProductRating(productId: ObjectId, ctx: CrudOptions): Promise<void> {
     const agg = await productReviewService.aggregate(
         [
             {$match: {product: productId, deletedAt: null}},
@@ -29,18 +28,18 @@ async function recalculateProductRating(
         ],
         ctx,
     );
-    const avg = agg.length > 0 ? Math.round((agg[0].avg as number) * 10) / 10 : 0;
-    const count = agg.length > 0 ? (agg[0].count as number) : 0;
+    const row = agg[0];
+    const avg = row ? Math.round(Number(row.avg) * 10) / 10 : 0;
+    const count = row ? Number(row.count) : 0;
     await productService.updateById(
         productId,
         {$set: {ratingAverage: avg, ratingCount: count, reviewCount: count}},
-        {...ctx, auditUserId: undefined as any},
+        ctx,
     );
 }
 
-function productIdFromReview(doc: any): ObjectId | null {
-    const raw = doc?.product?._id ?? doc?.product;
-    return raw ? new ObjectId(raw) : null;
+function productIdFromReview(doc: {product?: unknown}): ObjectId | undefined {
+    return nestedEntityToRef(doc.product);
 }
 
 const REVIEWABLE_PAYMENT_STATUSES = ["paid", "partially_refunded"];
@@ -60,13 +59,16 @@ export const {router} = createCrudRouter({
     toDTOArray: productReviewsToDTO,
     toSelect: productReviewsToSelect,
     buildCreateData: async ({orderId, productId, rating, title, comment, actionUserCtx, company, session, logger, languageCode}) => {
-        const order = await ProductOrder.findOne({_id: new ObjectId(orderId), company: company._id, deletedAt: null}).session(session);
+        const order = await productOrderService.findOne(
+            {_id: new ObjectId(orderId), company: company._id, deletedAt: null},
+            {session, logger, languageCode},
+        );
         if (!order) {
             throw apiValidationException("order_not_found", null, null, languageCode);
         }
 
-        const customerId = (order.customer as any)?._id?.toString?.() || (order.customer as any)?.toString?.();
-        if (customerId !== actionUserCtx.userId.toString()) {
+        const customerId = nestedEntityToRef(order.customer);
+        if (!customerId || customerId.toString() !== actionUserCtx.userId.toString()) {
             throw apiValidationException("only_customer_can_review", null, null, languageCode);
         }
 
@@ -74,10 +76,7 @@ export const {router} = createCrudRouter({
             throw apiValidationException("order_must_be_paid_to_review", null, null, languageCode);
         }
 
-        const lineHasProduct = (order.items as any[]).some(item => {
-            const itemProductId = (item.product?._id ?? item.product)?.toString?.();
-            return itemProductId === productId;
-        });
+        const lineHasProduct = order.items.some(item => nestedEntityToRef(item.product)?.toString() === productId);
         if (!lineHasProduct) {
             throw apiValidationException("product_not_in_order", null, null, languageCode);
         }
@@ -140,8 +139,8 @@ export const {router} = createCrudRouter({
             throw apiValidationException("not_found", null, null, languageCode);
         }
 
-        const orderId = (toRestore.order as any)?._id ?? toRestore.order;
-        const productId = (toRestore.product as any)?._id ?? toRestore.product;
+        const orderId = nestedEntityToRef(toRestore.order);
+        const productId = nestedEntityToRef(toRestore.product);
         const activeSibling = await productReviewService.findOne(
             {
                 order: orderId,

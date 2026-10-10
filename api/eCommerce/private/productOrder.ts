@@ -1,27 +1,35 @@
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW from "@coreModule/utilities/middlewares/authMW";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
+import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
-import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
+import type {TransactionEnabledParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
 import {productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
+import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.service";
+import {returnRequestService} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.service";
+import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/fulfillmentMapper.dto";
+import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {z} from "zod";
 
-async function enrichProductOrderSingle(doc: any, params: any) {
+async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
 
     const orderId = doc._id;
-    const companyId = params.company?._id;
+    const companyId = params.company._id;
     if (!orderId) {
         dto.paymentTransactions = [];
+        dto.fulfillments = [];
+        dto.returnRequests = [];
         return dto;
     }
 
@@ -31,9 +39,12 @@ async function enrichProductOrderSingle(doc: any, params: any) {
 
     // Charges created at checkout may still only reference checkout until confirm re-points them.
     if (doc.idempotencyKey && companyId) {
-        const checkout = await Checkout.findOne({idempotencyKey: doc.idempotencyKey, company: companyId})
-            .select("_id")
-            .lean();
+        const checkout = await checkoutService.findOne(
+            {idempotencyKey: doc.idempotencyKey, company: companyId},
+            {logger: params.logger, languageCode: params.languageCode, session: params.session},
+            undefined,
+            "_id",
+        );
         if (checkout?._id) {
             or.push({sourceType: "checkout", sourceId: checkout._id});
         }
@@ -42,11 +53,23 @@ async function enrichProductOrderSingle(doc: any, params: any) {
     const filter: Record<string, unknown> = {$or: or};
     if (companyId) filter.company = companyId;
 
-    const txs = await PaymentTransaction.find(filter)
-        .populate("currency", "name symbol abbreviation")
-        .sort({_id: -1})
-        .limit(50);
+    const txs = await paymentTransactionService.find(
+        filter,
+        {logger: params.logger, languageCode: params.languageCode, session: params.session},
+        ["currency"],
+        undefined,
+        {_id: -1},
+        50,
+    );
     dto.paymentTransactions = paymentTransactionsToDTO(txs);
+
+    const ctx = {session: params.session, logger: params.logger, languageCode: params.languageCode};
+    const [fulfillments, returnRequests] = await Promise.all([
+        fulfillmentService.find({order: orderId, company: companyId}, ctx, ["order"], undefined, {createdAt: -1}, 50),
+        returnRequestService.find({order: orderId, company: companyId}, ctx, ["order", "resolvedBy"], undefined, {createdAt: -1}, 50),
+    ]);
+    dto.fulfillments = fulfillmentsToDTO(fulfillments);
+    dto.returnRequests = returnRequestsToDTO(returnRequests);
     return dto;
 }
 
@@ -93,20 +116,25 @@ router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: any) => {
-        const {company, actionUserCtx} = params;
+    asyncHandler(async (params: AuthenticatedMWType & {page?: unknown; limit?: unknown}) => {
+        const {company, actionUserCtx, logger, languageCode} = params;
         const page = Math.max(1, Number(params.page) || 1);
         const limit = Math.min(50, Math.max(1, Number(params.limit) || 10));
 
         const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId), deletedAt: null};
+        const ctx = {logger, languageCode};
 
         const [orders, total] = await Promise.all([
-            ProductOrder.find(filter)
-                .select("orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt")
-                .sort({createdAt: -1})
-                .skip((page - 1) * limit)
-                .limit(limit),
-            ProductOrder.countDocuments(filter),
+            productOrderService.find(
+                filter,
+                ctx,
+                undefined,
+                "orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt",
+                {createdAt: -1},
+                limit,
+                (page - 1) * limit,
+            ),
+            productOrderService.count(filter, ctx),
         ]);
 
         return {data: orders.map(productOrderToDTO), total, page, limit};
@@ -117,17 +145,20 @@ router.post(
     "/mySingle",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: any) => {
-        const {languageCode, company, actionUserCtx, _id} = params;
+    asyncHandler(async (params: AuthenticatedMWType & {_id?: string}) => {
+        const {languageCode, company, actionUserCtx, logger, _id} = params;
 
         if (!_id) throw apiValidationException("id_required", null, null, languageCode);
 
-        const order = await ProductOrder.findOne({
-            _id: new ObjectId(_id),
-            company: company._id,
-            customer: new ObjectId(actionUserCtx.userId),
-            deletedAt: null,
-        });
+        const order = await productOrderService.findOne(
+            {
+                _id: new ObjectId(_id),
+                company: company._id,
+                customer: new ObjectId(actionUserCtx.userId),
+                deletedAt: null,
+            },
+            {logger, languageCode},
+        );
 
         if (!order) throw apiValidationException("order_not_found", null, null, languageCode);
 

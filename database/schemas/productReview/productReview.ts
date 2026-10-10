@@ -8,7 +8,7 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {ILifeCyclePluginFields, IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ProductReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
+import {ProductReviewSchemaDef, PRODUCT_REVIEW_TITLE_MAX, PRODUCT_REVIEW_COMMENT_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
@@ -76,11 +76,13 @@ const ProductReviewSchema = new Schema<IProductReview>(
         title: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: PRODUCT_REVIEW_TITLE_MAX,
             permissions: NoWritePermission,
         },
         comment: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: PRODUCT_REVIEW_COMMENT_MAX,
             permissions: NoWritePermission,
         },
         reviewer: {

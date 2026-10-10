@@ -16,7 +16,7 @@ import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/pro
 import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function productToDTO(product: IProduct): Product {
-    const seo = product.seo as Record<string, any> | undefined;
+    const seo = product.seo;
     return {
         _id: product._id.toString(),
         type: product.type,

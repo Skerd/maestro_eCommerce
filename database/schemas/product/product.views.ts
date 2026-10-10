@@ -1,5 +1,15 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
+import {
+    PRODUCT_TITLE_MAX,
+    PRODUCT_SLUG_MAX,
+    PRODUCT_DESCRIPTION_MAX,
+    PRODUCT_SKU_MAX,
+    PRODUCT_CODE_MAX,
+    PRODUCT_URL_MAX,
+    PRODUCT_META_TITLE_MAX,
+    PRODUCT_META_DESCRIPTION_MAX,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 
 const productTypeOptions = [
     {value: "physical", label: "form.productType.physical"},
@@ -8,12 +18,6 @@ const productTypeOptions = [
     {value: "variable", label: "form.productType.variable"},
     {value: "bundle", label: "form.productType.bundle"},
     {value: "gift_card", label: "form.productType.gift_card"},
-];
-
-const productStatusOptions = [
-    {value: "draft", label: "form.productStatus.draft"},
-    {value: "active", label: "form.productStatus.active"},
-    {value: "archived", label: "form.productStatus.archived"},
 ];
 
 const weightUnitOptions = [
@@ -61,19 +65,19 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#FormGrid",
                 props: {columns: 2},
                 children: [
-                    {render: "#Field", field: {name: "title", widget: "#Input", label: "form.titleLabel", placeholder: "form.titlePlaceholder", required: true}},
-                    {render: "#Field", field: {name: "slug", widget: "#Input", label: "form.slugLabel", placeholder: "form.slugPlaceholder"}},
-                    {render: "#Field", field: {name: "type", widget: "#Select", label: "form.typeLabel", placeholder: "form.typePlaceholder", required: true, widgetProps: {options: productTypeOptions, className: "grow w-full"}}},
-                    {render: "#Field", field: {name: "status", widget: "#Select", label: "form.statusLabel", placeholder: "form.statusPlaceholder", widgetProps: {options: productStatusOptions, className: "grow w-full"}}},
-                    {render: "#Field", field: {name: "brand", widget: "#Input", label: "form.brandLabel", placeholder: "form.brandPlaceholder"}},
-                    {render: "#Field", field: {name: "vendor", widget: "#Input", label: "form.vendorLabel", placeholder: "form.vendorPlaceholder"}},
+                    {render: "#Field", field: {name: "title", widget: "#Input", label: "form.titleLabel", placeholder: "form.titlePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                    {render: "#Field", field: {name: "slug", widget: "#Input", label: "form.slugLabel", placeholder: "form.slugPlaceholder", widgetProps: {maxLength: PRODUCT_SLUG_MAX}}},
+                    {render: "#Field", field: {name: "type", widget: "#SimpleSelect", label: "form.typeLabel", placeholder: "form.typePlaceholder", required: true, widgetProps: {options: productTypeOptions, className: "grow w-full"}}},
+                    {render: "#Field", field: {name: "publishedAt", widget: "#DateInput", label: "form.publishedAtLabel", placeholder: "form.publishedAtPlaceholder", widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"}}},
+                    {render: "#Field", field: {name: "brand", widget: "#Input", label: "form.brandLabel", placeholder: "form.brandPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                    {render: "#Field", field: {name: "vendor", widget: "#Input", label: "form.vendorLabel", placeholder: "form.vendorPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
                     {render: "#Field", field: {name: "featured", widget: "#Switch", label: "form.featuredLabel"}},
                     {render: "#Field", field: {name: "availableForSale", widget: "#Switch", label: "form.availableForSaleLabel"}},
                 ],
             },
-            {render: "#Field", field: {name: "shortDescription", widget: "#Textarea", label: "form.shortDescriptionLabel", placeholder: "form.shortDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {rows: 6, className: "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "tags", widget: "#StringArrayInput", label: "form.tagsLabel", placeholder: "form.tagsPlaceholder", widgetProps: {removeTooltipKey: "form.removeTag"}}},
+            {render: "#Field", field: {name: "shortDescription", widget: "#Textarea", label: "form.shortDescriptionLabel", placeholder: "form.shortDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {rows: 6, className: "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", field: {name: "tags", widget: "#StringArrayInput", label: "form.tagsLabel", placeholder: "form.tagsPlaceholder", widgetProps: {removeTooltipKey: "form.removeTag", maxLength: PRODUCT_TITLE_MAX}}},
         ],
     },
 
@@ -86,15 +90,15 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#FormGrid",
                 props: {columns: 2},
                 children: [
-                    {render: "#Field", field: {name: "sku", widget: "#Input", label: "form.skuLabel", placeholder: "form.skuPlaceholder"}},
-                    {render: "#Field", field: {name: "barcode", widget: "#Input", label: "form.barcodeLabel", placeholder: "form.barcodePlaceholder"}},
-                    {render: "#Field", field: {name: "gtin", widget: "#Input", label: "form.gtinLabel", placeholder: "form.gtinPlaceholder"}},
-                    {render: "#Field", field: {name: "upc", widget: "#Input", label: "form.upcLabel", placeholder: "form.upcPlaceholder"}},
-                    {render: "#Field", field: {name: "ean", widget: "#Input", label: "form.eanLabel", placeholder: "form.eanPlaceholder"}},
-                    {render: "#Field", field: {name: "isbn", widget: "#Input", label: "form.isbnLabel", placeholder: "form.isbnPlaceholder"}},
-                    {render: "#Field", field: {name: "mpn", widget: "#Input", label: "form.mpnLabel", placeholder: "form.mpnPlaceholder"}},
-                    {render: "#Field", field: {name: "hsCode", widget: "#Input", label: "form.hsCodeLabel", placeholder: "form.hsCodePlaceholder"}},
-                    {render: "#Field", field: {name: "countryOfOrigin", widget: "#Input", label: "form.countryOfOriginLabel", placeholder: "form.countryOfOriginPlaceholder"}},
+                    {render: "#Field", field: {name: "sku", widget: "#Input", label: "form.skuLabel", placeholder: "form.skuPlaceholder", widgetProps: {maxLength: PRODUCT_SKU_MAX}}},
+                    {render: "#Field", field: {name: "barcode", widget: "#Input", label: "form.barcodeLabel", placeholder: "form.barcodePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "gtin", widget: "#Input", label: "form.gtinLabel", placeholder: "form.gtinPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "upc", widget: "#Input", label: "form.upcLabel", placeholder: "form.upcPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "ean", widget: "#Input", label: "form.eanLabel", placeholder: "form.eanPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "isbn", widget: "#Input", label: "form.isbnLabel", placeholder: "form.isbnPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "mpn", widget: "#Input", label: "form.mpnLabel", placeholder: "form.mpnPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "hsCode", widget: "#Input", label: "form.hsCodeLabel", placeholder: "form.hsCodePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "countryOfOrigin", widget: "#Input", label: "form.countryOfOriginLabel", placeholder: "form.countryOfOriginPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
                 ],
             },
         ],
@@ -126,7 +130,7 @@ const productFormFields: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {render: "#Field", field: {name: "taxable", widget: "#Switch", label: "form.taxableLabel"}},
-                    {render: "#Field", field: {name: "taxClass", widget: "#Input", label: "form.taxClassLabel", placeholder: "form.taxClassPlaceholder"}},
+                    {render: "#Field", field: {name: "taxClass", widget: "#Input", label: "form.taxClassLabel", placeholder: "form.taxClassPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
                 ],
             },
         ],
@@ -169,13 +173,13 @@ const productFormFields: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {render: "#Field", field: {name: "weight", widget: "#Input", label: "form.weightLabel", placeholder: "form.weightPlaceholder", widgetProps: {type: "number", min: 0}}},
-                    {render: "#Field", field: {name: "weightUnit", widget: "#Select", label: "form.weightUnitLabel", placeholder: "form.weightUnitPlaceholder", widgetProps: {options: weightUnitOptions, className: "grow w-full"}}},
+                    {render: "#Field", field: {name: "weightUnit", widget: "#SimpleSelect", label: "form.weightUnitLabel", placeholder: "form.weightUnitPlaceholder", widgetProps: {options: weightUnitOptions, className: "grow w-full"}}},
                     {render: "#Field", field: {name: "dimensions.length", widget: "#Input", label: "form.dimensionLengthLabel", placeholder: "form.dimensionLengthPlaceholder", widgetProps: {type: "number", min: 0}}},
                     {render: "#Field", field: {name: "dimensions.width", widget: "#Input", label: "form.dimensionWidthLabel", placeholder: "form.dimensionWidthPlaceholder", widgetProps: {type: "number", min: 0}}},
                     {render: "#Field", field: {name: "dimensions.height", widget: "#Input", label: "form.dimensionHeightLabel", placeholder: "form.dimensionHeightPlaceholder", widgetProps: {type: "number", min: 0}}},
-                    {render: "#Field", field: {name: "dimensionUnit", widget: "#Select", label: "form.dimensionUnitLabel", placeholder: "form.dimensionUnitPlaceholder", widgetProps: {options: dimensionUnitOptions, className: "grow w-full"}}},
+                    {render: "#Field", field: {name: "dimensionUnit", widget: "#SimpleSelect", label: "form.dimensionUnitLabel", placeholder: "form.dimensionUnitPlaceholder", widgetProps: {options: dimensionUnitOptions, className: "grow w-full"}}},
                     {render: "#Field", field: {name: "volumetricWeight", widget: "#Input", label: "form.volumetricWeightLabel", placeholder: "form.volumetricWeightPlaceholder", widgetProps: {type: "number", min: 0}}},
-                    {render: "#Field", field: {name: "shippingClass", widget: "#Input", label: "form.shippingClassLabel", placeholder: "form.shippingClassPlaceholder"}},
+                    {render: "#Field", field: {name: "shippingClass", widget: "#Input", label: "form.shippingClassLabel", placeholder: "form.shippingClassPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
                     {render: "#Field", field: {name: "isHazmat", widget: "#Switch", label: "form.isHazmatLabel"}},
                     {render: "#Field", field: {name: "requiresShipping", widget: "#Switch", label: "form.requiresShippingLabel"}},
                 ],
@@ -295,7 +299,7 @@ const productFormFields: ViewConfig["nodes"] = [
             {render: "#Field", field: {name: "mainImage", widget: "#MediaField", label: "form.mainImageLabel", widgetProps: {mediaType: "image", mode: "single"}}},
             {render: "#Field", field: {name: "gallery", widget: "#MediaField", label: "form.galleryLabel", widgetProps: {mediaType: "image", mode: "multiple", maxCount: 20}}},
             {render: "#Field", field: {name: "documents", widget: "#MediaField", label: "form.documentsLabel", widgetProps: {mediaType: "file", mode: "multiple", maxCount: 20}}},
-            {render: "#Field", field: {name: "videoUrls", widget: "#StringArrayInput", label: "form.videoUrlsLabel", placeholder: "form.videoUrlPlaceholder", widgetProps: {removeTooltipKey: "form.removeVideoUrl"}}},
+            {render: "#Field", field: {name: "videoUrls", widget: "#StringArrayInput", label: "form.videoUrlsLabel", placeholder: "form.videoUrlPlaceholder", widgetProps: {removeTooltipKey: "form.removeVideoUrl", maxLength: PRODUCT_URL_MAX}}},
         ],
     },
 
@@ -304,9 +308,9 @@ const productFormFields: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.contentSectionTitle"},
         children: [
-            {render: "#Field", field: {name: "highlights", widget: "#StringArrayInput", label: "form.highlightsLabel", placeholder: "form.highlightsPlaceholder", widgetProps: {removeTooltipKey: "form.removeHighlight"}}},
-            {render: "#Field", field: {name: "careInstructions", widget: "#Textarea", label: "form.careInstructionsLabel", placeholder: "form.careInstructionsPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "warranty", widget: "#Input", label: "form.warrantyLabel", placeholder: "form.warrantyPlaceholder"}},
+            {render: "#Field", field: {name: "highlights", widget: "#StringArrayInput", label: "form.highlightsLabel", placeholder: "form.highlightsPlaceholder", widgetProps: {removeTooltipKey: "form.removeHighlight", maxLength: PRODUCT_TITLE_MAX}}},
+            {render: "#Field", field: {name: "careInstructions", widget: "#Textarea", label: "form.careInstructionsLabel", placeholder: "form.careInstructionsPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", field: {name: "warranty", widget: "#Input", label: "form.warrantyLabel", placeholder: "form.warrantyPlaceholder", widgetProps: {maxLength: PRODUCT_DESCRIPTION_MAX}}},
             {
                 render: "#Field",
                 field: {
@@ -325,8 +329,8 @@ const productFormFields: ViewConfig["nodes"] = [
                                 render: "div",
                                 props: {className: "space-y-4"},
                                 children: [
-                                    {render: "#Field", field: {name: "question", widget: "#Input", label: "form.faqQuestionLabel", placeholder: "form.faqQuestionPlaceholder", required: true}},
-                                    {render: "#Field", field: {name: "answer", widget: "#Textarea", label: "form.faqAnswerLabel", placeholder: "form.faqAnswerPlaceholder", required: true, widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
+                                    {render: "#Field", field: {name: "question", widget: "#Input", label: "form.faqQuestionLabel", placeholder: "form.faqQuestionPlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", field: {name: "answer", widget: "#Textarea", label: "form.faqAnswerLabel", placeholder: "form.faqAnswerPlaceholder", required: true, widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
                                 ],
                             },
                         ],
@@ -359,8 +363,8 @@ const productFormFields: ViewConfig["nodes"] = [
                                 render: "div",
                                 props: {className: "space-y-4"},
                                 children: [
-                                    {render: "#Field", field: {name: "name", widget: "#Input", label: "form.attributeNameLabel", placeholder: "form.attributeNamePlaceholder", required: true}},
-                                    {render: "#Field", field: {name: "values", widget: "#StringArrayInput", label: "form.attributeValuesLabel", placeholder: "form.attributeValuesPlaceholder", widgetProps: {removeTooltipKey: "form.removeValue"}}},
+                                    {render: "#Field", field: {name: "name", widget: "#Input", label: "form.attributeNameLabel", placeholder: "form.attributeNamePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", field: {name: "values", widget: "#StringArrayInput", label: "form.attributeValuesLabel", placeholder: "form.attributeValuesPlaceholder", widgetProps: {removeTooltipKey: "form.removeValue", maxLength: PRODUCT_TITLE_MAX}}},
                                 ],
                             },
                         ],
@@ -385,8 +389,8 @@ const productFormFields: ViewConfig["nodes"] = [
                                 render: "div",
                                 props: {className: "space-y-4"},
                                 children: [
-                                    {render: "#Field", field: {name: "label", widget: "#Input", label: "form.specLabelLabel", placeholder: "form.specLabelPlaceholder", required: true}},
-                                    {render: "#Field", field: {name: "value", widget: "#Input", label: "form.specValueLabel", placeholder: "form.specValuePlaceholder", required: true}},
+                                    {render: "#Field", field: {name: "label", widget: "#Input", label: "form.specLabelLabel", placeholder: "form.specLabelPlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", field: {name: "value", widget: "#Input", label: "form.specValueLabel", placeholder: "form.specValuePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
                                 ],
                             },
                         ],
@@ -405,7 +409,7 @@ const productFormFields: ViewConfig["nodes"] = [
             productChip("upsells"),
             productChip("crossSells"),
             productChip("frequentlyBoughtTogether"),
-            {render: "#Field", field: {name: "badges", widget: "#StringArrayInput", label: "form.badgesLabel", placeholder: "form.badgesPlaceholder", widgetProps: {removeTooltipKey: "form.removeBadge"}}},
+            {render: "#Field", field: {name: "badges", widget: "#StringArrayInput", label: "form.badgesLabel", placeholder: "form.badgesPlaceholder", widgetProps: {removeTooltipKey: "form.removeBadge", maxLength: PRODUCT_CODE_MAX}}},
         ],
     },
 
@@ -418,19 +422,431 @@ const productFormFields: ViewConfig["nodes"] = [
                 render: "#FormGrid",
                 props: {columns: 2},
                 children: [
-                    {render: "#Field", field: {name: "seo.metaTitle", widget: "#Input", label: "form.seoMetaTitleLabel", placeholder: "form.seoMetaTitlePlaceholder"}},
-                    {render: "#Field", field: {name: "seo.canonicalUrl", widget: "#Input", label: "form.seoCanonicalUrlLabel", placeholder: "form.seoCanonicalUrlPlaceholder"}},
-                    {render: "#Field", field: {name: "seo.openGraphTitle", widget: "#Input", label: "form.seoOpenGraphTitleLabel", placeholder: "form.seoOpenGraphTitlePlaceholder"}},
-                    {render: "#Field", field: {name: "seo.structuredDataType", widget: "#Input", label: "form.seoStructuredDataTypeLabel", placeholder: "form.seoStructuredDataTypePlaceholder"}},
-                    {render: "#Field", field: {name: "seo.twitterCard", widget: "#Select", label: "form.seoTwitterCardLabel", placeholder: "form.seoTwitterCardPlaceholder", widgetProps: {options: twitterCardOptions, className: "grow w-full"}}},
+                    {render: "#Field", field: {name: "seo.metaTitle", widget: "#Input", label: "form.seoMetaTitleLabel", placeholder: "form.seoMetaTitlePlaceholder", widgetProps: {maxLength: PRODUCT_META_TITLE_MAX}}},
+                    {render: "#Field", field: {name: "seo.canonicalUrl", widget: "#Input", label: "form.seoCanonicalUrlLabel", placeholder: "form.seoCanonicalUrlPlaceholder", widgetProps: {maxLength: PRODUCT_URL_MAX}}},
+                    {render: "#Field", field: {name: "seo.openGraphTitle", widget: "#Input", label: "form.seoOpenGraphTitleLabel", placeholder: "form.seoOpenGraphTitlePlaceholder", widgetProps: {maxLength: PRODUCT_META_TITLE_MAX}}},
+                    {render: "#Field", field: {name: "seo.structuredDataType", widget: "#Input", label: "form.seoStructuredDataTypeLabel", placeholder: "form.seoStructuredDataTypePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", field: {name: "seo.twitterCard", widget: "#SimpleSelect", label: "form.seoTwitterCardLabel", placeholder: "form.seoTwitterCardPlaceholder", widgetProps: {options: twitterCardOptions, className: "grow w-full"}}},
                     {render: "#Field", field: {name: "seo.sitemapPriority", widget: "#Input", label: "form.seoSitemapPriorityLabel", placeholder: "form.seoSitemapPriorityPlaceholder", widgetProps: {type: "number", min: 0, max: 1, step: 0.1}}},
                     {render: "#Field", field: {name: "seo.sitemapInclude", widget: "#Switch", label: "form.seoSitemapIncludeLabel"}},
                     {render: "#Field", field: {name: "seo.noIndex", widget: "#Switch", label: "form.seoNoIndexLabel"}},
                 ],
             },
-            {render: "#Field", field: {name: "seo.metaDescription", widget: "#Textarea", label: "form.seoMetaDescriptionLabel", placeholder: "form.seoMetaDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "seo.openGraphDescription", widget: "#Textarea", label: "form.seoOpenGraphDescriptionLabel", placeholder: "form.seoOpenGraphDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto"}}},
-            {render: "#Field", field: {name: "seo.metaKeywords", widget: "#StringArrayInput", label: "form.seoMetaKeywordsLabel", placeholder: "form.seoMetaKeywordsPlaceholder", widgetProps: {removeTooltipKey: "form.removeKeyword"}}},
+            {render: "#Field", field: {name: "seo.metaDescription", widget: "#Textarea", label: "form.seoMetaDescriptionLabel", placeholder: "form.seoMetaDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_META_DESCRIPTION_MAX}}},
+            {render: "#Field", field: {name: "seo.openGraphDescription", widget: "#Textarea", label: "form.seoOpenGraphDescriptionLabel", placeholder: "form.seoOpenGraphDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_META_DESCRIPTION_MAX}}},
+            {render: "#Field", field: {name: "seo.metaKeywords", widget: "#StringArrayInput", label: "form.seoMetaKeywordsLabel", placeholder: "form.seoMetaKeywordsPlaceholder", widgetProps: {removeTooltipKey: "form.removeKeyword", maxLength: PRODUCT_TITLE_MAX}}},
+        ],
+    },
+
+];
+
+const productEditChip = (name: string) => ({
+    ...productChip(name),
+    permissions: {read: name, write: name},
+});
+
+const productEditFormNodes: ViewConfig["nodes"] = [
+    // ── General ────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
+        permissions: {writeAny: ["title","slug","type","publishedAt","brand","vendor","featured","availableForSale","shortDescription","description","tags"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "title", write: "title"}, field: {name: "title", widget: "#Input", label: "form.titleLabel", placeholder: "form.titlePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                    {render: "#Field", permissions: {read: "slug", write: "slug"}, field: {name: "slug", widget: "#Input", label: "form.slugLabel", placeholder: "form.slugPlaceholder", widgetProps: {maxLength: PRODUCT_SLUG_MAX}}},
+                    {render: "#Field", permissions: {read: "type", write: "type"}, field: {name: "type", widget: "#SimpleSelect", label: "form.typeLabel", placeholder: "form.typePlaceholder", required: true, widgetProps: {options: productTypeOptions, className: "grow w-full"}}},
+                    {render: "#Field", permissions: {read: "publishedAt", write: "publishedAt"}, field: {name: "publishedAt", widget: "#DateInput", label: "form.publishedAtLabel", placeholder: "form.publishedAtPlaceholder", widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"}}},
+                    {render: "#Field", permissions: {read: "brand", write: "brand"}, field: {name: "brand", widget: "#Input", label: "form.brandLabel", placeholder: "form.brandPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                    {render: "#Field", permissions: {read: "vendor", write: "vendor"}, field: {name: "vendor", widget: "#Input", label: "form.vendorLabel", placeholder: "form.vendorPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                    {render: "#Field", permissions: {read: "featured", write: "featured"}, field: {name: "featured", widget: "#Switch", label: "form.featuredLabel"}},
+                    {render: "#Field", permissions: {read: "availableForSale", write: "availableForSale"}, field: {name: "availableForSale", widget: "#Switch", label: "form.availableForSaleLabel"}},
+                ],
+            },
+            {render: "#Field", permissions: {read: "shortDescription", write: "shortDescription"}, field: {name: "shortDescription", widget: "#Textarea", label: "form.shortDescriptionLabel", placeholder: "form.shortDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", permissions: {read: "description", write: "description"}, field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {rows: 6, className: "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", permissions: {read: "tags", write: "tags"}, field: {name: "tags", widget: "#StringArrayInput", label: "form.tagsLabel", placeholder: "form.tagsPlaceholder", widgetProps: {removeTooltipKey: "form.removeTag", maxLength: PRODUCT_TITLE_MAX}}},
+        ],
+    },
+
+    // ── Identifiers ────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.identifiersSectionTitle"},
+        permissions: {writeAny: ["sku","barcode","gtin","upc","ean","isbn","mpn","hsCode","countryOfOrigin"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "sku", write: "sku"}, field: {name: "sku", widget: "#Input", label: "form.skuLabel", placeholder: "form.skuPlaceholder", widgetProps: {maxLength: PRODUCT_SKU_MAX}}},
+                    {render: "#Field", permissions: {read: "barcode", write: "barcode"}, field: {name: "barcode", widget: "#Input", label: "form.barcodeLabel", placeholder: "form.barcodePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "gtin", write: "gtin"}, field: {name: "gtin", widget: "#Input", label: "form.gtinLabel", placeholder: "form.gtinPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "upc", write: "upc"}, field: {name: "upc", widget: "#Input", label: "form.upcLabel", placeholder: "form.upcPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "ean", write: "ean"}, field: {name: "ean", widget: "#Input", label: "form.eanLabel", placeholder: "form.eanPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "isbn", write: "isbn"}, field: {name: "isbn", widget: "#Input", label: "form.isbnLabel", placeholder: "form.isbnPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "mpn", write: "mpn"}, field: {name: "mpn", widget: "#Input", label: "form.mpnLabel", placeholder: "form.mpnPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "hsCode", write: "hsCode"}, field: {name: "hsCode", widget: "#Input", label: "form.hsCodeLabel", placeholder: "form.hsCodePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "countryOfOrigin", write: "countryOfOrigin"}, field: {name: "countryOfOrigin", widget: "#Input", label: "form.countryOfOriginLabel", placeholder: "form.countryOfOriginPlaceholder", widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                ],
+            },
+        ],
+    },
+
+    // ── Pricing ────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        permissions: {writeAny: ["price","compareAtPrice","costPrice","msrp","currency","saleStartsAt","saleEndsAt","minOrderQty","maxOrderQty","stepQty","taxable","taxClass"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "price", write: "price"}, field: {name: "price", widget: "#Input", label: "form.priceLabel", placeholder: "form.pricePlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "compareAtPrice", write: "compareAtPrice"}, field: {name: "compareAtPrice", widget: "#Input", label: "form.compareAtPriceLabel", placeholder: "form.compareAtPricePlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "costPrice", write: "costPrice"}, field: {name: "costPrice", widget: "#Input", label: "form.costPriceLabel", placeholder: "form.costPricePlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "msrp", write: "msrp"}, field: {name: "msrp", widget: "#Input", label: "form.msrpLabel", placeholder: "form.msrpPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "currency", write: "currency"}, field: {name: "currency", widget: "#ApiSelect", label: "form.currencyLabel", placeholder: "form.currencyPlaceholder", widgetProps: {apiUrl: "/api/finance/currency/select", method: "GET", normalizeEmptyToUndefined: true, defaultOptionsFormExtraKey: "currencyDefaultOptions"}}},
+                    {render: "#Field", permissions: {read: "saleStartsAt", write: "saleStartsAt"}, field: {name: "saleStartsAt", widget: "#DateInput", label: "form.saleStartsAtLabel", placeholder: "form.saleStartsAtPlaceholder", widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"}}},
+                    {render: "#Field", permissions: {read: "saleEndsAt", write: "saleEndsAt"}, field: {name: "saleEndsAt", widget: "#DateInput", label: "form.saleEndsAtLabel", placeholder: "form.saleEndsAtPlaceholder", widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"}}},
+                    {render: "#Field", permissions: {read: "minOrderQty", write: "minOrderQty"}, field: {name: "minOrderQty", widget: "#Input", label: "form.minOrderQtyLabel", placeholder: "form.minOrderQtyPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "maxOrderQty", write: "maxOrderQty"}, field: {name: "maxOrderQty", widget: "#Input", label: "form.maxOrderQtyLabel", placeholder: "form.maxOrderQtyPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "stepQty", write: "stepQty"}, field: {name: "stepQty", widget: "#Input", label: "form.stepQtyLabel", placeholder: "form.stepQtyPlaceholder", widgetProps: {type: "number", min: 0}}},
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "taxable", write: "taxable"}, field: {name: "taxable", widget: "#Switch", label: "form.taxableLabel"}},
+                    {render: "#Field", permissions: {read: "taxClass", write: "taxClass"}, field: {name: "taxClass", widget: "#Input", label: "form.taxClassLabel", placeholder: "form.taxClassPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                ],
+            },
+        ],
+    },
+
+    // ── Inventory ──────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.inventorySectionTitle"},
+        permissions: {writeAny: ["trackInventory","allowBackorder","lowStockThreshold","safetyStock","backorderLimit","preorderEnabled","preorderAvailableAt"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "trackInventory", write: "trackInventory"}, field: {name: "trackInventory", widget: "#Switch", label: "form.trackInventoryLabel"}},
+                    {render: "#Field", permissions: {read: "allowBackorder", write: "allowBackorder"}, field: {name: "allowBackorder", widget: "#Switch", label: "form.allowBackorderLabel"}},
+                    {render: "#Field", permissions: {read: "lowStockThreshold", write: "lowStockThreshold"}, field: {name: "lowStockThreshold", widget: "#Input", label: "form.lowStockThresholdLabel", placeholder: "form.lowStockThresholdPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "safetyStock", write: "safetyStock"}, field: {name: "safetyStock", widget: "#Input", label: "form.safetyStockLabel", placeholder: "form.safetyStockPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "backorderLimit", write: "backorderLimit"}, field: {name: "backorderLimit", widget: "#Input", label: "form.backorderLimitLabel", placeholder: "form.backorderLimitPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "preorderEnabled", write: "preorderEnabled"}, field: {name: "preorderEnabled", widget: "#Switch", label: "form.preorderEnabledLabel"}},
+                ],
+            },
+            {
+                render: "#FormWhenFieldValueIn",
+                props: {watchField: "preorderEnabled", whenValues: ["true"], clearFields: ["preorderAvailableAt"]},
+                children: [
+                    {render: "#Field", permissions: {read: "preorderAvailableAt", write: "preorderAvailableAt"}, field: {name: "preorderAvailableAt", widget: "#DateInput", label: "form.preorderAvailableAtLabel", placeholder: "form.preorderAvailableAtPlaceholder", widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"}}},
+                ],
+            },
+        ],
+    },
+
+    // ── Shipping ───────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.shippingSectionTitle"},
+        permissions: {writeAny: ["weight","weightUnit","dimensions.length","dimensions.width","dimensions.height","dimensionUnit","volumetricWeight","shippingClass","isHazmat","requiresShipping"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "weight", write: "weight"}, field: {name: "weight", widget: "#Input", label: "form.weightLabel", placeholder: "form.weightPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "weightUnit", write: "weightUnit"}, field: {name: "weightUnit", widget: "#SimpleSelect", label: "form.weightUnitLabel", placeholder: "form.weightUnitPlaceholder", widgetProps: {options: weightUnitOptions, className: "grow w-full"}}},
+                    {render: "#Field", permissions: {read: "dimensions.length", write: "dimensions.length"}, field: {name: "dimensions.length", widget: "#Input", label: "form.dimensionLengthLabel", placeholder: "form.dimensionLengthPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "dimensions.width", write: "dimensions.width"}, field: {name: "dimensions.width", widget: "#Input", label: "form.dimensionWidthLabel", placeholder: "form.dimensionWidthPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "dimensions.height", write: "dimensions.height"}, field: {name: "dimensions.height", widget: "#Input", label: "form.dimensionHeightLabel", placeholder: "form.dimensionHeightPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "dimensionUnit", write: "dimensionUnit"}, field: {name: "dimensionUnit", widget: "#SimpleSelect", label: "form.dimensionUnitLabel", placeholder: "form.dimensionUnitPlaceholder", widgetProps: {options: dimensionUnitOptions, className: "grow w-full"}}},
+                    {render: "#Field", permissions: {read: "volumetricWeight", write: "volumetricWeight"}, field: {name: "volumetricWeight", widget: "#Input", label: "form.volumetricWeightLabel", placeholder: "form.volumetricWeightPlaceholder", widgetProps: {type: "number", min: 0}}},
+                    {render: "#Field", permissions: {read: "shippingClass", write: "shippingClass"}, field: {name: "shippingClass", widget: "#Input", label: "form.shippingClassLabel", placeholder: "form.shippingClassPlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "isHazmat", write: "isHazmat"}, field: {name: "isHazmat", widget: "#Switch", label: "form.isHazmatLabel"}},
+                    {render: "#Field", permissions: {read: "requiresShipping", write: "requiresShipping"}, field: {name: "requiresShipping", widget: "#Switch", label: "form.requiresShippingLabel"}},
+                ],
+            },
+        ],
+    },
+
+    // ── Organization ───────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.organizationSectionTitle"},
+        permissions: {writeAny: ["categories","collections"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "categories", write: "categories"},
+                field: {
+                    name: "categories",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.categoriesLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "collections", write: "collections"},
+                field: {
+                    name: "collections",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.collectionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
+                },
+            },
+        ],
+    },
+
+    // ── Variants & options ─────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.variantsSectionTitle"},
+        permissions: {writeAny: ["hasVariants","variantOptions"]},
+        children: [
+            {render: "#Field", permissions: {read: "hasVariants", write: "hasVariants"}, field: {name: "hasVariants", widget: "#Switch", label: "form.hasVariantsLabel"}},
+            {
+                render: "#Field",
+                permissions: {read: "variantOptions", write: "variantOptions"},
+                field: {
+                    name: "variantOptions",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.variantOptionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
+                },
+            },
+        ],
+    },
+
+    // ── Bundle components (type "bundle") ─────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        permissions: {readAny: ["bundleComponents"], writeAny: ["bundleComponents"]},
+        props: {watchField: "type", whenValues: ["bundle"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "bundleComponents", write: "bundleComponents"},
+                field: {
+                    name: "bundleComponents",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.bundleComponentsSectionTitle",
+                        arrayField: "bundleComponents",
+                        defaultItem: {product: "", quantity: 1},
+                        addLabel: "form.bundleComponentAddRow",
+                        removeLabel: "form.bundleComponentRemoveRow",
+                        rowTitleFields: ["quantity"],
+                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "#FormGrid",
+                                props: {columns: 2},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "bundleComponents", write: "bundleComponents"},
+                                        field: {
+                                            name: "product",
+                                            widget: "#ApiSelect",
+                                            label: "form.bundleComponentProductLabel",
+                                            placeholder: "form.bundleComponentProductPlaceholder",
+                                            required: true,
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                        },
+                                    },
+                                    {render: "#Field", permissions: {read: "bundleComponents", write: "bundleComponents"}, field: {name: "quantity", widget: "#Input", label: "form.bundleComponentQuantityLabel", placeholder: "form.bundleComponentQuantityPlaceholder", required: true, widgetProps: {type: "number", min: 1}}},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Digital delivery (type "digital") ──────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        permissions: {readAny: ["downloadLimit", "downloadExpiryDays"], writeAny: ["downloadLimit", "downloadExpiryDays"]},
+        props: {watchField: "type", whenValues: ["digital"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "downloadLimit", write: "downloadLimit"}, field: {name: "downloadLimit", widget: "#Input", label: "form.downloadLimitLabel", placeholder: "form.downloadLimitPlaceholder", widgetProps: {type: "number", min: 1}}},
+                    {render: "#Field", permissions: {read: "downloadExpiryDays", write: "downloadExpiryDays"}, field: {name: "downloadExpiryDays", widget: "#Input", label: "form.downloadExpiryDaysLabel", placeholder: "form.downloadExpiryDaysPlaceholder", widgetProps: {type: "number", min: 1}}},
+                ],
+            },
+        ],
+    },
+
+    // ── Media ──────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.mediaSectionTitle"},
+        permissions: {writeAny: ["mainImage","gallery","documents","videoUrls"]},
+        children: [
+            {render: "#Field", permissions: {read: "mainImage", write: "mainImage"}, field: {name: "mainImage", widget: "#MediaField", label: "form.mainImageLabel", widgetProps: {mediaType: "image", mode: "single"}}},
+            {render: "#Field", permissions: {read: "gallery", write: "gallery"}, field: {name: "gallery", widget: "#MediaField", label: "form.galleryLabel", widgetProps: {mediaType: "image", mode: "multiple", maxCount: 20}}},
+            {render: "#Field", permissions: {read: "documents", write: "documents"}, field: {name: "documents", widget: "#MediaField", label: "form.documentsLabel", widgetProps: {mediaType: "file", mode: "multiple", maxCount: 20}}},
+            {render: "#Field", permissions: {read: "videoUrls", write: "videoUrls"}, field: {name: "videoUrls", widget: "#StringArrayInput", label: "form.videoUrlsLabel", placeholder: "form.videoUrlPlaceholder", widgetProps: {removeTooltipKey: "form.removeVideoUrl", maxLength: PRODUCT_URL_MAX}}},
+        ],
+    },
+
+    // ── Content ────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.contentSectionTitle"},
+        permissions: {writeAny: ["highlights","careInstructions","warranty","faqs"]},
+        children: [
+            {render: "#Field", permissions: {read: "highlights", write: "highlights"}, field: {name: "highlights", widget: "#StringArrayInput", label: "form.highlightsLabel", placeholder: "form.highlightsPlaceholder", widgetProps: {removeTooltipKey: "form.removeHighlight", maxLength: PRODUCT_TITLE_MAX}}},
+            {render: "#Field", permissions: {read: "careInstructions", write: "careInstructions"}, field: {name: "careInstructions", widget: "#Textarea", label: "form.careInstructionsLabel", placeholder: "form.careInstructionsPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {render: "#Field", permissions: {read: "warranty", write: "warranty"}, field: {name: "warranty", widget: "#Input", label: "form.warrantyLabel", placeholder: "form.warrantyPlaceholder", widgetProps: {maxLength: PRODUCT_DESCRIPTION_MAX}}},
+            {
+                render: "#Field",
+                permissions: {read: "faqs", write: "faqs"},
+                field: {
+                    name: "faqs",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.faqsSectionTitle",
+                        arrayField: "faqs",
+                        defaultItem: {question: "", answer: ""},
+                        addLabel: "form.faqAddRow",
+                        removeLabel: "form.faqRemoveRow",
+                        rowTitleFields: ["question"],
+                        rowTitlePlaceholder: "form.faqRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "div",
+                                props: {className: "space-y-4"},
+                                children: [
+                                    {render: "#Field", permissions: {read: "faqs", write: "faqs"}, field: {name: "question", widget: "#Input", label: "form.faqQuestionLabel", placeholder: "form.faqQuestionPlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", permissions: {read: "faqs", write: "faqs"}, field: {name: "answer", widget: "#Textarea", label: "form.faqAnswerLabel", placeholder: "form.faqAnswerPlaceholder", required: true, widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_DESCRIPTION_MAX}}},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Attributes & specifications ────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.attributesSectionTitle"},
+        permissions: {writeAny: ["attributes","specifications"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "attributes", write: "attributes"},
+                field: {
+                    name: "attributes",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.attributesSectionTitle",
+                        arrayField: "attributes",
+                        defaultItem: {name: "", values: []},
+                        addLabel: "form.attributeAddRow",
+                        removeLabel: "form.attributeRemoveRow",
+                        rowTitleFields: ["name"],
+                        rowTitlePlaceholder: "form.attributeRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "div",
+                                props: {className: "space-y-4"},
+                                children: [
+                                    {render: "#Field", permissions: {read: "attributes", write: "attributes"}, field: {name: "name", widget: "#Input", label: "form.attributeNameLabel", placeholder: "form.attributeNamePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", permissions: {read: "attributes", write: "attributes"}, field: {name: "values", widget: "#StringArrayInput", label: "form.attributeValuesLabel", placeholder: "form.attributeValuesPlaceholder", widgetProps: {removeTooltipKey: "form.removeValue", maxLength: PRODUCT_TITLE_MAX}}},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "specifications", write: "specifications"},
+                field: {
+                    name: "specifications",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.specificationsSectionTitle",
+                        arrayField: "specifications",
+                        defaultItem: {label: "", value: ""},
+                        addLabel: "form.specificationAddRow",
+                        removeLabel: "form.specificationRemoveRow",
+                        rowTitleFields: ["label"],
+                        rowTitlePlaceholder: "form.specificationRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "div",
+                                props: {className: "space-y-4"},
+                                children: [
+                                    {render: "#Field", permissions: {read: "specifications", write: "specifications"}, field: {name: "label", widget: "#Input", label: "form.specLabelLabel", placeholder: "form.specLabelPlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                    {render: "#Field", permissions: {read: "specifications", write: "specifications"}, field: {name: "value", widget: "#Input", label: "form.specValueLabel", placeholder: "form.specValuePlaceholder", required: true, widgetProps: {maxLength: PRODUCT_TITLE_MAX}}},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Merchandising ──────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.merchandisingSectionTitle"},
+        permissions: {writeAny: ["relatedProducts","upsells","crossSells","frequentlyBoughtTogether","badges"]},
+        children: [
+            productEditChip("relatedProducts"),
+            productEditChip("upsells"),
+            productEditChip("crossSells"),
+            productEditChip("frequentlyBoughtTogether"),
+            {render: "#Field", permissions: {read: "badges", write: "badges"}, field: {name: "badges", widget: "#StringArrayInput", label: "form.badgesLabel", placeholder: "form.badgesPlaceholder", widgetProps: {removeTooltipKey: "form.removeBadge", maxLength: PRODUCT_CODE_MAX}}},
+        ],
+    },
+
+    // ── SEO ────────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.seoSectionTitle"},
+        permissions: {writeAny: ["seo.metaTitle","seo.canonicalUrl","seo.openGraphTitle","seo.structuredDataType","seo.twitterCard","seo.sitemapPriority","seo.sitemapInclude","seo.noIndex","seo.metaDescription","seo.openGraphDescription","seo.metaKeywords"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {render: "#Field", permissions: {read: "seo.metaTitle", write: "seo.metaTitle"}, field: {name: "seo.metaTitle", widget: "#Input", label: "form.seoMetaTitleLabel", placeholder: "form.seoMetaTitlePlaceholder", widgetProps: {maxLength: PRODUCT_META_TITLE_MAX}}},
+                    {render: "#Field", permissions: {read: "seo.canonicalUrl", write: "seo.canonicalUrl"}, field: {name: "seo.canonicalUrl", widget: "#Input", label: "form.seoCanonicalUrlLabel", placeholder: "form.seoCanonicalUrlPlaceholder", widgetProps: {maxLength: PRODUCT_URL_MAX}}},
+                    {render: "#Field", permissions: {read: "seo.openGraphTitle", write: "seo.openGraphTitle"}, field: {name: "seo.openGraphTitle", widget: "#Input", label: "form.seoOpenGraphTitleLabel", placeholder: "form.seoOpenGraphTitlePlaceholder", widgetProps: {maxLength: PRODUCT_META_TITLE_MAX}}},
+                    {render: "#Field", permissions: {read: "seo.structuredDataType", write: "seo.structuredDataType"}, field: {name: "seo.structuredDataType", widget: "#Input", label: "form.seoStructuredDataTypeLabel", placeholder: "form.seoStructuredDataTypePlaceholder", widgetProps: {maxLength: PRODUCT_CODE_MAX}}},
+                    {render: "#Field", permissions: {read: "seo.twitterCard", write: "seo.twitterCard"}, field: {name: "seo.twitterCard", widget: "#SimpleSelect", label: "form.seoTwitterCardLabel", placeholder: "form.seoTwitterCardPlaceholder", widgetProps: {options: twitterCardOptions, className: "grow w-full"}}},
+                    {render: "#Field", permissions: {read: "seo.sitemapPriority", write: "seo.sitemapPriority"}, field: {name: "seo.sitemapPriority", widget: "#Input", label: "form.seoSitemapPriorityLabel", placeholder: "form.seoSitemapPriorityPlaceholder", widgetProps: {type: "number", min: 0, max: 1, step: 0.1}}},
+                    {render: "#Field", permissions: {read: "seo.sitemapInclude", write: "seo.sitemapInclude"}, field: {name: "seo.sitemapInclude", widget: "#Switch", label: "form.seoSitemapIncludeLabel"}},
+                    {render: "#Field", permissions: {read: "seo.noIndex", write: "seo.noIndex"}, field: {name: "seo.noIndex", widget: "#Switch", label: "form.seoNoIndexLabel"}},
+                ],
+            },
+            {render: "#Field", permissions: {read: "seo.metaDescription", write: "seo.metaDescription"}, field: {name: "seo.metaDescription", widget: "#Textarea", label: "form.seoMetaDescriptionLabel", placeholder: "form.seoMetaDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_META_DESCRIPTION_MAX}}},
+            {render: "#Field", permissions: {read: "seo.openGraphDescription", write: "seo.openGraphDescription"}, field: {name: "seo.openGraphDescription", widget: "#Textarea", label: "form.seoOpenGraphDescriptionLabel", placeholder: "form.seoOpenGraphDescriptionPlaceholder", widgetProps: {rows: 3, className: "field-sizing-fixed max-h-32 min-h-16 overflow-y-auto", maxLength: PRODUCT_META_DESCRIPTION_MAX}}},
+            {render: "#Field", permissions: {read: "seo.metaKeywords", write: "seo.metaKeywords"}, field: {name: "seo.metaKeywords", widget: "#StringArrayInput", label: "form.seoMetaKeywordsLabel", placeholder: "form.seoMetaKeywordsPlaceholder", widgetProps: {removeTooltipKey: "form.removeKeyword", maxLength: PRODUCT_TITLE_MAX}}},
         ],
     },
 
@@ -477,6 +893,55 @@ const productRefSheetGroup = (title: string, field: string, storageKey: string,)
                                         linkedSheetWidget: "#ProductSheetView",
                                         linkedSheetEntityProp: "product",
                                     },
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+});
+
+const runtimeChildSheetGroup = (
+    title: string,
+    field: string,
+    storageKey: string,
+    cardWidget: string,
+    itemDataProp: string,
+    compactRow: Record<string, unknown>,
+): NonNullable<ViewConfig["nodes"]>[number] => ({
+    render: "#ReferencesViewModeScope",
+    props: {
+        storageKey,
+        defaultMode: "compact",
+    },
+    children: [
+        {
+            render: "#SheetGroup",
+            props: {
+                title,
+                titleActions: "#ReferencesViewModeToggle",
+                defaultOpen: false,
+            },
+            dependent: field,
+            dependentRuntimeOnly: true,
+            children: [
+                {
+                    render: "div",
+                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ReferencesRender",
+                            field: {
+                                name: field,
+                                widget: "#ReferencesRender",
+                                widgetProps: {
+                                    cardWidget,
+                                    itemDataProp,
+                                    pageSize: 3,
+                                    hideActions: true,
+                                    compactRow,
                                 },
                             },
                         },
@@ -919,8 +1384,8 @@ export const productSheetView: ViewConfig = {
                                 widgetProps: {icon: "#IconList", valueType: "stringBadgeList"},
                             },
                         },
-                        {render: "#DisplayCard", permissions: {read: "careInstructions"}, field: {name: "careInstructions", widget: "#DisplayCard", label: "careInstructions", widgetProps: {icon: "#IconInfoCircle"}}},
-                        {render: "#DisplayCard", permissions: {read: "warranty"}, field: {name: "warranty", widget: "#DisplayCard", label: "warranty", widgetProps: {icon: "#IconShieldCheck"}}},
+                        {render: "#DisplayCard", permissions: {read: "careInstructions"}, field: {name: "careInstructions", widget: "#DisplayCard", label: "careInstructions", widgetProps: {icon: "#IconInfoCircle", expandable: true, maxLength: 250}}},
+                        {render: "#DisplayCard", permissions: {read: "warranty"}, field: {name: "warranty", widget: "#DisplayCard", label: "warranty", widgetProps: {icon: "#IconShieldCheck", expandable: true, maxLength: 250}}},
                         {
                             render: "#DisplayCard",
                             permissions: {read: "badges"},
@@ -1127,7 +1592,7 @@ export const productSheetView: ViewConfig = {
                         {render: "#DisplayCard", permissions: {read: "seo"}, field: {name: "seo.openGraphDescription", widget: "#DisplayCard", label: "seoOpenGraphDescription", widgetProps: {icon: "#IconAlignLeft"}}},
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "seo"},
+                            permissions: {read: "seo.metaKeywords"},
                             field: {
                                 name: "seo.metaKeywords",
                                 widget: "#DisplayCard",
@@ -1139,6 +1604,54 @@ export const productSheetView: ViewConfig = {
                 },
             ],
         },
+        runtimeChildSheetGroup(
+            "productVariants",
+            "variants",
+            "product.sheet.variants.listDisplay",
+            "#ProductVariantCard",
+            "entity",
+            {
+                icon: "#IconBarcode",
+                label: "productVariant",
+                valuePath: ["sku", "status"],
+                joinSeparator: " · ",
+                linkedSheetModel: "productVariants",
+                linkedSheetWidget: "#ProductVariantSheetView",
+                linkedSheetEntityProp: "entity",
+            },
+        ),
+        runtimeChildSheetGroup(
+            "inventories",
+            "inventories",
+            "product.sheet.inventories.listDisplay",
+            "#InventoryCard",
+            "inventory",
+            {
+                icon: "#IconBuildingWarehouse",
+                label: "inventoryRow",
+                valuePath: ["warehouse.name", "quantityOnHand"],
+                joinSeparator: " · ",
+                linkedSheetModel: "inventories",
+                linkedSheetWidget: "#InventorySheetView",
+                linkedSheetEntityProp: "inventory",
+            },
+        ),
+        runtimeChildSheetGroup(
+            "reviews",
+            "reviews",
+            "product.sheet.reviews.listDisplay",
+            "#ProductReviewCard",
+            "review",
+            {
+                icon: "#IconStar",
+                label: "productReview",
+                valuePath: ["rating", "title"],
+                joinSeparator: " · ",
+                linkedSheetModel: "productReviews",
+                linkedSheetWidget: "#ProductReviewSheetView",
+                linkedSheetEntityProp: "review",
+            },
+        ),
         lifecycleSheetGroup,
     ],
 };
@@ -1160,7 +1673,7 @@ export const productEditFormView: ViewConfig = {
     accessModel: "products",
     apiUrl: "/api/eCommerce/product",
     method: "PATCH",
-    nodes: productFormFields,
+    nodes: productEditFormNodes,
 };
 
 export const productViews: ViewConfig[] = [productSheetView, productCreateFormView, productEditFormView];

@@ -10,7 +10,8 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
-import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import GiftCard from "@financeModule/database/schemas/giftCard/giftCard";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import DigitalDelivery from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery";
@@ -230,7 +231,10 @@ export class ProductOrderActions {
             throw apiValidationException("refund_order_before_cancelling", null, null, languageCode);
         }
 
-        const checkout = await Checkout.findOne({idempotencyKey: order.idempotencyKey, company: company._id}).session(session);
+        const checkout = await checkoutService.findOne(
+            {idempotencyKey: order.idempotencyKey, company: company._id},
+            {session, logger, languageCode},
+        );
         if (checkout && (checkout.reservations ?? []).some(r => r.state === "reserved")) {
             await releaseCheckoutReservations(checkout, {session, logger, languageCode, auditUserId: actionUserCtx.userId});
         }
@@ -288,6 +292,10 @@ export class ProductOrderActions {
             throw apiValidationException("order_not_awaiting_payment", null, null, languageCode);
         }
 
+        const currencyId = nestedEntityToRef(order.currency);
+        if (!currencyId) {
+            throw apiValidationException("order_not_awaiting_payment", null, null, languageCode);
+        }
         await paymentTransactionService.create(
             {
                 sourceType: "productOrder",
@@ -296,15 +304,18 @@ export class ProductOrderActions {
                 type: "charge",
                 status: "succeeded",
                 amount: order.grandTotal,
-                currency: order.currency?._id ?? order.currency,
+                currency: currencyId,
                 refundedAmount: 0,
                 metadata: reference?.trim?.() ? {reference: reference.trim()} : undefined,
-                company: company._id,
-            } as any,
+                company,
+            },
             ctx,
         );
 
-        const checkout = await Checkout.findOne({idempotencyKey: order.idempotencyKey, company: company._id}).session(session);
+        const checkout = await checkoutService.findOne(
+            {idempotencyKey: order.idempotencyKey, company: company._id},
+            {session, logger, languageCode},
+        );
         if (checkout) {
             await consumeCheckoutReservations(checkout, ctx);
         } else {
@@ -449,7 +460,10 @@ export class ProductOrderActions {
 
             // Nothing shipped yet: the sold units go back on the shelf
             if (order.fulfillmentStatus === "unfulfilled") {
-                const checkout = await Checkout.findOne({idempotencyKey: order.idempotencyKey, company: company._id}).session(session);
+                const checkout = await checkoutService.findOne(
+            {idempotencyKey: order.idempotencyKey, company: company._id},
+            {session, logger, languageCode},
+        );
                 if (checkout) {
                     await restockConsumedReservations(checkout, {...ctx, referenceId: order._id as ObjectId});
                 } else {

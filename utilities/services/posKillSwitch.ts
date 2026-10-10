@@ -1,5 +1,6 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import PosCompanyPosLock, {
     type IPosCompanyPosLock,
@@ -219,8 +220,8 @@ export async function forceCloseOpenSessionsForConfig(
     const cashierUserIds = [
         ...new Set(
             sessions
-                .map((s) => (s.openedBy as any)?._id?.toString?.() ?? s.openedBy?.toString?.())
-                .filter(Boolean) as string[],
+                .map((s) => nestedEntityToRef(s.openedBy)?.toString())
+                .filter((id): id is string => !!id),
         ),
     ];
 
@@ -337,7 +338,7 @@ export async function resolveTerminalCancelMeta(
         protocol: method.terminalProtocol || undefined,
         host: method.terminalHost || undefined,
         port: method.terminalPort || undefined,
-        cancelPath: (method as any).terminalCancelPath || "/cancel",
+        cancelPath: "/cancel",
         terminalId: method.terminalId || undefined,
     };
 }

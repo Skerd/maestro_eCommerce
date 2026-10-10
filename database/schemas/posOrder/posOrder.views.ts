@@ -19,6 +19,7 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "name"},
                             field: {
                                 name: "name",
                                 widget: "#DisplayCard",
@@ -28,6 +29,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "state"},
                             field: {
                                 name: "state",
                                 widget: "#DisplayCard",
@@ -37,6 +39,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "session"},
                             field: {
                                 name: "session",
                                 widget: "#DisplayCard",
@@ -54,6 +57,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "config"},
                             field: {
                                 name: "config",
                                 widget: "#DisplayCard",
@@ -71,6 +75,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "cashier"},
                             field: {
                                 name: "cashier",
                                 widget: "#DisplayCard",
@@ -86,6 +91,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "customer"},
                             field: {
                                 name: "customer",
                                 widget: "#DisplayCard",
@@ -101,6 +107,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "customerName"},
                             field: {
                                 name: "customerName",
                                 widget: "#DisplayCard",
@@ -110,6 +117,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "isRefund"},
                             field: {
                                 name: "isRefund",
                                 widget: "#DisplayCard",
@@ -119,6 +127,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "productOrder"},
                             field: {
                                 name: "productOrder",
                                 widget: "#DisplayCard",
@@ -136,6 +145,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "refundOf"},
                             field: {
                                 name: "refundOf",
                                 widget: "#DisplayCard",
@@ -153,6 +163,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "company"},
                             field: {
                                 name: "company",
                                 widget: "#DisplayCard",
@@ -403,6 +414,7 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "amountTotal"},
                             field: {
                                 name: "amountTotal",
                                 widget: "#DisplayCard",
@@ -412,6 +424,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "amountTax"},
                             field: {
                                 name: "amountTax",
                                 widget: "#DisplayCard",
@@ -421,6 +434,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "discountTotal"},
                             field: {
                                 name: "discountTotal",
                                 widget: "#DisplayCard",
@@ -430,6 +444,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "orderDiscountPercent"},
                             field: {
                                 name: "orderDiscountPercent",
                                 widget: "#DisplayCard",
@@ -439,6 +454,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "amountPaid"},
                             field: {
                                 name: "amountPaid",
                                 widget: "#DisplayCard",
@@ -448,6 +464,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "amountReturn"},
                             field: {
                                 name: "amountReturn",
                                 widget: "#DisplayCard",
@@ -457,6 +474,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "amountRefunded"},
                             field: {
                                 name: "amountRefunded",
                                 widget: "#DisplayCard",
@@ -479,6 +497,7 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "nslf"},
                             field: {
                                 name: "nslf",
                                 widget: "#DisplayCard",
@@ -488,6 +507,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "nivf"},
                             field: {
                                 name: "nivf",
                                 widget: "#DisplayCard",
@@ -497,6 +517,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "eic"},
                             field: {
                                 name: "eic",
                                 widget: "#DisplayCard",
@@ -506,6 +527,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalInvNum"},
                             field: {
                                 name: "fiscalInvNum",
                                 widget: "#DisplayCard",
@@ -515,6 +537,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalInvOrdNum"},
                             field: {
                                 name: "fiscalInvOrdNum",
                                 widget: "#DisplayCard",
@@ -524,6 +547,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalTypeOfInv"},
                             field: {
                                 name: "fiscalTypeOfInv",
                                 widget: "#DisplayCard",
@@ -533,6 +557,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalTcrCode"},
                             field: {
                                 name: "fiscalTcrCode",
                                 widget: "#DisplayCard",
@@ -542,6 +567,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalOperatorCode"},
                             field: {
                                 name: "fiscalOperatorCode",
                                 widget: "#DisplayCard",
@@ -551,6 +577,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalBusinessUnitCode"},
                             field: {
                                 name: "fiscalBusinessUnitCode",
                                 widget: "#DisplayCard",
@@ -560,6 +587,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalIssueDateTime"},
                             field: {
                                 name: "fiscalIssueDateTime",
                                 widget: "#DisplayCard",
@@ -569,6 +597,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalizedAt"},
                             field: {
                                 name: "fiscalizedAt",
                                 widget: "#DisplayCard",
@@ -578,6 +607,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "einvoiceAt"},
                             field: {
                                 name: "einvoiceAt",
                                 widget: "#DisplayCard",
@@ -587,6 +617,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "qrVerifyUrl"},
                             field: {
                                 name: "qrVerifyUrl",
                                 widget: "#DisplayCard",
@@ -596,11 +627,12 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fiscalError"},
                             field: {
                                 name: "fiscalError",
                                 widget: "#DisplayCard",
                                 label: "fiscalError",
-                                widgetProps: {icon: "#IconAlertTriangle"},
+                                widgetProps: {icon: "#IconAlertTriangle", expandable: true, maxLength: 250},
                             },
                         },
                     ],
@@ -617,15 +649,17 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "note"},
                             field: {
                                 name: "note",
                                 widget: "#DisplayCard",
                                 label: "note",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "clientRequestId"},
                             field: {
                                 name: "clientRequestId",
                                 widget: "#DisplayCard",

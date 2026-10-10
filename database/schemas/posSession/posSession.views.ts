@@ -18,6 +18,7 @@ export const posSessionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "name"},
                             field: {
                                 name: "name",
                                 widget: "#DisplayCard",
@@ -27,6 +28,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "state"},
                             field: {
                                 name: "state",
                                 widget: "#DisplayCard",
@@ -36,6 +38,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "config"},
                             field: {
                                 name: "config",
                                 widget: "#DisplayCard",
@@ -53,6 +56,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "openedBy"},
                             field: {
                                 name: "openedBy",
                                 widget: "#DisplayCard",
@@ -68,6 +72,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "closedBy"},
                             field: {
                                 name: "closedBy",
                                 widget: "#DisplayCard",
@@ -83,6 +88,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "openedAt"},
                             field: {
                                 name: "openedAt",
                                 widget: "#DisplayCard",
@@ -92,6 +98,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "closedAt"},
                             field: {
                                 name: "closedAt",
                                 widget: "#DisplayCard",
@@ -101,6 +108,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "company"},
                             field: {
                                 name: "company",
                                 widget: "#DisplayCard",
@@ -126,6 +134,7 @@ export const posSessionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "openingBalance"},
                             field: {
                                 name: "openingBalance",
                                 widget: "#DisplayCard",
@@ -135,6 +144,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "closingBalance"},
                             field: {
                                 name: "closingBalance",
                                 widget: "#DisplayCard",
@@ -144,6 +154,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "expectedCash"},
                             field: {
                                 name: "expectedCash",
                                 widget: "#DisplayCard",
@@ -153,6 +164,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "cashRegisterBalance"},
                             field: {
                                 name: "cashRegisterBalance",
                                 widget: "#DisplayCard",
@@ -174,6 +186,7 @@ export const posSessionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "orderCount"},
                             field: {
                                 name: "orderCount",
                                 widget: "#DisplayCard",
@@ -183,6 +196,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "totalSales"},
                             field: {
                                 name: "totalSales",
                                 widget: "#DisplayCard",
@@ -192,6 +206,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "totalCash"},
                             field: {
                                 name: "totalCash",
                                 widget: "#DisplayCard",
@@ -201,6 +216,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "totalCard"},
                             field: {
                                 name: "totalCard",
                                 widget: "#DisplayCard",
@@ -295,12 +311,62 @@ export const posSessionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "notes"},
                             field: {
                                 name: "notes",
                                 widget: "#DisplayCard",
                                 label: "notes",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "posSession.sheet.posOrders.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "posOrders",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "posOrders",
+                    dependentRuntimeOnly: true,
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "posOrders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#PosOrderCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconReceipt",
+                                                label: "posOrder",
+                                                valuePath: ["name", "state", "amountTotal"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "posOrders",
+                                                linkedSheetWidget: "#PosOrderSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },

@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import InventoryMovement from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
@@ -18,13 +19,19 @@ export const {router} = createCrudRouter({
     service: inventoryMovementService,
     entityName: "Inventory movement",
     defaultSort: {occurredAt: -1, createdAt: -1},
-    createSchema: () => z.looseObject({}),
-    editSchema: () => z.looseObject({}),
+    createSchema: () => z.object({}),
+    editSchema: () => z.object({_id: z.string()}),
     toDTO: inventoryMovementToDTO,
     toDTOArray: inventoryMovementsToDTO,
     toSelect: inventoryMovementsToSelect,
-    buildCreateData: async () => ({}),
-    buildUpdateData: async () => ({}),
-    beforeDelete: async () => {},
+    buildCreateData: (params) => {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+    },
+    buildUpdateData: (params) => {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+    },
+    beforeDelete: async (params) => {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+    },
     rateLimits: {read: 120, write: 10, delete: 5},
 });

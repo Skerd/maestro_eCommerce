@@ -1,14 +1,19 @@
 import {Router, Request} from "express";
+import type {Document, Model} from "mongoose";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW from "@coreModule/utilities/middlewares/authMW";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import Product from "@eCommerceModule/database/schemas/product/product";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 
 export const basePath = "/api/eCommerce/analytics";
 export const router = Router();
@@ -22,7 +27,7 @@ const REVENUE_PAYMENT_STATUSES = ["paid", "partially_refunded"];
  * Store analytics expose company-wide money and stock figures, so they require
  * read access to the underlying field — the same rule the list views apply.
  */
-function assertCanRead(params: any, model: any, field: string): void {
+function assertCanRead(params: AuthenticatedMWType, model: Model<Document>, field: string): void {
     const readable = SchemaGuard.sanitizeFields(model, {[field]: {}}, "read", params.actionUserCtx, params.languageCode);
     if (!readable[field]) {
         throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
@@ -51,6 +56,20 @@ function netOfRefundsStages() {
     ];
 }
 
+function queryString(req: Request, key: string, fallback: string): string {
+    const value = req.query[key];
+    return typeof value === "string" ? value : fallback;
+}
+
+function countsByKey(rows: {_id?: unknown; count?: unknown}[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const row of rows) {
+        if (row._id == null) continue;
+        out[String(row._id)] = Number(row.count ?? 0);
+    }
+    return out;
+}
+
 function dateRange(period: string): {start: Date; end: Date} {
     const end = new Date();
     const start = new Date();
@@ -69,13 +88,13 @@ router.get(
     "/revenue",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+    asyncHandler(async (params: AuthenticatedMWType, _queryParams: unknown, req: Request) => {
         const {company} = params;
         assertCanRead(params, ProductOrder, "grandTotal");
-        const period = String((req.query?.period as string) ?? "30d");
+        const period = queryString(req, "period", "30d");
         const {start, end} = dateRange(period);
 
-        const [result] = await ProductOrder.aggregate([
+        const [result] = await productOrderService.aggregate([
             {
                 $match: {
                     company: company._id,
@@ -97,7 +116,7 @@ router.get(
             },
         ]);
 
-        const dailyRevenue = await ProductOrder.aggregate([
+        const dailyRevenue = await productOrderService.aggregate([
             {
                 $match: {
                     company: company._id,
@@ -135,20 +154,20 @@ router.get(
     "/orders",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+    asyncHandler(async (params: AuthenticatedMWType, _queryParams: unknown, req: Request) => {
         const {company} = params;
         assertCanRead(params, ProductOrder, "status");
-        const period = String((req.query?.period as string) ?? "30d");
+        const period = queryString(req, "period", "30d");
         const {start, end} = dateRange(period);
 
-        const statusCounts = await ProductOrder.aggregate([
+        const statusCounts = await productOrderService.aggregate([
             {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, "deletedAt": null}},
             {$group: {_id: "$status", count: {$sum: 1}}},
         ]);
 
         return {
             data: {
-                byStatus: statusCounts.reduce((acc: any, {_id, count}: any) => ({...acc, [_id]: count}), {}),
+                byStatus: countsByKey(statusCounts),
             },
         };
     }),
@@ -159,20 +178,20 @@ router.get(
     "/inventory",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType) => {
         const {company} = params;
         assertCanRead(params, Inventory, "quantityOnHand");
 
         const [lowStock, outOfStock, totalValue] = await Promise.all([
-            Inventory.countDocuments({
+            inventoryService.count({
                 company: company._id,
                 $expr: {$and: [{$lt: [{$subtract: ["$quantityOnHand", "$quantityReserved"]}, "$reorderPoint"]}, {$gt: [{$subtract: ["$quantityOnHand", "$quantityReserved"]}, 0]}]},
             }),
-            Inventory.countDocuments({
+            inventoryService.count({
                 company: company._id,
                 $expr: {$lte: [{$subtract: ["$quantityOnHand", "$quantityReserved"]}, 0]},
             }),
-            Inventory.aggregate([
+            inventoryService.aggregate([
                 {$match: {company: company._id}},
                 {$group: {_id: null, totalOnHand: {$sum: "$quantityOnHand"}}},
             ]),
@@ -193,14 +212,14 @@ router.get(
     "/products",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (params: any, _queryParams: any, req: Request) => {
+    asyncHandler(async (params: AuthenticatedMWType, _queryParams: unknown, req: Request) => {
         const {company} = params;
         assertCanRead(params, ProductOrder, "grandTotal");
-        const period = String((req.query?.period as string) ?? "30d");
-        const limit = Number((req.query?.limit as string) ?? 10);
+        const period = queryString(req, "period", "30d");
+        const limit = Number(queryString(req, "limit", "10"));
         const {start, end} = dateRange(period);
 
-        const topProducts = await ProductOrder.aggregate([
+        const topProducts = await productOrderService.aggregate([
             {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, paymentStatus: {$in: REVENUE_PAYMENT_STATUSES}, "deletedAt": null}},
             {$unwind: "$items"},
             {
@@ -216,7 +235,7 @@ router.get(
             {$limit: Math.min(Number.isFinite(limit) ? limit : 10, 50)},
         ]);
 
-        const statusCounts = await Product.aggregate([
+        const statusCounts = await productService.aggregate([
             {$match: {company: company._id, "deletedAt": null}},
             {$group: {_id: "$status", count: {$sum: 1}}},
         ]);
@@ -224,7 +243,7 @@ router.get(
         return {
             data: {
                 topProducts,
-                byStatus: statusCounts.reduce((acc: any, {_id, count}: any) => ({...acc, [_id]: count}), {}),
+                byStatus: countsByKey(statusCounts),
             },
         };
     }),
@@ -235,27 +254,27 @@ router.get(
     "/carts",
     authMW("private"),
     readLimiter,
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType) => {
         const {company} = params;
         assertCanRead(params, Cart, "subtotal");
 
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
         const [abandonedCarts, activeCarts] = await Promise.all([
-            Cart.countDocuments({
+            cartService.count({
                 company: company._id,
                 "items.0": {$exists: true},
                 updatedAt: {$lt: oneHourAgo},
                 "deletedAt": null,
             }),
-            Cart.countDocuments({
+            cartService.count({
                 company: company._id,
                 "items.0": {$exists: true},
                 updatedAt: {$gte: oneHourAgo},
             }),
         ]);
 
-        const avgCartValue = await Cart.aggregate([
+        const avgCartValue = await cartService.aggregate([
             {$match: {company: company._id, "items.0": {$exists: true}}},
             {$group: {_id: null, avg: {$avg: "$subtotal"}}},
         ]);

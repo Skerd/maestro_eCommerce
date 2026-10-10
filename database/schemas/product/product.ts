@@ -16,7 +16,7 @@ import {addModelData} from "@coreModule/database/collections";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
+import {ProductSchemaDef, PRODUCT_TITLE_MAX, PRODUCT_SLUG_MAX, PRODUCT_DESCRIPTION_MAX, PRODUCT_SKU_MAX, PRODUCT_CODE_MAX, PRODUCT_URL_MAX, PRODUCT_META_TITLE_MAX, PRODUCT_META_DESCRIPTION_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {ProductSimpleSnippet} from "./product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
@@ -29,6 +29,7 @@ import {ICollection} from "@eCommerceModule/database/schemas/collection/collecti
 import {IProductAttribute} from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";
@@ -154,7 +155,8 @@ const ProductSchema = new Schema<IProduct>(
         title: {
             type: SchemaTypes.String,
             required: true,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_TITLE_MAX,
         },
         slug: {
             type: SchemaTypes.String,
@@ -162,6 +164,7 @@ const ProductSchema = new Schema<IProduct>(
             required: false,
             trim: true,
             lowercase: true,
+            maxlength: PRODUCT_SLUG_MAX,
             permissions: {
                 self: {
                     write: "no-permission",
@@ -173,74 +176,89 @@ const ProductSchema = new Schema<IProduct>(
         },
         description: {
             type: SchemaTypes.String,
-            default: ""
+            default: "",
+            maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         shortDescription: {
             type: SchemaTypes.String,
-            default: ""
+            default: "",
+            maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         highlights: {
             type: [SchemaTypes.String],
             default: []
         },
         careInstructions: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         warranty: {
-            type: SchemaTypes.String
+            type: SchemaTypes.String,
+            maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         faqs: [{
             type: {
-                question: {type: SchemaTypes.String, required: true},
-                answer: {type: SchemaTypes.String, required: true},
+                question: {type: SchemaTypes.String, required: true, maxlength: PRODUCT_TITLE_MAX},
+                answer: {type: SchemaTypes.String, required: true, maxlength: PRODUCT_DESCRIPTION_MAX},
             },
             default: [],
         }],
         // Identifiers
         sku: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_SKU_MAX,
         },
         barcode: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         gtin: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         upc: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         ean: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         isbn: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         mpn: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         hsCode: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         countryOfOrigin: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_TITLE_MAX,
         },
         // Organization
         brand: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_TITLE_MAX,
         },
         vendor: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_TITLE_MAX,
         },
         tags: {
             type: [SchemaTypes.String],
@@ -293,7 +311,8 @@ const ProductSchema = new Schema<IProduct>(
         },
         taxClass: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         minOrderQty: {
             type: SchemaTypes.Number,
@@ -349,7 +368,8 @@ const ProductSchema = new Schema<IProduct>(
         },
         shippingClass: {
             type: SchemaTypes.String,
-            trim: true
+            trim: true,
+            maxlength: PRODUCT_CODE_MAX,
         },
         isHazmat: {
             type: SchemaTypes.Boolean,
@@ -548,7 +568,8 @@ const ProductSchema = new Schema<IProduct>(
                 {
                     name: {
                         type: SchemaTypes.String,
-                        required: true
+                        required: true,
+                        maxlength: PRODUCT_TITLE_MAX,
                     },
                     values: {
                         type: [SchemaTypes.String],
@@ -563,11 +584,13 @@ const ProductSchema = new Schema<IProduct>(
                 {
                     label: {
                         type: SchemaTypes.String,
-                        required: true
+                        required: true,
+                        maxlength: PRODUCT_TITLE_MAX,
                     },
                     value: {
                         type: SchemaTypes.String,
-                        required: true
+                        required: true,
+                        maxlength: PRODUCT_TITLE_MAX,
                     }
                 },
             ],
@@ -576,23 +599,28 @@ const ProductSchema = new Schema<IProduct>(
         seo: {
             type: {
                 metaTitle: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_META_TITLE_MAX,
                 },
                 metaDescription: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_META_DESCRIPTION_MAX,
                 },
                 metaKeywords: {
                     type: [SchemaTypes.String],
                     default: []
                 },
                 canonicalUrl: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_URL_MAX,
                 },
                 openGraphTitle: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_META_TITLE_MAX,
                 },
                 openGraphDescription: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_META_DESCRIPTION_MAX,
                 },
                 openGraphImage: {
                     type: SchemaTypes.ObjectId,
@@ -605,7 +633,8 @@ const ProductSchema = new Schema<IProduct>(
                     default: "summary_large_image"
                 },
                 structuredDataType: {
-                    type: SchemaTypes.String
+                    type: SchemaTypes.String,
+                    maxlength: PRODUCT_CODE_MAX,
                 },
                 sitemapInclude: {
                     type: SchemaTypes.Boolean,
@@ -635,11 +664,11 @@ ProductSchema.pre("save", async function () {
     if (!this.title) {
         throw new Error("Product title is required to generate slug");
     }
-    const companyId = (this.company as {_id?: unknown} | null)?._id ?? this.company;
+    const companyId = nestedEntityToRef(this.company);
     if (!companyId) {
         throw new Error("Product company is required to generate slug");
     }
-    this.slug = await generateUniqueSlug(this.title, this.constructor, companyId as any);
+    this.slug = await generateUniqueSlug(this.title, this.constructor, companyId);
 });
 
 ownershipPlugin(ProductSchema);

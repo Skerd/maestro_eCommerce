@@ -28,6 +28,7 @@ export const productReviewSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "rating"},
                             field: {
                                 name: "rating",
                                 widget: "#DisplayCard",
@@ -37,6 +38,7 @@ export const productReviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "title"},
                             field: {
                                 name: "title",
                                 widget: "#DisplayCard",
@@ -59,6 +61,7 @@ export const productReviewSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#ExpandableText",
+                            permissions: {read: "comment"},
                             field: {
                                 name: "comment",
                                 widget: "#ExpandableText",
@@ -79,6 +82,7 @@ export const productReviewSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "order"},
                             field: {
                                 name: "order",
                                 widget: "#DisplayCard",
@@ -96,6 +100,7 @@ export const productReviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "product"},
                             field: {
                                 name: "product",
                                 widget: "#DisplayCard",
@@ -113,6 +118,7 @@ export const productReviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "reviewer"},
                             field: {
                                 name: "reviewer",
                                 widget: "#DisplayCard",

@@ -18,6 +18,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "orderNumber"},
                             field: {
                                 name: "orderNumber",
                                 widget: "#DisplayCard",
@@ -27,6 +28,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "status"},
                             field: {
                                 name: "status",
                                 widget: "#DisplayCard",
@@ -36,6 +38,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "paymentStatus"},
                             field: {
                                 name: "paymentStatus",
                                 widget: "#DisplayCard",
@@ -45,6 +48,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "fulfillmentStatus"},
                             field: {
                                 name: "fulfillmentStatus",
                                 widget: "#DisplayCard",
@@ -54,6 +58,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "customer"},
                             field: {
                                 name: "customer",
                                 widget: "#DisplayCard",
@@ -69,6 +74,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "company"},
                             field: {
                                 name: "company",
                                 widget: "#DisplayCard",
@@ -82,6 +88,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "email"},
                             field: {
                                 name: "email",
                                 widget: "#DisplayCard",
@@ -91,6 +98,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "phone"},
                             field: {
                                 name: "phone",
                                 widget: "#DisplayCard",
@@ -100,6 +108,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "currency"},
                             field: {
                                 name: "currency",
                                 widget: "#DisplayCard",
@@ -234,6 +243,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.firstName"},
                             field: {
                                 name: "shippingAddress.firstName",
                                 widget: "#DisplayCard",
@@ -243,6 +253,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.lastName"},
                             field: {
                                 name: "shippingAddress.lastName",
                                 widget: "#DisplayCard",
@@ -252,6 +263,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.phone"},
                             field: {
                                 name: "shippingAddress.phone",
                                 widget: "#DisplayCard",
@@ -261,6 +273,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.street"},
                             field: {
                                 name: "shippingAddress.street",
                                 widget: "#DisplayCard",
@@ -270,6 +283,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.city"},
                             field: {
                                 name: "shippingAddress.city",
                                 widget: "#DisplayCard",
@@ -279,6 +293,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.state"},
                             field: {
                                 name: "shippingAddress.state",
                                 widget: "#DisplayCard",
@@ -288,6 +303,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.postalCode"},
                             field: {
                                 name: "shippingAddress.postalCode",
                                 widget: "#DisplayCard",
@@ -297,6 +313,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingAddress.country"},
                             field: {
                                 name: "shippingAddress.country",
                                 widget: "#DisplayCard",
@@ -328,6 +345,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.firstName"},
                             field: {
                                 name: "billingAddress.firstName",
                                 widget: "#DisplayCard",
@@ -337,6 +355,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.lastName"},
                             field: {
                                 name: "billingAddress.lastName",
                                 widget: "#DisplayCard",
@@ -346,6 +365,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.phone"},
                             field: {
                                 name: "billingAddress.phone",
                                 widget: "#DisplayCard",
@@ -355,6 +375,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.street"},
                             field: {
                                 name: "billingAddress.street",
                                 widget: "#DisplayCard",
@@ -364,6 +385,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.city"},
                             field: {
                                 name: "billingAddress.city",
                                 widget: "#DisplayCard",
@@ -373,6 +395,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.state"},
                             field: {
                                 name: "billingAddress.state",
                                 widget: "#DisplayCard",
@@ -382,6 +405,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.postalCode"},
                             field: {
                                 name: "billingAddress.postalCode",
                                 widget: "#DisplayCard",
@@ -391,6 +415,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "billingAddress.country"},
                             field: {
                                 name: "billingAddress.country",
                                 widget: "#DisplayCard",
@@ -421,6 +446,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "subtotal"},
                             field: {
                                 name: "subtotal",
                                 widget: "#DisplayCard",
@@ -430,6 +456,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "discountTotal"},
                             field: {
                                 name: "discountTotal",
                                 widget: "#DisplayCard",
@@ -439,6 +466,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingTotal"},
                             field: {
                                 name: "shippingTotal",
                                 widget: "#DisplayCard",
@@ -448,6 +476,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "taxTotal"},
                             field: {
                                 name: "taxTotal",
                                 widget: "#DisplayCard",
@@ -457,6 +486,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "grandTotal"},
                             field: {
                                 name: "grandTotal",
                                 widget: "#DisplayCard",
@@ -479,6 +509,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingRate.name"},
                             field: {
                                 name: "shippingRate.name",
                                 widget: "#DisplayCard",
@@ -488,6 +519,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingRate.carrier"},
                             field: {
                                 name: "shippingRate.carrier",
                                 widget: "#DisplayCard",
@@ -497,6 +529,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "shippingRate.price"},
                             field: {
                                 name: "shippingRate.price",
                                 widget: "#DisplayCard",
@@ -633,6 +666,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "giftCard.giftCard"},
                             field: {
                                 name: "giftCard.giftCard",
                                 widget: "#DisplayCard",
@@ -650,6 +684,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "giftCard.code"},
                             field: {
                                 name: "giftCard.code",
                                 widget: "#DisplayCard",
@@ -659,6 +694,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "giftCard.amount"},
                             field: {
                                 name: "giftCard.amount",
                                 widget: "#DisplayCard",
@@ -680,20 +716,22 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "notes"},
                             field: {
                                 name: "notes",
                                 widget: "#DisplayCard",
                                 label: "notes",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "internalNotes"},
                             field: {
                                 name: "internalNotes",
                                 widget: "#DisplayCard",
                                 label: "internalNotes",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                     ],
@@ -833,6 +871,7 @@ export const productOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "stripePaymentIntentId"},
                             field: {
                                 name: "stripePaymentIntentId",
                                 widget: "#DisplayCard",
@@ -842,12 +881,111 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "idempotencyKey"},
                             field: {
                                 name: "idempotencyKey",
                                 widget: "#DisplayCard",
                                 label: "idempotencyKey",
                                 widgetProps: {icon: "#Hash"},
                             },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "productOrder.sheet.fulfillments.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "fulfillments",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "fulfillments",
+                    dependentRuntimeOnly: true,
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "fulfillments",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#FulfillmentCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconTruck",
+                                                label: "fulfillment",
+                                                valuePath: ["status", "trackingNumber", "carrier"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "fulfillments",
+                                                linkedSheetWidget: "#FulfillmentSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "productOrder.sheet.returnRequests.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "returnRequests",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    dependent: "returnRequests",
+                    dependentRuntimeOnly: true,
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "returnRequests",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ReturnRequestCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconArrowBack",
+                                                label: "returnRequest",
+                                                valuePath: ["type", "status"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "returnRequests",
+                                                linkedSheetWidget: "#ReturnRequestSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },

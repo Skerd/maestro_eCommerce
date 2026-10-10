@@ -1,18 +1,14 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
+import {
+    RETURN_REQUEST_NOTE_MAX,
+    RETURN_REQUEST_REASON_MAX,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
 
 const returnRequestTypeOptions = [
     {value: "return", label: "form.returnType.return"},
     {value: "exchange", label: "form.returnType.exchange"},
     {value: "refund", label: "form.returnType.refund"},
-];
-
-const returnRequestStatusOptions = [
-    {value: "pending", label: "form.returnStatus.pending"},
-    {value: "approved", label: "form.returnStatus.approved"},
-    {value: "rejected", label: "form.returnStatus.rejected"},
-    {value: "received", label: "form.returnStatus.received"},
-    {value: "completed", label: "form.returnStatus.completed"},
 ];
 
 const textareaScrollClass = "field-sizing-fixed max-h-56 min-h-24 overflow-y-auto";
@@ -51,15 +47,6 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
             {
                 render: "#Field",
                 field: {
-                    name: "status",
-                    widget: "#Select",
-                    label: "form.statusLabel",
-                    widgetProps: {options: returnRequestStatusOptions, className: "grow w-full"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
                     name: "refundAmount",
                     widget: "#Input",
                     label: "form.refundAmountLabel",
@@ -76,7 +63,7 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
             widget: "#Textarea",
             label: "form.customerNoteLabel",
             placeholder: "form.customerNotePlaceholder",
-            widgetProps: {rows: 4, className: textareaScrollClass},
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: RETURN_REQUEST_NOTE_MAX},
         },
     },
     {
@@ -86,7 +73,7 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
             widget: "#Textarea",
             label: "form.adminNoteLabel",
             placeholder: "form.adminNotePlaceholder",
-            widgetProps: {rows: 4, className: textareaScrollClass},
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: RETURN_REQUEST_NOTE_MAX},
         },
     },
     {
@@ -135,7 +122,136 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
                                     label: "form.reasonLabel",
                                     placeholder: "form.reasonPlaceholder",
                                     required: true,
-                                    widgetProps: {rows: 3, className: reasonTextareaScrollClass},
+                                    widgetProps: {rows: 3, className: reasonTextareaScrollClass, maxLength: RETURN_REQUEST_REASON_MAX},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+];
+
+const returnRequestEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        permissions: {writeAny: ["order", "type", "refundAmount"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "order", write: "order"},
+                field: {
+                    name: "order",
+                    widget: "#ApiSelect",
+                    label: "form.orderLabel",
+                    placeholder: "form.orderPlaceholder",
+                    required: true,
+                    widgetProps: {
+                        apiUrl: "/api/eCommerce/productOrder/select",
+                        method: "POST",
+                        normalizeEmptyToUndefined: true,
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "type", write: "type"},
+                field: {
+                    name: "type",
+                    widget: "#Select",
+                    label: "form.typeLabel",
+                    required: true,
+                    widgetProps: {options: returnRequestTypeOptions, className: "grow w-full"},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "refundAmount", write: "refundAmount"},
+                field: {
+                    name: "refundAmount",
+                    widget: "#Input",
+                    label: "form.refundAmountLabel",
+                    placeholder: "form.refundAmountPlaceholder",
+                    widgetProps: {type: "number", min: 0},
+                },
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        permissions: {read: "customerNote", write: "customerNote"},
+        field: {
+            name: "customerNote",
+            widget: "#Textarea",
+            label: "form.customerNoteLabel",
+            placeholder: "form.customerNotePlaceholder",
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: RETURN_REQUEST_NOTE_MAX},
+        },
+    },
+    {
+        render: "#Field",
+        permissions: {read: "adminNote", write: "adminNote"},
+        field: {
+            name: "adminNote",
+            widget: "#Textarea",
+            label: "form.adminNoteLabel",
+            placeholder: "form.adminNotePlaceholder",
+            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: RETURN_REQUEST_NOTE_MAX},
+        },
+    },
+    {
+        render: "#Field",
+        permissions: {read: "items", write: "items"},
+        field: {
+            name: "items",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.itemsSectionTitle",
+                arrayField: "items",
+                defaultItem: {orderItemId: "", quantity: 1, reason: ""},
+                addLabel: "form.itemAddRow",
+                removeLabel: "form.itemRemoveRow",
+                rowTitleFields: ["reason"],
+                rowTitlePlaceholder: "form.itemRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 2},
+                        children: [
+                            {
+                                render: "#Field",
+                                permissions: {read: "items", write: "items"},
+                                field: {
+                                    name: "orderItemId",
+                                    widget: "#Input",
+                                    label: "form.orderItemIdLabel",
+                                    placeholder: "form.orderItemIdPlaceholder",
+                                    required: true,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                permissions: {read: "items", write: "items"},
+                                field: {
+                                    name: "quantity",
+                                    widget: "#Input",
+                                    label: "form.quantityLabel",
+                                    required: true,
+                                    widgetProps: {type: "number", min: 1},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                permissions: {read: "items", write: "items"},
+                                field: {
+                                    name: "reason",
+                                    widget: "#Textarea",
+                                    label: "form.reasonLabel",
+                                    placeholder: "form.reasonPlaceholder",
+                                    required: true,
+                                    widgetProps: {rows: 3, className: reasonTextareaScrollClass, maxLength: RETURN_REQUEST_REASON_MAX},
                                 },
                             },
                         ],
@@ -163,6 +279,7 @@ export const returnRequestSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "type"},
                             field: {
                                 name: "type",
                                 widget: "#DisplayCard",
@@ -172,6 +289,7 @@ export const returnRequestSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "status"},
                             field: {
                                 name: "status",
                                 widget: "#DisplayCard",
@@ -181,6 +299,7 @@ export const returnRequestSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "refundAmount"},
                             field: {
                                 name: "refundAmount",
                                 widget: "#DisplayCard",
@@ -190,6 +309,7 @@ export const returnRequestSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "resolvedAt"},
                             field: {
                                 name: "resolvedAt",
                                 widget: "#DisplayCard",
@@ -211,20 +331,22 @@ export const returnRequestSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "customerNote"},
                             field: {
                                 name: "customerNote",
                                 widget: "#DisplayCard",
                                 label: "customerNote",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "adminNote"},
                             field: {
                                 name: "adminNote",
                                 widget: "#DisplayCard",
                                 label: "adminNote",
-                                widgetProps: {icon: "#IconNote"},
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                     ],
@@ -241,6 +363,7 @@ export const returnRequestSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "order"},
                             field: {
                                 name: "order",
                                 widget: "#DisplayCard",
@@ -258,6 +381,7 @@ export const returnRequestSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "resolvedBy"},
                             field: {
                                 name: "resolvedBy",
                                 widget: "#DisplayCard",
@@ -272,6 +396,7 @@ export const returnRequestSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "company"},
                             field: {
                                 name: "company",
                                 widget: "#DisplayCard",
@@ -365,7 +490,7 @@ export const returnRequestEditFormView: ViewConfig = {
     accessModel: "returnRequests",
     apiUrl: "/api/eCommerce/returnRequest",
     method: "PATCH",
-    nodes: returnRequestFormFields,
+    nodes: returnRequestEditFormNodes,
 };
 
 export const returnRequestViews: ViewConfig[] = [returnRequestSheetView, returnRequestCreateFormView, returnRequestEditFormView];

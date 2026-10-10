@@ -1,5 +1,6 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
@@ -134,7 +135,7 @@ async function consumePosStock(params: {
             referenceType: "PosOrder",
             referenceId: posOrderId,
             company: companyId,
-        } as any,
+        },
         {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId},
     );
 }
@@ -230,7 +231,7 @@ async function restockPosStock(params: {
             referenceType: "PosOrder",
             referenceId: posOrderId,
             company: companyId,
-        } as any,
+        },
         {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId},
     );
 }
@@ -352,7 +353,7 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
             "@eCommerceModule/utilities/services/posManagerPin"
         );
-        if ((config as any)?.pinForCashOut && config && hasAnyManagerPin(config)) {
+        if (config?.pinForCashOut && hasAnyManagerPin(config)) {
             const approvedBy = body.managerId
                 ? await managerPinMatchesForUser(config, body.managerId, body.managerPin || "")
                 : null;
@@ -465,7 +466,7 @@ export async function loadPosCatalog(
         })
             .select("warehouses warehouse")
             .lean();
-        if (cfg) warehouseIds = warehouseIdsFromPosConfig(cfg as any);
+        if (cfg) warehouseIds = warehouseIdsFromPosConfig(cfg);
     }
 
     // Barcode may hit a variant first
@@ -648,7 +649,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
 
     await assertPosTillMutable(config, ctx);
 
-    const warehouseIds = warehouseIdsFromPosConfig(config as any);
+    const warehouseIds = warehouseIdsFromPosConfig(config);
     if (!warehouseIds.length) {
         throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
     }
@@ -661,9 +662,9 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             deletedAt: null,
         }).select("_id isActive certificate")
         : null;
-    const currencyId = ((config.currency as any)?._id ?? config.currency) as ObjectId | undefined;
+    const currencyId = nestedEntityToRef(config.currency);
 
-    const lines: any[] = [];
+    const lines = [];
     let subtotal = 0;
     let lineDiscountTotal = 0;
 
@@ -677,7 +678,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
 
         const qty = Number(line.quantity);
-        const unitPrice = await resolvePosLineUnitPrice(product as any, line.variantId, ctx);
+        const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
         const gross = roundMoney(unitPrice * qty);
         const discountAmount = roundMoney((gross * discPct) / 100);
@@ -693,10 +694,10 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             priceSubtotal: gross,
             priceTotal,
             taxAmount: 0,
-            productName: (product as any).title,
-            productSku: (product as any).sku,
-            barcode: (product as any).barcode ?? (product as any).ean,
-            trackInventory: !!(product as any).trackInventory,
+            productName: product.title,
+            productSku: product.sku,
+            barcode: product.barcode ?? product.ean,
+            trackInventory: !!product.trackInventory,
         });
         subtotal = roundMoney(subtotal + gross);
         lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
@@ -708,7 +709,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const discountTotal = roundMoney(lineDiscountTotal + orderDiscount);
     const amountTotal = roundMoney(Math.max(0, subtotal - discountTotal));
 
-    if (discountTotal > 0.001 && (config as any).pinForDiscount) {
+    if (discountTotal > 0.001 && config.pinForDiscount) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
             "@eCommerceModule/utilities/services/posManagerPin"
         );
@@ -809,7 +810,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             companyId: ctx.company._id,
             posOrderId: posOrder._id,
             auditUserId: ctx.userId,
-            allowOversell: !!(config as any).allowOversell,
+            allowOversell: !!config.allowOversell,
             ctx,
         });
     }
@@ -1007,13 +1008,13 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     const config = await PosConfig.findById(original.config);
     if (!config) throw apiValidationException("pos_config_not_found", "config", null, ctx.languageCode);
     await assertPosTillMutable(config, ctx);
-    const warehouseIds = warehouseIdsFromPosConfig(config as any);
+    const warehouseIds = warehouseIdsFromPosConfig(config);
     const warehouseId = warehouseIds[0];
     if (!warehouseId) {
         throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
     }
 
-    if ((config as any).pinForRefund) {
+    if (config.pinForRefund) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
             "@eCommerceModule/utilities/services/posManagerPin"
         );
@@ -1027,11 +1028,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
     }
 
-    const originalLines = ((original.lines as any[]) ?? []);
+    const originalLines = original.lines ?? [];
     const remainingOf = (line: any) =>
         Math.max(0, Number(line.quantity) - Number(line.quantityRefunded ?? 0));
     const alreadyPartial = originalLines.some((l: any) => Number(l.quantityRefunded ?? 0) > 0.0001);
-    const priorAmountRefunded = Number((original as any).amountRefunded ?? 0);
+    const priorAmountRefunded = Number(original.amountRefunded ?? 0);
     const remainingOrderAmount = roundMoney(Math.max(0, Number(original.amountTotal) - priorAmountRefunded));
 
     let refundLines: any[];
@@ -1041,7 +1042,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     if (body.lines?.length) {
         refundLines = [];
         for (const req of body.lines) {
-            const line = originalLines.find((l: any) => l._id?.toString?.() === req.lineId);
+            const line = originalLines.find((l) => l._id.toString() === req.lineId);
             if (!line) throw apiValidationException("pos_refund_line_invalid", "lines", null, ctx.languageCode);
             const qty = Number(req.quantity);
             const remaining = remainingOf(line);
@@ -1141,7 +1142,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         customer: original.customer,
         customerName: original.customerName,
         lines: refundLines,
-        payments: ((original.payments as any[]) ?? []).map(p => ({
+        payments: (original.payments ?? []).map(p => ({
             paymentMethod: p.paymentMethod,
             paymentMethodName: p.paymentMethodName,
             paymentMethodType: p.paymentMethodType,
@@ -1165,10 +1166,13 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
 
     for (const {line, quantity} of restockPlan) {
         const product = await Product.findById(line.product).select("trackInventory").session(ctx.session ?? null);
-        if (!(product as any)?.trackInventory) continue;
+        if (!product?.trackInventory) continue;
+        const productId = nestedEntityToRef(line.product);
+        const variantId = nestedEntityToRef(line.variant);
+        if (!productId) continue;
         await restockPosStock({
-            productId: line.product?._id ?? line.product,
-            variantId: line.variant?._id ?? line.variant,
+            productId,
+            variantId,
             warehouseId,
             quantity,
             companyId: ctx.company._id,
@@ -1181,7 +1185,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     // Persist refunded quantities on the original sale lines
     if (body.lines?.length) {
         for (const req of body.lines) {
-            const line = originalLines.find((l: any) => l._id?.toString?.() === req.lineId);
+            const line = originalLines.find((l) => l._id.toString() === req.lineId);
             if (!line) continue;
             line.quantityRefunded = roundMoney(Number(line.quantityRefunded ?? 0) + Number(req.quantity));
         }
@@ -1191,12 +1195,12 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
     }
     original.markModified("lines");
-    (original as any).amountRefunded = roundMoney(priorAmountRefunded + refundAmount);
+    original.amountRefunded = roundMoney(priorAmountRefunded + refundAmount);
 
     const allLinesFullyRefunded = originalLines.every((l: any) => remainingOf(l) <= 0.0001);
     const fullyRefunded =
         allLinesFullyRefunded ||
-        Math.abs(Number((original as any).amountRefunded) - Number(original.amountTotal)) < 0.011;
+        Math.abs(Number(original.amountRefunded) - Number(original.amountTotal)) < 0.011;
 
     if (fullyRefunded) {
         original.state = "refunded";
@@ -1215,13 +1219,16 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
 
     // Cash refund reduces drawer
     const cashMethods = await PosPaymentMethod.find({
-        _id: {$in: ((original.payments as any[]) ?? []).map((p: any) => p.paymentMethod)},
+        _id: {$in: (original.payments ?? []).flatMap((p) => {
+            const id = nestedEntityToRef(p.paymentMethod);
+            return id ? [id] : [];
+        })},
         type: "cash",
     }).session(ctx.session ?? null);
     const cashMethodIds = new Set(cashMethods.map(m => m._id.toString()));
     let cashRefund = 0;
-    for (const p of (original.payments as any[]) ?? []) {
-        const mid = (p.paymentMethod?._id ?? p.paymentMethod)?.toString?.();
+    for (const p of original.payments ?? []) {
+        const mid = nestedEntityToRef(p.paymentMethod)?.toString();
         if (mid && cashMethodIds.has(mid)) cashRefund = roundMoney(cashRefund + Number(p.amount) * payRatio);
     }
     if (cashRefund > 0) {
@@ -1311,7 +1318,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
         protocol: method.terminalProtocol || undefined,
         host: method.terminalHost || undefined,
         port: method.terminalPort || undefined,
-        cancelPath: (method as any).terminalCancelPath || "/cancel",
+        cancelPath: "/cancel",
         amount,
         currency: body.currency || "EUR",
         terminalId: method.terminalId || undefined,

@@ -1,5 +1,6 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {HoldPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
 import User from "@coreModule/database/schemas/user/user";
@@ -90,14 +91,14 @@ async function buildDraftLines(
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
 
         const qty = Number(line.quantity);
-        const unitPrice = await resolvePosLineUnitPrice(product as any, line.variantId, ctx);
+        const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
         const gross = roundMoney(unitPrice * qty);
         const discountAmount = roundMoney((gross * discPct) / 100);
         const priceTotal = roundMoney(gross - discountAmount);
 
         lines.push({
-            product: product._id as ObjectId,
+            product: product._id,
             variant: line.variantId ? new ObjectId(line.variantId) : undefined,
             quantity: qty,
             unitPrice,
@@ -106,9 +107,9 @@ async function buildDraftLines(
             priceSubtotal: gross,
             priceTotal,
             taxAmount: 0,
-            productName: (product as any).title,
-            productSku: (product as any).sku,
-            barcode: (product as any).barcode ?? (product as any).ean,
+            productName: product.title,
+            productSku: product.sku,
+            barcode: product.barcode ?? product.ean,
         });
         subtotal = roundMoney(subtotal + gross);
         lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
@@ -170,16 +171,7 @@ export type PosReceiptPayload = {
 
 /** ObjectId or populated ref → hex id. */
 export function refToId(value: unknown): string | undefined {
-    if (value == null || value === "") return undefined;
-    if (typeof value === "string") return value;
-    if (typeof value === "object") {
-        if ("_id" in value && (value as {_id?: unknown})._id != null) {
-            return refToId((value as {_id: unknown})._id);
-        }
-        const text = String(value);
-        if (text && text !== "[object Object]") return text;
-    }
-    return undefined;
+    return nestedEntityToRef(value)?.toString();
 }
 
 type QrCodeModule = {
@@ -385,7 +377,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     draft.amountTotal = amountTotal;
     draft.amountPaid = 0;
     draft.amountReturn = 0;
-    draft.payments = [] as any;
+    draft.payments = [];
     draft.cashier = ctx.userId as any;
     await draft.save({session: ctx.session});
 
@@ -518,14 +510,14 @@ export async function getPosSessionReconciliation(
         .lean();
 
     const salesByTender: Record<string, number> = {};
-    for (const order of paidOrders as any[]) {
+    for (const order of paidOrders) {
         for (const payment of order.payments ?? []) {
             const key = payment.paymentMethodType || "other";
             salesByTender[key] = roundMoney((salesByTender[key] ?? 0) + Number(payment.amount || 0));
         }
     }
 
-    const cashMoves = ((sessionDoc.cashMoves as any[]) ?? []).map(move => ({
+    const cashMoves = (sessionDoc.cashMoves ?? []).map(move => ({
         type: move.type,
         amount: move.amount,
         reason: move.reason,

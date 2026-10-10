@@ -35,6 +35,7 @@ export const inventorySheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "product"},
                             field: {
                                 name: "product",
                                 widget: "#DisplayCard",
@@ -52,6 +53,7 @@ export const inventorySheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "variant"},
                             field: {
                                 name: "variant",
                                 widget: "#DisplayCard",
@@ -69,6 +71,7 @@ export const inventorySheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "warehouse"},
                             field: {
                                 name: "warehouse",
                                 widget: "#DisplayCard",
@@ -83,6 +86,55 @@ export const inventorySheetView: ViewConfig = {
                                     linkedSheetEntityProp: "warehouse",
                                 },
                             },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "inventory.sheet.movements.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "movements",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "movements",
+                    dependentRuntimeOnly: true,
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "movements",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#InventoryMovementCard",
+                                            itemDataProp: "movement",
+                                            pageSize: 5,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconHistory",
+                                                label: "movement",
+                                                valuePath: ["reason", "quantity", "receiptNumber"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "inventoryMovements",
+                                                linkedSheetWidget: "#InventoryMovementSheetView",
+                                                linkedSheetEntityProp: "movement",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },
@@ -167,9 +219,18 @@ export const inventoryEditFormView: ViewConfig = {
         {
             render: "#FormGrid",
             props: {columns: 2},
+            permissions: {writeAny: ["reorderPoint", "reorderQuantity"]},
             children: [
-                {render: "#Field", field: {name: "reorderPoint", widget: "#Input", label: "form.reorderPointLabel", widgetProps: {type: "number", min: 0}}},
-                {render: "#Field", field: {name: "reorderQuantity", widget: "#Input", label: "form.reorderQuantityLabel", widgetProps: {type: "number", min: 0}}},
+                {
+                    render: "#Field",
+                    permissions: {read: "reorderPoint", write: "reorderPoint"},
+                    field: {name: "reorderPoint", widget: "#Input", label: "form.reorderPointLabel", widgetProps: {type: "number", min: 0}},
+                },
+                {
+                    render: "#Field",
+                    permissions: {read: "reorderQuantity", write: "reorderQuantity"},
+                    field: {name: "reorderQuantity", widget: "#Input", label: "form.reorderQuantityLabel", widgetProps: {type: "number", min: 0}},
+                },
             ],
         },
     ],

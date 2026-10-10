@@ -1,4 +1,6 @@
 import {ObjectId} from "mongodb";
+import type {ClientSession} from "mongoose";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 
@@ -9,17 +11,12 @@ export function warehouseIdsFromPosConfig(config: {
 }): ObjectId[] {
     const fromArray = Array.isArray(config.warehouses) ? config.warehouses : [];
     const ids = fromArray
-        .map((w: any) => {
-            const raw = w?._id ?? w;
-            if (!raw) return null;
-            return raw instanceof ObjectId ? raw : new ObjectId(String(raw));
-        })
+        .map((warehouse) => nestedEntityToRef(warehouse))
         .filter((id): id is ObjectId => !!id);
     if (ids.length) return ids;
 
-    const single = (config as any).warehouse?._id ?? (config as any).warehouse;
-    if (!single) return [];
-    return [single instanceof ObjectId ? single : new ObjectId(String(single))];
+    const single = nestedEntityToRef(config.warehouse);
+    return single ? [single] : [];
 }
 
 /**
@@ -30,7 +27,7 @@ export async function detachWarehouseFromPosConfigsOrThrow(params: {
     warehouseId: ObjectId;
     companyId: ObjectId;
     languageCode: string;
-    session?: any;
+    session?: ClientSession | null;
 }): Promise<void> {
     const {warehouseId, companyId, languageCode, session} = params;
 
