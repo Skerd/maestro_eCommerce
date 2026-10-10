@@ -1,12 +1,8 @@
 import {mediaUploadMW} from "@coreModule/utilities/middlewares/mediaUploadMW";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
-import {
-    createProductFormSchema
-} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/createProduct.form.validator";
-import {
-    editProductFormSchema
-} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/editProduct.form.validator";
+import {createProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/createProduct.form.validator";
+import {editProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/editProduct.form.validator";
 import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";

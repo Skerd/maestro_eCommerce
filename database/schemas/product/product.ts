@@ -16,7 +16,18 @@ import {addModelData} from "@coreModule/database/collections";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ProductSchemaDef, PRODUCT_TITLE_MAX, PRODUCT_SLUG_MAX, PRODUCT_DESCRIPTION_MAX, PRODUCT_SKU_MAX, PRODUCT_CODE_MAX, PRODUCT_URL_MAX, PRODUCT_META_TITLE_MAX, PRODUCT_META_DESCRIPTION_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
+import {
+    ProductSchemaDef,
+    PRODUCT_TITLE_MAX,
+    PRODUCT_SLUG_MAX,
+    PRODUCT_DESCRIPTION_MAX,
+    PRODUCT_SKU_MAX,
+    PRODUCT_CODE_MAX,
+    PRODUCT_URL_MAX,
+    PRODUCT_META_TITLE_MAX,
+    PRODUCT_META_DESCRIPTION_MAX,
+    ProductTwitterCard
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {ProductSimpleSnippet} from "./product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
@@ -31,6 +42,7 @@ import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";
 export type ProductStatus = "draft" | "active" | "archived";
@@ -80,7 +92,11 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
     // Shipping / physical
     weight?: number;
     weightUnit?: string;
-    dimensions?: {length?: number; width?: number; height?: number};
+    dimensions?: {
+        length?: number;
+        width?: number;
+        height?: number
+    };
     dimensionUnit?: string;
     volumetricWeight?: number;
     shippingClass?: string;
@@ -137,7 +153,7 @@ export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeleteP
         openGraphTitle?: string;
         openGraphDescription?: string;
         openGraphImage?: IMedia;
-        twitterCard?: string;
+        twitterCard?: ProductTwitterCard;
         structuredDataType?: string;
         sitemapInclude?: boolean;
         sitemapPriority?: number;
@@ -160,7 +176,6 @@ const ProductSchema = new Schema<IProduct>(
         },
         slug: {
             type: SchemaTypes.String,
-            // Set on create by pre-save (derived from title); not required so validation can pass first.
             required: false,
             trim: true,
             lowercase: true,
@@ -176,17 +191,14 @@ const ProductSchema = new Schema<IProduct>(
         },
         description: {
             type: SchemaTypes.String,
-            default: "",
             maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         shortDescription: {
             type: SchemaTypes.String,
-            default: "",
             maxlength: PRODUCT_DESCRIPTION_MAX,
         },
         highlights: {
             type: [SchemaTypes.String],
-            default: []
         },
         careInstructions: {
             type: SchemaTypes.String,
@@ -657,16 +669,14 @@ const ProductSchema = new Schema<IProduct>(
     },
 );
 
-// Auto-generate unique slug on create from title (same pattern as Sale/Reservation name).
-// Slug is sticky after create — title renames do not change it.
 ProductSchema.pre("save", async function () {
     if (!this.isNew || this.slug) return;
     if (!this.title) {
-        throw new Error("Product title is required to generate slug");
+        throw apiValidationException("product_title_required_for_slug", "title", null, DEFAULT_EXCEPTION_LANGUAGE);
     }
     const companyId = nestedEntityToRef(this.company);
     if (!companyId) {
-        throw new Error("Product company is required to generate slug");
+        throw apiValidationException("product_company_required_for_slug", "company", null, DEFAULT_EXCEPTION_LANGUAGE);
     }
     this.slug = await generateUniqueSlug(this.title, this.constructor, companyId);
 });

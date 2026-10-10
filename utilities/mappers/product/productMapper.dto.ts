@@ -41,12 +41,8 @@ export function productToDTO(product: IProduct): Product {
         brand: product.brand,
         vendor: product.vendor,
         tags: product.tags,
-        categories: product.categories
-            ?.map((category) => mapSnippet<CategorySimple>()(category, CategorySimpleSnippet))
-            .filter((c): c is CategorySimple => !!c),
-        collections: product.collections
-            ?.map((collection) => mapSnippet<CollectionSimple>()(collection, CollectionSimpleSnippet))
-            .filter((c): c is CollectionSimple => !!c),
+        categories: product.categories?.map((category) => mapSnippet<CategorySimple>()(category, CategorySimpleSnippet)).filter((c): c is CategorySimple => !!c),
+        collections: product.collections?.map((collection) => mapSnippet<CollectionSimple>()(collection, CollectionSimpleSnippet)).filter((c): c is CollectionSimple => !!c),
         price: product.price,
         compareAtPrice: product.compareAtPrice,
         costPrice: product.costPrice,
@@ -79,24 +75,14 @@ export function productToDTO(product: IProduct): Product {
         gallery: product.gallery ? product.gallery.map(mapMedia) : undefined,
         videoUrls: product.videoUrls,
         documents: product.documents ? product.documents.map(mapMedia) : undefined,
-        variantOptions: product.variantOptions
-            ?.map((variant) => mapSnippet<ProductAttributeSimple>()(variant, ProductAttributeSimpleSnippet))
-            .filter((v): v is ProductAttributeSimple => !!v),
+        variantOptions: product.variantOptions?.map((variant) => mapSnippet<ProductAttributeSimple>()(variant, ProductAttributeSimpleSnippet)).filter((v): v is ProductAttributeSimple => !!v),
         hasVariants: product.hasVariants,
         defaultVariant: mapSnippet<ProductVariantSimple>()(product.defaultVariant, ProductVariantSimpleSnippet),
         variantCount: product.variantCount,
-        relatedProducts: product.relatedProducts
-            ?.map((related) => mapSnippet<ProductSimple>()(related, ProductSimpleSnippet))
-            .filter((p): p is ProductSimple => !!p),
-        upsells: product.upsells
-            ?.map((upsell) => mapSnippet<ProductSimple>()(upsell, ProductSimpleSnippet))
-            .filter((p): p is ProductSimple => !!p),
-        crossSells: product.crossSells
-            ?.map((crossSell) => mapSnippet<ProductSimple>()(crossSell, ProductSimpleSnippet))
-            .filter((p): p is ProductSimple => !!p),
-        frequentlyBoughtTogether: product.frequentlyBoughtTogether
-            ?.map((item) => mapSnippet<ProductSimple>()(item, ProductSimpleSnippet))
-            .filter((p): p is ProductSimple => !!p),
+        relatedProducts: product.relatedProducts?.map((related) => mapSnippet<ProductSimple>()(related, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),
+        upsells: product.upsells?.map((upsell) => mapSnippet<ProductSimple>()(upsell, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),
+        crossSells: product.crossSells?.map((crossSell) => mapSnippet<ProductSimple>()(crossSell, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),
+        frequentlyBoughtTogether: product.frequentlyBoughtTogether?.map((item) => mapSnippet<ProductSimple>()(item, ProductSimpleSnippet)).filter((p): p is ProductSimple => !!p),
         featured: product.featured,
         badges: product.badges,
         ratingAverage: product.ratingAverage,
