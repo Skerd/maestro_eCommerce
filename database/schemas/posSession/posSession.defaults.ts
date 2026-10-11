@@ -15,6 +15,7 @@ export async function createPosSessions(
     parentLogger: serverLogger,
     company: ICompany,
     configId: Types.ObjectId | undefined,
+    currencyId: Types.ObjectId | undefined,
     cashierId: Types.ObjectId,
 ): Promise<HydratedDocument<IPosSession> | undefined> {
     const logger = getLogger("mongoDbInitialization-createPosSessions", parentLogger);
@@ -30,6 +31,7 @@ export async function createPosSessions(
         const payload = {
             name: POS_SESSION_NAME,
             config: configId,
+            currency: currencyId,
             state: "closed" as const,
             openedBy: cashierId,
             closedBy: cashierId,

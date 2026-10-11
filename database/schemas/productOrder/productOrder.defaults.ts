@@ -124,9 +124,20 @@ export type CreateProductOrdersResult = {
     byOrderNumber: Record<string, HydratedDocument<IProductOrder>>;
 };
 
+/** Maps seed order status → timeline event keys used by production actions / locales. */
+const statusTimelineEvent = {
+    pending: "order_placed",
+    confirmed: "order_confirmed",
+    processing: "order_processing",
+    shipped: "order_shipped",
+    delivered: "order_delivered",
+    cancelled: "order_cancelled",
+    refunded: "order_refunded",
+} as const satisfies Record<ProductOrderStatus, string>;
+
 /**
  * Seeds catalog orders across statuses using the three demo products.
- * Idempotent on `{company, orderNumber}` / `idempotencyKey`.
+ * Idempotent on `idempotencyKey` (globally unique; includes soft-deleted rows).
  */
 export async function createProductOrders(
     parentLogger: serverLogger,
@@ -182,6 +193,7 @@ export async function createProductOrders(
             const taxTotal = Math.round((subtotal - seed.discountTotal) * seed.taxRate * 100) / 100;
             const grandTotal =
                 Math.round((subtotal - seed.discountTotal + seed.shippingTotal + taxTotal) * 100) / 100;
+            const idempotencyKey = `ecom-demo-seed:${seed.orderNumber}`;
 
             const payload = {
                 orderNumber: seed.orderNumber,
@@ -210,27 +222,51 @@ export async function createProductOrders(
                 internalNotes: "ecom-demo-seed",
                 timeline: [
                     {
-                        event: "created",
+                        event: "order_placed",
                         timestamp: dayjs().subtract(seed.daysAgo, "day").toDate(),
                         userId: company.createdBy,
                         note: "Demo order seeded",
                     },
-                    {
-                        event: seed.status,
-                        timestamp: dayjs().subtract(Math.max(0, seed.daysAgo - 1), "day").toDate(),
-                        userId: company.createdBy,
-                    },
+                    ...(seed.status === "pending"
+                        ? []
+                        : [
+                              {
+                                  event: statusTimelineEvent[seed.status],
+                                  timestamp: dayjs()
+                                      .subtract(Math.max(0, seed.daysAgo - 1), "day")
+                                      .toDate(),
+                                  userId: company.createdBy,
+                              },
+                          ]),
+                    ...(seed.paymentStatus === "paid" ||
+                    seed.paymentStatus === "refunded" ||
+                    seed.paymentStatus === "partially_refunded"
+                        ? [
+                              {
+                                  event: "payment_received",
+                                  timestamp: dayjs()
+                                      .subtract(Math.max(0, seed.daysAgo - 1), "day")
+                                      .toDate(),
+                                  userId: company.createdBy,
+                              },
+                          ]
+                        : []),
                 ],
-                idempotencyKey: `ecom-demo-seed:${seed.orderNumber}`,
+                idempotencyKey,
                 createdBy: company.createdBy,
             };
 
-            let order = await ProductOrder.findOne({company: company._id, orderNumber: seed.orderNumber});
+            // Unique index is on idempotencyKey (not company-scoped). Soft-deleted
+            // rows still occupy that key, so look them up with withDeleted().
+            let order = await ProductOrder.findOne({idempotencyKey}).withDeleted();
             if (!order) {
                 order = await ProductOrder.create(payload);
                 logger.debug(`Created product order ${seed.orderNumber}`);
             } else {
                 order.set(payload);
+                if (order.deletedAt) {
+                    order.set({deletedAt: null, deletedBy: null});
+                }
                 await order.save();
             }
             byOrderNumber[seed.orderNumber] = order;

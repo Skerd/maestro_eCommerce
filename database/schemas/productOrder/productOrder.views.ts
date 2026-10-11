@@ -141,7 +141,8 @@ export const productOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
-                                            cardColumns: 3,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["product", "quantity", "totalPrice"],
                                             fields: [
                                                 {
@@ -150,7 +151,6 @@ export const productOrderSheetView: ViewConfig = {
                                                     className: "text-sm font-medium",
                                                     valuePath: ["title", "sku"],
                                                     joinSeparator: " · ",
-                                                    labelKey: "itemProduct",
                                                     linkedSheetModel: "products",
                                                     linkedSheetWidget: "#ProductSheetView",
                                                     linkedSheetEntityProp: "product",
@@ -172,18 +172,21 @@ export const productOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "itemSnapshotTitle",
+                                                    icon: "#IconTag",
                                                 },
                                                 {
                                                     name: "snapshot.sku",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "itemSnapshotSku",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "quantity",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemQuantity",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "unitPrice",
@@ -191,6 +194,7 @@ export const productOrderSheetView: ViewConfig = {
                                                     className: "text-sm",
                                                     labelKey: "itemUnitPrice",
                                                     currencyField: "currency",
+                                                    icon: "#IconCash",
                                                 },
                                                 {
                                                     name: "totalPrice",
@@ -198,6 +202,7 @@ export const productOrderSheetView: ViewConfig = {
                                                     className: "text-sm font-medium",
                                                     labelKey: "itemTotalPrice",
                                                     currencyField: "currency",
+                                                    icon: "#IconCash",
                                                 },
                                                 {
                                                     name: "currency",
@@ -206,6 +211,7 @@ export const productOrderSheetView: ViewConfig = {
                                                     valuePath: ["symbol", "abbreviation"],
                                                     joinSeparator: " ",
                                                     labelKey: "currency",
+                                                    icon: "#IconCash",
                                                 },
                                             ],
                                         },
@@ -743,6 +749,8 @@ export const productOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
+                                            entityCards: true,
+                                            columns: 1,
                                             compactSummaryFields: ["event", "timestamp"],
                                             fields: [
                                                 {
@@ -750,7 +758,7 @@ export const productOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm font-medium",
                                                     languageKeyCategory: "productOrderTimelineEvent",
-                                                    labelKey: "timelineEvent",
+                                                    icon: "#IconHistory",
                                                 },
                                                 {
                                                     name: "timestamp",
@@ -758,6 +766,7 @@ export const productOrderSheetView: ViewConfig = {
                                                     className: "text-xs text-muted-foreground",
                                                     format: "dateTime",
                                                     labelKey: "timelineTimestamp",
+                                                    icon: "#IconCalendar",
                                                 },
                                                 {
                                                     name: "user",
@@ -766,12 +775,14 @@ export const productOrderSheetView: ViewConfig = {
                                                     valuePath: ["name", "surname"],
                                                     joinSeparator: " ",
                                                     labelKey: "timelineUser",
+                                                    icon: "#IconUser",
                                                 },
                                                 {
                                                     name: "note",
                                                     type: "expandableText",
                                                     className: "text-sm",
                                                     labelKey: "timelineNote",
+                                                    icon: "#IconAlignLeft",
                                                 },
                                             ],
                                         },

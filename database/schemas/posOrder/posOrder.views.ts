@@ -192,9 +192,15 @@ export const posOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
-                                            cardColumns: 3,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["productName", "quantity", "priceTotal"],
                                             fields: [
+                                                {
+                                                    name: "productName",
+                                                    type: "text",
+                                                    icon: "#IconPackage",
+                                                },
                                                 {
                                                     name: "product",
                                                     type: "linkedRef",
@@ -208,34 +214,32 @@ export const posOrderSheetView: ViewConfig = {
                                                     icon: "#IconPackage",
                                                 },
                                                 {
-                                                    name: "productName",
-                                                    type: "text",
-                                                    className: "text-sm font-medium",
-                                                    labelKey: "itemProductName",
-                                                },
-                                                {
                                                     name: "productSku",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "itemSku",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "barcode",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "itemBarcode",
+                                                    icon: "#IconTag",
                                                 },
                                                 {
                                                     name: "quantity",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemQuantity",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "quantityRefunded",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemQuantityRefunded",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "unitPrice",
@@ -243,12 +247,14 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm",
                                                     labelKey: "itemUnitPrice",
                                                     currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                                 {
                                                     name: "discountPercent",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "itemDiscountPercent",
+                                                    icon: "#IconPercentage",
                                                 },
                                                 {
                                                     name: "discountAmount",
@@ -256,6 +262,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm",
                                                     labelKey: "itemDiscountAmount",
                                                     currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                                 {
                                                     name: "priceSubtotal",
@@ -263,6 +270,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm",
                                                     labelKey: "itemPriceSubtotal",
                                                     currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                                 {
                                                     name: "taxAmount",
@@ -270,6 +278,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm",
                                                     labelKey: "itemTaxAmount",
                                                     currencyField: "currency",
+                                                    icon: "#IconReceipt",
                                                 },
                                                 {
                                                     name: "priceTotal",
@@ -277,6 +286,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm font-medium",
                                                     labelKey: "itemPriceTotal",
                                                     currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                                 {
                                                     name: "currency",
@@ -285,6 +295,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     valuePath: ["symbol", "abbreviation"],
                                                     joinSeparator: " ",
                                                     labelKey: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                             ],
                                         },
@@ -323,8 +334,15 @@ export const posOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 3,
                                             compactSummaryFields: ["paymentMethodName", "amount"],
                                             fields: [
+                                                {
+                                                    name: "paymentMethodName",
+                                                    type: "text",
+                                                    icon: "#IconCreditCard",
+                                                },
                                                 {
                                                     name: "paymentMethod",
                                                     type: "linkedRef",
@@ -337,16 +355,11 @@ export const posOrderSheetView: ViewConfig = {
                                                     icon: "#IconCreditCard",
                                                 },
                                                 {
-                                                    name: "paymentMethodName",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "paymentMethodName",
-                                                },
-                                                {
                                                     name: "paymentMethodType",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "paymentMethodType",
+                                                    icon: "#Tag",
                                                 },
                                                 {
                                                     name: "amount",
@@ -354,6 +367,7 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-sm font-medium",
                                                     labelKey: "paymentAmount",
                                                     currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
                                                 },
                                                 {
                                                     name: "paymentDate",
@@ -361,24 +375,28 @@ export const posOrderSheetView: ViewConfig = {
                                                     className: "text-xs text-muted-foreground",
                                                     format: "dateTime",
                                                     labelKey: "paymentDate",
+                                                    icon: "#IconClock",
                                                 },
                                                 {
                                                     name: "terminalAuthCode",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "terminalAuthCode",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "terminalReference",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "terminalReference",
+                                                    icon: "#Hash",
                                                 },
                                                 {
                                                     name: "terminalId",
                                                     type: "text",
                                                     className: "text-xs text-muted-foreground",
                                                     labelKey: "terminalId",
+                                                    icon: "#Hash",
                                                 },
                                             ],
                                         },
@@ -425,7 +443,7 @@ export const posOrderSheetView: ViewConfig = {
                                 name: "discountTotal",
                                 widget: "#DisplayCard",
                                 label: "discountTotal",
-                                widgetProps: {icon: "#IconPercent", format: "locale", type: "locale"},
+                                widgetProps: {icon: "#IconPercentage", format: "locale", type: "locale"},
                             },
                         },
                         {
@@ -435,7 +453,7 @@ export const posOrderSheetView: ViewConfig = {
                                 name: "orderDiscountPercent",
                                 widget: "#DisplayCard",
                                 label: "orderDiscountPercent",
-                                widgetProps: {icon: "#IconPercent"},
+                                widgetProps: {icon: "#IconPercentage"},
                             },
                         },
                         {

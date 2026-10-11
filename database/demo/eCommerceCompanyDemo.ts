@@ -115,7 +115,7 @@ export async function seedECommerceDemoData(
     );
     //@ts-ignore
     const cashierId = (company.createdBy as Types.ObjectId) ?? staffIds[0];
-    const posSession = await createPosSessions(logger, company, posConfig?._id, cashierId);
+    const posSession = await createPosSessions(logger, company, posConfig?._id, currency._id, cashierId);
     await createPosOrders(
         logger,
         company,

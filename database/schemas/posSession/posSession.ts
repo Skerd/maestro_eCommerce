@@ -1,5 +1,6 @@
 import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
@@ -12,6 +13,7 @@ import {
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
@@ -33,6 +35,7 @@ export interface IPosCashMove {
 export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
     config: IPosConfig;
+    currency?: ICurrency;
     state: PosSessionState;
     openedBy?: IUser;
     closedBy?: IUser;
@@ -78,6 +81,15 @@ const PosSessionSchema = new Schema<IPosSession>(
             permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["name"],
+            },
+        },
+        currency: {
+            type: SchemaTypes.ObjectId,
+            ref: "Currency",
+            refAllowlist: CurrencySimpleSnippet,
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["symbol", "abbreviation"],
             },
         },
         state: {

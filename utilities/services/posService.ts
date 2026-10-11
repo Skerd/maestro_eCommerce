@@ -249,6 +249,11 @@ export async function openPosSession(
 
     await assertPosTillMutable(config, ctx);
 
+    const currencyId = nestedEntityToRef(config.currency);
+    if (!currencyId) {
+        throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
+    }
+
     const existing = await PosSession.findOne({
         company: ctx.company._id,
         config: config._id,
@@ -265,6 +270,7 @@ export async function openPosSession(
     const doc = new PosSession({
         name,
         config: config._id,
+        currency: currencyId,
         state: "opened",
         openedBy: ctx.userId,
         openedAt: now,
@@ -282,7 +288,7 @@ export async function openPosSession(
     await doc.save({session: ctx.session});
 
     const populated = await PosSession.findById(doc._id)
-        .populate("config openedBy")
+        .populate("config currency openedBy")
         .session(ctx.session ?? null);
     const companyLock = await getCompanyPosLock(ctx.company._id, ctx.session);
     const companyLockActive = isCompanyPosLockActive(companyLock);
@@ -309,7 +315,7 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
 
     const session = await PosSession.findOne(filter).noDeleted()
         .sort({openedAt: -1, createdAt: -1})
-        .populate("config openedBy closedBy");
+        .populate("config currency openedBy closedBy");
     if (!session) return null;
 
     const config = await PosConfig.findById(session.config).populate(
@@ -377,7 +383,7 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
     sessionDoc.markModified("cashMoves");
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await PosSession.findById(sessionDoc._id).populate("config openedBy").session(ctx.session ?? null);
+    const populated = await PosSession.findById(sessionDoc._id).populate("config currency openedBy").session(ctx.session ?? null);
     return posSessionToDTO(populated!);
 }
 
@@ -422,7 +428,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
     await sessionDoc.save({session: ctx.session});
 
     const populated = await PosSession.findById(sessionDoc._id)
-        .populate("config openedBy closedBy")
+        .populate("config currency openedBy closedBy")
         .session(ctx.session ?? null);
     return {
         session: posSessionToDTO(populated!),
