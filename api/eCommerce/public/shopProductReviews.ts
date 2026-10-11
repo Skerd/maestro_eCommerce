@@ -33,24 +33,24 @@ router.post(
         const company = await resolveShopCompany(origin, languageCode);
 
         const product: any = await Product.findOne(
-            {company: company._id, slug: String(slug).toLowerCase(), status: "active", deletedAt: null},
+            {company: company._id, slug: String(slug).toLowerCase(), status: "active"},
             {ratingAverage: 1, ratingCount: 1},
-        ).lean();
+        ).noDeleted().lean();
         if (!product) {
             throw apiValidationException("product_not_found", null, null, languageCode);
         }
 
-        const filter = {product: product._id, company: company._id, deletedAt: null};
+        const filter = {product: product._id, company: company._id};
 
         const [reviews, total] = await Promise.all([
-            ProductReview.find(filter)
+            ProductReview.find(filter).noDeleted()
                 .select("rating title comment reviewer createdAt")
                 .populate("reviewer", "name surname")
                 .sort({createdAt: -1})
                 .skip((page - 1) * limit)
                 .limit(limit)
                 .lean(),
-            ProductReview.countDocuments(filter),
+            ProductReview.countDocuments(filter).noDeleted(),
         ]);
 
         return {

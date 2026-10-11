@@ -4,8 +4,8 @@ import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
-import type {CashMovePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/cashMovePosSession.form.validator";
-import type {ClosePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/closePosSession.form.validator";
+import type {CashMovePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/cashMovePosSession.form.validator";
+import type {ClosePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/closePosSession.form.validator";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
@@ -243,8 +243,7 @@ export async function openPosSession(
     const config = await PosConfig.findOne({
         _id: body.configId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).populate("paymentMethods warehouses currency managers fiscalConfig");
+    }).noDeleted().populate("paymentMethods warehouses currency managers fiscalConfig");
 
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
 
@@ -254,8 +253,7 @@ export async function openPosSession(
         company: ctx.company._id,
         config: config._id,
         state: {$in: ["opening_control", "opened", "closing_control"]},
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (existing) {
         throw apiValidationException("pos_session_already_open", "configId", null, ctx.languageCode);
     }
@@ -301,7 +299,6 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
     const filter: Record<string, unknown> = {
         company: ctx.company._id,
         state: {$in: ["opening_control", "opened", "closing_control"]},
-        deletedAt: null,
     };
     if (configId) {
         if (!ObjectId.isValid(configId)) {
@@ -310,7 +307,7 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
         filter.config = new ObjectId(configId);
     }
 
-    const session = await PosSession.findOne(filter)
+    const session = await PosSession.findOne(filter).noDeleted()
         .sort({openedAt: -1, createdAt: -1})
         .populate("config openedBy closedBy");
     if (!session) return null;
@@ -335,8 +332,7 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
     const sessionDoc = await PosSession.findOne({
         _id: body._id,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "_id", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "_id", null, ctx.languageCode);
@@ -389,8 +385,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
     const sessionDoc = await PosSession.findOne({
         _id: body._id,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "_id", null, ctx.languageCode);
     if (sessionDoc.state === "closed") {
         throw apiValidationException("pos_session_already_closed", "_id", null, ctx.languageCode);
@@ -407,8 +402,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "draft",
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (heldDraftCount > 0) {
         throw apiValidationException("pos_close_held_orders_open", "_id", null, ctx.languageCode);
     }
@@ -462,8 +456,7 @@ export async function loadPosCatalog(
         const cfg = await PosConfig.findOne({
             _id: params.configId,
             company: ctx.company._id,
-            deletedAt: null,
-        })
+        }).noDeleted()
             .select("warehouses warehouse")
             .lean();
         if (cfg) warehouseIds = warehouseIdsFromPosConfig(cfg);
@@ -475,10 +468,9 @@ export async function loadPosCatalog(
         const code = params.barcode.trim();
         variantHits = await ProductVariant.find({
             company: ctx.company._id,
-            deletedAt: null,
             status: "active",
             $or: [{barcode: code}, {sku: code}],
-        })
+        }).noDeleted()
             .select("product sku barcode price attributeCombination trackInventory")
             .limit(20)
             .lean();
@@ -487,7 +479,6 @@ export async function loadPosCatalog(
     const filter: Record<string, unknown> = {
         company: ctx.company._id,
         status: "active",
-        deletedAt: null,
     };
 
     if (params.barcode?.trim()) {
@@ -517,13 +508,13 @@ export async function loadPosCatalog(
     }
 
     const [rows, total] = await Promise.all([
-        Product.find(filter)
+        Product.find(filter).noDeleted()
             .select("title sku barcode ean price currency mainImage trackInventory type shortDescription hasVariants")
             .sort({title: 1})
             .skip((page - 1) * limit)
             .limit(limit)
             .lean(),
-        Product.countDocuments(filter),
+        Product.countDocuments(filter).noDeleted(),
     ]);
 
     const productIds = rows.map((p: any) => p._id);
@@ -531,9 +522,8 @@ export async function loadPosCatalog(
         ? await ProductVariant.find({
               company: ctx.company._id,
               product: {$in: productIds},
-              deletedAt: null,
               status: "active",
-          })
+          }).noDeleted()
               .select("product sku barcode price attributeCombination trackInventory")
               .sort({order: 1})
               .lean()
@@ -621,8 +611,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const sessionDoc = await PosSession.findOne({
         _id: body.sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
@@ -632,8 +621,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         const existing = await PosOrder.findOne({
             company: ctx.company._id,
             clientRequestId: body.clientRequestId,
-            deletedAt: null,
-        }).session(ctx.session ?? null);
+        }).noDeleted().session(ctx.session ?? null);
         if (existing?.state === "paid") {
             // Idempotent replay succeeds even if the till is now paused/inactive.
             return rebuildPaidPosResult(existing, ctx);
@@ -643,8 +631,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const config = await PosConfig.findOne({
         _id: sessionDoc.config,
         company: ctx.company._id,
-        deletedAt: null,
-    }).populate("warehouses currency paymentMethods");
+    }).noDeleted().populate("warehouses currency paymentMethods");
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
 
     await assertPosTillMutable(config, ctx);
@@ -659,8 +646,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         ? await FiscalConfigModel.findOne({
             _id: assignedFiscalConfigId,
             company: ctx.company._id,
-            deletedAt: null,
-        }).select("_id isActive certificate")
+        }).noDeleted().select("_id isActive certificate")
         : null;
     const currencyId = nestedEntityToRef(config.currency);
 
@@ -673,8 +659,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             _id: line.productId,
             company: ctx.company._id,
             status: "active",
-            deletedAt: null,
-        });
+        }).noDeleted();
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
 
         const qty = Number(line.quantity);
@@ -728,8 +713,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         _id: {$in: paymentMethodIds},
         company: ctx.company._id,
         isActive: true,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (methods.length !== new Set(paymentMethodIds).size) {
         throw apiValidationException("pos_payment_method_invalid", "payments", null, ctx.languageCode);
     }
@@ -752,8 +736,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
-            deletedAt: null,
-        }).session(ctx.session ?? null);
+        }).noDeleted().session(ctx.session ?? null);
         if (!held) throw apiValidationException("pos_held_not_found", "heldOrderId", null, ctx.languageCode);
         posOrder = held;
     } else {
@@ -986,8 +969,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     const original = await PosOrder.findOne({
         _id: body._id,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!original) throw apiValidationException("pos_order_not_found", "_id", null, ctx.languageCode);
     if (original.state !== "paid") {
         throw apiValidationException("pos_order_not_refundable", "_id", null, ctx.languageCode);
@@ -999,8 +981,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     const sessionDoc = await PosSession.findOne({
         _id: original.session,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!sessionDoc || sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "session", null, ctx.languageCode);
     }
@@ -1279,8 +1260,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
     const sessionDoc = await PosSession.findOne({
         _id: body.sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
@@ -1294,8 +1274,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
         _id: body.paymentMethodId,
         company: ctx.company._id,
         isActive: true,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!method) throw apiValidationException("pos_payment_method_invalid", "paymentMethodId", null, ctx.languageCode);
     if (method.type !== "card" && method.type !== "bank") {
         throw apiValidationException("pos_terminal_not_for_method", "paymentMethodId", null, ctx.languageCode);

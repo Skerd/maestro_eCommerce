@@ -117,7 +117,6 @@ export function buildProductFilterFromCollectionRules(
     const base: Record<string, unknown> = {
         company: typeof companyId === "string" ? new ObjectId(companyId) : companyId,
         status: "active",
-        deletedAt: null,
     };
 
     const clauses = (rules ?? [])

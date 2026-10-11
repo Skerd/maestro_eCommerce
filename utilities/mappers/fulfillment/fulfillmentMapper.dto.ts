@@ -1,6 +1,8 @@
 import type {IFulfillment} from "@eCommerceModule/database/schemas/fulfillment/fulfillment";
 import type {Fulfillment} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillment.dto";
-import {dateToISOString, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
+import type {ProductOrderSimple} from "armonia/src/modules/eCommerce/dto/productOrder.dto";
+import {dateToISOString, mapSnippet, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
+import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -10,12 +12,9 @@ import {
 export function fulfillmentToDTO(fulfillment: IFulfillment): Fulfillment {
     return {
         _id: fulfillment._id.toString(),
-        order: fulfillment.order ? {
-            _id: fulfillment.order._id.toString(),
-            orderNumber: fulfillment.order.orderNumber,
-        } : undefined,
+        order: mapSnippet<ProductOrderSimple>()(fulfillment.order, ProductOrderSimpleSnippet)!,
         status: fulfillment.status,
-        items: (fulfillment.items ?? []).map((i) => ({
+        items: fulfillment.items.map((i) => ({
             orderItemId: objectIdToString(i.orderItemId),
             quantity: i.quantity,
         })),

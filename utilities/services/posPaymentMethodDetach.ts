@@ -20,8 +20,7 @@ export async function detachPosPaymentMethodFromConfigs(
     const configs = await PosConfig.find({
         company: companyId,
         paymentMethods: methodId,
-        deletedAt: null,
-    }).session(session ?? null);
+    }).noDeleted().session(session ?? null);
 
     for (const config of configs) {
         const methods = ((config.paymentMethods as any[]) ?? []).map((id) => id?.toString?.() ?? String(id));
@@ -41,10 +40,9 @@ export async function detachPosPaymentMethodFromConfigs(
             {
                 company: companyId,
                 paymentMethods: methodId,
-                deletedAt: null,
             },
             {$pull: {paymentMethods: methodId}},
             {session: session ?? undefined},
-        );
+        ).noDeleted();
     }
 }

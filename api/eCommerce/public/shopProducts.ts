@@ -47,7 +47,6 @@ router.post(
         const filter: Record<string, unknown> = {
             company: company._id,
             status: "active",
-            deletedAt: null,
         };
 
         if (search) {
@@ -81,13 +80,13 @@ router.post(
         const sortSpec = SORTS[sort as string] ?? SORTS.newest;
 
         const [products, total] = await Promise.all([
-            Product.find(filter)
+            Product.find(filter).noDeleted()
                 .select("title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants")
                 .sort(sortSpec)
                 .skip((page - 1) * limit)
                 .limit(limit)
                 .lean(),
-            Product.countDocuments(filter),
+            Product.countDocuments(filter).noDeleted(),
         ]);
 
         return {data: products.map(toShopProductCard), total, page, limit};

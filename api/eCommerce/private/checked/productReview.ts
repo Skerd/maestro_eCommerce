@@ -1,11 +1,13 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
-import {z} from "zod";
+import {ProductReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
 import {createProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/createProductReview.form.validator";
+import {editProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/editProductReview.form.validator";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
 import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
@@ -23,26 +25,40 @@ import {productReviewsToSelect} from "@eCommerceModule/utilities/mappers/product
 async function recalculateProductRating(productId: ObjectId, ctx: CrudOptions): Promise<void> {
     const agg = await productReviewService.aggregate(
         [
-            {$match: {product: productId, deletedAt: null}},
-            {$group: {_id: null, avg: {$avg: "$rating"}, count: {$sum: 1}}},
+            {
+                $match: {
+                    product: productId,
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    avg: {
+                        $avg: "$rating"
+                    },
+                    count: {
+                        $sum: 1
+                    }
+                }
+            },
         ],
-        ctx,
+        {...ctx, withDeleted: false},
     );
     const row = agg[0];
     const avg = row ? Math.round(Number(row.avg) * 10) / 10 : 0;
     const count = row ? Number(row.count) : 0;
     await productService.updateById(
         productId,
-        {$set: {ratingAverage: avg, ratingCount: count, reviewCount: count}},
+        {
+            $set: {
+                ratingAverage: avg,
+                ratingCount: count,
+                reviewCount: count
+            }
+        },
         ctx,
     );
 }
-
-function productIdFromReview(doc: {product?: unknown}): ObjectId | undefined {
-    return nestedEntityToRef(doc.product);
-}
-
-const REVIEWABLE_PAYMENT_STATUSES = ["paid", "partially_refunded"];
 
 export const basePath = "/api/eCommerce/productReview";
 export const {router} = createCrudRouter({
@@ -54,58 +70,64 @@ export const {router} = createCrudRouter({
     selectSearchField: "comment",
     rateLimits: {read: 60, write: 30, delete: 20},
     createSchema: createProductReviewFormSchema,
-    editSchema: (_lang: string) => z.object({_id: z.string()}),
+    editSchema: editProductReviewFormSchema,
     toDTO: productReviewToDTO,
     toDTOArray: productReviewsToDTO,
     toSelect: productReviewsToSelect,
-    buildCreateData: async ({orderId, productId, rating, title, comment, actionUserCtx, company, session, logger, languageCode}) => {
-        const order = await productOrderService.findOne(
-            {_id: new ObjectId(orderId), company: company._id, deletedAt: null},
-            {session, logger, languageCode},
-        );
-        if (!order) {
-            throw apiValidationException("order_not_found", null, null, languageCode);
+    buildCreateData: async ({order, product, rating, title, comment, actionUserCtx, company, session, logger, languageCode}) => {
+
+        const orderDoc = await productOrderService.findOneOrThrow({
+            _id: new ObjectId(order),
+            company: company._id
+        }, {withDeleted: false, session, logger, languageCode});
+
+        const customerId = orderDoc.customer?._id;
+        const actorIsCustomer = !!customerId && customerId.toString() === actionUserCtx.userId.toString();
+
+        if (!customerId || (!actorIsCustomer && !actionUserCtx.isAdmin)) {
+            throw apiValidationException("only_customer_can_review", "", null, languageCode);
         }
 
-        const customerId = nestedEntityToRef(order.customer);
-        if (!customerId || customerId.toString() !== actionUserCtx.userId.toString()) {
-            throw apiValidationException("only_customer_can_review", null, null, languageCode);
+        if (!["paid", "partially_refunded"].includes(orderDoc.paymentStatus)) {
+            throw apiValidationException("order_must_be_paid_to_review", "", null, languageCode);
         }
 
-        if (!REVIEWABLE_PAYMENT_STATUSES.includes(order.paymentStatus)) {
-            throw apiValidationException("order_must_be_paid_to_review", null, null, languageCode);
-        }
-
-        const lineHasProduct = order.items.some(item => nestedEntityToRef(item.product)?.toString() === productId);
+        const lineHasProduct = orderDoc.items.some(item => item.product?._id?.toString() === product);
         if (!lineHasProduct) {
-            throw apiValidationException("product_not_in_order", null, null, languageCode);
+            throw apiValidationException("product_not_in_order", "", null, languageCode);
         }
 
         const existing = await productReviewService.findOne(
-            {order: new ObjectId(orderId), product: new ObjectId(productId)},
+            {
+                order: new ObjectId(order),
+                product: new ObjectId(product)
+            },
             {session, logger, languageCode, withDeleted: false},
         );
         if (existing) {
-            throw apiValidationException("product_already_reviewed_for_order", null, null, languageCode);
+            throw apiValidationException("product_already_reviewed_for_order", "", null, languageCode);
         }
 
         return {
-            order: new ObjectId(orderId),
-            product: new ObjectId(productId),
+            order: new ObjectId(order),
+            product: new ObjectId(product),
             rating,
-            title: title?.trim() || undefined,
-            comment: comment?.trim() || "",
-            reviewer: actionUserCtx.userId,
+            title: title?.trim(),
+            comment: comment?.trim(),
+            reviewer: customerId,
         };
     },
-    /** Reviews are create-only; moderation is delete/restore. */
-    buildUpdateData: async () => ({}),
+    buildUpdateData: buildUpdateDataFromSchemaDef(ProductReviewSchemaDef),
     afterCreate: async (created, params) => {
-        const productId = productIdFromReview(created);
+        const productId = created.product?._id;
         if (productId) {
             await productService.updateByIdOrThrow(
                 productId,
-                {$push: {reviews: created._id}},
+                {
+                    $push: {
+                        reviews: created._id
+                    }
+                },
                 {
                     session: params.session,
                     logger: params.logger,
@@ -121,13 +143,22 @@ export const {router} = createCrudRouter({
             });
         }
     },
+    afterUpdate: async (params, existing) => {
+        if (params.rating == null || Number(params.rating) === existing.rating) return;
+        if (!existing.product?._id) return;
+        await recalculateProductRating(existing.product?._id, {
+            session: params.session,
+            logger: params.logger,
+            languageCode: params.languageCode,
+        });
+    },
     beforeDelete: async (params) => {
         if (!params.actionUserCtx.isAdmin) {
-            throw apiValidationException("only_admin_can_delete_review", null, null, params.languageCode);
+            throw apiValidationException("only_admin_can_delete_review", "", null, params.languageCode);
         }
     },
     afterDelete: async (params, doc) => {
-        const productId = productIdFromReview(doc);
+        const productId = doc.product?._id;
         if (productId) {
             await productService.updateByIdOrThrow(
                 productId,
@@ -152,29 +183,28 @@ export const {router} = createCrudRouter({
         logger.start(`Restoring ProductReview ${_id}...`);
         SchemaGuard.checkModelPermission(ProductReview, "restore", actionUserCtx, languageCode);
 
-        const toRestore = await productReviewService.findOne(
+        const toRestore = await productReviewService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
             {session, logger, languageCode, withDeleted: true},
         );
-        if (!toRestore) {
-            throw apiValidationException("not_found", null, null, languageCode);
-        }
 
-        const orderId = nestedEntityToRef(toRestore.order);
-        const productId = nestedEntityToRef(toRestore.product);
+        const orderId = toRestore.order?._id;
+        const productId = toRestore.product?._id;
         const activeSibling = await productReviewService.findOne(
             {
                 order: orderId,
                 product: productId,
                 company: company._id,
-                _id: {$ne: new ObjectId(_id)},
+                _id: {
+                    $ne: new ObjectId(_id)
+                },
             },
             {session, logger, languageCode, withDeleted: false},
         );
         if (activeSibling) {
             throw apiValidationException(
                 "cannot_restore_product_review_active_exists",
-                null,
+                "",
                 null,
                 languageCode,
             );
@@ -185,7 +215,7 @@ export const {router} = createCrudRouter({
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        const ratingProductId = productIdFromReview(restored);
+        const ratingProductId = restored.product?._id;
         if (ratingProductId) {
             await productService.updateByIdOrThrow(
                 ratingProductId,

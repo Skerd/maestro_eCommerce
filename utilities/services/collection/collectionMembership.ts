@@ -35,7 +35,7 @@ export function applyCollectionMembershipToProductFilter(
             rules,
             collection.ruleCondition ?? "all",
         );
-        const {company: _c, status: _s, deletedAt: _d, ...ruleClauses} = ruleFilter;
+        const {company: _c, status: _s, ...ruleClauses} = ruleFilter;
         Object.assign(filter, ruleClauses);
         return;
     }
@@ -57,7 +57,7 @@ export async function countCollectionProducts(
                 rules,
                 collection.ruleCondition ?? "all",
             ),
-        );
+        ).noDeleted();
     }
     return productIdsOf(collection).length;
 }

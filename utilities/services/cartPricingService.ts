@@ -69,9 +69,9 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
 
     const [products, variants] = await Promise.all([
         Product.find(
-            {_id: {$in: productIds}, company: ctx.companyId, status: "active", deletedAt: null},
+            {_id: {$in: productIds}, company: ctx.companyId, status: "active"},
             {title: 1, sku: 1, price: 1, mainImage: 1, categories: 1, collections: 1, type: 1, hasVariants: 1, weight: 1},
-        ).session(ctx.session ?? null).lean(),
+        ).noDeleted().session(ctx.session ?? null).lean(),
         variantIds.length
             ? ProductVariant.find(
                   {_id: {$in: variantIds}, company: ctx.companyId, status: "active"},

@@ -4,6 +4,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
@@ -24,18 +25,10 @@ import {inventoryMovementsToDTO} from "@eCommerceModule/utilities/mappers/invent
 import {createInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/createInventory.form.validator";
 import {editInventoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/editInventory.form.validator";
 import {InventorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/inventory.schema-def";
-
-const movementReasons = [
-    "restock",
-    "sale",
-    "return",
-    "adjustment",
-    "damage",
-    "transfer_in",
-    "transfer_out",
-    "initial",
-    "write_off",
-] as const;
+import {
+    adjustInventoryFormSchema,
+    type AdjustInventoryFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/adjustInventory.form.validator";
 
 const buildInventoryUpdate = buildUpdateDataFromSchemaDef(InventorySchemaDef);
 
@@ -55,7 +48,7 @@ export const {router} = createCrudRouter({
         const dto = inventoryToDTO(doc);
         const movements = await inventoryMovementService.find(
             {inventory: doc._id, company: params.company._id},
-            {session: params.session, logger: params.logger, languageCode: params.languageCode},
+            {logger: params.logger, languageCode: params.languageCode},
             ["product", "variant", "warehouse", "inventory", "performedBy"],
             undefined,
             {occurredAt: -1, createdAt: -1},
@@ -86,8 +79,7 @@ export const {router} = createCrudRouter({
             );
         }
 
-        const qty = Number(created.quantityOnHand ?? 0);
-        if (!qty) return;
+        if (!created.quantityOnHand) return;
 
         const warehouseId = nestedEntityToRef(created.warehouse);
         if (!productId || !warehouseId) return;
@@ -98,12 +90,12 @@ export const {router} = createCrudRouter({
                 product: productId,
                 variant: nestedEntityToRef(created.variant),
                 warehouse: warehouseId,
-                quantity: qty,
+                quantity: created.quantityOnHand,
                 reason: "initial",
                 quantityBefore: 0,
-                quantityAfter: qty,
+                quantityAfter: created.quantityOnHand,
                 occurredAt: new Date(),
-                performedBy: params.actionUserCtx.userId,
+                performedBy: new ObjectId(params.actionUserCtx.userId),
                 referenceType: "Inventory",
                 referenceId: created._id,
                 company: params.company._id,
@@ -154,20 +146,11 @@ router.post(
     "/adjust",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod((languageCode, form) => adjustInventoryFormSchema(languageCode ?? "en-US", form)),
     transactionHandler(),
-    asyncHandler(async (params: TransactionRequiredParams & {
-        inventoryId?: string;
-        delta?: number;
-        reason?: string;
-        notes?: string;
-    }) => {
+    asyncHandler(async (params: TransactionRequiredParams & AdjustInventoryFormType) => {
         const {logger, languageCode, actionUserCtx, company, session, inventoryId, delta, reason, notes} = params;
         assertStockWrite(params);
-
-        const deltaNum = Number(delta);
-        if (!inventoryId || !ObjectId.isValid(String(inventoryId)) || !Number.isFinite(deltaNum) || deltaNum === 0) {
-            throw apiValidationException("inventory_id_and_delta_required", null, null, languageCode);
-        }
 
         const inventory = await inventoryService.findOneOrThrow(
             {_id: new ObjectId(inventoryId), company: company._id},
@@ -175,37 +158,37 @@ router.post(
         );
 
         const quantityBefore = inventory.quantityOnHand;
-        assertWithinReserved(inventory, deltaNum, languageCode);
+        assertWithinReserved(inventory, delta, languageCode);
 
         const productId = nestedEntityToRef(inventory.product);
         const warehouseId = nestedEntityToRef(inventory.warehouse);
         if (!productId || !warehouseId) {
-            throw apiValidationException("inventory_not_found", null, null, languageCode);
+            throw apiValidationException("inventory_not_found", "", null, languageCode);
         }
         const variantId = nestedEntityToRef(inventory.variant);
+        const note = notes?.trim();
 
         await inventoryService.adjust(
             productId,
             variantId,
             warehouseId,
-            deltaNum,
+            delta,
             {logger, languageCode, session},
         );
 
-        const reasonValue = movementReasons.find((entry) => entry === reason) ?? "adjustment";
         await inventoryMovementService.create(
             {
                 inventory: inventory._id,
                 product: productId,
                 variant: variantId,
                 warehouse: warehouseId,
-                quantity: deltaNum,
-                reason: reasonValue,
-                note: notes,
+                quantity: delta,
+                reason: reason ?? "adjustment",
+                note: note ? note : undefined,
                 quantityBefore,
-                quantityAfter: quantityBefore + deltaNum,
+                quantityAfter: quantityBefore + delta,
                 occurredAt: new Date(),
-                performedBy: actionUserCtx.userId,
+                performedBy: new ObjectId(actionUserCtx.userId),
                 referenceType: "Inventory",
                 referenceId: inventory._id,
                 company: company._id,

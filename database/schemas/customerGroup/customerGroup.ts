@@ -69,8 +69,7 @@ CustomerGroupSchema.statics.syncMemberCount = async function (
     const countQuery = Member.countDocuments({
         customerGroup: customerGroupId,
         company: companyId,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (session) countQuery.session(session);
     const count = await countQuery;
 

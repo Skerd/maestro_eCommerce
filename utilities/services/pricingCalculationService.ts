@@ -167,6 +167,6 @@ export async function enrichCartLinesWithProductMeta(
 }
 
 export async function getCustomerGroupIdsForUser(userId: ObjectId, companyId: ObjectId): Promise<ObjectId[]> {
-    const members = await CustomerGroupMember.find({user: userId, company: companyId, deletedAt: null}).select("customerGroup").lean();
+    const members = await CustomerGroupMember.find({user: userId, company: companyId}).noDeleted().select("customerGroup").lean();
     return members.map((m) => toObjectId(m.customerGroup));
 }

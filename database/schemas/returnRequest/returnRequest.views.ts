@@ -38,7 +38,7 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
                 render: "#Field",
                 field: {
                     name: "type",
-                    widget: "#Select",
+                    widget: "#SimpleSelect",
                     label: "form.typeLabel",
                     required: true,
                     widgetProps: {options: returnRequestTypeOptions, className: "grow w-full"},
@@ -160,7 +160,7 @@ const returnRequestEditFormNodes: ViewConfig["nodes"] = [
                 permissions: {read: "type", write: "type"},
                 field: {
                     name: "type",
-                    widget: "#Select",
+                    widget: "#SimpleSelect",
                     label: "form.typeLabel",
                     required: true,
                     widgetProps: {options: returnRequestTypeOptions, className: "grow w-full"},

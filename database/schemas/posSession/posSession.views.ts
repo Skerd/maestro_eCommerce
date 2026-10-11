@@ -105,21 +105,7 @@ export const posSessionSheetView: ViewConfig = {
                                 label: "closedAt",
                                 widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "company"},
-                            field: {
-                                name: "company",
-                                widget: "#DisplayCard",
-                                label: "company",
-                                widgetProps: {
-                                    icon: "#IconBuilding",
-                                    parent: "company",
-                                    valuePath: ["name"],
-                                },
-                            },
-                        },
+                        }
                     ],
                 },
             ],

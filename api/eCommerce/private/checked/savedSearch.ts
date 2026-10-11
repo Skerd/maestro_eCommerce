@@ -8,9 +8,6 @@ import {savedSearchService} from "@eCommerceModule/database/schemas/savedSearch/
 import {savedSearchToDTO, savedSearchesToDTO} from "@eCommerceModule/utilities/mappers/savedSearch/savedSearchMapper.dto";
 import {savedSearchesToSelect} from "@eCommerceModule/utilities/mappers/savedSearch/savedSearchMapper.select";
 
-const buildSavedSearchCreateFromSchemaDef = buildCreateDataFromSchemaDef(SavedSearchSchemaDef);
-const buildSavedSearchUpdateFromSchemaDef = buildUpdateDataFromSchemaDef(SavedSearchSchemaDef);
-
 export const basePath = "/api/eCommerce/savedSearch";
 export const {router} = createCrudRouter({
     collectionName: "savedsearches",
@@ -24,19 +21,7 @@ export const {router} = createCrudRouter({
     toDTO: savedSearchToDTO,
     toDTOArray: savedSearchesToDTO,
     toSelect: savedSearchesToSelect,
-    // Storefront self-service: callers only see/mutate their own searches.
-    extraListFilter: (params) => ({user: params.actionUserCtx.userId}),
-    extraSelectFilter: (params) => ({user: params.actionUserCtx.userId}),
-    documentFilter: (params) => ({
-        company: params.company._id,
-        user: params.actionUserCtx.userId,
-    }),
-    buildCreateData: (params) => {
-        const data = buildSavedSearchCreateFromSchemaDef(params);
-        data.user = params.actionUserCtx.userId;
-        if (data.filters === undefined) data.filters = {};
-        return data;
-    },
-    buildUpdateData: buildSavedSearchUpdateFromSchemaDef,
+    buildCreateData: buildCreateDataFromSchemaDef(SavedSearchSchemaDef),
+    buildUpdateData: buildUpdateDataFromSchemaDef(SavedSearchSchemaDef),
     rateLimits: {read: 60, write: 20, delete: 20},
 });

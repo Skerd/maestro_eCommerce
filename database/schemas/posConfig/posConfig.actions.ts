@@ -247,7 +247,7 @@ export class PosConfigActions {
             {pausedAt: now, pausedBy: userId, pauseReason: reason},
             session,
         );
-        const configs = await PosConfigModel.find({company: company._id, deletedAt: null})
+        const configs = await PosConfigModel.find({company: company._id}).noDeleted()
             .select("_id")
             .session(session ?? null);
         const configIds = configs.map((c) => c._id as ObjectId);

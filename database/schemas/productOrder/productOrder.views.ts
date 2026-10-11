@@ -74,20 +74,6 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "company"},
-                            field: {
-                                name: "company",
-                                widget: "#DisplayCard",
-                                label: "company",
-                                widgetProps: {
-                                    icon: "#IconBuilding",
-                                    parent: "company",
-                                    valuePath: ["name"],
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "email"},
                             field: {
                                 name: "email",
@@ -143,7 +129,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: true,
                     },
-                    dependent: "items",
                     children: [
                         {
                             render: "div",
@@ -235,7 +220,6 @@ export const productOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "shippingAddress", defaultOpen: false},
-            dependent: "shippingAddress",
             children: [
                 {
                     render: "#SheetGrid",
@@ -337,7 +321,6 @@ export const productOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "billingAddress", defaultOpen: false},
-            dependent: "billingAddress",
             children: [
                 {
                     render: "#SheetGrid",
@@ -501,7 +484,6 @@ export const productOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "shippingRate", defaultOpen: false},
-            dependent: "shippingRate",
             children: [
                 {
                     render: "#SheetGrid",
@@ -555,7 +537,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependent: "appliedDiscounts",
                     children: [
                         {
                             render: "div",
@@ -612,7 +593,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependent: "taxBreakdown",
                     children: [
                         {
                             render: "div",
@@ -658,7 +638,6 @@ export const productOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "giftCard", defaultOpen: false},
-            dependent: "giftCard",
             children: [
                 {
                     render: "#SheetGrid",
@@ -752,7 +731,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependent: "timeline",
                     children: [
                         {
                             render: "div",
@@ -819,7 +797,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: true,
                     },
-                    dependent: "paymentTransactions",
                     dependentRuntimeOnly: true,
                     children: [
                         {
@@ -907,7 +884,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: true,
                     },
-                    dependent: "fulfillments",
                     dependentRuntimeOnly: true,
                     children: [
                         {
@@ -956,7 +932,6 @@ export const productOrderSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
-                    dependent: "returnRequests",
                     dependentRuntimeOnly: true,
                     children: [
                         {

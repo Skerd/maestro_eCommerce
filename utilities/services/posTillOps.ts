@@ -49,8 +49,7 @@ async function resolveOpenedSession(sessionId: string, ctx: Ctx) {
     const sessionDoc = await PosSession.findOne({
         _id: sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
@@ -86,8 +85,7 @@ async function buildDraftLines(
             _id: line.productId,
             company: ctx.company._id,
             status: "active",
-            deletedAt: null,
-        }).session(ctx.session ?? null);
+        }).noDeleted().session(ctx.session ?? null);
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
 
         const qty = Number(line.quantity);
@@ -327,8 +325,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     const config = await PosConfig.findOne({
         _id: sessionDoc.config,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
     await assertPosTillMutable(config, ctx);
 
@@ -346,8 +343,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
-            deletedAt: null,
-        }).session(ctx.session ?? null);
+        }).noDeleted().session(ctx.session ?? null);
         if (!draft) throw apiValidationException("pos_held_not_found", "_id", null, ctx.languageCode);
     }
 
@@ -393,9 +389,8 @@ export async function listHeldPosOrders(sessionId: string, ctx: Ctx) {
         company: ctx.company._id,
         session: sessionId,
         state: "draft",
-        deletedAt: null,
         isRefund: false,
-    })
+    }).noDeleted()
         .sort({updatedAt: -1})
         .limit(100)
         .populate("cashier");
@@ -407,8 +402,7 @@ export async function deleteHeldPosOrder(_id: string, ctx: Ctx) {
         _id,
         company: ctx.company._id,
         state: "draft",
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!draft) throw apiValidationException("pos_held_not_found", "_id", null, ctx.languageCode);
 
     draft.state = "cancel";
@@ -424,19 +418,17 @@ export async function listSessionPosOrders(
     const sessionDoc = await PosSession.findOne({
         _id: sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
 
     const filter: Record<string, unknown> = {
         company: ctx.company._id,
         session: sessionId,
-        deletedAt: null,
     };
     if (opts?.state) filter.state = opts.state;
     else filter.state = {$in: ["paid", "refunded"]};
 
-    const rows = await PosOrder.find(filter)
+    const rows = await PosOrder.find(filter).noDeleted()
         .sort({createdAt: -1})
         .limit(Math.min(100, Math.max(1, opts?.limit ?? 50)))
         .populate("cashier customer");
@@ -447,9 +439,8 @@ export async function reprintPosOrder(_id: string, ctx: Ctx) {
     const order = await PosOrder.findOne({
         _id,
         company: ctx.company._id,
-        deletedAt: null,
         state: {$in: ["paid", "refunded"]},
-    })
+    }).noDeleted()
         .populate("session config cashier customer payments.paymentMethod")
         .session(ctx.session ?? null);
     if (!order) throw apiValidationException("pos_order_not_found", "_id", null, ctx.languageCode);
@@ -487,24 +478,21 @@ export async function getPosSessionReconciliation(
     const sessionDoc = await PosSession.findOne({
         _id: sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
 
     const heldDraftCount = await PosOrder.countDocuments({
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "draft",
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
 
     const paidOrders = await PosOrder.find({
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "paid",
-        deletedAt: null,
         isRefund: false,
-    })
+    }).noDeleted()
         .select("payments")
         .session(ctx.session ?? null)
         .lean();
@@ -566,13 +554,12 @@ export async function searchPosCustomers(query: string | undefined, ctx: Ctx) {
         companies: ctx.company._id,
         "roles.company": ctx.company._id,
         "roles.active": "active",
-        deletedAt: null,
     };
     if (q) {
         const rx = {$regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i"};
         filter.$or = [{fullName: rx}, {name: rx}, {surname: rx}, {username: rx}, {phoneNumber: rx}];
     }
-    const rows = await User.find(filter)
+    const rows = await User.find(filter).noDeleted()
         .select("_id fullName name surname username phoneNumber")
         .sort({fullName: 1})
         .limit(30)
@@ -599,8 +586,7 @@ export async function verifyPosManagerPin(
     const config = await PosConfig.findOne({
         _id: configId,
         company: ctx.company._id,
-        deletedAt: null,
-    });
+    }).noDeleted();
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
     if (!hasAnyManagerPin(config)) {
         throw apiValidationException("pos_manager_pin_not_set", "pin", null, ctx.languageCode);

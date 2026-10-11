@@ -44,8 +44,7 @@ export async function fiscalConfigIdForPosConfig(
     const till = await PosConfigModel.findOne({
         _id: posConfigId,
         company: companyId,
-        deletedAt: null,
-    }).select("fiscalConfig").lean();
+    }).noDeleted().select("fiscalConfig").lean();
     const ref = till?.fiscalConfig;
     if (!ref) return undefined;
     if (typeof ref === "object" && "_id" in ref && ref._id) return String(ref._id);
@@ -70,11 +69,10 @@ export async function loadFiscalConfigWithCert(
 ): Promise<(IFiscalConfig & FiscalCert) | null> {
     const filter: Record<string, unknown> = {
         company: companyId,
-        deletedAt: null,
         isActive: true,
     };
     if (fiscalConfigId) filter._id = fiscalConfigId;
-    const doc = await FiscalConfig.findOne(filter)
+    const doc = await FiscalConfig.findOne(filter).noDeleted()
         .select("+certificatePassword")
         .sort({updatedAt: -1});
     const mediaRef = doc?.certificate?.[0];
@@ -529,7 +527,7 @@ export async function fiscalizePosOrder(
         currency?: string;
     },
 ): Promise<{order: IPosOrder; invoice: RegisterInvoiceResult; einvoice?: RegisterEinvoiceResult}> {
-    const order = await PosOrder.findOne({_id: orderId, company: companyId, deletedAt: null});
+    const order = await PosOrder.findOne({_id: orderId, company: companyId}).noDeleted();
     if (!order) throw new Error("POS order not found");
     if (order.state !== "paid" && order.state !== "refunded") {
         throw new Error("Only paid/refunded orders can be fiscalized");

@@ -1,24 +1,33 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import type {UserContext} from "@coreModule/utilities/types/types";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import type {ProductOrderStatus} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.schema-def";
 import {shipFulfillmentFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/shipFulfillment.form.validator";
+import type {ShipFulfillmentFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/shipFulfillment.form.validator";
 import {fulfillmentStatusNotesFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillmentStatusNotes.form.validator";
+import type {FulfillmentStatusNotesFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/fulfillment/fulfillmentStatusNotes.form.validator";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
-import FulfillmentModel from "./fulfillment";
+import FulfillmentModel, {type IFulfillment} from "./fulfillment";
 import {fulfillmentService} from "./fulfillment.service";
 
-function trimOptional(value: unknown): string | undefined {
-    if (typeof value !== "string") return undefined;
-    const t = value.trim();
-    return t.length ? t : undefined;
+const NOT_READY_TO_SHIP: ProductOrderStatus[] = ["pending", "cancelled", "refunded"];
+const SHIP_ADVANCES_ORDER: ProductOrderStatus[] = ["confirmed", "processing"];
+const DELIVER_ADVANCES_ORDER: ProductOrderStatus[] = ["confirmed", "processing", "shipped"];
+
+function blankToUndefined(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
 }
 
-function assertStatusWrite(params: Record<string, any>) {
+function assertStatusWrite(params: {languageCode: string; actionUserCtx: UserContext}) {
     const {languageCode, actionUserCtx} = params;
     const writeFields = SchemaGuard.sanitizeFields(
         FulfillmentModel,
@@ -33,15 +42,15 @@ function assertStatusWrite(params: Record<string, any>) {
     return writeFields;
 }
 
-async function loadOrderForFulfillment(
-    fulfillment: {order: any},
-    companyId: ObjectId,
-    opts: {session: any; logger: any; languageCode: string},
-) {
-    const orderId = (fulfillment.order?._id ?? fulfillment.order) as ObjectId;
+async function loadOrderForFulfillment(fulfillment: IFulfillment, params: TransactionRequiredParams) {
+    const {session, logger, languageCode, company} = params;
+    const orderId = nestedEntityToRef(fulfillment.order);
+    if (!orderId) {
+        throw apiValidationException("order_not_found", "", null, languageCode);
+    }
     return productOrderService.findOneOrThrow(
-        {_id: orderId, company: companyId},
-        opts,
+        {_id: orderId, company: company._id},
+        {session, logger, languageCode},
     );
 }
 
@@ -52,53 +61,54 @@ export class FulfillmentActions {
         schema: shipFulfillmentFormSchema,
         transaction: true,
     })
-    async ship(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, session, company, actionUserCtx, _id, carrier, trackingNumber, trackingUrl, notes} =
-            params;
-
+    async ship(params: TransactionRequiredParams & ShipFulfillmentFormType): Promise<ActionMessage> {
+        const {logger, languageCode, session, company, actionUserCtx, _id, carrier, trackingNumber, trackingUrl, notes} = params;
         const writeFields = assertStatusWrite(params);
+        const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
 
         const existing = await fulfillmentService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
+            ctx,
         );
 
         if (existing.status !== "pending") {
             throw apiValidationException("fulfillment_not_pending", "", null, languageCode);
         }
 
-        // Same gate as productOrder.ship: unconfirmed, cancelled or refunded orders don't ship
-        const order = await loadOrderForFulfillment(existing, company._id, {session, logger, languageCode});
-        if (["pending", "cancelled", "refunded"].includes(order.status)) {
+        const order = await loadOrderForFulfillment(existing, params);
+        if (NOT_READY_TO_SHIP.includes(order.status)) {
             throw apiValidationException("order_not_ready_to_ship", "", null, languageCode);
         }
 
-        const $set: Record<string, unknown> = {
+        const update: {
+            status: "shipped";
+            shippedAt: Date;
+            trackingNumber?: string;
+            carrier?: string;
+            trackingUrl?: string;
+            notes?: string;
+        } = {
             status: "shipped",
             shippedAt: new Date(),
         };
 
         if (trackingNumber !== undefined && writeFields.trackingNumber) {
-            $set.trackingNumber = trimOptional(trackingNumber);
+            update.trackingNumber = blankToUndefined(trackingNumber);
         }
         if (carrier !== undefined && writeFields.carrier) {
-            $set.carrier = trimOptional(carrier);
+            update.carrier = blankToUndefined(carrier);
         }
         if (trackingUrl !== undefined && writeFields.trackingUrl) {
-            $set.trackingUrl = trimOptional(trackingUrl);
+            update.trackingUrl = blankToUndefined(trackingUrl);
         }
         if (notes !== undefined && writeFields.notes) {
-            $set.notes = trimOptional(notes) || existing.notes;
+            const trimmed = blankToUndefined(notes);
+            if (trimmed) update.notes = trimmed;
         }
 
-        await fulfillmentService.updateByIdOrThrow(existing._id, $set, {
-            session,
-            logger,
-            languageCode,
-            auditUserId: actionUserCtx.userId,
-        });
+        await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
 
-        if (["confirmed", "processing"].includes(order.status)) {
+        if (SHIP_ADVANCES_ORDER.includes(order.status)) {
             await productOrderService.updateByIdOrThrow(
                 order._id,
                 {
@@ -108,11 +118,11 @@ export class FulfillmentActions {
                             event: "order_shipped",
                             timestamp: new Date(),
                             userId: actionUserCtx.userId,
-                            note: ($set.trackingNumber as string) || undefined,
+                            note: update.trackingNumber,
                         },
                     },
                 },
-                {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+                ctx,
             );
         }
 
@@ -121,9 +131,9 @@ export class FulfillmentActions {
             languageCode,
             order,
             extra: {
-                trackingNumber: ($set.trackingNumber as string) ?? existing.trackingNumber ?? "",
-                trackingUrl: ($set.trackingUrl as string) ?? existing.trackingUrl ?? "",
-                carrier: ($set.carrier as string) ?? existing.carrier ?? "",
+                trackingNumber: update.trackingNumber ?? existing.trackingNumber ?? "",
+                trackingUrl: update.trackingUrl ?? existing.trackingUrl ?? "",
+                carrier: update.carrier ?? existing.carrier ?? "",
             },
         });
 
@@ -136,38 +146,33 @@ export class FulfillmentActions {
         schema: fulfillmentStatusNotesFormSchema,
         transaction: true,
     })
-    async markDelivered(params: Record<string, any>): Promise<ActionMessage> {
+    async markDelivered(params: TransactionRequiredParams & FulfillmentStatusNotesFormType): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, _id, notes} = params;
-
         const writeFields = assertStatusWrite(params);
+        const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
 
         const existing = await fulfillmentService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
+            ctx,
         );
 
         if (existing.status !== "shipped") {
             throw apiValidationException("fulfillment_not_shipped", "", null, languageCode);
         }
 
-        const $set: Record<string, unknown> = {
+        const update: {status: "delivered"; deliveredAt: Date; notes?: string} = {
             status: "delivered",
             deliveredAt: new Date(),
         };
         if (notes !== undefined && writeFields.notes) {
-            $set.notes = trimOptional(notes) || existing.notes;
+            const trimmed = blankToUndefined(notes);
+            if (trimmed) update.notes = trimmed;
         }
 
-        await fulfillmentService.updateByIdOrThrow(existing._id, $set, {
-            session,
-            logger,
-            languageCode,
-            auditUserId: actionUserCtx.userId,
-        });
+        await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
 
-        const order = await loadOrderForFulfillment(existing, company._id, {session, logger, languageCode});
-        // Never overwrite a terminal state (cancelled / refunded) with "delivered"
-        if (["confirmed", "processing", "shipped"].includes(order.status)) {
+        const order = await loadOrderForFulfillment(existing, params);
+        if (DELIVER_ADVANCES_ORDER.includes(order.status)) {
             await productOrderService.updateByIdOrThrow(
                 order._id,
                 {
@@ -180,7 +185,7 @@ export class FulfillmentActions {
                         },
                     },
                 },
-                {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+                ctx,
             );
         }
 
@@ -199,31 +204,27 @@ export class FulfillmentActions {
         schema: fulfillmentStatusNotesFormSchema,
         transaction: true,
     })
-    async markFailed(params: Record<string, any>): Promise<ActionMessage> {
+    async markFailed(params: TransactionRequiredParams & FulfillmentStatusNotesFormType): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, _id, notes} = params;
-
         const writeFields = assertStatusWrite(params);
+        const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
 
         const existing = await fulfillmentService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
+            ctx,
         );
 
         if (existing.status !== "pending" && existing.status !== "shipped") {
             throw apiValidationException("fulfillment_cannot_fail", "", null, languageCode);
         }
 
-        const $set: Record<string, unknown> = {status: "failed"};
+        const update: {status: "failed"; notes?: string} = {status: "failed"};
         if (notes !== undefined && writeFields.notes) {
-            $set.notes = trimOptional(notes) || existing.notes;
+            const trimmed = blankToUndefined(notes);
+            if (trimmed) update.notes = trimmed;
         }
 
-        await fulfillmentService.updateByIdOrThrow(existing._id, $set, {
-            session,
-            logger,
-            languageCode,
-            auditUserId: actionUserCtx.userId,
-        });
+        await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
 
         return {message: "Fulfillment marked as failed"};
     }

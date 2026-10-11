@@ -27,12 +27,11 @@ router.get(
         const blocks = await CmsBlock.find({
             company: company._id,
             isActive: true,
-            deletedAt: null,
             $and: [
                 {$or: [{startsAt: null}, {startsAt: {$lte: now}}]},
                 {$or: [{endsAt: null}, {endsAt: {$gte: now}}]},
             ],
-        }).sort({position: 1});
+        }).noDeleted().sort({position: 1});
 
         return {data: cmsBlocksToDTO(blocks)};
     }),

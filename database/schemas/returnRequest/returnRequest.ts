@@ -19,7 +19,7 @@ import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/produ
 import {applyReturnRequestIndexes} from "./returnRequest.indexes";
 import {returnRequestViews} from "./returnRequest.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {ReturnRequestSchemaDef, RETURN_REQUEST_NOTE_MAX, RETURN_REQUEST_REASON_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
+import {ReturnRequestSchemaDef, returnRequestStatuses, returnRequestTypes, RETURN_REQUEST_NOTE_MAX, RETURN_REQUEST_REASON_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.schema-def";
 
 export type ReturnRequestType = "return" | "exchange" | "refund";
 export type ReturnRequestStatus = "pending" | "approved" | "rejected" | "received" | "completed";
@@ -51,12 +51,12 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
         },
         type: {
             type: SchemaTypes.String, 
-            enum: ["return", "exchange", "refund"], 
+            enum: [...returnRequestTypes], 
             required: true
         },
         status: {
             type: SchemaTypes.String,
-            enum: ["pending", "approved", "rejected", "received", "completed"],
+            enum: [...returnRequestStatuses],
             default: "pending",
             dynamicTableConfiguration: {
                 enumTones: {

@@ -9,6 +9,17 @@ import {IMedia} from "@coreModule/database/schemas/media/media";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import {addModelData} from "@coreModule/database/collections";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {
+    INVENTORY_MOVEMENT_NOTE_MAX,
+    INVENTORY_MOVEMENT_TEXT_MAX,
+    InventoryMovementSchemaDef,
+    inventoryMovementReasons,
+    type InventoryMovementReason,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventoryMovement/inventoryMovement.schema-def";
+import auditPlugin from "@coreModule/database/plugins/auditPlugin";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import {ILifeCyclePluginFields, IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
@@ -18,25 +29,15 @@ import {MediaSimpleSnippet} from "@coreModule/database/schemas/media/media.snipp
 import {applyInventoryMovementIndexes} from "./inventoryMovement.indexes";
 import {inventoryMovementViews} from "./inventoryMovement.views";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
-import {ILifeCyclePluginFields, IOwnershipPluginFields} from "@coreModule/database/types/plugin-fields";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
-export type InventoryMovementReason =
-    | "restock"
-    | "sale"
-    | "return"
-    | "adjustment"
-    | "damage"
-    | "transfer_in"
-    | "transfer_out"
-    | "initial"
-    | "write_off";
+export type {InventoryMovementReason};
 
 /**
  * Stock ledger row — system/action-generated only. Panel is read-only
  * (list + single); all fields are write-locked (NoWritePermission).
  */
-export interface IInventoryMovement extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
+export interface IInventoryMovement extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     /** Owning inventory row — preferred link for sheet history. */
     inventory?: IInventory;
     product: IProduct;
@@ -59,7 +60,6 @@ export interface IInventoryMovement extends Document, IOwnershipPluginFields, IL
     /** Opaque polymorphic link with `referenceType` — intentionally no Interface / mongoose ref. */
     referenceId?: Types.ObjectId;
     company: ICompany;
-    createdAt?: Date;
 }
 
 const NoWritePermission = {
@@ -78,6 +78,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             ref: "Inventory",
             refAllowlist: InventorySimpleSnippet,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {visible: false, refDisplayKey: ["quantityOnHand"]},
         },
         product: {
             type: SchemaTypes.ObjectId,
@@ -85,12 +86,14 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             required: true,
             refAllowlist: ProductSimpleSnippet,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {refDisplayKey: ["title"]},
         },
         variant: {
             type: SchemaTypes.ObjectId,
             ref: "ProductVariant",
             refAllowlist: ProductVariantSimpleSnippet,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {refDisplayKey: ["sku"]},
         },
         warehouse: {
             type: SchemaTypes.ObjectId,
@@ -98,6 +101,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             required: true,
             refAllowlist: WarehouseSimpleSnippet,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {refDisplayKey: ["name"]},
         },
         quantity: {
             type: SchemaTypes.Number,
@@ -106,12 +110,13 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
         },
         reason: {
             type: SchemaTypes.String,
-            enum: ["restock", "sale", "return", "adjustment", "damage", "transfer_in", "transfer_out", "initial", "write_off"],
+            enum: [...inventoryMovementReasons],
             required: true,
             permissions: NoWritePermission,
         },
         note: {
             type: SchemaTypes.String,
+            maxlength: INVENTORY_MOVEMENT_NOTE_MAX,
             permissions: NoWritePermission,
         },
         quantityBefore: {
@@ -127,11 +132,13 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
         manufacturer: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: INVENTORY_MOVEMENT_TEXT_MAX,
             permissions: NoWritePermission,
         },
         receiptNumber: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: INVENTORY_MOVEMENT_TEXT_MAX,
             permissions: NoWritePermission,
         },
         receipts: {
@@ -153,6 +160,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
         batchLot: {
             type: SchemaTypes.String,
             trim: true,
+            maxlength: INVENTORY_MOVEMENT_TEXT_MAX,
             permissions: NoWritePermission,
         },
         expiryDate: {
@@ -164,19 +172,21 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             ref: "User",
             refAllowlist: SimpleUserSnippet,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {refDisplayKey: ["name", "surname"]},
         },
         referenceType: {
             type: SchemaTypes.String,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {visible: false},
         },
         referenceId: {
             type: SchemaTypes.ObjectId,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {visible: false},
         }
     },
     {
         accessMode: "loose",
-        timestamps: {createdAt: true, updatedAt: false},
         permissions: {
             self: {
                 create: "no-permission",
@@ -193,10 +203,13 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
 );
 
 ownershipPlugin(InventoryMovementSchema);
-lifeCyclePlugin(InventoryMovementSchema);
+auditPlugin(InventoryMovementSchema);
+softDeletePlugin(InventoryMovementSchema);
 applyInventoryMovementIndexes(InventoryMovementSchema);
+lifeCyclePlugin(InventoryMovementSchema);
 const InventoryMovement = model<IInventoryMovement>("InventoryMovement", InventoryMovementSchema);
 normalizeSchemaPermissions(InventoryMovement);
 export default InventoryMovement;
 
 addModelData(InventoryMovement, inventoryMovementViews);
+validateSchemaDefAgainstMongoose(InventoryMovementSchema, InventoryMovementSchemaDef, "InventoryMovement");

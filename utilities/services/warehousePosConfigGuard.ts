@@ -33,9 +33,8 @@ export async function detachWarehouseFromPosConfigsOrThrow(params: {
 
     const configs = await PosConfig.find({
         company: companyId,
-        deletedAt: null,
         $or: [{warehouses: warehouseId}, {warehouse: warehouseId}],
-    })
+    }).noDeleted()
         .select({warehouses: 1, warehouse: 1})
         .session(session ?? null)
         .lean();
@@ -51,13 +50,13 @@ export async function detachWarehouseFromPosConfigsOrThrow(params: {
 
     const opts = session ? {session} : {};
     await PosConfig.updateMany(
-        {company: companyId, deletedAt: null, warehouses: warehouseId},
+        {company: companyId, warehouses: warehouseId},
         {$pull: {warehouses: warehouseId}},
         opts,
-    );
+    ).noDeleted();
     await PosConfig.updateMany(
-        {company: companyId, deletedAt: null, warehouse: warehouseId},
+        {company: companyId, warehouse: warehouseId},
         {$unset: {warehouse: ""}},
         opts,
-    );
+    ).noDeleted();
 }

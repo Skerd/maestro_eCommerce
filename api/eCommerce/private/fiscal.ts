@@ -87,7 +87,7 @@ router.post(
     validateFormZod(einvoiceFormSchema),
     asyncHandler(async (params: any) => {
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
-        const order = await PosOrder.findOne({_id: posOrderId, company: company._id, deletedAt: null});
+        const order = await PosOrder.findOne({_id: posOrderId, company: company._id}).noDeleted();
         if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
         const resolvedFiscalConfigId = fiscalConfigId ?? await fiscalConfigIdForPosConfig(company._id, order.config);
         const config = await loadFiscalConfigWithCert(company._id, resolvedFiscalConfigId);

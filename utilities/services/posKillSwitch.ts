@@ -167,8 +167,7 @@ export async function forceClosePosSession(
     const sessionDoc = await PosSession.findOne({
         _id: sessionId,
         company: ctx.company._id,
-        deletedAt: null,
-    }).session(ctx.session ?? null);
+    }).noDeleted().session(ctx.session ?? null);
     if (!sessionDoc) return;
     if (sessionDoc.state === "closed") return;
 
@@ -177,11 +176,10 @@ export async function forceClosePosSession(
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
-            deletedAt: null,
         },
         {$set: {state: "cancel"}},
         {session: ctx.session ?? undefined},
-    );
+    ).noDeleted();
 
     const expectedCash = round2(Number(sessionDoc.expectedCash ?? 0));
     const now = new Date();
@@ -211,8 +209,7 @@ export async function forceCloseOpenSessionsForConfig(
         company: ctx.company._id,
         config: configId,
         state: {$in: ["opening_control", "opened", "closing_control"]},
-        deletedAt: null,
-    })
+    }).noDeleted()
         .select("_id openedBy")
         .session(ctx.session ?? null);
 
@@ -330,8 +327,7 @@ export async function resolveTerminalCancelMeta(
     const method = await PosPaymentMethod.findOne({
         _id: paymentMethodId,
         company: companyId,
-        deletedAt: null,
-    }).session(session ?? null);
+    }).noDeleted().session(session ?? null);
     if (!method) return null;
     return {
         provider: method.terminalProvider || "manual",

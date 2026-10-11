@@ -160,21 +160,7 @@ export const posOrderSheetView: ViewConfig = {
                                     linkedSheetEntityProp: "entity",
                                 },
                             },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "company"},
-                            field: {
-                                name: "company",
-                                widget: "#DisplayCard",
-                                label: "company",
-                                widgetProps: {
-                                    icon: "#IconBuilding",
-                                    parent: "company",
-                                    valuePath: ["name"],
-                                },
-                            },
-                        },
+                        }
                     ],
                 },
             ],

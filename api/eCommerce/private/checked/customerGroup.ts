@@ -52,16 +52,16 @@ router.post(
         if (!customerGroupId) throw apiValidationException("validation_error", "", null, languageCode);
 
         const skip = (Math.max(1, Number(page)) - 1) * Math.min(Number(limit), 100);
-        const filter = {customerGroup: new ObjectId(customerGroupId), company: company._id, deletedAt: null};
+        const filter = {customerGroup: new ObjectId(customerGroupId), company: company._id};
 
         const [members, total] = await Promise.all([
-            CustomerGroupMember.find(filter)
+            CustomerGroupMember.find(filter).noDeleted()
                 .populate("user", "name surname photo")
                 .populate("customerGroup", "name")
                 .sort({createdAt: -1})
                 .skip(skip)
                 .limit(Math.min(Number(limit), 100)),
-            CustomerGroupMember.countDocuments(filter),
+            CustomerGroupMember.countDocuments(filter).noDeleted(),
         ]);
 
         return {data: customerGroupMembersToDTO(members), total};

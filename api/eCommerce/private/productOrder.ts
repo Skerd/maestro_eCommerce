@@ -2,7 +2,11 @@ import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import {myProductOrdersFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/myProductOrders.form.validator";
+import type {MyProductOrdersFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/myProductOrders.form.validator";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
@@ -23,39 +27,28 @@ import {z} from "zod";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
-
     const orderId = doc._id;
     const companyId = params.company._id;
-    if (!orderId) {
-        dto.paymentTransactions = [];
-        dto.fulfillments = [];
-        dto.returnRequests = [];
-        return dto;
-    }
+    const readOpts = {logger: params.logger, languageCode: params.languageCode, session: params.session};
 
     const or: Record<string, unknown>[] = [
         {sourceType: "productOrder", sourceId: orderId},
     ];
 
     // Charges created at checkout may still only reference checkout until confirm re-points them.
-    if (doc.idempotencyKey && companyId) {
-        const checkout = await checkoutService.findOne(
-            {idempotencyKey: doc.idempotencyKey, company: companyId},
-            {logger: params.logger, languageCode: params.languageCode, session: params.session},
-            undefined,
-            "_id",
-        );
-        if (checkout?._id) {
-            or.push({sourceType: "checkout", sourceId: checkout._id});
-        }
+    const checkout = await checkoutService.findOne(
+        {idempotencyKey: doc.idempotencyKey, company: companyId},
+        readOpts,
+        undefined,
+        "_id",
+    );
+    if (checkout) {
+        or.push({sourceType: "checkout", sourceId: checkout._id});
     }
 
-    const filter: Record<string, unknown> = {$or: or};
-    if (companyId) filter.company = companyId;
-
     const txs = await paymentTransactionService.find(
-        filter,
-        {logger: params.logger, languageCode: params.languageCode, session: params.session},
+        {$or: or, company: companyId},
+        readOpts,
         ["currency"],
         undefined,
         {_id: -1},
@@ -63,10 +56,9 @@ async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionE
     );
     dto.paymentTransactions = paymentTransactionsToDTO(txs);
 
-    const ctx = {session: params.session, logger: params.logger, languageCode: params.languageCode};
     const [fulfillments, returnRequests] = await Promise.all([
-        fulfillmentService.find({order: orderId, company: companyId}, ctx, ["order"], undefined, {createdAt: -1}, 50),
-        returnRequestService.find({order: orderId, company: companyId}, ctx, ["order", "resolvedBy"], undefined, {createdAt: -1}, 50),
+        fulfillmentService.find({order: orderId, company: companyId}, readOpts, ["order"], undefined, {createdAt: -1}, 50),
+        returnRequestService.find({order: orderId, company: companyId}, readOpts, ["order", "resolvedBy"], undefined, {createdAt: -1}, 50),
     ]);
     dto.fulfillments = fulfillmentsToDTO(fulfillments);
     dto.returnRequests = returnRequestsToDTO(returnRequests);
@@ -84,15 +76,20 @@ export const {router} = createCrudRouter({
     model: ProductOrder,
     service: productOrderService,
     entityName: "ProductOrder",
+    selectSearchField: "orderNumber",
     defaultSort: {createdAt: -1},
-    createSchema: (_lang: string) => z.object({}),
-    editSchema: (_lang: string) => z.object({_id: z.string()}),
+    createSchema: () => z.object({}),
+    editSchema: () => z.object({_id: z.string()}),
     toDTO: productOrderToDTO,
     toDTOArray: productOrdersToDTO,
     toSelect: productOrdersToSelect,
     enrichSingle: enrichProductOrderSingle,
-    buildCreateData: async () => ({}),
-    buildUpdateData: async () => ({}),
+    buildCreateData: (params) => {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+    },
+    buildUpdateData: (params) => {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+    },
     rateLimits: {read: 60, write: 30, delete: 10},
     actions: ProductOrderActions,
     /** Orders that moved money stay on record — only unpaid or closed-out orders can be removed. */
@@ -101,7 +98,7 @@ export const {router} = createCrudRouter({
             || doc.paymentStatus === "refunded"
             || (doc.paymentStatus === "unpaid" && doc.status === "pending");
         if (!deletable) {
-            throw apiValidationException("order_with_payment_cannot_be_deleted", null, null, params.languageCode);
+            throw apiValidationException("order_with_payment_cannot_be_deleted", "", null, params.languageCode);
         }
         // Keep the default relation check that a custom beforeDelete replaces
         await assertCanDelete(ProductOrder.modelName, doc._id, params.languageCode, params.session);
@@ -116,25 +113,26 @@ router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: AuthenticatedMWType & {page?: unknown; limit?: unknown}) => {
+    validateFormZod(myProductOrdersFormSchema),
+    asyncHandler(async (params: AuthenticatedMWType & MyProductOrdersFormType) => {
         const {company, actionUserCtx, logger, languageCode} = params;
-        const page = Math.max(1, Number(params.page) || 1);
-        const limit = Math.min(50, Math.max(1, Number(params.limit) || 10));
+        const page = params.page ?? 1;
+        const limit = params.limit ?? 10;
 
-        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId), deletedAt: null};
+        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId)};
         const ctx = {logger, languageCode};
 
         const [orders, total] = await Promise.all([
             productOrderService.find(
                 filter,
-                ctx,
+                {...ctx, withDeleted: false},
                 undefined,
                 "orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt",
                 {createdAt: -1},
                 limit,
                 (page - 1) * limit,
             ),
-            productOrderService.count(filter, ctx),
+            productOrderService.count(filter, {...ctx, withDeleted: false}),
         ]);
 
         return {data: orders.map(productOrderToDTO), total, page, limit};
@@ -145,22 +143,20 @@ router.post(
     "/mySingle",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: AuthenticatedMWType & {_id?: string}) => {
+    validateFormZod(validateSingleForm),
+    asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
         const {languageCode, company, actionUserCtx, logger, _id} = params;
-
-        if (!_id) throw apiValidationException("id_required", null, null, languageCode);
 
         const order = await productOrderService.findOne(
             {
                 _id: new ObjectId(_id),
                 company: company._id,
                 customer: new ObjectId(actionUserCtx.userId),
-                deletedAt: null,
             },
-            {logger, languageCode},
+            {withDeleted: false, logger, languageCode},
         );
 
-        if (!order) throw apiValidationException("order_not_found", null, null, languageCode);
+        if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
         return {data: productOrderToDTO(order)};
     }),

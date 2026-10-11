@@ -25,11 +25,19 @@ import {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
 import {IGiftCard} from "@financeModule/database/schemas/giftCard/giftCard";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {
+    ProductOrderSchemaDef,
+    productOrderFulfillmentStatuses,
+    productOrderPaymentStatuses,
+    productOrderStatuses,
+    type ProductOrderFulfillmentStatus,
+    type ProductOrderPaymentStatus,
+    type ProductOrderStatus,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.schema-def";
 
 const HideFromTable = {hideColumn: true} as const;
-export type ProductOrderPaymentStatus = "unpaid" | "authorized" | "paid" | "partially_refunded" | "refunded" | "voided";
-export type ProductOrderFulfillmentStatus = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "returned";
-export type ProductOrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
+export type {ProductOrderFulfillmentStatus, ProductOrderPaymentStatus, ProductOrderStatus};
 
 export interface IProductOrderAddress {
     firstName?: string;
@@ -201,7 +209,6 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             }],
             default: [],
             permissions: NoWritePermission,
-            /** objectId cell → badges; label from each line item via refDisplayKey. */
             dynamicTableConfiguration: {
                 cellType: COLUMN_TYPE.OBJECT_ID,
                 refDisplayKey: ["quantity", "!x ", "snapshot.title"],
@@ -327,10 +334,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         },
         paymentStatus: {
             type: SchemaTypes.String,
-            enum: ["unpaid", "authorized", "paid", "partially_refunded", "refunded", "voided"],
+            enum: [...productOrderPaymentStatuses],
             default: "unpaid",
-            // Write-tagged (not NoWritePermission) so lifecycle actions can gate on
-            // productorders[write:paymentStatus]; generic CRUD edit never writes it.
             dynamicTableConfiguration: {
                 enumTones: {
                     unpaid:               "danger",
@@ -344,15 +349,14 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         },
         fulfillmentStatus: {
             type: SchemaTypes.String,
-            enum: ["unfulfilled", "partially_fulfilled", "fulfilled", "returned"],
+            enum: [...productOrderFulfillmentStatuses],
             default: "unfulfilled",
             permissions: NoWritePermission
         },
         status: {
             type: SchemaTypes.String,
-            enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"],
+            enum: [...productOrderStatuses],
             default: "pending",
-            // Write-tagged so lifecycle actions can gate on productorders[write:status].
             dynamicTableConfiguration: {
                 enumTones: {
                     pending:      "warning",
@@ -510,3 +514,4 @@ normalizeSchemaPermissions(ProductOrder);
 export default ProductOrder;
 
 addModelData(ProductOrder, productOrderViews);
+validateSchemaDefAgainstMongoose(ProductOrderSchema, ProductOrderSchemaDef, "ProductOrder");

@@ -48,8 +48,7 @@ router.post(
             company: company._id,
             slug: String(slug).toLowerCase(),
             status: "active",
-            deletedAt: null,
-        })
+        }).noDeleted()
             .populate("categories", "name slug")
             .lean();
 
@@ -70,12 +69,11 @@ router.post(
         const relatedFilter: Record<string, unknown> = {
             company: company._id,
             status: "active",
-            deletedAt: null,
             _id: {$ne: product._id},
         };
 
         let related = explicitRelatedIds.length
-            ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).select(CARD_FIELDS).limit(RELATED_LIMIT).lean()
+            ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted().select(CARD_FIELDS).limit(RELATED_LIMIT).lean()
             : [];
 
         if (related.length < RELATED_LIMIT) {
@@ -85,7 +83,7 @@ router.post(
                     ...relatedFilter,
                     _id: {$nin: [product._id, ...related.map(r => r._id)]},
                     categories: {$in: categoryIds},
-                })
+                }).noDeleted()
                     .select(CARD_FIELDS)
                     .limit(RELATED_LIMIT - related.length)
                     .lean();

@@ -5,6 +5,7 @@ import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/
 import type {UserContext} from "@coreModule/utilities/types/types";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {RestockInventoryFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/restockInventory.form.validator";
+import type {DeductInventoryFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventory/deductInventory.form.validator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import InventoryModel from "./inventory";
@@ -15,22 +16,25 @@ import {inventoryToDTO} from "@eCommerceModule/utilities/mappers/inventory/inven
 import {inventoryService} from "./inventory.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import type {InventoryMovementReason} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement";
+import {mediaUploadMW} from "@coreModule/utilities/middlewares/mediaUploadMW";
+import {INVENTORY_MOVEMENT_RECEIPT_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventoryMovement/inventoryMovement.schema-def";
 
-function parseOptionalDate(value: unknown): Date | undefined {
-    if (value == null || value === "") return undefined;
-    const d = new Date(String(value));
-    return Number.isNaN(d.getTime()) ? undefined : d;
+const receiptUpload = mediaUploadMW({
+    fields: {receipts: INVENTORY_MOVEMENT_RECEIPT_MAX},
+    maxFileSize: 25 * 1024 * 1024,
+});
+
+const INBOUND_REASONS: InventoryMovementReason[] = ["restock", "initial", "return", "transfer_in"];
+
+function parseOptionalDate(value: string | undefined): Date | undefined {
+    if (!value) return undefined;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-function asObjectIdArray(value: unknown): ObjectId[] | undefined {
-    if (!Array.isArray(value) || !value.length) return undefined;
-    return value.filter(Boolean).map((id) => new ObjectId(String(id)));
-}
-
-function trimOptional(value: unknown): string | undefined {
-    if (typeof value !== "string") return undefined;
-    const t = value.trim();
-    return t.length ? t : undefined;
+function blankToUndefined(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
 }
 
 /**
@@ -52,46 +56,67 @@ export function assertStockWrite(params: {languageCode: string; actionUserCtx: U
 }
 
 /** Rejects a change that would leave less on hand than is reserved for open orders. */
-export function assertWithinReserved(inventory: {quantityOnHand: number; quantityReserved?: number}, delta: number, languageCode: string): void {
+export function assertWithinReserved(inventory: {quantityOnHand: number; quantityReserved: number}, delta: number, languageCode: string): void {
     if (delta >= 0) return;
     const after = inventory.quantityOnHand + delta;
-    if (after < 0 || after < (inventory.quantityReserved ?? 0)) {
-        throw apiValidationException("insufficient_stock", null, null, languageCode);
+    if (after < 0 || after < inventory.quantityReserved) {
+        throw apiValidationException("insufficient_stock", "", null, languageCode);
     }
 }
 
-async function applyStockMove(params: TransactionRequiredParams & RestockInventoryFormType, direction: "restock" | "deduct"): Promise<Inventory> {
+async function findLatestInboundSupply(
+    params: TransactionRequiredParams & {inventoryId: ObjectId; batchLot?: string},
+): Promise<{unitCost?: number; expiryDate?: Date} | undefined> {
+    const {logger, languageCode, session, company, inventoryId, batchLot} = params;
+    const query = {
+        inventory: inventoryId,
+        company: company._id,
+        reason: {$in: INBOUND_REASONS},
+    };
+    const options = {logger, languageCode, session};
+    const sort = {occurredAt: -1 as const, createdAt: -1 as const};
+    const [matched] = await inventoryMovementService.find(
+        batchLot ? {...query, batchLot} : query,
+        options,
+        undefined,
+        undefined,
+        sort,
+        1,
+    );
+    const inbound = matched ?? (batchLot
+        ? (await inventoryMovementService.find(query, options, undefined, undefined, sort, 1))[0]
+        : undefined);
+    if (!inbound) return undefined;
+    return {
+        unitCost: inbound.unitCost,
+        expiryDate: inbound.expiryDate,
+    };
+}
+
+async function applyQuantityChange(
+    params: TransactionRequiredParams & {_id: string; quantity: number},
+    direction: "restock" | "deduct",
+    movement: {
+        note?: string;
+        manufacturer?: string;
+        receiptNumber?: string;
+        receipts?: ObjectId[];
+        occurredAt?: Date;
+        unitCost?: number;
+        batchLot?: string;
+        expiryDate?: Date;
+    },
+): Promise<Inventory> {
     assertStockWrite(params);
 
-    const {
-        logger,
-        languageCode,
-        session,
-        company,
-        actionUserCtx,
-        _id,
-        quantity,
-        manufacturer,
-        receiptNumber,
-        receipts,
-        occurredAt,
-        unitCost,
-        batchLot,
-        expiryDate,
-        note,
-    } = params;
-
-    const qty = Number(quantity);
-    if (!Number.isFinite(qty) || qty <= 0) {
-        throw apiValidationException("invalid_quantity", null, null, languageCode);
-    }
+    const {logger, languageCode, session, company, actionUserCtx, _id, quantity} = params;
 
     const inventory = await inventoryService.findOneOrThrow(
         {_id: new ObjectId(_id), company: company._id},
         {logger, languageCode, session},
     );
 
-    const delta = direction === "restock" ? qty : -qty;
+    const delta = direction === "restock" ? quantity : -quantity;
     const reason: InventoryMovementReason = direction === "restock" ? "restock" : "write_off";
     const quantityBefore = inventory.quantityOnHand;
 
@@ -100,7 +125,7 @@ async function applyStockMove(params: TransactionRequiredParams & RestockInvento
     const productId = nestedEntityToRef(inventory.product);
     const warehouseId = nestedEntityToRef(inventory.warehouse);
     if (!productId || !warehouseId) {
-        throw apiValidationException("inventory_not_found", null, null, languageCode);
+        throw apiValidationException("inventory_not_found", "", null, languageCode);
     }
     const variantId = nestedEntityToRef(inventory.variant);
 
@@ -114,27 +139,20 @@ async function applyStockMove(params: TransactionRequiredParams & RestockInvento
             warehouse: warehouseId,
             quantity: delta,
             reason,
-            note: trimOptional(note),
             quantityBefore,
             quantityAfter: quantityBefore + delta,
-            manufacturer: trimOptional(manufacturer),
-            receiptNumber: trimOptional(receiptNumber),
-            receipts: asObjectIdArray(receipts),
-            occurredAt: parseOptionalDate(occurredAt) ?? new Date(),
-            unitCost: unitCost != null && unitCost !== "" ? Number(unitCost) : undefined,
-            batchLot: trimOptional(batchLot),
-            expiryDate: parseOptionalDate(expiryDate),
-            performedBy: actionUserCtx.userId,
+            performedBy: new ObjectId(actionUserCtx.userId),
             referenceType: "Inventory",
             referenceId: inventory._id,
             company: company._id,
+            ...movement,
         },
         {logger, languageCode, session},
     );
 
     const updated = await inventoryService.findById(inventory._id, {logger, languageCode, session});
     if (!updated) {
-        throw apiValidationException("inventory_not_found", null, null, languageCode);
+        throw apiValidationException("inventory_not_found", "", null, languageCode);
     }
     return inventoryToDTO(updated);
 }
@@ -144,19 +162,44 @@ export class InventoryActions {
         auth: "private",
         rateLimit: {windowMs: 60000, max: 60},
         transaction: true,
+        middleware: [receiptUpload],
         schema: restockInventoryFormSchema,
     })
     async restock(params: TransactionRequiredParams & RestockInventoryFormType): Promise<Inventory> {
-        return applyStockMove(params, "restock");
+        const {manufacturer, receiptNumber, receipts, occurredAt, unitCost, batchLot, expiryDate, note} = params;
+        return applyQuantityChange(params, "restock", {
+            note: blankToUndefined(note),
+            manufacturer: blankToUndefined(manufacturer),
+            receiptNumber: blankToUndefined(receiptNumber),
+            receipts: receipts?.length ? receipts.map((id) => new ObjectId(id)) : undefined,
+            occurredAt: parseOptionalDate(occurredAt) ?? new Date(),
+            unitCost,
+            batchLot: blankToUndefined(batchLot),
+            expiryDate: parseOptionalDate(expiryDate),
+        });
     }
 
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 60},
         transaction: true,
+        middleware: [receiptUpload],
         schema: deductInventoryFormSchema,
     })
-    async deduct(params: TransactionRequiredParams & RestockInventoryFormType): Promise<Inventory> {
-        return applyStockMove(params, "deduct");
+    async deduct(params: TransactionRequiredParams & DeductInventoryFormType): Promise<Inventory> {
+        const batchLot = blankToUndefined(params.batchLot);
+        const inbound = await findLatestInboundSupply({
+            ...params,
+            inventoryId: new ObjectId(params._id),
+            batchLot,
+        });
+        return applyQuantityChange(params, "deduct", {
+            note: blankToUndefined(params.note),
+            receipts: params.receipts?.length ? params.receipts.map((id) => new ObjectId(id)) : undefined,
+            occurredAt: new Date(),
+            unitCost: inbound?.unitCost,
+            batchLot,
+            expiryDate: inbound?.expiryDate,
+        });
     }
 }

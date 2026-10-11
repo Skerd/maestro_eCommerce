@@ -158,8 +158,7 @@ export async function countCustomerDiscountUses(
         customer: customerId,
         "appliedDiscounts.discount": discountId,
         status: {$ne: "cancelled"},
-        deletedAt: null,
-    }).session(session ?? null);
+    }).noDeleted().session(session ?? null);
 }
 
 /** validateDiscount plus the per-customer usage limit (needs a DB lookup). */

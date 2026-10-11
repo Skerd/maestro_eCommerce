@@ -1,7 +1,8 @@
 import {ObjectId} from "mongodb";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {userService} from "@coreModule/database/schemas/user/user.service";
-import Company from "@coreModule/database/schemas/company/company";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import type {ProductOrderClientEmailKind} from "@eCommerceModule/kafka/types";
@@ -36,8 +37,8 @@ function formatMoney(amount: number | undefined, languageCode: string): string |
 }
 
 async function resolveCompanyName(companyId: string): Promise<string> {
-    const company = await Company.findById(companyId).select("name").lean();
-    return (company as any)?.name ?? "";
+    const company = await companyService.findById(companyId, {}, undefined, "name");
+    return company?.name ?? "";
 }
 
 async function resolveRecipientEmail(opts: {
@@ -77,7 +78,18 @@ export type NotifyOrderOpts = {
     orderNumber?: string;
     orderEmail?: string;
     customerId?: string;
-    extra?: Record<string, unknown>;
+    extra?: {
+        grandTotal?: number;
+        trackingNumber?: string;
+        trackingUrl?: string;
+        carrier?: string;
+        amount?: number;
+        failureReason?: string;
+        giftCardCodes?: string[];
+        downloadLinks?: {productTitle: string; url: string}[];
+        returnRequestId?: string;
+        checkoutId?: string;
+    };
     /** Skip in-app push (email only). */
     emailOnly?: boolean;
     /** Skip transactional email. */
@@ -92,10 +104,8 @@ export async function notifyProductOrderCustomer(
     opts: NotifyOrderOpts,
 ): Promise<void> {
     const companyId = opts.companyId.toString();
-    const customerId =
-        opts.customerId
-        || ((opts.order?.customer as any)?._id ?? opts.order?.customer)?.toString?.()
-        || "";
+    const customerFromOrder = opts.order ? nestedEntityToRef(opts.order.customer) : undefined;
+    const customerId = opts.customerId || customerFromOrder?.toString() || "";
     const orderId = opts.orderId || opts.order?._id?.toString?.() || "";
     const orderNumber = opts.orderNumber || opts.order?.orderNumber || "";
     const orderEmail = opts.orderEmail || opts.order?.email || "";
@@ -132,18 +142,15 @@ export async function notifyProductOrderCustomer(
         companyName,
         orderId,
         orderNumber,
-        orderTotalDisplay: formatMoney(
-            (opts.extra?.grandTotal as number | undefined) ?? (opts.order as any)?.grandTotal,
-            opts.languageCode,
-        ),
-        trackingNumber: (opts.extra?.trackingNumber as string) || undefined,
-        trackingUrl: (opts.extra?.trackingUrl as string) || undefined,
-        carrier: (opts.extra?.carrier as string) || undefined,
-        refundAmountDisplay: formatMoney(opts.extra?.amount as number | undefined, opts.languageCode),
-        failureReason: (opts.extra?.failureReason as string) || undefined,
-        giftCardCodes: opts.extra?.giftCardCodes as string[] | undefined,
-        downloadLinks: opts.extra?.downloadLinks as {productTitle: string; url: string}[] | undefined,
-        returnRequestId: (opts.extra?.returnRequestId as string) || undefined,
+        orderTotalDisplay: formatMoney(opts.extra?.grandTotal ?? opts.order?.grandTotal, opts.languageCode),
+        trackingNumber: opts.extra?.trackingNumber || undefined,
+        trackingUrl: opts.extra?.trackingUrl || undefined,
+        carrier: opts.extra?.carrier || undefined,
+        refundAmountDisplay: formatMoney(opts.extra?.amount, opts.languageCode),
+        failureReason: opts.extra?.failureReason || undefined,
+        giftCardCodes: opts.extra?.giftCardCodes,
+        downloadLinks: opts.extra?.downloadLinks,
+        returnRequestId: opts.extra?.returnRequestId || undefined,
     });
 }
 

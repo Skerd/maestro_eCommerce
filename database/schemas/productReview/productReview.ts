@@ -18,13 +18,13 @@ import {applyProductReviewIndexes} from "./productReview.indexes";
 import {productReviewViews} from "./productReview.views";
 
 /**
- * Product-commerce review: purchase-gated (paid ProductOrder containing the
- * product), one per (order, product). Aggregates into product.ratingAverage /
- * ratingCount / reviewCount — kept separate from the marketplace Review
- * (listing/gig reviews) on purpose.
+ * Product-commerce review: one per paid order line. Aggregates into
+ * product.ratingAverage / ratingCount / reviewCount — kept separate from the
+ * marketplace Review (listing/gig reviews).
  *
- * Create-only from the buyer API; panel moderates via delete/restore. All
- * fields are write-locked after create (NoWritePermission).
+ * Order, product, and reviewer stay write-locked after create. The reviewer
+ * is set from the order's customer and is not part of the form. Rating, title,
+ * and comment can be edited.
  */
 export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IProductOrder;
@@ -71,24 +71,22 @@ const ProductReviewSchema = new Schema<IProductReview>(
             required: true,
             min: 1,
             max: 5,
-            permissions: NoWritePermission,
         },
         title: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_REVIEW_TITLE_MAX,
-            permissions: NoWritePermission,
         },
         comment: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_REVIEW_COMMENT_MAX,
-            permissions: NoWritePermission,
         },
         reviewer: {
             type: SchemaTypes.ObjectId,
             ref: "User",
             required: true,
+            immutable: true,
             refAllowlist: SimpleUserSnippet,
             permissions: NoWritePermission,
             dynamicTableConfiguration: {

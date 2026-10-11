@@ -159,6 +159,40 @@ export const inventoryMovementSheetView: ViewConfig = {
                                 },
                             },
                         },
+                        {
+                            render: "#DisplayCard",
+                            // dependent: "referenceType",
+                            permissions: {read: "referenceType"},
+                            field: {
+                                name: "referenceType",
+                                widget: "#DisplayCard",
+                                label: "reference",
+                                widgetProps: {
+                                    icon: "#IconLink",
+                                    languageKeyCategory: "referenceTypes",
+                                    type: "enum",
+                                    linkedRefPath: "referenceId",
+                                    linkedSheetTypePath: "referenceType",
+                                    linkedSheetByType: {
+                                        Inventory: {
+                                            linkedSheetModel: "inventories",
+                                            linkedSheetWidget: "#InventorySheetView",
+                                            linkedSheetEntityProp: "inventory",
+                                        },
+                                        ProductOrder: {
+                                            linkedSheetModel: "productOrders",
+                                            linkedSheetWidget: "#ProductOrderSheetView",
+                                            linkedSheetEntityProp: "order",
+                                        },
+                                        PosOrder: {
+                                            linkedSheetModel: "posOrders",
+                                            linkedSheetWidget: "#PosOrderSheetView",
+                                            linkedSheetEntityProp: "entity",
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     ],
                 },
             ],

@@ -29,8 +29,7 @@ export const {router} = createCrudRouter({
         const inUse = await ProductVariant.countDocuments({
             company: company._id,
             "attributeCombination.attribute": doc._id,
-            deletedAt: null,
-        });
+        }).noDeleted();
         if (inUse > 0) {
             throw apiValidationException("product_attribute_in_use_by_variants", "", null, languageCode);
         }

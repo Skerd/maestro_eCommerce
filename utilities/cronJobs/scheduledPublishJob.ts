@@ -12,9 +12,9 @@ export async function runScheduledPublish(parentLogger?: serverLogger): Promise<
 
     try {
         const productResult = await Product.updateMany(
-            {status: "draft", publishedAt: {$lte: now, $ne: null}, deletedAt: null},
+            {status: "draft", publishedAt: {$lte: now, $ne: null}},
             {$set: {status: "active"}},
-        );
+        ).noDeleted();
 
         logger.debug(`Published ${productResult.modifiedCount} products`);
     } catch (e: unknown) {

@@ -97,8 +97,7 @@ router.put(
             _id: new ObjectId(productId),
             company: company._id,
             status: "active",
-            deletedAt: null,
-        }).lean();
+        }).noDeleted().lean();
         if (!product) throw apiValidationException("product_not_found", "", null, languageCode);
 
         if (product.hasVariants && !variantId) {

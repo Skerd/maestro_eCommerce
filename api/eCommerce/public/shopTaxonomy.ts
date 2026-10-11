@@ -20,8 +20,8 @@ router.post(
         const company = await resolveShopCompany(origin, languageCode);
 
         const [categories, collections] = await Promise.all([
-            Category.find({company: company._id, deletedAt: null}).select("name slug parent").sort({name: 1}).lean(),
-            Collection.find({company: company._id, deletedAt: null, isVisible: true}).select("name slug").sort({name: 1}).lean(),
+            Category.find({company: company._id}).noDeleted().select("name slug parent").sort({name: 1}).lean(),
+            Collection.find({company: company._id, isVisible: true}).noDeleted().select("name slug").sort({name: 1}).lean(),
         ]);
 
         return {
