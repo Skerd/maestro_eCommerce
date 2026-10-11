@@ -140,6 +140,7 @@ const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
         children: [
             {
                 render: "#Field",
+                props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
                 field: {
                     name: "customer",
                     widget: "#ApiSelect",
@@ -254,6 +255,7 @@ const savedSearchEditFormNodes: ViewConfig["nodes"] = [
         children: [
             {
                 render: "#Field",
+                props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
                 permissions: {read: "customer", write: "customer"},
                 field: {
                     name: "customer",
