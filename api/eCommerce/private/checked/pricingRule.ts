@@ -31,7 +31,7 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(PricingRuleSchemaDef),
     actions: PricingRuleActions,
     rateLimits: {read: 60, write: 30, delete: 20},
-    enrichList: async (docs) => pricingRulesToDTOWithLabels(docs),
-    enrichSingle: async (doc) => pricingRuleToDTOWithLabels(doc),
-    enrichUpdate: async (doc) => pricingRuleToDTOWithLabels(doc),
+    enrichList: pricingRulesToDTOWithLabels,
+    enrichSingle: pricingRuleToDTOWithLabels,
+    enrichUpdate: pricingRuleToDTOWithLabels,
 });

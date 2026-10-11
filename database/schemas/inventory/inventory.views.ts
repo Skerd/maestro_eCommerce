@@ -171,56 +171,6 @@ export const inventorySheetView: ViewConfig = {
                 },
             ],
         },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "inventory.sheet.movements.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "movements",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "movements",
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "movements",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#InventoryMovementCard",
-                                            itemDataProp: "movement",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconHistory",
-                                                label: "movement",
-                                                valuePath: ["reason", "quantity", "receiptNumber"],
-                                                valueLanguageKeyCategories: ["reasons", null, null],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "inventoryMovements",
-                                                linkedSheetWidget: "#InventoryMovementSheetView",
-                                                linkedSheetEntityProp: "movement",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
         lifecycleSheetGroup,
     ],
 };
