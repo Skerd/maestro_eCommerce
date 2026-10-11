@@ -125,7 +125,7 @@ export type CreateProductOrdersResult = {
 };
 
 /** Maps seed order status → timeline event keys used by production actions / locales. */
-const statusTimelineEvent = {
+const statusTimelineEvent: Record<ProductOrderStatus, string> = {
     pending: "order_placed",
     confirmed: "order_confirmed",
     processing: "order_processing",
@@ -133,7 +133,7 @@ const statusTimelineEvent = {
     delivered: "order_delivered",
     cancelled: "order_cancelled",
     refunded: "order_refunded",
-} as const satisfies Record<ProductOrderStatus, string>;
+};
 
 /**
  * Seeds catalog orders across statuses using the three demo products.
