@@ -4,6 +4,7 @@ import Collection, {type ICollection} from "./collection";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 
 export type CollectionSeed = {
@@ -17,30 +18,30 @@ export type CollectionSeed = {
 export const defaultCollectionSeeds: readonly CollectionSeed[] = [
     {
         slug: "featured",
-        name: "Featured",
+        name: demoName("Featured"),
         description: "Hand-picked demo products for the storefront hero.",
-        productKeys: ["prod-01-brand-tee", "prod-02-hoodie", "prod-03-logo-pack", "prod-04-ui-kit"],
+        productKeys: ["prod-01-brand-tee", "prod-02-hoodie", "prod-03-logo-pack"],
         position: 1,
     },
     {
         slug: "sale",
-        name: "On Sale",
+        name: demoName("On Sale"),
         description: "Products with compare-at pricing for promo demos.",
-        productKeys: ["prod-02-hoodie", "prod-04-ui-kit", "prod-01-brand-tee"],
+        productKeys: ["prod-01-brand-tee", "prod-02-hoodie"],
         position: 2,
     },
     {
         slug: "new-arrivals",
-        name: "New Arrivals",
+        name: demoName("New Arrivals"),
         description: "Recently published catalog items.",
-        productKeys: ["prod-05-camera-strap", "prod-06-light-stand", "prod-08-gift-card"],
+        productKeys: ["prod-01-brand-tee", "prod-02-hoodie", "prod-03-logo-pack"],
         position: 3,
     },
     {
         slug: "digital-downloads",
-        name: "Digital Downloads",
+        name: demoName("Digital Downloads"),
         description: "Instant-delivery digital goods.",
-        productKeys: ["prod-03-logo-pack", "prod-04-ui-kit", "prod-07-seo-checklist"],
+        productKeys: ["prod-03-logo-pack"],
         position: 4,
     },
 ];

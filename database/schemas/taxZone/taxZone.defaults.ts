@@ -1,7 +1,10 @@
+import type {Types} from "mongoose";
 import TaxZone from "./taxZone";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import type {EcomDemoGeo} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {demoName} from "@coreModule/utilities/helpers";
+
+const TAX_ZONE_NAME = demoName("Albania Standard VAT");
 
 /**
  * Seeds Albania Standard VAT. Idempotent on `{company, name}`.
@@ -10,20 +13,20 @@ import type {EcomDemoGeo} from "@eCommerceModule/database/demo/ecomDemoConstants
 export async function createTaxZones(
     parentLogger: serverLogger,
     company: ICompany,
-    geo: EcomDemoGeo,
+    geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
 ): Promise<number> {
     const logger = getLogger("mongoDbInitialization-createTaxZones", parentLogger);
     logger.start("Creating tax zones...");
 
     if (!geo.countryId) {
-        logger.warn("Skipping tax zone \"Albania Standard VAT\": country was not seeded.");
+        logger.warn(`Skipping tax zone "${TAX_ZONE_NAME}": country was not seeded.`);
         logger.finish("Finished creating tax zones!", 0);
         return 0;
     }
 
     try {
         const payload = {
-            name: "Albania Standard VAT",
+            name: TAX_ZONE_NAME,
             country: geo.countryId,
             states: geo.stateId ? [geo.stateId] : [],
             rates: [{name: "VAT", rate: 20, isCompound: false, appliesTo: "all" as const}],
@@ -33,7 +36,7 @@ export async function createTaxZones(
             createdBy: company.createdBy,
         };
 
-        let tax = await TaxZone.findOne({company: company._id, name: "Albania Standard VAT"});
+        let tax = await TaxZone.findOne({company: company._id, name: TAX_ZONE_NAME});
         if (!tax) {
             await TaxZone.create(payload);
         } else {

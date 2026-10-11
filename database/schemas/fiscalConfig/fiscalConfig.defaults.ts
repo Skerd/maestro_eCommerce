@@ -2,8 +2,9 @@ import type {HydratedDocument} from "mongoose";
 import FiscalConfig, {type IFiscalConfig} from "./fiscalConfig";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 
-export const FISCAL_CONFIG_NAME = "Albania TEST Fiscalization";
+export const FISCAL_CONFIG_NAME = demoName("Albania TEST Fiscalization");
 
 /**
  * Albanian TEST fiscalization placeholder. Never writes certificate material.
@@ -31,7 +32,7 @@ export async function createFiscalConfigs(
             einvoiceUrl: "https://fiscal.test.local/einvoice",
             selfcareUrl: "https://fiscal.test.local/selfcare",
             proxyUrl: "https://fiscal.test.local/proxy",
-            sellerName: "Pronix TEST",
+            sellerName: "Demo TEST",
             sellerAddress: "Myslym Shyr",
             sellerTown: "Tirana",
             sellerCountry: "ALB",

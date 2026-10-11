@@ -4,11 +4,10 @@ import type {Types} from "mongoose";
 import InventoryMovement, {type IInventoryMovement} from "./inventoryMovement";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreateInventoriesResult} from "@eCommerceModule/database/schemas/inventory/inventory.defaults";
 
-export const HOODIE_INITIAL_MOVE_NOTE = `${ECOM_DEMO_TAG}:move-hoodie-initial`;
+export const HOODIE_INITIAL_MOVE_NOTE = `ecom-demo-seed:move-hoodie-initial`;
 
 /**
  * Seeds one `initial` restock against Tirana + the studio hoodie.

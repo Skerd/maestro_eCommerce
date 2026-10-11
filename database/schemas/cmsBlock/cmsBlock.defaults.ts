@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import CmsBlock, {type CmsBlockType, type ICmsBlockConfig} from "./cmsBlock";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateCollectionsResult} from "@eCommerceModule/database/schemas/collection/collection.defaults";
 
 export type CmsBlockSeed = {
@@ -13,7 +14,7 @@ export type CmsBlockSeed = {
 
 export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
     {
-        title: "Summer Drop Hero",
+        title: demoName("Summer Drop Hero"),
         type: "hero_banner",
         position: 1,
         config: {
@@ -24,19 +25,19 @@ export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
         },
     },
     {
-        title: "Free shipping bar",
+        title: demoName("Free shipping bar"),
         type: "announcement_bar",
         position: 0,
         config: {message: "Free shipping on orders over €60 — use FREESHIP", linkHref: "/products"},
     },
     {
-        title: "Featured collection strip",
+        title: demoName("Featured collection strip"),
         type: "featured_collection",
         position: 2,
         config: {headline: "Featured", collectionSlug: "featured", limit: 4},
     },
     {
-        title: "Flash sale teaser",
+        title: demoName("Flash sale teaser"),
         type: "flash_sale",
         position: 3,
         config: {headline: "Flash sale", collectionSlug: "sale", limit: 4},

@@ -9,12 +9,7 @@ import ProductOrder, {
 } from "./productOrder";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {
-    ECOM_DEMO_TAG,
-    buildAlmirShippingAddress,
-    type EcomDemoAddr,
-    type EcomDemoGeo,
-} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 
 export type ProductOrderSeed = {
@@ -48,7 +43,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "confirmed",
         paymentStatus: "paid",
         fulfillmentStatus: "unfulfilled",
-        productKeys: ["prod-01-brand-tee", "prod-05-camera-strap"],
+        productKeys: ["prod-01-brand-tee", "prod-02-hoodie"],
         shippingTotal: 4.5,
         discountTotal: 5,
         taxRate: 0.2,
@@ -59,7 +54,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "processing",
         paymentStatus: "paid",
         fulfillmentStatus: "partially_fulfilled",
-        productKeys: ["prod-06-light-stand"],
+        productKeys: ["prod-02-hoodie"],
         shippingTotal: 9.9,
         discountTotal: 0,
         taxRate: 0.2,
@@ -70,7 +65,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "shipped",
         paymentStatus: "paid",
         fulfillmentStatus: "fulfilled",
-        productKeys: ["prod-02-hoodie", "prod-07-seo-checklist"],
+        productKeys: ["prod-01-brand-tee", "prod-03-logo-pack"],
         shippingTotal: 0,
         discountTotal: 10,
         taxRate: 0.2,
@@ -81,7 +76,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "delivered",
         paymentStatus: "paid",
         fulfillmentStatus: "fulfilled",
-        productKeys: ["prod-03-logo-pack", "prod-04-ui-kit"],
+        productKeys: ["prod-03-logo-pack"],
         shippingTotal: 0,
         discountTotal: 0,
         taxRate: 0.2,
@@ -92,7 +87,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "cancelled",
         paymentStatus: "voided",
         fulfillmentStatus: "unfulfilled",
-        productKeys: ["prod-08-gift-card"],
+        productKeys: ["prod-01-brand-tee"],
         shippingTotal: 0,
         discountTotal: 0,
         taxRate: 0,
@@ -104,24 +99,24 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         status: "refunded",
         paymentStatus: "refunded",
         fulfillmentStatus: "returned",
-        productKeys: ["prod-05-camera-strap"],
+        productKeys: ["prod-02-hoodie"],
         shippingTotal: 4.5,
         discountTotal: 0,
         taxRate: 0.2,
         daysAgo: 20,
-        notes: "Returned — wrong size strap hardware.",
+        notes: "Returned — wrong size.",
     },
     {
         orderNumber: "DEMO-ORD-1008",
         status: "delivered",
         paymentStatus: "paid",
         fulfillmentStatus: "fulfilled",
-        productKeys: ["prod-08-gift-card"],
+        productKeys: ["prod-03-logo-pack"],
         shippingTotal: 0,
         discountTotal: 0,
         taxRate: 0,
         daysAgo: 3,
-        notes: "Delivered gift-card purchase — finance issues the card from this order.",
+        notes: "Delivered digital purchase.",
     },
 ];
 
@@ -130,7 +125,7 @@ export type CreateProductOrdersResult = {
 };
 
 /**
- * Seeds catalog orders across statuses, including DEMO-ORD-1008 (delivered gift card).
+ * Seeds catalog orders across statuses using the three demo products.
  * Idempotent on `{company, orderNumber}` / `idempotencyKey`.
  */
 export async function createProductOrders(
@@ -139,13 +134,22 @@ export async function createProductOrders(
     currencyId: Types.ObjectId,
     products: CreateProductsResult,
     pickUser: (i: number) => Types.ObjectId,
-    geo: EcomDemoGeo,
-    addr: EcomDemoAddr,
+    geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
+    addr: typeof defaultCompaniesValues.address,
 ): Promise<CreateProductOrdersResult> {
     const logger = getLogger("mongoDbInitialization-createProductOrders", parentLogger);
     logger.start("Creating product orders...");
 
-    const shippingAddress = buildAlmirShippingAddress(addr, geo.countryId);
+    const shippingAddress = {
+        firstName: "echo",
+        lastName: "silence",
+        phone: "+355 69 000 0000",
+        street: addr.street,
+        city: addr.cityName,
+        state: addr.stateCode,
+        postalCode: addr.postalCode,
+        ...(geo.countryId ? {country: geo.countryId} : {}),
+    };
     const byOrderNumber: Record<string, HydratedDocument<IProductOrder>> = {};
 
     for (let oi = 0; oi < defaultProductOrderSeeds.length; oi++) {
@@ -203,7 +207,7 @@ export async function createProductOrders(
                         ? {name: seed.shippingTotal > 5 ? "Express" : "Standard", price: seed.shippingTotal}
                         : {name: "Free", price: 0},
                 notes: seed.notes,
-                internalNotes: ECOM_DEMO_TAG,
+                internalNotes: "ecom-demo-seed",
                 timeline: [
                     {
                         event: "created",
@@ -217,7 +221,7 @@ export async function createProductOrders(
                         userId: company.createdBy,
                     },
                 ],
-                idempotencyKey: `${ECOM_DEMO_TAG}:${seed.orderNumber}`,
+                idempotencyKey: `ecom-demo-seed:${seed.orderNumber}`,
                 createdBy: company.createdBy,
             };
 

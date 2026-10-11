@@ -2,6 +2,7 @@ import type {HydratedDocument} from "mongoose";
 import CustomerGroup, {type ICustomerGroup} from "./customerGroup";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 
 export type CustomerGroupSeed = {
     seedKey: string;
@@ -11,9 +12,9 @@ export type CustomerGroupSeed = {
 };
 
 export const defaultCustomerGroupSeeds: readonly CustomerGroupSeed[] = [
-    {seedKey: "group-vip", name: "VIP Customers", description: "High-value repeat buyers for pricing demos.", isDefault: false},
-    {seedKey: "group-wholesale", name: "Wholesale", description: "B2B wholesale pricing tier.", isDefault: false},
-    {seedKey: "group-retail", name: "Retail", description: "Default retail shoppers.", isDefault: true},
+    {seedKey: "group-vip", name: demoName("VIP Customers"), description: "High-value repeat buyers for pricing demos.", isDefault: false},
+    {seedKey: "group-wholesale", name: demoName("Wholesale"), description: "B2B wholesale pricing tier.", isDefault: false},
+    {seedKey: "group-retail", name: demoName("Retail"), description: "Default retail shoppers.", isDefault: true},
 ];
 
 export type CreateCustomerGroupsResult = {

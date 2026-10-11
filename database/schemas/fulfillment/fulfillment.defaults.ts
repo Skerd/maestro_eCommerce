@@ -3,7 +3,6 @@ import type {HydratedDocument} from "mongoose";
 import Fulfillment, {type FulfillmentStatus, type IFulfillment} from "./fulfillment";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
 
 export type FulfillmentSeed = {
@@ -75,7 +74,7 @@ export async function createFulfillments(
                     ? {deliveredAt: dayjs().subtract(seed.daysAgoDelivered, "day").toDate()}
                     : {}),
                 status: seed.status,
-                notes: ECOM_DEMO_TAG,
+                notes: "ecom-demo-seed",
                 company: company._id,
                 createdBy: company.createdBy,
             };

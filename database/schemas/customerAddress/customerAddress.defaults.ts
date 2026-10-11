@@ -3,26 +3,27 @@ import type {Types} from "mongoose";
 import CustomerAddress, {type ICustomerAddress} from "./customerAddress";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import type {EcomDemoAddr, EcomDemoGeo} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
+import {demoName} from "@coreModule/utilities/helpers";
 
-export const CUSTOMER_ADDRESS_HOME_LABEL = "Home";
+export const CUSTOMER_ADDRESS_HOME_LABEL = demoName("Home");
 
 /**
- * Seeds Almir Leka's Tirana home address. Idempotent on `{company, customer, label: "Home"}`.
+ * Seeds echo's Tirana home address. Idempotent on `{company, customer, label}`.
  * City and country are required — skip when geo refs are missing.
  */
 export async function createCustomerAddresses(
     parentLogger: serverLogger,
     company: ICompany,
     customerId: Types.ObjectId | undefined,
-    geo: EcomDemoGeo,
-    addr: EcomDemoAddr,
+    geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
+    addr: typeof defaultCompaniesValues.address,
 ): Promise<HydratedDocument<ICustomerAddress> | undefined> {
     const logger = getLogger("mongoDbInitialization-createCustomerAddresses", parentLogger);
     logger.start("Creating customer addresses...");
 
     if (!customerId) {
-        logger.warn("Skipping customer address: customer almir@leka.com was not found.");
+        logger.warn("Skipping customer address: customer echo@echo.com was not found.");
         logger.finish("Finished creating customer addresses!", 0);
         return undefined;
     }
@@ -36,9 +37,9 @@ export async function createCustomerAddresses(
         const payload = {
             customer: customerId,
             type: "shipping",
-            firstName: "Almir",
-            lastName: "Leka",
-            email: "almir@leka.com",
+            firstName: "echo",
+            lastName: "silence",
+            email: "echo@echo.com",
             phone: "+355 69 000 0000",
             street: addr.street,
             city: geo.cityId,

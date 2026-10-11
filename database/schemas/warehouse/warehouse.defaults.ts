@@ -3,7 +3,8 @@ import type {Types} from "mongoose";
 import Warehouse, {type IWarehouse} from "./warehouse";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG, type EcomDemoAddr, type EcomDemoGeo} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
+import {demoName} from "@coreModule/utilities/helpers";
 
 export const TIRANA_WAREHOUSE_SEED_KEY = "wh-tirana-main";
 export const DURRES_WAREHOUSE_SEED_KEY = "wh-durres-overflow";
@@ -28,8 +29,8 @@ export type CreateWarehousesResult = {
 export async function createWarehouses(
     parentLogger: serverLogger,
     company: ICompany,
-    geo: EcomDemoGeo,
-    addr: EcomDemoAddr,
+    geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
+    addr: typeof defaultCompaniesValues.address,
 ): Promise<CreateWarehousesResult> {
     const logger = getLogger("mongoDbInitialization-createWarehouses", parentLogger);
     logger.start("Creating warehouses...");
@@ -40,7 +41,7 @@ export async function createWarehouses(
     const seeds: readonly (WarehouseSeed & {latitude: number; longitude: number})[] = [
         {
             seedKey: TIRANA_WAREHOUSE_SEED_KEY,
-            name: "Tirana Main Warehouse",
+            name: demoName("Tirana Main Warehouse"),
             code: "TIA-MAIN",
             isDefault: true,
             street: addr.street,
@@ -50,7 +51,7 @@ export async function createWarehouses(
         },
         {
             seedKey: DURRES_WAREHOUSE_SEED_KEY,
-            name: "Durrës Overflow",
+            name: demoName("Durrës Overflow"),
             code: "DUR-OVF",
             isDefault: false,
             street: "Rruga Taulantia",
@@ -85,7 +86,7 @@ export async function createWarehouses(
             let doc = await Warehouse.findOne({company: company._id, code: seed.code});
             if (!doc) {
                 doc = await Warehouse.create(payload);
-                logger.debug(`Created warehouse ${seed.code} (${ECOM_DEMO_TAG})`);
+                logger.debug(`Created warehouse ${seed.code} (ecom-demo-seed)`);
             } else {
                 doc.set(payload);
                 await doc.save();

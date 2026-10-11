@@ -5,7 +5,7 @@ import Product, {type IProduct, type ProductStatus, type ProductType} from "./pr
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductAttributesResult} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.defaults";
 
 export type ProductSeed = {
@@ -18,194 +18,254 @@ export type ProductSeed = {
     price: number;
     compareAtPrice?: number;
     costPrice?: number;
+    msrp?: number;
     sku: string;
+    barcode?: string;
+    gtin?: string;
+    upc?: string;
+    ean?: string;
+    mpn?: string;
+    hsCode?: string;
+    countryOfOrigin?: string;
     brand?: string;
+    vendor?: string;
     featured?: boolean;
     badges?: string[];
     tags?: string[];
-    shortDescription: string;
-    description: string;
+    shortDescription?: string;
+    description?: string;
+    highlights?: string[];
+    careInstructions?: string;
+    warranty?: string;
+    faqs?: {question: string; answer: string}[];
+    attributes?: {name: string; values?: string[]}[];
+    specifications?: {label: string; value: string}[];
+    seo?: {
+        metaTitle?: string;
+        metaDescription?: string;
+        metaKeywords?: string[];
+        canonicalUrl?: string;
+        openGraphTitle?: string;
+        openGraphDescription?: string;
+        twitterCard?: "summary" | "summary_large_image";
+        structuredDataType?: string;
+        sitemapInclude?: boolean;
+        sitemapPriority?: number;
+        noIndex?: boolean;
+    };
+    saleStartsAt?: Date;
+    saleEndsAt?: Date;
+    taxable?: boolean;
+    taxClass?: string;
+    minOrderQty?: number;
+    maxOrderQty?: number;
+    stepQty?: number;
+    weight?: number;
+    weightUnit?: "kg" | "lb" | "g" | "oz";
+    dimensions?: {length?: number; width?: number; height?: number};
+    dimensionUnit?: "cm" | "in";
+    volumetricWeight?: number;
+    shippingClass?: string;
+    isHazmat?: boolean;
+    requiresShipping?: boolean;
     trackInventory?: boolean;
+    allowBackorder?: boolean;
+    lowStockThreshold?: number;
+    safetyStock?: number;
+    backorderLimit?: number;
+    preorderEnabled?: boolean;
+    preorderAvailableAt?: Date;
+    availableForSale?: boolean;
+    videoUrls?: string[];
+    downloadLimit?: number;
+    downloadExpiryDays?: number;
     stock?: number;
     reserved?: number;
     hasVariants?: boolean;
+    /** When false, only core catalog fields are written (minimal demo product). */
+    fullyFilled?: boolean;
 };
 
 export const defaultProductSeeds: readonly ProductSeed[] = [
     {
         seedKey: "prod-01-brand-tee",
-        title: "Pronix Brand T-Shirt",
-        slug: "pronix-brand-tshirt",
+        title: demoName("Brand T-Shirt"),
+        slug: "demo-brand-tshirt",
         type: "variable",
         status: "active",
-        categorySlug: "life-crafts",
+        categorySlug: "fashion-men",
         price: 29.9,
         compareAtPrice: 39.9,
         costPrice: 12,
-        sku: "PRX-TEE-001",
-        brand: "Pronix",
+        msrp: 44.9,
+        sku: "DEMO-TEE-001",
+        barcode: "5901234123457",
+        gtin: "05901234123457",
+        upc: "012345678905",
+        ean: "5901234123457",
+        mpn: "DEMO-TEE-MW-001",
+        hsCode: "610910",
+        countryOfOrigin: "AL",
+        brand: "Demo",
+        vendor: "Demo Apparel",
         featured: true,
         badges: ["bestseller", "new"],
-        tags: ["apparel", "merch", ECOM_DEMO_TAG],
-        shortDescription: "Soft cotton tee with embossed Pronix mark.",
-        description: "Premium midweight cotton t-shirt. Demo variable product with size and color options.",
+        tags: ["apparel", "merch", "ecom-demo-seed"],
+        shortDescription: "Soft cotton tee with embossed demo mark.",
+        description:
+            "Premium midweight cotton t-shirt. Demo variable product with size and color options. Cut for everyday studio wear with a reinforced collar and side-seamed construction.",
+        highlights: ["180gsm cotton", "Size & color variants", "Machine washable"],
+        careInstructions: "Machine wash cold, tumble dry low. Do not bleach. Iron on reverse.",
+        warranty: "90-day workmanship warranty against manufacturing defects.",
+        faqs: [
+            {question: "Does it shrink?", answer: "Expect under 3% shrinkage after the first wash."},
+            {question: "Are variants stocked separately?", answer: "Yes — each size/color has its own inventory row."},
+        ],
+        attributes: [
+            {name: "Fit", values: ["Regular"]},
+            {name: "Neckline", values: ["Crew"]},
+        ],
+        specifications: [
+            {label: "Fabric", value: "100% cotton"},
+            {label: "Weight", value: "180 gsm"},
+            {label: "Origin", value: "Albania"},
+        ],
+        seo: {
+            metaTitle: "Brand T-Shirt | Demo Merch",
+            metaDescription: "Soft cotton tee with size and color variants for catalog demos.",
+            metaKeywords: ["t-shirt", "merch", "demo"],
+            canonicalUrl: "https://demo.local/products/demo-brand-tshirt",
+            openGraphTitle: "Brand T-Shirt",
+            openGraphDescription: "Demo variable apparel product with full catalog fields.",
+            twitterCard: "summary_large_image",
+            structuredDataType: "Product",
+            sitemapInclude: true,
+            sitemapPriority: 0.8,
+            noIndex: false,
+        },
+        saleStartsAt: dayjs().subtract(7, "day").toDate(),
+        saleEndsAt: dayjs().add(21, "day").toDate(),
+        taxable: true,
+        taxClass: "standard",
+        minOrderQty: 1,
+        maxOrderQty: 20,
+        stepQty: 1,
+        weight: 0.22,
+        weightUnit: "kg",
+        dimensions: {length: 28, width: 20, height: 2},
+        dimensionUnit: "cm",
+        volumetricWeight: 0.25,
+        shippingClass: "apparel",
+        isHazmat: false,
+        requiresShipping: true,
         trackInventory: true,
+        allowBackorder: false,
+        lowStockThreshold: 5,
+        safetyStock: 3,
+        backorderLimit: 0,
+        preorderEnabled: false,
+        availableForSale: true,
+        videoUrls: ["https://demo.local/media/products/demo-brand-tshirt.mp4"],
         hasVariants: true,
+        fullyFilled: true,
     },
     {
         seedKey: "prod-02-hoodie",
-        title: "Studio Hoodie",
+        title: demoName("Studio Hoodie"),
         slug: "studio-hoodie",
         type: "physical",
         status: "active",
-        categorySlug: "life-crafts",
+        categorySlug: "fashion-men",
         price: 69,
         compareAtPrice: 89,
         costPrice: 28,
-        sku: "PRX-HDY-002",
-        brand: "Pronix",
+        msrp: 99,
+        sku: "DEMO-HDY-002",
+        barcode: "5901234123464",
+        gtin: "05901234123464",
+        upc: "012345678912",
+        ean: "5901234123464",
+        mpn: "DEMO-HDY-FL-002",
+        hsCode: "611020",
+        countryOfOrigin: "AL",
+        brand: "Demo",
+        vendor: "Demo Apparel",
         featured: true,
         badges: ["sale"],
-        tags: ["apparel", "merch", ECOM_DEMO_TAG],
+        tags: ["apparel", "merch", "ecom-demo-seed"],
         shortDescription: "Heavyweight fleece hoodie for studio days.",
-        description: "Brushed interior fleece, ribbed cuffs, kangaroo pocket. Ships from Tirana warehouse.",
+        description:
+            "Brushed interior fleece, ribbed cuffs, kangaroo pocket. Ships from Tirana warehouse. Fully filled demo physical product for catalog and inventory workflows.",
+        highlights: ["320gsm fleece", "Kangaroo pocket", "Unisex fit"],
+        careInstructions: "Wash inside out at 30°C. Hang dry. Avoid fabric softener.",
+        warranty: "6-month fabric warranty excluding normal wear.",
+        faqs: [
+            {question: "Is sizing true to size?", answer: "Yes — order your usual hoodie size."},
+            {question: "Can it be backordered?", answer: "No — when stock hits zero the listing stops selling."},
+        ],
+        attributes: [
+            {name: "Fit", values: ["Relaxed"]},
+            {name: "Closure", values: ["Pullover"]},
+        ],
+        specifications: [
+            {label: "Fabric", value: "80% cotton / 20% polyester"},
+            {label: "Weight", value: "320 gsm"},
+            {label: "Pocket", value: "Kangaroo"},
+        ],
+        seo: {
+            metaTitle: "Studio Hoodie | Demo",
+            metaDescription: "Heavyweight fleece hoodie seeded with full product fields for demos.",
+            metaKeywords: ["hoodie", "fleece", "studio"],
+            canonicalUrl: "https://demo.local/products/studio-hoodie",
+            openGraphTitle: "Studio Hoodie",
+            openGraphDescription: "Demo physical product with complete catalog data.",
+            twitterCard: "summary_large_image",
+            structuredDataType: "Product",
+            sitemapInclude: true,
+            sitemapPriority: 0.7,
+            noIndex: false,
+        },
+        saleStartsAt: dayjs().subtract(3, "day").toDate(),
+        saleEndsAt: dayjs().add(14, "day").toDate(),
+        taxable: true,
+        taxClass: "standard",
+        minOrderQty: 1,
+        maxOrderQty: 10,
+        stepQty: 1,
+        weight: 0.65,
+        weightUnit: "kg",
+        dimensions: {length: 35, width: 28, height: 6},
+        dimensionUnit: "cm",
+        volumetricWeight: 0.7,
+        shippingClass: "apparel",
+        isHazmat: false,
+        requiresShipping: true,
         trackInventory: true,
+        allowBackorder: false,
+        lowStockThreshold: 5,
+        safetyStock: 4,
+        backorderLimit: 0,
+        preorderEnabled: false,
+        availableForSale: true,
+        videoUrls: ["https://demo.local/media/products/studio-hoodie.mp4"],
         stock: 42,
         reserved: 3,
+        fullyFilled: true,
     },
     {
         seedKey: "prod-03-logo-pack",
-        title: "Logo Source Pack",
+        title: demoName("Logo Source Pack"),
         slug: "logo-source-pack",
         type: "digital",
         status: "active",
-        categorySlug: "design-logo-branding",
+        categorySlug: "electronics",
         price: 49,
-        sku: "PRX-DIG-003",
-        brand: "Pronix Digital",
-        featured: true,
-        badges: ["digital"],
-        tags: ["digital", "branding", ECOM_DEMO_TAG],
+        sku: "DEMO-DIG-003",
+        tags: ["digital", "ecom-demo-seed"],
         shortDescription: "Downloadable SVG/PNG logo starter kit.",
-        description: "Instant digital download: master SVG, PNG exports, and brand usage PDF.",
+        description: "Minimal digital demo product — only core fields populated.",
         trackInventory: false,
-    },
-    {
-        seedKey: "prod-04-ui-kit",
-        title: "UI Component Kit",
-        slug: "ui-component-kit",
-        type: "digital",
-        status: "active",
-        categorySlug: "design-web-app",
-        price: 119,
-        compareAtPrice: 149,
-        sku: "PRX-DIG-004",
-        brand: "Pronix Digital",
-        tags: ["digital", "design", ECOM_DEMO_TAG],
-        shortDescription: "Figma-ready UI kit for SaaS dashboards.",
-        description: "120+ components, dark/light tokens, and example screens. Digital delivery only.",
-        trackInventory: false,
-    },
-    {
-        seedKey: "prod-05-camera-strap",
-        title: "Leather Camera Strap",
-        slug: "leather-camera-strap",
-        type: "physical",
-        status: "active",
-        categorySlug: "photo-product",
-        price: 45,
-        costPrice: 18,
-        sku: "PRX-PHO-005",
-        brand: "Pronix Gear",
-        badges: ["handmade"],
-        tags: ["photography", "accessories", ECOM_DEMO_TAG],
-        shortDescription: "Full-grain leather strap with adjustable buckle.",
-        description: "Handmade camera strap, 120cm adjustable length, brass hardware.",
-        trackInventory: true,
-        stock: 18,
-        reserved: 1,
-    },
-    {
-        seedKey: "prod-06-light-stand",
-        title: "Compact Light Stand",
-        slug: "compact-light-stand",
-        type: "physical",
-        status: "active",
-        categorySlug: "photo-product",
-        price: 79,
-        costPrice: 35,
-        sku: "PRX-PHO-006",
-        brand: "Pronix Gear",
-        tags: ["photography", "studio", ECOM_DEMO_TAG],
-        shortDescription: "Portable aluminum light stand up to 2.1m.",
-        description: "Folding light stand with air-cushioned column. Low stock demo SKU.",
-        trackInventory: true,
-        stock: 4,
-        reserved: 0,
-    },
-    {
-        seedKey: "prod-07-seo-checklist",
-        title: "SEO Launch Checklist",
-        slug: "seo-launch-checklist",
-        type: "digital",
-        status: "active",
-        categorySlug: "marketing-seo",
-        price: 19,
-        sku: "PRX-DIG-007",
-        brand: "Pronix Digital",
-        tags: ["marketing", "seo", ECOM_DEMO_TAG],
-        shortDescription: "Printable SEO go-live checklist (PDF).",
-        description: "One-page PDF covering technical SEO, content, and analytics launch steps.",
-        trackInventory: false,
-    },
-    {
-        seedKey: "prod-08-gift-card",
-        title: "Pronix Gift Card",
-        slug: "pronix-gift-card",
-        type: "gift_card",
-        status: "active",
-        categorySlug: "lifestyle",
-        price: 50,
-        sku: "PRX-GFT-008",
-        brand: "Pronix",
-        badges: ["gift"],
-        tags: ["gift-card", ECOM_DEMO_TAG],
-        shortDescription: "€50 store credit gift card.",
-        description: "Digital gift card redeemable on Pronix catalog products.",
-        trackInventory: false,
-    },
-    {
-        seedKey: "prod-09-notebook",
-        title: "Field Notebook",
-        slug: "field-notebook",
-        type: "physical",
-        status: "draft",
-        categorySlug: "biz-plans",
-        price: 14.5,
-        costPrice: 4,
-        sku: "PRX-STA-009",
-        brand: "Pronix",
-        tags: ["stationery", ECOM_DEMO_TAG],
-        shortDescription: "A5 dotted notebook — draft listing.",
-        description: "Demo draft product for unpublished catalog workflows.",
-        trackInventory: true,
-        stock: 100,
-    },
-    {
-        seedKey: "prod-10-archive-mug",
-        title: "Archive Mug",
-        slug: "archive-mug",
-        type: "physical",
-        status: "archived",
-        categorySlug: "life-crafts",
-        price: 18,
-        sku: "PRX-MER-010",
-        brand: "Pronix",
-        tags: ["merch", "archived", ECOM_DEMO_TAG],
-        shortDescription: "Retired ceramic mug SKU.",
-        description: "Archived demo product kept for historical order references.",
-        trackInventory: true,
-        stock: 0,
+        fullyFilled: false,
     },
 ];
 
@@ -227,8 +287,8 @@ export async function createProducts(
     logger.start("Creating products...");
 
     const bySeedKey: Record<string, HydratedDocument<IProduct>> = {};
-    const attrSize = attributes.byName["Size"];
-    const attrColor = attributes.byName["Color"];
+    const attrSize = attributes.bySeedKey["attr-size"];
+    const attrColor = attributes.bySeedKey["attr-color"];
 
     for (const seed of defaultProductSeeds) {
         try {
@@ -239,34 +299,95 @@ export async function createProducts(
                 .select("_id")
                 .lean();
 
-            const payload: Record<string, unknown> = {
-                type: seed.type,
-                title: seed.title,
-                slug: seed.slug,
-                description: seed.description,
-                shortDescription: seed.shortDescription,
-                sku: seed.sku,
-                brand: seed.brand,
-                tags: seed.tags ?? [ECOM_DEMO_TAG],
-                categories: category ? [category._id] : [],
-                price: seed.price,
-                compareAtPrice: seed.compareAtPrice,
-                costPrice: seed.costPrice,
-                currency: currencyId,
-                taxable: true,
-                requiresShipping: seed.type === "physical" || seed.type === "variable",
-                trackInventory: seed.trackInventory ?? false,
-                allowBackorder: false,
-                lowStockThreshold: 5,
-                availableForSale: seed.status === "active",
-                featured: seed.featured ?? false,
-                badges: seed.badges ?? [],
-                status: seed.status,
-                publishedAt: seed.status === "active" ? dayjs().subtract(14, "day").toDate() : undefined,
-                hasVariants: seed.hasVariants ?? false,
-                company: company._id,
-                createdBy: company.createdBy,
-            };
+            const payload: Record<string, unknown> = seed.fullyFilled
+                ? {
+                      type: seed.type,
+                      title: seed.title,
+                      slug: seed.slug,
+                      description: seed.description,
+                      shortDescription: seed.shortDescription,
+                      highlights: seed.highlights,
+                      careInstructions: seed.careInstructions,
+                      warranty: seed.warranty,
+                      faqs: seed.faqs,
+                      attributes: seed.attributes,
+                      specifications: seed.specifications,
+                      seo: seed.seo,
+                      sku: seed.sku,
+                      barcode: seed.barcode,
+                      gtin: seed.gtin,
+                      upc: seed.upc,
+                      ean: seed.ean,
+                      mpn: seed.mpn,
+                      hsCode: seed.hsCode,
+                      countryOfOrigin: seed.countryOfOrigin,
+                      brand: seed.brand,
+                      vendor: seed.vendor,
+                      tags: seed.tags ?? ["ecom-demo-seed"],
+                      categories: category ? [category._id] : [],
+                      price: seed.price,
+                      compareAtPrice: seed.compareAtPrice,
+                      costPrice: seed.costPrice,
+                      msrp: seed.msrp,
+                      saleStartsAt: seed.saleStartsAt,
+                      saleEndsAt: seed.saleEndsAt,
+                      currency: currencyId,
+                      taxable: seed.taxable ?? true,
+                      taxClass: seed.taxClass,
+                      minOrderQty: seed.minOrderQty,
+                      maxOrderQty: seed.maxOrderQty,
+                      stepQty: seed.stepQty,
+                      weight: seed.weight,
+                      weightUnit: seed.weightUnit,
+                      dimensions: seed.dimensions,
+                      dimensionUnit: seed.dimensionUnit,
+                      volumetricWeight: seed.volumetricWeight,
+                      shippingClass: seed.shippingClass,
+                      isHazmat: seed.isHazmat ?? false,
+                      requiresShipping: seed.requiresShipping ?? (seed.type === "physical" || seed.type === "variable"),
+                      trackInventory: seed.trackInventory ?? false,
+                      allowBackorder: seed.allowBackorder ?? false,
+                      lowStockThreshold: seed.lowStockThreshold ?? 5,
+                      safetyStock: seed.safetyStock,
+                      backorderLimit: seed.backorderLimit,
+                      preorderEnabled: seed.preorderEnabled ?? false,
+                      preorderAvailableAt: seed.preorderAvailableAt,
+                      availableForSale: seed.availableForSale ?? seed.status === "active",
+                      videoUrls: seed.videoUrls ?? [],
+                      downloadLimit: seed.downloadLimit,
+                      downloadExpiryDays: seed.downloadExpiryDays,
+                      featured: seed.featured ?? false,
+                      badges: seed.badges ?? [],
+                      status: seed.status,
+                      publishedAt: seed.status === "active" ? dayjs().subtract(14, "day").toDate() : undefined,
+                      hasVariants: seed.hasVariants ?? false,
+                      company: company._id,
+                      createdBy: company.createdBy,
+                  }
+                : {
+                      type: seed.type,
+                      title: seed.title,
+                      slug: seed.slug,
+                      description: seed.description,
+                      shortDescription: seed.shortDescription,
+                      sku: seed.sku,
+                      tags: seed.tags ?? ["ecom-demo-seed"],
+                      categories: category ? [category._id] : [],
+                      price: seed.price,
+                      currency: currencyId,
+                      taxable: true,
+                      requiresShipping: false,
+                      trackInventory: seed.trackInventory ?? false,
+                      allowBackorder: false,
+                      availableForSale: seed.status === "active",
+                      featured: false,
+                      badges: [],
+                      status: seed.status,
+                      publishedAt: seed.status === "active" ? dayjs().subtract(14, "day").toDate() : undefined,
+                      hasVariants: false,
+                      company: company._id,
+                      createdBy: company.createdBy,
+                  };
 
             if (seed.hasVariants) {
                 if (!attrSize || !attrColor) {
@@ -292,6 +413,34 @@ export async function createProducts(
             console.log(e);
             logger.err(`Error creating product '${seed.seedKey}': ${message}`);
         }
+    }
+
+    const tee = bySeedKey["prod-01-brand-tee"];
+    const hoodie = bySeedKey["prod-02-hoodie"];
+    const logoPack = bySeedKey["prod-03-logo-pack"];
+    if (tee && hoodie && logoPack) {
+        await Product.updateOne(
+            {_id: tee._id},
+            {
+                $set: {
+                    relatedProducts: [hoodie._id],
+                    upsells: [hoodie._id],
+                    crossSells: [logoPack._id],
+                    frequentlyBoughtTogether: [hoodie._id],
+                },
+            },
+        );
+        await Product.updateOne(
+            {_id: hoodie._id},
+            {
+                $set: {
+                    relatedProducts: [tee._id],
+                    upsells: [tee._id],
+                    crossSells: [logoPack._id],
+                    frequentlyBoughtTogether: [tee._id],
+                },
+            },
+        );
     }
 
     logger.finish("Finished creating products!", Object.keys(bySeedKey).length);

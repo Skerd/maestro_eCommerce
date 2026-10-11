@@ -3,9 +3,10 @@ import type {Types} from "mongoose";
 import PosConfig, {type IPosConfig} from "./posConfig";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreatePosPaymentMethodsResult} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.defaults";
 
-export const TIRANA_FRONT_TILL_NAME = "Tirana Front Till";
+export const TIRANA_FRONT_TILL_NAME = demoName("Tirana Front Till");
 
 /**
  * Seeds the Tirana front till. Requires at least one warehouse (schema validator).
@@ -27,8 +28,8 @@ export async function createPosConfigs(
         logger.finish("Finished creating POS configs!", 0);
         return undefined;
     }
-    const cash = methods.byName["Cash"];
-    const card = methods.byName["Card"];
+    const cash = methods.bySeedKey["pos-pm-cash"];
+    const card = methods.bySeedKey["pos-pm-card"];
     if (!cash || !card) {
         logger.warn("Skipping POS config: Cash/Card payment methods were not seeded.");
         logger.finish("Finished creating POS configs!", 0);
@@ -42,7 +43,7 @@ export async function createPosConfigs(
             warehouses: [warehouseId],
             currency: currencyId,
             ...(fiscalConfigId ? {fiscalConfig: fiscalConfigId} : {}),
-            receiptHeader: "Pronix — Tirana Front Till",
+            receiptHeader: "Demo — Tirana Front Till",
             receiptFooter: "Thank you — demo till",
             ifaceBarcodeScanner: true,
             ifaceCashControl: true,

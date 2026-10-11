@@ -4,9 +4,9 @@ import type {Types} from "mongoose";
 import PosSession, {type IPosSession} from "./posSession";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {demoName} from "@coreModule/utilities/helpers";
 
-export const POS_SESSION_NAME = `${ECOM_DEMO_TAG}:pos-session-1`;
+export const POS_SESSION_NAME = demoName("POS Session 1");
 
 /**
  * Seeds one closed till session. Unique on `{company, name}`.
@@ -44,7 +44,7 @@ export async function createPosSessions(
             totalSales: 82.8,
             totalCash: 82.8,
             totalCard: 0,
-            notes: ECOM_DEMO_TAG,
+            notes: "ecom-demo-seed",
             company: company._id,
             createdBy: company.createdBy,
         };

@@ -4,6 +4,7 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant, {type IProductVariant} from "./productVariant";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreateProductAttributesResult} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.defaults";
 
@@ -24,7 +25,7 @@ export const defaultProductVariantSeeds: readonly ProductVariantSeed[] = [
 ];
 
 export function variantSku(size: string, color: string): string {
-    return `PRX-TEE-${size}-${color.slice(0, 3).toUpperCase()}`;
+    return demoName(`TEE-${size}-${color.slice(0, 3).toUpperCase()}`);
 }
 
 export type CreateProductVariantsResult = {
@@ -46,8 +47,8 @@ export async function createProductVariants(
     logger.start("Creating product variants...");
 
     const variableProduct = products.bySeedKey["prod-01-brand-tee"];
-    const attrSize = attributes.byName["Size"];
-    const attrColor = attributes.byName["Color"];
+    const attrSize = attributes.bySeedKey["attr-size"];
+    const attrColor = attributes.bySeedKey["attr-color"];
 
     if (!variableProduct) {
         logger.warn("Skipping product variants: product \"prod-01-brand-tee\" was not seeded.");

@@ -3,6 +3,7 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductReview, {type IProductReview} from "./productReview";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
 
@@ -37,7 +38,7 @@ export async function createProductReviews(
             order: order._id,
             product: product._id,
             rating: 5,
-            title: "Clean source files",
+            title: demoName("Clean source files"),
             comment: "The SVG pack dropped straight into our brand kit. Exactly what the listing promised.",
             reviewer: order.customer,
             company: company._id,

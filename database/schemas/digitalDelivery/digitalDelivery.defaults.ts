@@ -3,7 +3,6 @@ import type {HydratedDocument} from "mongoose";
 import DigitalDelivery, {type IDigitalDelivery} from "./digitalDelivery";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
 
@@ -14,8 +13,7 @@ export type DigitalDeliverySeed = {
 };
 
 export const defaultDigitalDeliverySeeds: readonly DigitalDeliverySeed[] = [
-    {token: `${ECOM_DEMO_TAG}:dd-logo-pack`, productKey: "prod-03-logo-pack", orderNumber: "DEMO-ORD-1005"},
-    {token: `${ECOM_DEMO_TAG}:dd-ui-kit`, productKey: "prod-04-ui-kit", orderNumber: "DEMO-ORD-1005"},
+    {token: `ecom-demo-seed:dd-logo-pack`, productKey: "prod-03-logo-pack", orderNumber: "DEMO-ORD-1005"},
 ];
 
 /**

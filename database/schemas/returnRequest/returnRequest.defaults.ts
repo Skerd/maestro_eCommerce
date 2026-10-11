@@ -3,10 +3,9 @@ import type {HydratedDocument} from "mongoose";
 import ReturnRequest, {type IReturnRequest} from "./returnRequest";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
 
-export const RETURN_1007_NOTE = `${ECOM_DEMO_TAG}:return-1007`;
+export const RETURN_1007_NOTE = `ecom-demo-seed:return-1007`;
 
 /**
  * Seeds a completed return for refunded DEMO-ORD-1007.

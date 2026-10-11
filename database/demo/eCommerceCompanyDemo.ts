@@ -7,7 +7,6 @@ import City from "@coreModule/database/schemas/city/city";
 import User from "@coreModule/database/schemas/user/user";
 import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import type {EcomDemoGeo} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import {createWarehouses} from "@eCommerceModule/database/schemas/warehouse/warehouse.defaults";
 import {createProductAttributes} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.defaults";
 import {createProducts, type CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
@@ -69,14 +68,14 @@ export async function seedECommerceDemoData(
     const staffIds = (users.length ? users.map((u: {_id: Types.ObjectId}) => u._id) : [company.createdBy]) as Types.ObjectId[];
     const pickUser = (i: number) => staffIds[i % staffIds.length];
 
-    const almir = await User.findOne({username: "almir@leka.com"}).select("_id").lean();
-    const almirId = almir?._id as Types.ObjectId | undefined;
+    const demoCustomer = await User.findOne({username: "echo@echo.com"}).select("_id").lean();
+    const demoCustomerId = demoCustomer?._id as Types.ObjectId | undefined;
 
     const addr = defaultCompaniesValues.address;
     const country = await Country.findOne({code: addr.countryCode, company: company._id}).select("_id").lean();
     const state = await State.findOne({code: addr.stateCode, company: company._id}).select("_id").lean();
     const city = await City.findOne({name: addr.cityName, company: company._id}).select("_id").lean();
-    const geo: EcomDemoGeo = {
+    const geo = {
         countryId: country?._id,
         stateId: state?._id,
         cityId: city?._id,
@@ -95,10 +94,10 @@ export async function seedECommerceDemoData(
     await createShippingZones(logger, company, geo);
     await createPricingRules(logger, company, groups, collections);
     await createCmsBlocks(logger, company, collections);
-    await createCustomerAddresses(logger, company, almirId, geo, addr);
+    await createCustomerAddresses(logger, company, demoCustomerId, geo, addr);
     const orders = await createProductOrders(logger, company, currency._id, products, pickUser, geo, addr);
-    const carts = await createCarts(logger, company, currency._id, products, almirId);
-    await createCheckouts(logger, company, currency._id, carts, orders, almirId, geo, addr);
+    const carts = await createCarts(logger, company, currency._id, products, demoCustomerId);
+    await createCheckouts(logger, company, currency._id, carts, orders, demoCustomerId, geo, addr);
     await createFulfillments(logger, company, orders);
     await createReturnRequests(logger, company, orders);
     await createDigitalDeliveries(logger, company, orders, products);
@@ -125,7 +124,7 @@ export async function seedECommerceDemoData(
         posMethods,
         products,
         cashierId,
-        almirId,
+        demoCustomerId,
     );
     const warehouseIds: Record<string, Types.ObjectId> = {};
     for (const [key, doc] of Object.entries(warehouses.bySeedKey)) {

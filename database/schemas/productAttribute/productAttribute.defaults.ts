@@ -2,6 +2,7 @@ import type {HydratedDocument} from "mongoose";
 import ProductAttribute, {type IProductAttribute} from "./productAttribute";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 
 export type ProductAttributeSeed = {
     seedKey: string;
@@ -12,9 +13,9 @@ export type ProductAttributeSeed = {
 };
 
 export const defaultProductAttributeSeeds: readonly ProductAttributeSeed[] = [
-    {seedKey: "attr-size", name: "Size", values: ["S", "M", "L", "XL"], position: 1, isUsedForVariants: true},
-    {seedKey: "attr-color", name: "Color", values: ["Black", "White", "Navy"], position: 2, isUsedForVariants: true},
-    {seedKey: "attr-material", name: "Material", values: ["Cotton", "Fleece", "Leather"], position: 3, isUsedForVariants: false},
+    {seedKey: "attr-size", name: demoName("Size"), values: ["S", "M", "L", "XL"], position: 1, isUsedForVariants: true},
+    {seedKey: "attr-color", name: demoName("Color"), values: ["Black", "White", "Navy"], position: 2, isUsedForVariants: true},
+    {seedKey: "attr-material", name: demoName("Material"), values: ["Cotton", "Fleece", "Leather"], position: 3, isUsedForVariants: false},
 ];
 
 export type CreateProductAttributesResult = {

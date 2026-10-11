@@ -1,20 +1,15 @@
+import dayjs from "dayjs";
 import type {HydratedDocument} from "mongoose";
 import type {Types} from "mongoose";
 import Checkout, {type ICheckout} from "./checkout";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {
-    ECOM_DEMO_TAG,
-    buildAlmirShippingAddress,
-    ecomDemoExpiresFar,
-    type EcomDemoAddr,
-    type EcomDemoGeo,
-} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import type {CreateCartsResult} from "@eCommerceModule/database/schemas/cart/cart.defaults";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
 
-export const PENDING_CHECKOUT_KEY = `${ECOM_DEMO_TAG}:checkout-pending`;
-export const CONFIRMED_CHECKOUT_KEY = `${ECOM_DEMO_TAG}:checkout-confirmed`;
+export const PENDING_CHECKOUT_KEY = `ecom-demo-seed:checkout-pending`;
+export const CONFIRMED_CHECKOUT_KEY = `ecom-demo-seed:checkout-confirmed`;
 
 export type CreateCheckoutsResult = {
     pending?: HydratedDocument<ICheckout>;
@@ -36,15 +31,24 @@ export async function createCheckouts(
     carts: CreateCartsResult,
     orders: CreateProductOrdersResult,
     customerId: Types.ObjectId | undefined,
-    geo: EcomDemoGeo,
-    addr: EcomDemoAddr,
+    geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
+    addr: typeof defaultCompaniesValues.address,
 ): Promise<CreateCheckoutsResult> {
     const logger = getLogger("mongoDbInitialization-createCheckouts", parentLogger);
     logger.start("Creating checkouts...");
 
     const result: CreateCheckoutsResult = {};
-    const shippingAddress = buildAlmirShippingAddress(addr, geo.countryId);
-    const expiresAt = ecomDemoExpiresFar();
+    const shippingAddress = {
+        firstName: "echo",
+        lastName: "silence",
+        phone: "+355 69 000 0000",
+        street: addr.street,
+        city: addr.cityName,
+        state: addr.stateCode,
+        postalCode: addr.postalCode,
+        ...(geo.countryId ? {country: geo.countryId} : {}),
+    };
+    const expiresAt = dayjs().add(10, "year").toDate();
 
     if (carts.open) {
         try {

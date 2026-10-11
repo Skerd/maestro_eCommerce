@@ -2,6 +2,7 @@ import type {HydratedDocument} from "mongoose";
 import PosPaymentMethod, {type IPosPaymentMethod} from "./posPaymentMethod";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 
 export type PosPaymentMethodSeed = {
     seedKey: string;
@@ -16,7 +17,7 @@ export type PosPaymentMethodSeed = {
 export const defaultPosPaymentMethodSeeds: readonly PosPaymentMethodSeed[] = [
     {
         seedKey: "pos-pm-cash",
-        name: "Cash",
+        name: demoName("Cash"),
         type: "cash",
         sequence: 1,
         terminalEnabled: false,
@@ -24,7 +25,7 @@ export const defaultPosPaymentMethodSeeds: readonly PosPaymentMethodSeed[] = [
     },
     {
         seedKey: "pos-pm-card",
-        name: "Card",
+        name: demoName("Card"),
         type: "card",
         sequence: 2,
         // Hook: type card → terminalEnabled. Provider stays `manual` — no host / terminalId / secrets.

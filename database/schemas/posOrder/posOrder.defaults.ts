@@ -4,11 +4,11 @@ import type {Types} from "mongoose";
 import PosOrder, {type IPosOrder} from "./posOrder";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG} from "@eCommerceModule/database/demo/ecomDemoConstants";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreatePosPaymentMethodsResult} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.defaults";
 
-export const POS_ORDER_NAME = `${ECOM_DEMO_TAG}:pos-order-1`;
+export const POS_ORDER_NAME = demoName("POS Order 1");
 
 /**
  * Seeds one paid POS order on the closed session. Unique on `{company, name}`.
@@ -46,7 +46,7 @@ export async function createPosOrders(
         return undefined;
     }
 
-    const cash = methods.byName["Cash"];
+    const cash = methods.bySeedKey["pos-pm-cash"];
     if (!cash) {
         logger.warn("Skipping POS order: Cash payment method was not seeded.");
         logger.finish("Finished creating POS orders!", 0);
@@ -64,7 +64,7 @@ export async function createPosOrders(
             config: configId,
             state: "paid" as const,
             cashier: cashierId,
-            ...(customerId ? {customer: customerId, customerName: "Almir Leka"} : {}),
+            ...(customerId ? {customer: customerId, customerName: "echo silence"} : {}),
             lines: [
                 {
                     product: hoodie._id,
@@ -95,7 +95,7 @@ export async function createPosOrders(
             amountReturn: 0,
             discountTotal: 0,
             amountRefunded: 0,
-            note: ECOM_DEMO_TAG,
+            note: "ecom-demo-seed",
             orderDiscountPercent: 0,
             isRefund: false,
             company: company._id,

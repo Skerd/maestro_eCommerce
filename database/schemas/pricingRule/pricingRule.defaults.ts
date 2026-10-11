@@ -3,6 +3,7 @@ import type {Types} from "mongoose";
 import PricingRule, {type PricingRuleAppliesTo, type PricingRuleType} from "./pricingRule";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateCollectionsResult} from "@eCommerceModule/database/schemas/collection/collection.defaults";
 import type {CreateCustomerGroupsResult} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.defaults";
 
@@ -19,7 +20,7 @@ export type PricingRuleSeed = {
 
 export const defaultPricingRuleSeeds: readonly PricingRuleSeed[] = [
     {
-        name: "VIP 15% Off",
+        name: demoName("VIP 15% Off"),
         type: "percentage_discount",
         value: 15,
         appliesTo: "customer_group",
@@ -27,7 +28,7 @@ export const defaultPricingRuleSeeds: readonly PricingRuleSeed[] = [
         priority: 10,
     },
     {
-        name: "Wholesale Flat €5 Off",
+        name: demoName("Wholesale Flat €5 Off"),
         type: "fixed_discount",
         value: 5,
         appliesTo: "customer_group",
@@ -36,7 +37,7 @@ export const defaultPricingRuleSeeds: readonly PricingRuleSeed[] = [
         priority: 20,
     },
     {
-        name: "Digital Bundle Surcharge Demo",
+        name: demoName("Digital Bundle Surcharge"),
         type: "surcharge",
         value: 2,
         appliesTo: "collection",

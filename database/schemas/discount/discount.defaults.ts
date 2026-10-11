@@ -3,6 +3,7 @@ import type {Types} from "mongoose";
 import Discount, {type DiscountAppliesTo, type DiscountType} from "./discount";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateCollectionsResult} from "@eCommerceModule/database/schemas/collection/collection.defaults";
 
 export type DiscountSeed = {
@@ -17,7 +18,7 @@ export type DiscountSeed = {
 
 export const defaultDiscountSeeds: readonly DiscountSeed[] = [
     {
-        title: "Welcome 10%",
+        title: demoName("Welcome 10%"),
         code: "WELCOME10",
         type: "percentage",
         value: 10,
@@ -25,7 +26,7 @@ export const defaultDiscountSeeds: readonly DiscountSeed[] = [
         minimumOrderAmount: 40,
     },
     {
-        title: "Merch €5 Off",
+        title: demoName("Merch €5 Off"),
         code: "MERCH5",
         type: "fixed",
         value: 5,
@@ -33,7 +34,7 @@ export const defaultDiscountSeeds: readonly DiscountSeed[] = [
         collectionSlug: "featured",
     },
     {
-        title: "Free Shipping Weekend",
+        title: demoName("Free Shipping Weekend"),
         code: "FREESHIP",
         type: "free_shipping",
         value: 0,

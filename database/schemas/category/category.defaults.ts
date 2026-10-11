@@ -2,6 +2,7 @@ import ProductCategory, { type IProductCategory } from "./category";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import { ICompany } from "@coreModule/database/schemas/company/company";
 import type { HydratedDocument } from "mongoose";
+import {demoName} from "@coreModule/utilities/helpers";
 
 export type CategorySeed = {
     name: string;
@@ -12,24 +13,24 @@ export type CategorySeed = {
 
 /** Product-commerce taxonomy (retail / SKU catalog). Independent of marketplace ListingCategory. */
 const defaultCategorySeeds: readonly CategorySeed[] = [
-    { name: "Electronics", slug: "electronics", order: 1 },
-    { name: "Fashion", slug: "fashion", order: 2 },
-    { name: "Home & Living", slug: "home-living", order: 3 },
-    { name: "Health & Beauty", slug: "health-beauty", order: 4 },
-    { name: "Sports & Outdoors", slug: "sports-outdoors", order: 5 },
-    { name: "Food & Grocery", slug: "food-grocery", order: 6 },
+    { name: demoName("Electronics"), slug: "electronics", order: 1 },
+    { name: demoName("Fashion"), slug: "fashion", order: 2 },
+    { name: demoName("Home & Living"), slug: "home-living", order: 3 },
+    { name: demoName("Health & Beauty"), slug: "health-beauty", order: 4 },
+    { name: demoName("Sports & Outdoors"), slug: "sports-outdoors", order: 5 },
+    { name: demoName("Food & Grocery"), slug: "food-grocery", order: 6 },
 
-    { name: "Phones & Tablets", slug: "electronics-phones", order: 1, parentSlug: "electronics" },
-    { name: "Computers", slug: "electronics-computers", order: 2, parentSlug: "electronics" },
-    { name: "Audio", slug: "electronics-audio", order: 3, parentSlug: "electronics" },
+    { name: demoName("Phones & Tablets"), slug: "electronics-phones", order: 1, parentSlug: "electronics" },
+    { name: demoName("Computers"), slug: "electronics-computers", order: 2, parentSlug: "electronics" },
+    { name: demoName("Audio"), slug: "electronics-audio", order: 3, parentSlug: "electronics" },
 
-    { name: "Men", slug: "fashion-men", order: 1, parentSlug: "fashion" },
-    { name: "Women", slug: "fashion-women", order: 2, parentSlug: "fashion" },
-    { name: "Kids", slug: "fashion-kids", order: 3, parentSlug: "fashion" },
+    { name: demoName("Men"), slug: "fashion-men", order: 1, parentSlug: "fashion" },
+    { name: demoName("Women"), slug: "fashion-women", order: 2, parentSlug: "fashion" },
+    { name: demoName("Kids"), slug: "fashion-kids", order: 3, parentSlug: "fashion" },
 
-    { name: "Furniture", slug: "home-furniture", order: 1, parentSlug: "home-living" },
-    { name: "Kitchen", slug: "home-kitchen", order: 2, parentSlug: "home-living" },
-    { name: "Decor", slug: "home-decor", order: 3, parentSlug: "home-living" },
+    { name: demoName("Furniture"), slug: "home-furniture", order: 1, parentSlug: "home-living" },
+    { name: demoName("Kitchen"), slug: "home-kitchen", order: 2, parentSlug: "home-living" },
+    { name: demoName("Decor"), slug: "home-decor", order: 3, parentSlug: "home-living" },
 ];
 
 /**

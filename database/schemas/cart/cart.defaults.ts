@@ -1,13 +1,13 @@
+import dayjs from "dayjs";
 import type {HydratedDocument} from "mongoose";
 import type {Types} from "mongoose";
 import Cart, {type ICart} from "./cart";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {ECOM_DEMO_TAG, ecomDemoExpiresFar} from "@eCommerceModule/database/demo/ecomDemoConstants";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 
-export const OPEN_CART_SESSION_ID = `${ECOM_DEMO_TAG}:cart-open`;
-export const CONFIRMED_CART_SESSION_ID = `${ECOM_DEMO_TAG}:cart-confirmed`;
+export const OPEN_CART_SESSION_ID = `ecom-demo-seed:cart-open`;
+export const CONFIRMED_CART_SESSION_ID = `ecom-demo-seed:cart-confirmed`;
 
 export type CreateCartsResult = {
     open?: HydratedDocument<ICart>;
@@ -52,7 +52,7 @@ async function upsertCart(
         subtotal,
         discountTotal: 0,
         estimatedTotal: subtotal,
-        expiresAt: ecomDemoExpiresFar(),
+        expiresAt: dayjs().add(10, "year").toDate(),
     };
 
     let doc = await Cart.findOne({company: company._id, sessionId});
@@ -66,7 +66,7 @@ async function upsertCart(
 }
 
 /**
- * Seeds the open Almir cart (hoodie + gift card) and a second cart that backs
+ * Seeds the open demo cart (hoodie + logo pack) and a second cart that backs
  * the confirmed checkout (DEMO-ORD-1002 lines). Both expire far in the future
  * so the TTL index does not delete them. Idempotent on `{company, sessionId}`.
  */
@@ -81,7 +81,7 @@ export async function createCarts(
     logger.start("Creating carts...");
 
     if (!customerId) {
-        logger.warn("Skipping carts: customer almir@leka.com was not found.");
+        logger.warn("Skipping carts: customer echo@echo.com was not found.");
         logger.finish("Finished creating carts!", 0);
         return {};
     }
@@ -97,7 +97,7 @@ export async function createCarts(
             OPEN_CART_SESSION_ID,
             [
                 {productKey: "prod-02-hoodie", quantity: 1},
-                {productKey: "prod-08-gift-card", quantity: 1},
+                {productKey: "prod-03-logo-pack", quantity: 1},
             ],
         );
     } catch (e: unknown) {
@@ -116,7 +116,7 @@ export async function createCarts(
             CONFIRMED_CART_SESSION_ID,
             [
                 {productKey: "prod-01-brand-tee", quantity: 1},
-                {productKey: "prod-05-camera-strap", quantity: 1},
+                {productKey: "prod-02-hoodie", quantity: 1},
             ],
         );
     } catch (e: unknown) {
