@@ -184,30 +184,32 @@ export const taxZoneSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 3,
                                             compactSummaryFields: ["name", "rate", "appliesTo"],
                                             fields: [
                                                 {
                                                     name: "name",
                                                     type: "text",
-                                                    className: "text-sm font-medium",
+                                                    icon: "#IconReceiptTax",
                                                 },
                                                 {
                                                     name: "rate",
                                                     type: "text",
-                                                    className: "text-sm",
+                                                    icon: "#IconPercentage",
                                                     labelKey: "rateValue",
                                                 },
                                                 {
                                                     name: "appliesTo",
                                                     type: "text",
-                                                    className: "text-xs text-muted-foreground",
+                                                    icon: "#IconPackage",
                                                     languageKeyCategory: "taxRateAppliesTo",
                                                     labelKey: "rateAppliesTo",
                                                 },
                                                 {
                                                     name: "isCompound",
                                                     type: "text",
-                                                    className: "text-xs text-muted-foreground",
+                                                    icon: "#IconLayersIntersect",
                                                     languageKeyCategory: "yesNo",
                                                     labelKey: "isCompound",
                                                 },
