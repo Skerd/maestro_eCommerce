@@ -4,6 +4,11 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 const DEFAULT_LAT = 41.3275;
 const DEFAULT_LNG = 19.8189;
 
+const customerAddressTypeOptions = [
+    {value: "billing", label: "form.addressType.billing"},
+    {value: "shipping", label: "form.addressType.shipping"},
+];
+
 export const customerAddressSheetView: ViewConfig = {
     model: "customerAddresses",
     viewType: "sheet",
@@ -32,6 +37,15 @@ export const customerAddressSheetView: ViewConfig = {
                                     joinSeparator: " ",
                                     type: "user",
                                 },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "type",
+                                widget: "#DisplayCard",
+                                label: "type",
+                                widgetProps: {icon: "#IconTruck", languageKeyCategory: "addressType", type: "enum"},
                             },
                         },
                         {
@@ -72,6 +86,15 @@ export const customerAddressSheetView: ViewConfig = {
                                 widget: "#DisplayCard",
                                 label: "lastName",
                                 widgetProps: {icon: "#IconUser"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            field: {
+                                name: "email",
+                                widget: "#DisplayCard",
+                                label: "email",
+                                widgetProps: {icon: "#IconMail", type: "email"},
                             },
                         },
                         {
@@ -135,6 +158,16 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
+                            name: "type",
+                            widget: "#SimpleSelect",
+                            label: "form.typeLabel",
+                            required: true,
+                            widgetProps: {options: customerAddressTypeOptions, className: "grow w-full"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
                             name: "label",
                             widget: "#Input",
                             label: "form.labelLabel",
@@ -159,6 +192,16 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                             label: "form.lastNameLabel",
                             placeholder: "form.lastNamePlaceholder",
                             required: true,
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "email",
+                            widget: "#Input",
+                            label: "form.emailLabel",
+                            placeholder: "form.emailPlaceholder",
+                            widgetProps: {type: "email"},
                         },
                     },
                     {
@@ -333,7 +376,7 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.recipientSectionTitle"},
-        permissions: {writeAny: ["customer", "label", "firstName", "lastName", "phone"]},
+        permissions: {writeAny: ["customer", "type", "label", "firstName", "lastName", "email", "phone"]},
         children: [
             {
                 render: "#FormGrid",
@@ -354,6 +397,17 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                                 normalizeEmptyToUndefined: true,
                             },
                         }, permissions: {read: "customer", write: "customer"},
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "type", write: "type"},
+                        field: {
+                            name: "type",
+                            widget: "#SimpleSelect",
+                            label: "form.typeLabel",
+                            required: true,
+                            widgetProps: {options: customerAddressTypeOptions, className: "grow w-full"},
+                        },
                     },
                     {
                         render: "#Field",
@@ -383,6 +437,17 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.lastNamePlaceholder",
                             required: true,
                         }, permissions: {read: "lastName", write: "lastName"},
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "email", write: "email"},
+                        field: {
+                            name: "email",
+                            widget: "#Input",
+                            label: "form.emailLabel",
+                            placeholder: "form.emailPlaceholder",
+                            widgetProps: {type: "email"},
+                        },
                     },
                     {
                         render: "#Field",

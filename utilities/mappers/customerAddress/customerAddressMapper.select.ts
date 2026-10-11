@@ -4,7 +4,7 @@ import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
 export function customerAddressToSelect(address: ICustomerAddress): ApiSelectDatum {
     return {
         value: address._id.toString(),
-        label: `${address.firstName} ${address.lastName}${address.city?.name ? ` — ${address.city?.name}` : ""}`,
+        label: `${address.firstName} ${address.lastName} (${address.type === "billing" ? "Billing" : "Shipping"})${address.city?.name ? ` — ${address.city.name}` : ""}`,
     };
 }
 

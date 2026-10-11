@@ -19,8 +19,10 @@ export function customerAddressToDTO(address: ICustomerAddress): CustomerAddress
     return {
         _id: address._id.toString(),
         customer: mapSnippet<SimpleBlankUser>()(address.customer, SimpleBlankUserSnippet),
+        type: address.type,
         firstName: address.firstName,
         lastName: address.lastName,
+        email: address.email,
         phone: address.phone,
         street: address.street,
         city: mapSnippet<CitySimple>()(address.city, CitySimpleSnippet),

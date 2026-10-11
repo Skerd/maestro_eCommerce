@@ -35,8 +35,10 @@ export async function createCustomerAddresses(
     try {
         const payload = {
             customer: customerId,
+            type: "shipping",
             firstName: "Almir",
             lastName: "Leka",
+            email: "almir@leka.com",
             phone: "+355 69 000 0000",
             street: addr.street,
             city: geo.cityId,

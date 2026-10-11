@@ -50,7 +50,7 @@ export class CustomerAddressActions {
         }
 
         await CustomerAddressModel.updateMany(
-            {customer: ownerCustomerId, company: company._id, isDefault: true, _id: {$ne: existing._id}},
+            {customer: ownerCustomerId, company: company._id, type: existing.type, isDefault: true, _id: {$ne: existing._id}},
             {$set: {isDefault: false}},
             {session},
         );

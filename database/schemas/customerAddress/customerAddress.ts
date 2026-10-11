@@ -15,7 +15,7 @@ import {
 } from "@coreModule/database/types/plugin-fields";
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {CustomerAddressSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerAddress/customerAddress.schema-def";
+import {CustomerAddressSchemaDef, customerAddressTypes, type CustomerAddressType} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerAddress/customerAddress.schema-def";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {StateSimpleSnippet} from "@coreModule/database/schemas/state/state.snippets";
@@ -26,8 +26,10 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export interface ICustomerAddress extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     customer: IUser;
+    type: CustomerAddressType;
     firstName: string;
     lastName: string;
+    email?: string;
     phone?: string;
     street: string;
     city: ICity;
@@ -48,6 +50,18 @@ const CustomerAddressSchema = new Schema<ICustomerAddress>(
             required: true,
             refAllowlist: SimpleUserSnippet,
         },
+        type: {
+            type: SchemaTypes.String,
+            enum: [...customerAddressTypes],
+            required: true,
+            default: "shipping",
+            dynamicTableConfiguration: {
+                enumTones: {
+                    billing: "info",
+                    shipping: "success",
+                },
+            },
+        },
         firstName: {
             type: SchemaTypes.String, 
             required: true, 
@@ -57,6 +71,11 @@ const CustomerAddressSchema = new Schema<ICustomerAddress>(
             type: SchemaTypes.String, 
             required: true, 
             trim: true
+        },
+        email: {
+            type: SchemaTypes.String,
+            trim: true,
+            lowercase: true,
         },
         phone: {
             type: SchemaTypes.String, 
