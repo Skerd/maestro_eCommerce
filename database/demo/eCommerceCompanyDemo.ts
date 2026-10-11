@@ -13,6 +13,7 @@ import {createProducts, type CreateProductsResult} from "@eCommerceModule/databa
 import {createProductVariants} from "@eCommerceModule/database/schemas/productVariant/productVariant.defaults";
 import {createInventories} from "@eCommerceModule/database/schemas/inventory/inventory.defaults";
 import {createCollections} from "@eCommerceModule/database/schemas/collection/collection.defaults";
+import {createSavedSearches} from "@eCommerceModule/database/schemas/savedSearch/savedSearch.defaults";
 import {createCustomerGroups} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.defaults";
 import {createCustomerGroupMembers} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.defaults";
 import {createDiscounts} from "@eCommerceModule/database/schemas/discount/discount.defaults";
@@ -87,6 +88,7 @@ export async function seedECommerceDemoData(
     const variants = await createProductVariants(logger, company, currency._id, products, attributes);
     const inventories = await createInventories(logger, company, products, warehouses.primaryWarehouseId, variants);
     const collections = await createCollections(logger, company, products);
+    await createSavedSearches(logger, company, demoCustomerId, collections);
     const groups = await createCustomerGroups(logger, company);
     await createCustomerGroupMembers(logger, company, groups, staffIds);
     await createDiscounts(logger, company, collections);
