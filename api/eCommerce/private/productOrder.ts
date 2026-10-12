@@ -17,7 +17,10 @@ import {productOrderService} from "@eCommerceModule/database/schemas/productOrde
 import type {TransactionEnabledParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
 import {productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
-import {productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
+import {productOrderLinesToSelect, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
+import {productOrderLineSelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderLineSelect.form.validator";
+import type {ProductOrderLineSelectFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderLineSelect.form.validator";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.service";
 import {returnRequestService} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.service";
 import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/fulfillmentMapper.dto";
@@ -100,10 +103,39 @@ export const {router} = createCrudRouter({
         if (!deletable) {
             throw apiValidationException("order_with_payment_cannot_be_deleted", "", null, params.languageCode);
         }
+        // A pending order still holding stock or store credit must go through cancel, which gives them back
+        if (doc.status === "pending") {
+            const holdsStock = doc.reservations?.some(reservation => reservation.state === "reserved");
+            if (holdsStock || (doc.giftCard?.amount ?? 0) > 0) {
+                throw apiValidationException("order_must_be_cancelled_first", "", null, params.languageCode);
+            }
+        }
         // Keep the default relation check that a custom beforeDelete replaces
         await assertCanDelete(ProductOrder.modelName, doc._id, params.languageCode, params.session);
     },
 });
+
+/** Lines of one order, for the item pickers of the fulfillment and return request forms. */
+router.post(
+    "/lineSelect",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 120}),
+    validateFormZod(productOrderLineSelectFormSchema),
+    asyncHandler(async (params: AuthenticatedMWType & ProductOrderLineSelectFormType) => {
+        const {company, actionUserCtx, logger, languageCode, productOrderId, name} = params;
+        // Same gate as the CRUD select: refuses users who can't read the order's lines
+        SchemaGuard.sanitizeFields(ProductOrder, {items: {}}, "read", actionUserCtx, languageCode);
+
+        const order = await productOrderService.findOne(
+            {_id: new ObjectId(productOrderId), company: company._id},
+            {logger, languageCode, withDeleted: false},
+        );
+        const search = name?.trim().toLowerCase();
+        const lines = order ? productOrderLinesToSelect(order) : [];
+        const data = search ? lines.filter(line => line.label.toLowerCase().includes(search)) : lines;
+        return {data, total: data.length};
+    }),
+);
 
 /**
  * Buyer self-service routes (storefront account pages). Scoped hard to the

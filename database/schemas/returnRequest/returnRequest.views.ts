@@ -98,10 +98,17 @@ const returnRequestFormFields: ViewConfig["nodes"] = [
                                 render: "#Field",
                                 field: {
                                     name: "orderItemId",
-                                    widget: "#Input",
+                                    widget: "#ApiSelect",
                                     label: "form.orderItemIdLabel",
                                     placeholder: "form.orderItemIdPlaceholder",
                                     required: true,
+                                    widgetProps: {
+                                        apiUrl: "/api/eCommerce/productOrder/lineSelect",
+                                        method: "POST",
+                                        normalizeEmptyToUndefined: true,
+                                        postBodyFromFormField: {field: "order", paramName: "productOrderId"},
+                                        remountKeyFormField: "order",
+                                    },
                                 },
                             },
                             {
@@ -225,10 +232,17 @@ const returnRequestEditFormNodes: ViewConfig["nodes"] = [
                                 permissions: {read: "items", write: "items"},
                                 field: {
                                     name: "orderItemId",
-                                    widget: "#Input",
+                                    widget: "#ApiSelect",
                                     label: "form.orderItemIdLabel",
                                     placeholder: "form.orderItemIdPlaceholder",
                                     required: true,
+                                    widgetProps: {
+                                        apiUrl: "/api/eCommerce/productOrder/lineSelect",
+                                        method: "POST",
+                                        normalizeEmptyToUndefined: true,
+                                        postBodyFromFormField: {field: "order", paramName: "productOrderId"},
+                                        remountKeyFormField: "order",
+                                    },
                                 },
                             },
                             {

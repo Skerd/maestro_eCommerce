@@ -26,9 +26,10 @@ export interface ICheckoutItem {
 }
 
 /**
- * Inventory reservation created when the buyer picks a payment method (before
- * any charge). Consumed (sale) once the order is paid, released on payment
- * reset / cancel / expiry. One entry per reserved stock line.
+ * Stock held for a sale: created when the buyer picks a payment method (before
+ * any charge) and kept on the checkout until the order is placed, then moved
+ * onto the ProductOrder. Consumed (sale) when the goods ship, released on
+ * payment reset / cancel / expiry / full refund. One entry per held stock line.
  */
 export interface ICheckoutReservation {
     product: Types.ObjectId;
@@ -36,7 +37,40 @@ export interface ICheckoutReservation {
     warehouse: Types.ObjectId;
     quantity: number;
     state: CheckoutReservationState;
+    /** The shipment that consumed this hold (set on `consumed` entries). */
+    fulfillment?: Types.ObjectId;
 }
+
+/** Schema of a held-stock list; shared by Checkout and ProductOrder. */
+export const stockReservationsField = {
+    type: [
+        {
+            product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
+            variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
+            warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true},
+            quantity: {type: SchemaTypes.Number, required: true, min: 1},
+            state: {type: SchemaTypes.String, enum: ["reserved", "consumed", "released"], default: "reserved",
+                dynamicTableConfiguration: {
+                    enumTones: {
+                        reserved:   "warning",
+                        consumed:   "neutral",
+                        released:   "success",
+                    } as const,
+                },
+            },
+            fulfillment: {type: SchemaTypes.ObjectId, ref: "Fulfillment"},
+            _id: false,
+        },
+    ],
+    default: [],
+    dynamicTableConfiguration: {
+        enumTones: {
+            reserved:   "warning",
+            consumed:   "neutral",
+            released:   "success",
+        } as const,
+    },
+};
 
 export interface ICheckoutAddress {
     firstName: string;
@@ -153,34 +187,7 @@ const CheckoutSchema = new Schema<ICheckout>(
             ],
             default: [],
         },
-        reservations: {
-            type: [
-                {
-                    product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
-                    variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
-                    warehouse: {type: SchemaTypes.ObjectId, ref: "Warehouse", required: true},
-                    quantity: {type: SchemaTypes.Number, required: true, min: 1},
-                    state: {type: SchemaTypes.String, enum: ["reserved", "consumed", "released"], default: "reserved",
-                        dynamicTableConfiguration: {
-                            enumTones: {
-                                reserved:   "warning",
-                                consumed:   "neutral",
-                                released:   "success",
-                            },
-                        },
-                    },
-                    _id: false,
-                },
-            ],
-            default: [],
-            dynamicTableConfiguration: {
-                enumTones: {
-                    reserved:   "warning",
-                    consumed:   "neutral",
-                    released:   "success",
-                },
-            },
-        },
+        reservations: stockReservationsField,
         selectedShippingRate: {
             type: {
                 name: {type: SchemaTypes.String},

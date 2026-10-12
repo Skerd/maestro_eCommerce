@@ -21,12 +21,13 @@ import {
     type VerifyPosManagerPinFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/pos/posTill.form.validator";
 import {chargePosTerminal, getCurrentPosSession, loadPosCatalog} from "@eCommerceModule/utilities/services/posService";
+import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
 import {listHeldPosOrders, listSessionPosOrders, searchPosCustomers, verifyPosManagerPin} from "@eCommerceModule/utilities/services/posTillOps";
 
 export const basePath = "/api/eCommerce/pos";
 export const router = Router();
 
-function tillCtx(params: AuthenticatedMWType) {
+function tillCtx(params: AuthenticatedMWType & any) {
     return {
         logger: params.logger,
         languageCode: params.languageCode,
@@ -41,6 +42,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 120}),
     validateFormZod(posCatalogFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & PosCatalogFormType) => {
+        assertPosOrderWrite(params, "state");
         return loadPosCatalog(
             {
                 search: params.search,
@@ -62,6 +64,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(posCurrentSessionFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & PosCurrentSessionFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await getCurrentPosSession(params.configId, tillCtx(params));
         return {data};
     }),
@@ -73,6 +76,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(posSessionIdFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & PosSessionIdFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await listHeldPosOrders(params.sessionId, tillCtx(params));
         return {data};
     }),
@@ -84,6 +88,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(posSessionOrdersFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & PosSessionOrdersFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await listSessionPosOrders(params.sessionId, tillCtx(params), {
             state: params.state,
             limit: params.limit,
@@ -98,6 +103,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(posCustomerSearchFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & PosCustomerSearchFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await searchPosCustomers(params.query ?? params.search, tillCtx(params));
         return {data};
     }),
@@ -109,6 +115,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(verifyPosManagerPinFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & VerifyPosManagerPinFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await verifyPosManagerPin(
             params.configId,
             params.pin,
@@ -125,6 +132,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 40}),
     validateFormZod(chargePosTerminalFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & ChargePosTerminalFormType) => {
+        assertPosOrderWrite(params, "state");
         const data = await chargePosTerminal(
             {
                 sessionId: params.sessionId,

@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import type {ClientSession} from "mongoose";
 import {action} from "@coreModule/api/actionDecorator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {shipProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/shipProductOrder.form.validator";
@@ -18,17 +19,13 @@ import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import type {UserContext} from "@coreModule/utilities/types/types";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
-import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {digitalDeliveryService} from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery.service";
 import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
-import {
-    consumeCheckoutReservations,
-    releaseCheckoutReservations,
-    restockConsumedReservations,
-} from "@eCommerceModule/utilities/services/inventoryReservationService";
+import {releaseReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
+import {consumeForShipment, syncOrderFulfillment} from "@eCommerceModule/utilities/services/orderFulfillmentService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
@@ -47,7 +44,7 @@ function blankToUndefined(value: string | undefined): string | undefined {
     return trimmed ? trimmed : undefined;
 }
 
-function assertFieldWrite(
+export function assertFieldWrite(
     params: {languageCode: string; actionUserCtx: UserContext},
     field: "status" | "paymentStatus",
 ): void {
@@ -84,14 +81,14 @@ async function recreditStoreCredit(
     return recredited != null;
 }
 
+/** Tells the buyer once the action's transaction has committed. */
 async function notifyCustomer(
     order: IProductOrder,
     code: string,
-    companyId: ObjectId,
-    languageCode: string,
+    ctx: {companyId: ObjectId; languageCode: string; session: ClientSession},
     extra: {trackingNumber?: string; trackingUrl?: string; carrier?: string; grandTotal?: number; amount?: number} = {},
 ): Promise<void> {
-    await notifyProductOrderCustomer(code, {companyId, languageCode, order, extra});
+    await notifyProductOrderCustomer(code, {...ctx, order, extra});
 }
 
 /**
@@ -133,7 +130,7 @@ export class ProductOrderActions {
             ctx,
         );
 
-        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CONFIRMED, company._id, languageCode);
+        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CONFIRMED, {companyId: company._id, languageCode, session});
 
         logger.finish(`Successfully confirmed product order: ${_id}`);
 
@@ -177,7 +174,11 @@ export class ProductOrderActions {
         return {message: "Order marked as processing"};
     }
 
-    /** Ships the order: creates a Fulfillment with tracking data and updates statuses. */
+    /**
+     * Ships the order's still-unfulfilled quantities: creates a Fulfillment with
+     * tracking data, takes the shipped units out of stock and derives the
+     * order's statuses from its shipments.
+     */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
@@ -206,14 +207,21 @@ export class ProductOrderActions {
 
         SchemaGuard.checkModelPermission(Fulfillment, "create", actionUserCtx, languageCode);
 
-        await fulfillmentService.create(
+        // Ship what earlier fulfillments haven't already covered
+        const remaining = await fulfillmentService.remainingQuantities(order, ctx);
+        const items = order.items.flatMap((item) => {
+            const quantity = remaining.get(item._id.toString()) ?? 0;
+            return quantity > 0 ? [{orderItemId: new ObjectId(item._id.toString()), quantity}] : [];
+        });
+        if (items.length === 0) {
+            throw apiValidationException("order_already_fulfilled", "", null, languageCode);
+        }
+
+        const fulfillment = await fulfillmentService.create(
             {
                 order: order._id,
                 company: company._id,
-                items: order.items.map((item) => ({
-                    orderItemId: new ObjectId(item._id.toString()),
-                    quantity: item.quantity,
-                })),
+                items,
                 carrier: carrierValue,
                 trackingNumber: tracking,
                 trackingUrl: trackingLink,
@@ -223,24 +231,10 @@ export class ProductOrderActions {
             },
             ctx,
         );
+        await consumeForShipment(order, items, fulfillment._id, ctx);
+        await syncOrderFulfillment(order, {event: "order_partially_shipped", userId: actionUserCtx.userId, note: tracking}, ctx);
 
-        await productOrderService.updateByIdOrThrow(
-            order._id,
-            {
-                $set: {status: "shipped", fulfillmentStatus: "fulfilled"},
-                $push: {
-                    timeline: {
-                        event: "order_shipped",
-                        timestamp: new Date(),
-                        userId: actionUserCtx.userId,
-                        note: tracking,
-                    },
-                },
-            },
-            ctx,
-        );
-
-        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_SHIPPED, company._id, languageCode, {
+        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_SHIPPED, {companyId: company._id, languageCode, session}, {
             trackingNumber: tracking ?? "",
             trackingUrl: trackingLink ?? "",
             carrier: carrierValue ?? "",
@@ -254,7 +248,7 @@ export class ProductOrderActions {
     /**
      * Cancels an order that has not shipped. Paid orders must be refunded
      * first (the refund action), so cancellation never strands captured money.
-     * Releases any still-held inventory reservations from the checkout.
+     * Releases the stock still held for it.
      */
     @action({
         auth: "private",
@@ -281,13 +275,7 @@ export class ProductOrderActions {
             throw apiValidationException("refund_order_before_cancelling", "", null, languageCode);
         }
 
-        const checkout = await checkoutService.findOne(
-            {idempotencyKey: order.idempotencyKey, company: company._id},
-            ctx,
-        );
-        if (checkout?.reservations?.some((reservation) => reservation.state === "reserved")) {
-            await releaseCheckoutReservations(checkout, ctx);
-        }
+        await releaseReservations(order, ctx);
 
         const storeCredit = order.giftCard;
         if (storeCredit && storeCredit.amount > 0) {
@@ -314,7 +302,7 @@ export class ProductOrderActions {
             ctx,
         );
 
-        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CANCELLED, company._id, languageCode);
+        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_CANCELLED, {companyId: company._id, languageCode, session});
 
         logger.finish(`Successfully cancelled product order: ${_id}`);
 
@@ -323,8 +311,8 @@ export class ProductOrderActions {
 
     /**
      * Records an offline payment (cash on delivery / bank transfer) as received:
-     * writes a manual charge transaction, converts the held stock into a sale,
-     * issues gift cards / downloads bought with the order, and notifies the buyer.
+     * writes a manual charge transaction, issues gift cards / downloads bought
+     * with the order, and notifies the buyer. Held stock stays held until it ships.
      */
     @action({
         auth: "private",
@@ -363,16 +351,6 @@ export class ProductOrderActions {
             ctx,
         );
 
-        const checkout = await checkoutService.findOne(
-            {idempotencyKey: order.idempotencyKey, company: company._id},
-            ctx,
-        );
-        if (checkout) {
-            await consumeCheckoutReservations(checkout, ctx);
-        } else {
-            logger.warn(`Order ${_id} marked paid without its checkout — held stock not converted to a sale`);
-        }
-
         const updated = await productOrderService.updateByIdOrThrow(
             order._id,
             {
@@ -393,20 +371,14 @@ export class ProductOrderActions {
         );
 
         await fulfillOrderPaidExtras(updated, ctx);
-        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_PAID, company._id, languageCode, {grandTotal: order.grandTotal});
+        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_PAID, {companyId: company._id, languageCode, session}, {grandTotal: order.grandTotal});
 
         logger.finish(`Successfully marked product order paid: ${_id}`);
 
         return {message: "Order marked as paid"};
     }
 
-    /**
-     * Refunds a paid order (full by default, partial via amount). Gateway
-     * charges are refunded through the payment adapter; manual (COD / bank
-     * transfer) payments are recorded as manual refund transactions. A full
-     * refund also returns spent store credit, disables gift cards and download
-     * links the order issued, and restocks the items when nothing has shipped.
-     */
+    /** Refunds a paid order, fully or by `amount` — see refundProductOrder. */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 10},
@@ -414,145 +386,163 @@ export class ProductOrderActions {
         schema: refundProductOrderFormSchema,
     })
     async refund(params: TransactionRequiredParams & RefundProductOrderFormType): Promise<ActionMessage> {
-        const {logger, languageCode, session, company, actionUserCtx, _id, amount, reason} = params;
+        const {logger, languageCode, session, company, _id, amount, reason} = params;
         assertFieldWrite(params, "paymentStatus");
-        const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
-        const refundReason = blankToUndefined(reason);
-        const orderId = new ObjectId(_id);
 
         logger.start(`Refunding product order: ${_id}...`);
 
-        const order = await productOrderService.findOneOrThrow({_id: orderId, company: company._id}, ctx);
-
-        if (!REFUNDABLE.includes(order.paymentStatus)) {
-            throw apiValidationException("order_not_refundable", "", null, languageCode);
-        }
-
-        const charge = await paymentTransactionService.findOne(
-            {
-                sourceType: "productOrder",
-                sourceId: orderId,
-                type: "charge",
-                status: {$in: ["succeeded", "partially_refunded"]},
-                company: company._id,
-            },
-            ctx,
+        const order = await productOrderService.findOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode},
         );
-        if (!charge) {
-            throw apiValidationException("no_charge_transaction_found", "", null, languageCode);
-        }
-
-        const alreadyRefunded = charge.refundedAmount ?? 0;
-        const remaining = charge.amount - alreadyRefunded;
-        const refundAmount = amount ?? remaining;
-        if (refundAmount <= 0 || refundAmount > remaining) {
-            throw apiValidationException("invalid_refund_amount", "", null, languageCode);
-        }
-
-        const currencyId = requireCurrency(order, languageCode, "order_not_refundable");
-
-        let gatewayRefundId: string | undefined;
-        if (charge.gateway !== "manual" && charge.gatewayTransactionId) {
-            const adapter = getPaymentAdapter(charge.gateway);
-            if (!adapter || !adapter.isEnabled()) {
-                throw apiValidationException("payment_gateway_not_configured", "", null, languageCode);
-            }
-            const currency = await currencyService.findById(currencyId, ctx, undefined, "abbreviation");
-            const result = await adapter.createRefund({
-                gatewayTransactionId: charge.gatewayTransactionId,
-                amount: refundAmount < remaining ? refundAmount : undefined,
-                currencyCode: currency?.abbreviation ?? "usd",
-                reason: refundReason,
-                idempotencyKey: `refund-${orderId.toString()}-${Math.round(refundAmount * 100)}-${alreadyRefunded}`,
-            });
-            gatewayRefundId = result.id;
-        }
-
-        await paymentTransactionService.recordRefund(
-            {
-                sourceType: "productOrder",
-                sourceId: orderId,
-                chargeTransactionId: new ObjectId(charge._id.toString()),
-                gateway: charge.gateway,
-                amount: refundAmount,
-                currency: currencyId,
-                gatewayTransactionId: gatewayRefundId,
-                metadata: refundReason ? {reason: refundReason} : undefined,
-                company: company._id,
-            },
-            ctx,
-        );
-
-        const fullyRefunded = refundAmount >= remaining;
-        const timelineNotes: {event: string; note?: string}[] = [];
-
-        if (fullyRefunded) {
-            const storeCredit = order.giftCard;
-            if (storeCredit && storeCredit.amount > 0) {
-                const returned = await recreditStoreCredit(order, ctx);
-                if (!returned) {
-                    logger.warn(`Gift card for order ${_id} not re-credited (disabled or missing)`);
-                }
-            }
-
-            const disabledCards = await giftCardService.updateMany(
-                {order: orderId, company: company._id, status: {$ne: "disabled"}},
-                {$set: {status: "disabled"}},
-                ctx,
-            );
-            if (disabledCards.modifiedCount) {
-                timelineNotes.push({event: "gift_cards_disabled", note: String(disabledCards.modifiedCount)});
-            }
-            await digitalDeliveryService.updateMany(
-                {order: orderId, company: company._id},
-                {$set: {expiresAt: new Date()}},
-                ctx,
-            );
-
-            if (order.fulfillmentStatus === "unfulfilled") {
-                const checkout = await checkoutService.findOne(
-                    {idempotencyKey: order.idempotencyKey, company: company._id},
-                    ctx,
-                );
-                if (checkout) {
-                    await restockConsumedReservations(checkout, {...ctx, referenceId: orderId});
-                } else {
-                    timelineNotes.push({event: "restock_skipped", note: "Checkout record not found"});
-                }
-            }
-        }
-
-        const now = new Date();
-        await productOrderService.updateByIdOrThrow(
-            order._id,
-            {
-                $set: {
-                    paymentStatus: fullyRefunded ? "refunded" : "partially_refunded",
-                    ...(fullyRefunded ? {status: "refunded"} : {}),
-                },
-                $push: {
-                    timeline: {
-                        $each: [
-                            {
-                                event: fullyRefunded ? "order_refunded" : "order_partially_refunded",
-                                timestamp: now,
-                                userId: actionUserCtx.userId,
-                                note: refundReason,
-                            },
-                            ...timelineNotes.map((entry) => ({...entry, timestamp: now, userId: actionUserCtx.userId})),
-                        ],
-                    },
-                },
-            },
-            ctx,
-        );
-
-        await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_REFUNDED, company._id, languageCode, {
-            amount: refundAmount,
-        });
+        await refundProductOrder(order, {amount, reason: blankToUndefined(reason)}, params);
 
         logger.finish(`Successfully refunded product order: ${_id}`);
 
         return {message: "Order refunded successfully"};
     }
+}
+
+/**
+ * Refunds a paid order (full by default, partial via amount). Gateway charges
+ * are refunded through the payment adapter; manual (COD / bank transfer)
+ * payments are recorded as manual refund transactions. A full refund also
+ * returns spent store credit, disables gift cards and download links the order
+ * issued, and releases the stock still held for unshipped items (shipped
+ * units come back through a completed return). Shared by the
+ * order `refund` action and completed return requests; callers gate on
+ * `productorders[write:paymentStatus]`.
+ */
+export async function refundProductOrder(
+    order: IProductOrder,
+    input: {amount?: number; reason?: string},
+    params: TransactionRequiredParams,
+): Promise<void> {
+    const {logger, languageCode, session, company, actionUserCtx} = params;
+    const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
+    const {amount, reason: refundReason} = input;
+    const orderId = new ObjectId(order._id.toString());
+
+    if (!REFUNDABLE.includes(order.paymentStatus)) {
+        throw apiValidationException("order_not_refundable", "", null, languageCode);
+    }
+    // Till sales are refunded at the till (refundPosOrder), which keeps the POS order, drawer and stock in step
+    if (order.idempotencyKey.startsWith("pos:")) {
+        throw apiValidationException("refund_via_pos", "", null, languageCode);
+    }
+
+    const charge = await paymentTransactionService.findOne(
+        {
+            sourceType: "productOrder",
+            sourceId: orderId,
+            type: "charge",
+            status: {$in: ["succeeded", "partially_refunded"]},
+            company: company._id,
+        },
+        ctx,
+    );
+    if (!charge) {
+        throw apiValidationException("no_charge_transaction_found", "", null, languageCode);
+    }
+
+    const alreadyRefunded = charge.refundedAmount ?? 0;
+    const remaining = charge.amount - alreadyRefunded;
+    const refundAmount = amount ?? remaining;
+    if (refundAmount <= 0 || refundAmount > remaining) {
+        throw apiValidationException("invalid_refund_amount", "", null, languageCode);
+    }
+
+    const currencyId = requireCurrency(order, languageCode, "order_not_refundable");
+
+    let gatewayRefundId: string | undefined;
+    if (charge.gateway !== "manual" && charge.gatewayTransactionId) {
+        const adapter = getPaymentAdapter(charge.gateway);
+        if (!adapter || !adapter.isEnabled()) {
+            throw apiValidationException("payment_gateway_not_configured", "", null, languageCode);
+        }
+        const currency = await currencyService.findById(currencyId, ctx, undefined, "abbreviation");
+        const result = await adapter.createRefund({
+            gatewayTransactionId: charge.gatewayTransactionId,
+            amount: refundAmount < remaining ? refundAmount : undefined,
+            currencyCode: currency?.abbreviation ?? "usd",
+            reason: refundReason,
+            // Keyed on what was refunded before, not on the amount: a retry after an aborted
+            // transaction reuses the key, so the gateway never issues a second refund
+            idempotencyKey: `refund-${orderId.toString()}-${alreadyRefunded}`,
+        });
+        gatewayRefundId = result.id;
+    }
+
+    await paymentTransactionService.recordRefund(
+        {
+            sourceType: "productOrder",
+            sourceId: orderId,
+            chargeTransactionId: new ObjectId(charge._id.toString()),
+            gateway: charge.gateway,
+            amount: refundAmount,
+            currency: currencyId,
+            gatewayTransactionId: gatewayRefundId,
+            metadata: refundReason ? {reason: refundReason} : undefined,
+            company: company._id,
+        },
+        ctx,
+    );
+
+    const fullyRefunded = refundAmount >= remaining;
+    const timelineNotes: {event: string; note?: string}[] = [];
+
+    if (fullyRefunded) {
+        const storeCredit = order.giftCard;
+        if (storeCredit && storeCredit.amount > 0) {
+            const returned = await recreditStoreCredit(order, ctx);
+            if (!returned) {
+                logger.warn(`Gift card for order ${orderId} not re-credited (disabled or missing)`);
+            }
+        }
+
+        const disabledCards = await giftCardService.updateMany(
+            {order: orderId, company: company._id, status: {$ne: "disabled"}},
+            {$set: {status: "disabled", revokedByRefund: true}},
+            ctx,
+        );
+        if (disabledCards.modifiedCount) {
+            timelineNotes.push({event: "gift_cards_disabled", note: String(disabledCards.modifiedCount)});
+        }
+        await digitalDeliveryService.updateMany(
+            {order: orderId, company: company._id},
+            {$set: {expiresAt: new Date()}},
+            ctx,
+        );
+
+        await releaseReservations(order, ctx);
+    }
+
+    const now = new Date();
+    await productOrderService.updateByIdOrThrow(
+        order._id,
+        {
+            $set: {
+                paymentStatus: fullyRefunded ? "refunded" : "partially_refunded",
+                ...(fullyRefunded ? {status: "refunded"} : {}),
+            },
+            $push: {
+                timeline: {
+                    $each: [
+                        {
+                            event: fullyRefunded ? "order_refunded" : "order_partially_refunded",
+                            timestamp: now,
+                            userId: actionUserCtx.userId,
+                            note: refundReason,
+                        },
+                        ...timelineNotes.map((entry) => ({...entry, timestamp: now, userId: actionUserCtx.userId})),
+                    ],
+                },
+            },
+        },
+        ctx,
+    );
+
+    await notifyCustomer(order, NotificationEventCodes.PRODUCT_ORDER_REFUNDED, {companyId: company._id, languageCode, session}, {
+        amount: refundAmount,
+    });
 }

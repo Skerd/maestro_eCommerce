@@ -2,12 +2,16 @@ import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {mongooseInstance} from "@coreModule/connections/connectToMongoDb";
+import {flushAfterCommitTasks} from "@coreModule/utilities/middlewares/transactionUtils";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import User from "@coreModule/database/schemas/user/user";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
 import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
+import Product from "@eCommerceModule/database/schemas/product/product";
+import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import ProductOrder, {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
@@ -16,9 +20,8 @@ import {countCustomerDiscountUses} from "@eCommerceModule/utilities/services/dis
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
 import {
-    consumeCheckoutReservations,
     OutOfStockError,
-    releaseCheckoutReservations,
+    releaseReservations,
     reserveCheckoutStock,
 } from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {
@@ -47,6 +50,26 @@ function idOf(value: unknown): ObjectId {
 
 function hasHeldStock(checkout: ICheckout): boolean {
     return (checkout.reservations ?? []).some(r => r.state === "reserved" || r.state === "consumed");
+}
+
+/**
+ * Catalog facts frozen onto the order lines at placement: the product type
+ * (decides what payment issues) and the chosen option values of the variant.
+ */
+async function lineSnapshotFacts(checkout: ICheckout, ctx: PlacementCtx) {
+    const companyId = idOf(checkout.company);
+    const lines = checkout.items as any[];
+    const variantIds = lines.flatMap(item => (item.variant ? [idOf(item.variant)] : []));
+    const [products, variants] = await Promise.all([
+        Product.find({_id: {$in: lines.map(item => idOf(item.product))}, company: companyId}, {type: 1})
+            .session(ctx.session ?? null).lean(),
+        ProductVariant.find({_id: {$in: variantIds}, company: companyId}, {attributeCombination: 1})
+            .session(ctx.session ?? null).lean(),
+    ]);
+    return {
+        productTypes: new Map(products.map(product => [product._id.toString(), product.type])),
+        variantLabels: new Map(variants.map(variant => [variant._id.toString(), variantOptionsLabel(variant)])),
+    };
 }
 
 function checkoutLines(checkout: ICheckout) {
@@ -95,7 +118,7 @@ export async function resetCheckoutPayment(checkout: ICheckout, ctx: PlacementCt
     }
 
     if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
-        await releaseCheckoutReservations(checkout, ctx);
+        await releaseReservations(checkout, ctx);
     }
 
     checkout.reservations = [];
@@ -184,6 +207,7 @@ export async function assertDiscountUsable(checkout: ICheckout, ctx: PlacementCt
     const discount = await Discount.findOne({
         _id: discountId,
         company: companyId,
+        deletedAt: null,
         isActive: true,
         startsAt: {$lte: now},
         $and: [
@@ -219,6 +243,7 @@ async function consumeDiscount(checkout: ICheckout, moneyCaptured: boolean, ctx:
         {
             _id: discountId,
             company: companyId,
+            deletedAt: null,
             isActive: true,
             startsAt: {$lte: now},
             $and: [
@@ -294,6 +319,8 @@ export async function placeOrderFromCheckout(
         }
     }
 
+    const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx);
+    const currency = await Currency.findById(idOf(checkout.currency), {abbreviation: 1}).session(ctx.session ?? null).lean();
     const orderNumber = await generateOrderNumber(companyId);
     const now = new Date();
     const paymentStatus = paid ? "paid" : "unpaid";
@@ -317,9 +344,12 @@ export async function placeOrderFromCheckout(
                 title: item.snapshot?.title ?? "",
                 sku: item.snapshot?.sku ?? undefined,
                 imageUrl: item.snapshot?.imageUrl ?? undefined,
+                variantLabel: item.variant ? variantLabels.get(idOf(item.variant).toString()) || undefined : undefined,
+                productType: productTypes.get(idOf(item.product).toString()),
             },
         })),
         currency: idOf(checkout.currency),
+        currencyCode: currency?.abbreviation,
         shippingAddress: checkout.shippingAddress,
         billingAddress: checkout.billingAddress ?? checkout.shippingAddress,
         shippingRate: checkout.selectedShippingRate,
@@ -335,6 +365,10 @@ export async function placeOrderFromCheckout(
             : undefined,
         stripePaymentIntentId: checkout.stripePaymentIntentId,
         idempotencyKey: checkout.idempotencyKey,
+        // The stock held for the checkout now belongs to the order, until it ships
+        reservations: (checkout.reservations ?? [])
+            .filter(reservation => reservation.state === "reserved")
+            .map(({product, variant, warehouse, quantity, state}) => ({product, variant, warehouse, quantity, state})),
         notes: contact.notes || undefined,
         timeline: [
             {event: "order_placed", timestamp: now, userId: customerId},
@@ -370,10 +404,10 @@ export async function placeOrderFromCheckout(
     }
 
     checkout.status = "confirmed";
+    checkout.reservations = [];
     await checkout.save({session: ctx.session});
 
     if (paid) {
-        await consumeCheckoutReservations(checkout, ctx);
         await fulfillOrderPaidExtras(order, ctx);
     }
 
@@ -385,7 +419,8 @@ export async function placeOrderFromCheckout(
         );
     }
 
-    const notify = {companyId, languageCode: ctx.languageCode, order, customerId: customerId?.toString(), orderEmail: contact.email};
+    // Sent once the placement transaction commits
+    const notify = {companyId, languageCode: ctx.languageCode, session: ctx.session, order, customerId: customerId?.toString(), orderEmail: contact.email};
     await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PLACED, {...notify, extra: {grandTotal: order.grandTotal}});
     if (paid) {
         await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {...notify, extra: {grandTotal: order.grandTotal}});
@@ -393,9 +428,11 @@ export async function placeOrderFromCheckout(
     await notifyMerchantsNewOrder({
         companyId,
         languageCode: ctx.languageCode,
+        session: ctx.session,
         orderId: order._id.toString(),
         orderNumber,
         grandTotal: order.grandTotal,
+        currency: order.currency,
     });
 
     return {order, created: true};
@@ -413,9 +450,12 @@ export async function placePaidCheckoutInBackground(
 ): Promise<IProductOrder | null> {
     const session = await mongooseInstance.startSession();
     let placed: IProductOrder | null = null;
+    const logFailure = (error: unknown) => ctx.logger?.err?.("After-commit task failed", error);
     try {
         await session.withTransaction(async () => {
             placed = null;
+            // A retried attempt starts clean: notifications queued by the aborted one are dropped
+            await flushAfterCommitTasks(session, false, logFailure);
             const checkout = await Checkout.findOne({_id: checkoutId}).session(session);
             if (!checkout || !["pending", "payment_processing", "confirmed", "expired"].includes(checkout.status)) return;
 
@@ -424,6 +464,7 @@ export async function placePaidCheckoutInBackground(
             const result = await placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session});
             placed = result.order;
         });
+        await flushAfterCommitTasks(session, true, logFailure);
     } finally {
         await session.endSession();
     }

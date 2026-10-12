@@ -96,7 +96,6 @@ const PosSessionSchema = new Schema<IPosSession>(
             type: SchemaTypes.String,
             enum: ["opening_control", "opened", "closing_control", "closed"],
             default: "opening_control",
-            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 enumTones: {
                     opening_control:   "warning",
@@ -196,7 +195,6 @@ const PosSessionSchema = new Schema<IPosSession>(
                 _id: false,
             }],
             default: [],
-            permissions: NoWritePermission,
             dynamicTableConfiguration: HideFromTable,
         },
         orderCount: {

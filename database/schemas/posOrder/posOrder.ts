@@ -156,7 +156,6 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.String,
             enum: ["draft", "paid", "cancel", "refunded"],
             default: "draft",
-            permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 enumTones: {
                     draft:      "neutral",
@@ -379,7 +378,6 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission,
         },
         note: {
             type: SchemaTypes.String,

@@ -16,7 +16,13 @@ import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/noti
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import ReturnRequestModel from "./returnRequest";
-import {returnRequestService} from "./returnRequest.service";
+import {returnedItemsValue, returnRequestService} from "./returnRequest.service";
+import type {IReturnRequest} from "./returnRequest";
+import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
+import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
+import {assertFieldWrite, refundProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
+import {trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 
 function blankToUndefined(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
@@ -56,9 +62,80 @@ async function notifyOrder(
     await notifyProductOrderCustomer(code, {
         companyId: company._id,
         languageCode,
+        session,
         order,
         extra: {returnRequestId},
     });
+}
+
+async function loadOrder(orderRef: unknown, params: TransactionRequiredParams): Promise<IProductOrder> {
+    const {session, logger, languageCode, company} = params;
+    const orderId = nestedEntityToRef(orderRef);
+    if (!orderId) {
+        throw apiValidationException("order_not_found", "", null, languageCode);
+    }
+    return productOrderService.findOneOrThrow({_id: orderId, company: company._id}, {session, logger, languageCode});
+}
+
+/**
+ * Puts returned goods back on hand, into the warehouse each item shipped
+ * from (the order's consumed holds), with a `return` movement per row.
+ * Bundles come back as their components. Items whose sale never took stock
+ * (untracked products) or whose row is gone are noted on the order timeline
+ * instead.
+ */
+async function restockReturnedItems(request: IReturnRequest, order: IProductOrder, params: TransactionRequiredParams): Promise<void> {
+    const {session, logger, languageCode, company, actionUserCtx} = params;
+    const ctx = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
+
+    const lines = request.items.flatMap(item => {
+        const line = order.items.find(orderLine => orderLine._id.toString() === item.orderItemId.toString());
+        const productId = nestedEntityToRef(line?.product);
+        return productId ? [{product: productId, variant: nestedEntityToRef(line?.variant), quantity: item.quantity}] : [];
+    });
+    const stockLines = await trackedStockLines(lines, company._id, ctx);
+
+    const skipped: string[] = [];
+    for (const line of stockLines) {
+        const sold = order.reservations?.find(reservation =>
+            reservation.state === "consumed"
+            && nestedEntityToRef(reservation.product)?.equals(line.product)
+            && String(nestedEntityToRef(reservation.variant) ?? "") === String(line.variant ?? ""));
+        const warehouseId = nestedEntityToRef(sold?.warehouse);
+        const updated = warehouseId
+            ? await inventoryService.adjust(line.product, line.variant, warehouseId, line.quantity, ctx)
+            : null;
+        if (!warehouseId || !updated) {
+            skipped.push(line.product.toString());
+            continue;
+        }
+        await inventoryMovementService.create(
+            {
+                inventory: updated._id,
+                product: line.product,
+                variant: line.variant,
+                warehouse: warehouseId,
+                quantity: line.quantity,
+                reason: "return",
+                quantityBefore: updated.quantityOnHand - line.quantity,
+                quantityAfter: updated.quantityOnHand,
+                performedBy: new ObjectId(actionUserCtx.userId),
+                referenceType: "ReturnRequest",
+                referenceId: request._id,
+                company: company._id,
+            },
+            ctx,
+        );
+    }
+
+    if (skipped.length) {
+        logger.warn(`Return ${request._id}: no sold stock to put back for ${skipped.join(", ")}`);
+        await productOrderService.updateByIdOrThrow(
+            order._id,
+            {$push: {timeline: {event: "return_restock_skipped", timestamp: new Date(), userId: actionUserCtx.userId, note: skipped.join(", ")}}},
+            ctx,
+        );
+    }
 }
 
 export class ReturnRequestActions {
@@ -95,6 +172,10 @@ export class ReturnRequestActions {
         };
 
         if (refundAmount !== undefined && writeFields.refundAmount) {
+            const order = await loadOrder(existing.order, params);
+            if (refundAmount > returnedItemsValue(order, existing.items)) {
+                throw apiValidationException("return_refund_exceeds_items", "refundAmount", null, languageCode);
+            }
             update.refundAmount = refundAmount;
         }
         if (notes !== undefined && writeFields.adminNote) {
@@ -170,6 +251,11 @@ export class ReturnRequestActions {
             throw apiValidationException("return_request_not_approved", "", null, languageCode);
         }
 
+        // Goods come back for returns and exchanges; a refund-only request has nothing to receive
+        if (existing.type !== "refund") {
+            await restockReturnedItems(existing, await loadOrder(existing.order, params), params);
+        }
+
         await returnRequestService.updateByIdOrThrow(existing._id, {status: "received"}, ctx);
 
         return {message: "Return request received"};
@@ -193,6 +279,13 @@ export class ReturnRequestActions {
 
         if (existing.status !== "received") {
             throw apiValidationException("return_request_not_received", "", null, languageCode);
+        }
+
+        // Returns and refund requests pay back the agreed amount through the order's refund; exchanges don't
+        if (existing.type !== "exchange" && (existing.refundAmount ?? 0) > 0) {
+            assertFieldWrite(params, "paymentStatus");
+            const order = await loadOrder(existing.order, params);
+            await refundProductOrder(order, {amount: existing.refundAmount, reason: `Return request ${existing._id}`}, params);
         }
 
         await returnRequestService.updateByIdOrThrow(existing._id, {status: "completed"}, ctx);

@@ -23,6 +23,7 @@ import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/
 import { ICountry } from "@coreModule/database/schemas/country/country";
 import {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
 import {IGiftCard} from "@financeModule/database/schemas/giftCard/giftCard";
+import {type ICheckoutReservation, stockReservationsField} from "@eCommerceModule/database/schemas/checkout/checkout";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -59,7 +60,9 @@ export interface IProductOrderItem {
     snapshot?: {
         title?: string;
         sku?: string;
-        imageUrl?: string
+        imageUrl?: string;
+        variantLabel?: string;
+        productType?: string
     };
     _id: Schema.Types.ObjectId;
 }
@@ -83,6 +86,7 @@ export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDe
     taxTotal: number;
     grandTotal: number;
     currency: ICurrency;
+    currencyCode?: string;
     shippingAddress: IProductOrderAddress;
     billingAddress?: IProductOrderAddress;
     paymentStatus: ProductOrderPaymentStatus;
@@ -108,6 +112,8 @@ export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDe
     timeline?: IProductOrderTimelineEntry[];
     stripePaymentIntentId?: string;
     idempotencyKey: string;
+    /** Stock held for this order (moved from its checkout); consumed line by line as goods ship. */
+    reservations?: ICheckoutReservation[];
     /** Store credit redeemed against this order. */
     giftCard?: {
         giftCard: IGiftCard;
@@ -169,7 +175,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                 quantity: {
                     type: SchemaTypes.Number,
                     required: true,
-                    min: 1,
+                    min: 0.0001,
                     permissions: NoWritePermission,
                     dynamicTableConfiguration: HideFromTable,
                 },
@@ -203,7 +209,17 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                             type: SchemaTypes.String,
                             permissions: NoWritePermission,
                             dynamicTableConfiguration: HideFromTable,
-                        }
+                        },
+                        variantLabel: {
+                            type: SchemaTypes.String,
+                            permissions: NoWritePermission,
+                            dynamicTableConfiguration: HideFromTable,
+                        },
+                        productType: {
+                            type: SchemaTypes.String,
+                            permissions: NoWritePermission,
+                            dynamicTableConfiguration: HideFromTable,
+                        },
                     },
                 },
             }],
@@ -253,6 +269,11 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             required: true,
             refAllowlist: CurrencySimpleSnippet,
             permissions: NoWritePermission
+        },
+        currencyCode: {
+            type: SchemaTypes.String,
+            uppercase: true,
+            permissions: NoWritePermission,
         },
         shippingAddress: {
             type: {
@@ -466,6 +487,11 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             permissions: NoWritePermission
         },
+        reservations: {
+            ...stockReservationsField,
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: HideFromTable,
+        },
         idempotencyKey: {
             type: SchemaTypes.String,
             required: true,
@@ -514,4 +540,4 @@ normalizeSchemaPermissions(ProductOrder);
 export default ProductOrder;
 
 addModelData(ProductOrder, productOrderViews);
-validateSchemaDefAgainstMongoose(ProductOrderSchema, ProductOrderSchemaDef, "ProductOrder");
+validateSchemaDefAgainstMongoose(ProductOrderSchema, ProductOrderSchemaDef, "ProductOrder", ["reservations"]);

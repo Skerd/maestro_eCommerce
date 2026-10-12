@@ -1,4 +1,7 @@
 import {ObjectId} from "mongodb";
+import type {ClientSession} from "mongoose";
+import {runAfterCommit} from "@coreModule/utilities/middlewares/transactionUtils";
+import Currency from "@coreModule/database/schemas/currency/currency";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
@@ -27,13 +30,24 @@ const ORDER_CODE_TO_EMAIL_KIND: Partial<Record<string, ProductOrderClientEmailKi
     [NotificationEventCodes.RETURN_REQUEST_REJECTED]: "return_rejected",
 };
 
-function formatMoney(amount: number | undefined, languageCode: string): string | undefined {
+function formatMoney(amount: number | undefined, languageCode: string, currencyCode?: string): string | undefined {
     if (amount == null || Number.isNaN(amount)) return undefined;
     try {
-        return new Intl.NumberFormat(languageCode, {maximumFractionDigits: 2}).format(amount);
+        return new Intl.NumberFormat(
+            languageCode,
+            currencyCode ? {style: "currency", currency: currencyCode} : {maximumFractionDigits: 2},
+        ).format(amount);
     } catch {
-        return String(amount);
+        return currencyCode ? `${amount} ${currencyCode}` : String(amount);
     }
+}
+
+/** The ISO code of an order's currency, so amounts in emails say what money they are. */
+async function resolveCurrencyCode(currency: unknown): Promise<string | undefined> {
+    const currencyId = nestedEntityToRef(currency);
+    if (!currencyId) return undefined;
+    const doc = await Currency.findById(currencyId, {abbreviation: 1}).lean();
+    return doc?.abbreviation?.toUpperCase();
 }
 
 async function resolveCompanyName(companyId: string): Promise<string> {
@@ -41,10 +55,16 @@ async function resolveCompanyName(companyId: string): Promise<string> {
     return company?.name ?? "";
 }
 
+/**
+ * Who order emails go to: the address the buyer gave for this order (the
+ * checkout contact email), else their account login. The account supplies the
+ * name either way.
+ */
 async function resolveRecipientEmail(opts: {
     customerId?: string;
     orderEmail?: string;
 }): Promise<{email: string; fullName: string; userId?: string} | null> {
+    let account: {email: string; fullName: string; userId: string} | null = null;
     if (opts.customerId) {
         try {
             const user = await userService.findById(
@@ -54,26 +74,27 @@ async function resolveRecipientEmail(opts: {
                 "username name surname fullName",
             );
             if (user?.username) {
-                return {
+                account = {
                     email: user.username,
                     fullName: user.fullName || `${user.name ?? ""} ${user.surname ?? ""}`.trim() || user.username,
                     userId: user._id.toString(),
                 };
             }
         } catch {
-            // fall through to order email
+            // fall back to the order email alone
         }
     }
-    if (opts.orderEmail?.trim()) {
-        return {email: opts.orderEmail.trim(), fullName: opts.orderEmail.trim()};
+    const orderEmail = opts.orderEmail?.trim();
+    if (orderEmail) {
+        return {email: orderEmail, fullName: account?.fullName ?? orderEmail, userId: account?.userId};
     }
-    return null;
+    return account;
 }
 
 export type NotifyOrderOpts = {
     companyId: ObjectId | string;
     languageCode: string;
-    order?: Pick<IProductOrder, "_id" | "orderNumber" | "email" | "customer" | "grandTotal"> | null;
+    order?: Pick<IProductOrder, "_id" | "orderNumber" | "email" | "customer" | "grandTotal"> & Partial<Pick<IProductOrder, "currency" | "currencyCode">> | null;
     orderId?: string;
     orderNumber?: string;
     orderEmail?: string;
@@ -94,15 +115,20 @@ export type NotifyOrderOpts = {
     emailOnly?: boolean;
     /** Skip transactional email. */
     skipEmail?: boolean;
+    /** The caller's transaction: sending waits until it commits (see runAfterCommit). */
+    session?: ClientSession | null;
 };
 
 /**
- * In-app notify (when customer id present) + transactional email (customer user email or order.email).
+ * In-app notify (when customer id present) + transactional email (order.email, else the customer's login).
  */
 export async function notifyProductOrderCustomer(
     code: string,
     opts: NotifyOrderOpts,
 ): Promise<void> {
+    if (opts.session) {
+        return runAfterCommit(opts.session, () => notifyProductOrderCustomer(code, {...opts, session: undefined}));
+    }
     const companyId = opts.companyId.toString();
     const customerFromOrder = opts.order ? nestedEntityToRef(opts.order.customer) : undefined;
     const customerId = opts.customerId || customerFromOrder?.toString() || "";
@@ -132,6 +158,7 @@ export async function notifyProductOrderCustomer(
     if (!recipient) return;
 
     const companyName = await resolveCompanyName(companyId);
+    const currencyCode = opts.order?.currencyCode ?? await resolveCurrencyCode(opts.order?.currency);
     await dispatchProductOrderClientEmail({
         email: recipient.email,
         userId: recipient.userId,
@@ -142,11 +169,11 @@ export async function notifyProductOrderCustomer(
         companyName,
         orderId,
         orderNumber,
-        orderTotalDisplay: formatMoney(opts.extra?.grandTotal ?? opts.order?.grandTotal, opts.languageCode),
+        orderTotalDisplay: formatMoney(opts.extra?.grandTotal ?? opts.order?.grandTotal, opts.languageCode, currencyCode),
         trackingNumber: opts.extra?.trackingNumber || undefined,
         trackingUrl: opts.extra?.trackingUrl || undefined,
         carrier: opts.extra?.carrier || undefined,
-        refundAmountDisplay: formatMoney(opts.extra?.amount, opts.languageCode),
+        refundAmountDisplay: formatMoney(opts.extra?.amount, opts.languageCode, currencyCode),
         failureReason: opts.extra?.failureReason || undefined,
         giftCardCodes: opts.extra?.giftCardCodes,
         downloadLinks: opts.extra?.downloadLinks,
@@ -163,7 +190,13 @@ export async function notifyMerchantsNewOrder(opts: {
     orderId: string;
     orderNumber: string;
     grandTotal?: number;
+    currency?: unknown;
+    session?: ClientSession | null;
 }): Promise<void> {
+    if (opts.session) {
+        return runAfterCommit(opts.session, () => notifyMerchantsNewOrder({...opts, session: undefined}));
+    }
+    const currencyCode = await resolveCurrencyCode(opts.currency);
     const companyId = opts.companyId.toString();
     const receiverIds = await findCompanyAdminReceiverIds(companyId);
     if (receiverIds.length) {
@@ -192,7 +225,7 @@ export async function notifyMerchantsNewOrder(opts: {
                 companyName,
                 orderId: opts.orderId,
                 orderNumber: opts.orderNumber,
-                orderTotalDisplay: formatMoney(opts.grandTotal, opts.languageCode),
+                orderTotalDisplay: formatMoney(opts.grandTotal, opts.languageCode, currencyCode),
             }),
         ),
     );

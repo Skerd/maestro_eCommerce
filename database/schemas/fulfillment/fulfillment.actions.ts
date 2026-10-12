@@ -15,12 +15,13 @@ import type {FulfillmentStatusNotesFormType} from "armonia/src/modules/eCommerce
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
+import {consumeForShipment, reverseShipment, syncOrderFulfillment} from "@eCommerceModule/utilities/services/orderFulfillmentService";
+import {releaseReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import FulfillmentModel, {type IFulfillment} from "./fulfillment";
 import {fulfillmentService} from "./fulfillment.service";
 
 const NOT_READY_TO_SHIP: ProductOrderStatus[] = ["pending", "cancelled", "refunded"];
-const SHIP_ADVANCES_ORDER: ProductOrderStatus[] = ["confirmed", "processing"];
-const DELIVER_ADVANCES_ORDER: ProductOrderStatus[] = ["confirmed", "processing", "shipped"];
+const ORDER_CLOSED: ProductOrderStatus[] = ["cancelled", "refunded"];
 
 function blankToUndefined(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
@@ -107,28 +108,13 @@ export class FulfillmentActions {
         }
 
         await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
-
-        if (SHIP_ADVANCES_ORDER.includes(order.status)) {
-            await productOrderService.updateByIdOrThrow(
-                order._id,
-                {
-                    $set: {status: "shipped", fulfillmentStatus: "fulfilled"},
-                    $push: {
-                        timeline: {
-                            event: "order_shipped",
-                            timestamp: new Date(),
-                            userId: actionUserCtx.userId,
-                            note: update.trackingNumber,
-                        },
-                    },
-                },
-                ctx,
-            );
-        }
+        await consumeForShipment(order, existing.items, existing._id, ctx);
+        await syncOrderFulfillment(order, {event: "order_partially_shipped", userId: actionUserCtx.userId, note: update.trackingNumber}, ctx);
 
         await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_SHIPPED, {
             companyId: company._id,
             languageCode,
+            session,
             order,
             extra: {
                 trackingNumber: update.trackingNumber ?? existing.trackingNumber ?? "",
@@ -172,28 +158,17 @@ export class FulfillmentActions {
         await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
 
         const order = await loadOrderForFulfillment(existing, params);
-        if (DELIVER_ADVANCES_ORDER.includes(order.status)) {
-            await productOrderService.updateByIdOrThrow(
-                order._id,
-                {
-                    $set: {status: "delivered", fulfillmentStatus: "fulfilled"},
-                    $push: {
-                        timeline: {
-                            event: "order_delivered",
-                            timestamp: new Date(),
-                            userId: actionUserCtx.userId,
-                        },
-                    },
-                },
-                ctx,
-            );
-        }
+        const {status} = await syncOrderFulfillment(order, {event: "shipment_delivered", userId: actionUserCtx.userId}, ctx);
 
-        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_DELIVERED, {
-            companyId: company._id,
-            languageCode,
-            order,
-        });
+        // The buyer hears once everything has arrived, not per parcel
+        if (status === "delivered" && order.status !== "delivered") {
+            await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_DELIVERED, {
+                companyId: company._id,
+                languageCode,
+                session,
+                order,
+            });
+        }
 
         return {message: "Fulfillment marked as delivered"};
     }
@@ -225,6 +200,15 @@ export class FulfillmentActions {
         }
 
         await fulfillmentService.updateByIdOrThrow(existing._id, update, ctx);
+
+        // A parcel that left and came back: its units return to stock, held for the order again
+        const order = await loadOrderForFulfillment(existing, params);
+        if (existing.status === "shipped") {
+            await reverseShipment(order, existing._id, ctx);
+            // A cancelled or refunded order no longer wants them held
+            if (ORDER_CLOSED.includes(order.status)) await releaseReservations(order, ctx);
+        }
+        await syncOrderFulfillment(order, {event: "shipment_failed", userId: actionUserCtx.userId, note: update.notes}, ctx);
 
         return {message: "Fulfillment marked as failed"};
     }

@@ -46,6 +46,7 @@ import {
     shortText,
     toNumber
 } from "@coreModule/domain/ai/tools/assistantToolKit";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 
 const PRODUCT_STATUS_VALUES = enumValues<ProductStatus>({draft: true, active: true, archived: true});
 const PRODUCT_TYPE_VALUES = enumValues<ProductType>({
@@ -120,6 +121,10 @@ const productParameters = {
 };
 
 async function executeProducts(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "products[read:title]");
+    if (!access.allowed) return accessDenied("the product catalog");
+
     const args = SearchProductsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -236,6 +241,10 @@ const inventoryParameters = {
 };
 
 async function executeInventory(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "inventories[read:quantityOnHand]");
+    if (!access.allowed) return accessDenied("stock levels");
+
     const args = SearchInventoryArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.

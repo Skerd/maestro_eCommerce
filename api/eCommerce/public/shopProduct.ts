@@ -7,6 +7,8 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
+import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {toShopProductDetail, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
@@ -16,18 +18,34 @@ export const basePath = "/api/eCommerce/shopProduct";
 export const router = Router();
 
 /**
- * Availability per variant ("" = base product), using the same rule as checkout
- * reservation: a product/variant with no inventory rows is untracked (always
- * available); otherwise it needs on-hand minus reserved > 0 in some warehouse.
+ * Availability per variant ("" = base product), using the same rules as checkout
+ * reservation: untracked items are always available (isStockTracked); tracked
+ * ones need on-hand minus reserved > 0 in some active warehouse. A product with
+ * variants is available when any of its variants is.
  */
-async function stockAvailability(productId: unknown, companyId: unknown): Promise<ShopStockMap> {
-    const rows = await Inventory.find({product: productId, company: companyId}, {variant: 1, quantityOnHand: 1, quantityReserved: 1}).lean();
-    const stock: ShopStockMap = new Map();
+async function stockAvailability(product: any, variants: any[], companyId: unknown): Promise<ShopStockMap> {
+    const warehouseIds = (await Warehouse.find({company: companyId, isActive: true}, {_id: 1}).noDeleted().lean())
+        .map(warehouse => warehouse._id);
+    const rows = await Inventory.find(
+        {product: product._id, company: companyId, warehouse: {$in: warehouseIds}},
+        {variant: 1, quantityOnHand: 1, quantityReserved: 1},
+    ).noDeleted().lean();
+
+    const available = new Set<string>();
     for (const row of rows as any[]) {
-        const key = row.variant ? row.variant.toString() : "";
-        const available = (row.quantityOnHand ?? 0) - (row.quantityReserved ?? 0) > 0;
-        stock.set(key, (stock.get(key) ?? false) || available);
+        if ((row.quantityOnHand ?? 0) - (row.quantityReserved ?? 0) > 0) {
+            available.add(row.variant ? row.variant.toString() : "");
+        }
     }
+
+    const stock: ShopStockMap = new Map();
+    for (const variant of variants) {
+        const key = variant._id.toString();
+        stock.set(key, !isStockTracked(product, variant) || available.has(key));
+    }
+    stock.set("", variants.length
+        ? [...stock.values()].some(Boolean)
+        : !isStockTracked(product) || available.has(""));
     return stock;
 }
 
@@ -58,7 +76,7 @@ router.post(
 
         const variants = (product as any).hasVariants
             ? await ProductVariant.find({product: product._id, company: company._id, status: "active"})
-                  .select("sku price compareAtPrice attributeCombination mainImage order")
+                  .select("sku price compareAtPrice attributeCombination mainImage order trackInventory")
                   .populate("attributeCombination.attribute", "name")
                   .sort({order: 1})
                   .lean()
@@ -91,6 +109,6 @@ router.post(
             }
         }
 
-        return {data: toShopProductDetail(product, variants, related, await stockAvailability(product._id, company._id))};
+        return {data: toShopProductDetail(product, variants, related, await stockAvailability(product, variants, company._id))};
     }),
 );

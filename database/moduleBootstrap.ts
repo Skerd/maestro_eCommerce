@@ -4,6 +4,8 @@ import type {Model} from "mongoose";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import SavedSearch from "@eCommerceModule/database/schemas/savedSearch/savedSearch";
 import {registerPublicMediaBackfillSource} from "@coreModule/utilities/media/publicMediaBackfillRegistry";
+import {registerDefaultRoles} from "@coreModule/database/schemas/role/role.defaults";
+import {eCommerceDefaultRoles} from "@eCommerceModule/database/schemas/role/eCommerce.role.defaults";
 import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
 import {CollectionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/collection/collection.schema-def";
@@ -19,6 +21,7 @@ export async function dropECommerceCollections(): Promise<void> {
     }
 }
 
+registerDefaultRoles(eCommerceDefaultRoles);
 registerECommerceRefSelects();
 registerPublicMediaBackfillSource({
     name: "Product",
@@ -39,4 +42,5 @@ registerPublicMediaBackfillSource({
 export const moduleBootstrap = {
     models: eCommerceModels,
     dropModuleCollections: dropECommerceCollections,
+    defaultRoles: eCommerceDefaultRoles,
 };

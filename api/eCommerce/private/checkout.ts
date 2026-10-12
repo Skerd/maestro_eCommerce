@@ -13,7 +13,7 @@ import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
-import {calculateTax} from "@eCommerceModule/utilities/services/taxCalculationService";
+import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
 import {repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
@@ -34,6 +34,12 @@ import {confirmCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eComm
 
 export const basePath = "/api/eCommerce/checkout";
 export const router = Router();
+
+/** Product weights are converted to kilograms before shipping rates are matched. */
+const KG_PER_UNIT: Record<string, number> = {kg: 1, g: 0.001, lb: 0.45359237, oz: 0.028349523125};
+
+/** Product types that are physically delivered (unless the product says it needs no shipping). */
+const SHIPPED_TYPES = new Set(["physical", "variable", "bundle"]);
 
 /** How long a checkout (and the stock it holds) stays open without activity. */
 const CHECKOUT_TTL_MS = 30 * 60 * 1000;
@@ -92,6 +98,7 @@ function syncCheckoutFromCart(checkout: ICheckout, cart: ICart): void {
     checkout.selectedShippingRate = undefined;
     checkout.shippingTotal = 0;
     checkout.taxTotal = 0;
+    checkout.taxBreakdown = [];
     checkout.grandTotal = roundMoney(Math.max(0, checkout.subtotal - checkout.discountTotal - (checkout.giftCard?.amount ?? 0)));
 }
 
@@ -219,27 +226,36 @@ router.post(
         checkout.billingAddress = billingAddress ?? shippingAddress;
 
         const productIds = (checkout.items as any[]).map(item => item.product?._id ?? item.product);
-        const weights = new Map(
-            (await Product.find({_id: {$in: productIds}, company: company._id}, {weight: 1}).session(session).lean())
-                .map((p: any) => [p._id.toString(), Number(p.weight ?? 0)]),
+        const products = new Map(
+            (await Product.find({_id: {$in: productIds}, company: company._id}, {weight: 1, weightUnit: 1, type: 1, requiresShipping: 1})
+                .session(session).lean())
+                .map((p: any) => [p._id.toString(), p]),
         );
+        const productOf = (item: any) => products.get(String(item.product?._id ?? item.product));
         const totalQuantity = (checkout.items as any[]).reduce((sum, item) => sum + item.quantity, 0);
-        const totalWeight = (checkout.items as any[]).reduce(
-            (sum, item) => sum + (weights.get(String(item.product?._id ?? item.product)) ?? 0) * item.quantity,
-            0,
-        );
+        const totalWeight = (checkout.items as any[]).reduce((sum, item) => {
+            const product = productOf(item);
+            return sum + Number(product?.weight ?? 0) * (KG_PER_UNIT[product?.weightUnit ?? "kg"] ?? 1) * item.quantity;
+        }, 0);
+        const needsShipping = (checkout.items as any[]).some(item => {
+            const product = productOf(item);
+            return !product || (SHIPPED_TYPES.has(product.type) && product.requiresShipping !== false);
+        });
 
-        const availableRates = await calculateShipping(
-            {
-                subtotal: checkout.subtotal,
-                itemCount: totalQuantity,
-                totalWeight,
-                destinationCountry: shippingAddress?.country,
-                destinationState: shippingAddress?.state,
-                destinationPostalCode: shippingAddress?.postalCode,
-            },
-            company._id,
-        );
+        // Gift cards, downloads and services travel by email: one free "rate" keeps the checkout steps the same
+        const availableRates = needsShipping
+            ? await calculateShipping(
+                {
+                    subtotal: checkout.subtotal,
+                    itemCount: totalQuantity,
+                    totalWeight,
+                    destinationCountry: shippingAddress?.country,
+                    destinationState: shippingAddress?.state,
+                    destinationPostalCode: shippingAddress?.postalCode,
+                },
+                company._id,
+            )
+            : [{rateName: "No shipping required", price: 0}];
         // Normalize to the schema's rate shape ({name, carrier, price, estimatedDeliveryDays})
         checkout.availableShippingRates = (availableRates as any[]).map(rate => ({
             name: rate.rateName ?? rate.name ?? "",
@@ -252,6 +268,7 @@ router.post(
         checkout.selectedShippingRate = undefined;
         checkout.shippingTotal = 0;
         checkout.taxTotal = 0;
+        checkout.taxBreakdown = [];
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
@@ -279,14 +296,19 @@ router.post(
 
         const appliedDiscountId = checkout.appliedDiscounts?.[0]?.discount;
         const freeShipping = appliedDiscountId
-            ? Boolean(await Discount.exists({_id: appliedDiscountId, company: company._id, type: "free_shipping"}).session(session))
+            ? Boolean(await Discount.exists({_id: appliedDiscountId, company: company._id, type: "free_shipping", deletedAt: null}).session(session))
             : false;
 
         checkout.selectedShippingRate = rate;
         checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
-        checkout.taxTotal = roundMoney(
-            await calculateTax(Math.max(0, checkout.subtotal - checkout.discountTotal), checkout.shippingAddress as any ?? {}, company._id),
+        const tax = await calculateLinesTax(
+            checkout.items as any[],
+            checkout.discountTotal,
+            checkout.shippingAddress as any ?? {},
+            company._id,
         );
+        checkout.taxTotal = tax.amount;
+        checkout.taxBreakdown = tax.breakdown;
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});

@@ -24,6 +24,7 @@ import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {companyObjectId, companyScope, roundMoney, toAmount} from "@coreModule/domain/ai/tools/assistantToolKit";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 
 /** Default reporting window for the "recent activity" figures. */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -104,6 +105,10 @@ async function revenueInWindow(
 }
 
 async function execute(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "productorders[read:grandTotal]");
+    if (!access.allowed) return accessDenied("store sales figures");
+
     const args = StoreOverviewArgs.parse(rawArgs ?? {});
     const windowDays = args.windowDays ?? DEFAULT_WINDOW_DAYS;
     const now = new Date();

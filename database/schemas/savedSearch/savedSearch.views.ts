@@ -93,35 +93,50 @@ export const savedSearchSheetView: ViewConfig = {
                     ],
                 },
                 {
-                    render: "#SheetGroup",
-                    props: {title: "categoryIds", defaultOpen: true, collapsible: false},
-                    permissions: {read: "categoryIds"},
+                    render: "#ReferencesViewModeScope",
+                    props: {
+                        storageKey: "savedSearch.sheet.categoryIds.listDisplay",
+                        defaultMode: "compact",
+                    },
                     children: [
                         {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            render: "#SheetGroup",
+                            props: {
+                                title: "categoryIds",
+                                titleActions: "#ReferencesViewModeToggle",
+                                defaultOpen: true,
+                                // Nested under filters — avoid a second CollapsibleContent (overflow:hidden clips cards).
+                                collapsible: false,
+                            },
+                            permissions: {read: "categoryIds"},
                             children: [
                                 {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "categoryIds"},
-                                    field: {
-                                        name: "categoryIds",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#CategoryCard",
-                                            itemDataProp: "category",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconCategory2",
-                                                label: "category",
-                                                valuePath: ["name"],
-                                                linkedSheetModel: "productcategories",
-                                                linkedSheetWidget: "#CategorySheetView",
-                                                linkedSheetEntityProp: "category",
+                                    render: "div",
+                                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                                    children: [
+                                        {
+                                            render: "#ReferencesRender",
+                                            permissions: {read: "categoryIds"},
+                                            field: {
+                                                name: "categoryIds",
+                                                widget: "#ReferencesRender",
+                                                widgetProps: {
+                                                    cardWidget: "#CategoryCard",
+                                                    itemDataProp: "category",
+                                                    pageSize: 3,
+                                                    hideActions: true,
+                                                    compactRow: {
+                                                        icon: "#IconCategory2",
+                                                        label: "category",
+                                                        valuePath: ["name"],
+                                                        linkedSheetModel: "productcategories",
+                                                        linkedSheetWidget: "#CategorySheetView",
+                                                        linkedSheetEntityProp: "category",
+                                                    },
+                                                },
                                             },
                                         },
-                                    },
+                                    ],
                                 },
                             ],
                         },

@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import ShippingZone, {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 
@@ -26,7 +27,8 @@ function matchesPostalCode(postalCode: string | undefined, patterns: string[] | 
     if (!patterns?.length) return true;
     if (!postalCode) return false;
     return patterns.some((pattern) => {
-        const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`, "i");
+        // Only `*` is a wildcard; everything else in the configured pattern is literal
+        const regex = new RegExp(`^${escapeRegex(pattern).replace(/\\\*/g, ".*")}$`, "i");
         return regex.test(postalCode);
     });
 }
@@ -104,7 +106,7 @@ const internalZonesShippingProvider: ShippingRateProvider = {
             company: companyId,
             isActive: true,
             countries: countryId,
-        }).lean();
+        }).noDeleted().lean();
 
         const availableRates: AvailableShippingRate[] = [];
 

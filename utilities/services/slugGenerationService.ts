@@ -23,7 +23,8 @@ export async function generateUniqueSlug(
     while (true) {
         const filter: Record<string, unknown> = {slug, company: companyId};
         if (existingId) filter._id = {$ne: existingId};
-        const count = await model.countDocuments(filter);
+        // Soft-deleted rows still hold their slug in the unique index, so they count as taken
+        const count = await model.countDocuments(filter).withDeleted();
         if (count === 0) return slug;
         suffix++;
         slug = `${baseSlug}-${suffix}`;

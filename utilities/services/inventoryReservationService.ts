@@ -2,10 +2,10 @@ import {ObjectId} from "mongodb";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
-import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import Product, {type IProduct} from "@eCommerceModule/database/schemas/product/product";
+import ProductVariant, {type IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
-import type {ICheckout, ICheckoutReservation} from "@eCommerceModule/database/schemas/checkout/checkout";
+import type {ICheckoutReservation} from "@eCommerceModule/database/schemas/checkout/checkout";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 
 type ReservationCtx = CrudOptions & {auditUserId?: ObjectId | string};
@@ -37,7 +37,7 @@ export async function explodeBundleLines(
         {_id: {$in: productIds}, company: companyId, type: "bundle"},
         {bundleComponents: 1},
         {session: ctx.session},
-    );
+    ).noDeleted();
     if (bundles.length === 0) return items;
 
     const bundleMap = new Map(
@@ -72,72 +72,113 @@ export async function explodeBundleLines(
     return [...merged.values()];
 }
 
+/** Product types that never hold stock: bundles are exploded into their components instead. */
+const UNTRACKED_TYPES = new Set(["digital", "service", "gift_card", "bundle"]);
+
 /**
- * Reserves stock for every stock-tracked checkout line inside the caller's
- * transaction. Bundle lines are exploded into their components first. Lines
- * with no Inventory record at all are treated as untracked (digital / service
- * products) and skipped. Warehouse choice: the company's default warehouse
- * when it holds the item, otherwise the first inventory row with enough
- * available stock. Throws OutOfStockError when no warehouse can cover a
- * tracked line, after releasing the holds this call already made.
+ * The single stock-tracking rule for online checkout, the storefront and POS:
+ * physical / variable products are tracked unless the product or the variant
+ * opts out with `trackInventory: false`.
+ */
+export function isStockTracked(
+    product: Pick<IProduct, "type" | "trackInventory">,
+    variant?: Pick<IProductVariant, "trackInventory"> | null,
+): boolean {
+    if (UNTRACKED_TYPES.has(product.type)) return false;
+    return product.trackInventory !== false && variant?.trackInventory !== false;
+}
+
+type StockLine = {product: ObjectId; variant?: ObjectId; quantity: number};
+
+/**
+ * The lines that move stock: bundles exploded into their components, then
+ * every line that isStockTracked. A product that no longer exists counts as
+ * tracked, so it can only sell from stock that is actually there.
+ */
+export async function trackedStockLines(
+    rawItems: StockLine[],
+    companyId: ObjectId,
+    ctx: ReservationCtx,
+): Promise<StockLine[]> {
+    const items = await explodeBundleLines(rawItems, companyId, ctx);
+
+    const variantIds = items.flatMap(item => (item.variant ? [item.variant] : []));
+    const [products, variants] = await Promise.all([
+        Product.find({_id: {$in: items.map(item => item.product)}, company: companyId}, {type: 1, trackInventory: 1})
+            .noDeleted().session(ctx.session ?? null),
+        ProductVariant.find({_id: {$in: variantIds}, company: companyId}, {trackInventory: 1})
+            .noDeleted().session(ctx.session ?? null),
+    ]);
+    const productMap = new Map(products.map(product => [product._id.toString(), product]));
+    const variantMap = new Map(variants.map(variant => [variant._id.toString(), variant]));
+
+    return items.filter(item => {
+        const product = productMap.get(item.product.toString());
+        const variant = item.variant ? variantMap.get(item.variant.toString()) : null;
+        return !product || isStockTracked(product, variant);
+    });
+}
+
+/**
+ * Holds stock for every stock-tracked line (trackedStockLines) inside the
+ * caller's transaction. Only active warehouses count. Per line: one warehouse
+ * that covers it all (the default one first), otherwise the line is split
+ * across warehouses (default first). Throws OutOfStockError when the active
+ * warehouses together can't cover a tracked line, after releasing the holds
+ * this call already made.
  */
 export async function reserveCheckoutStock(
-    rawItems: {product: ObjectId; variant?: ObjectId; quantity: number}[],
+    rawItems: StockLine[],
     companyId: ObjectId,
     ctx: ReservationCtx,
 ): Promise<ICheckoutReservation[]> {
-    const items = await explodeBundleLines(rawItems, companyId, ctx);
+    const items = await trackedStockLines(rawItems, companyId, ctx);
 
-    const defaultWarehouse = await Warehouse.findOne(
-        {company: companyId, isDefault: true, isActive: true},
-        {_id: 1},
-        {session: ctx.session},
-    );
+    const warehouses = await Warehouse.find({company: companyId, isActive: true}, {_id: 1, isDefault: 1})
+        .noDeleted().session(ctx.session ?? null);
+    const warehouseIds = warehouses.map(warehouse => warehouse._id);
+    const defaultWarehouseId = warehouses.find(warehouse => warehouse.isDefault)?._id.toString();
 
     const reservations: ICheckoutReservation[] = [];
+    const hold = async (item: StockLine, warehouseId: ObjectId, quantity: number): Promise<boolean> => {
+        if (!(await inventoryService.reserveStock(item.product, item.variant, warehouseId, quantity, ctx))) return false;
+        reservations.push({product: item.product, variant: item.variant, warehouse: warehouseId, quantity, state: "reserved"});
+        return true;
+    };
 
     for (const item of items) {
-        const filter: Record<string, unknown> = {
-            product: item.product,
-            company: companyId,
-            variant: item.variant ?? null,
-        };
+        const rows = await Inventory.find(
+            {product: item.product, company: companyId, variant: item.variant ?? null, warehouse: {$in: warehouseIds}},
+            {warehouse: 1, quantityOnHand: 1, quantityReserved: 1},
+            {session: ctx.session},
+        ).noDeleted();
 
-        const rows = await Inventory.find(filter, {warehouse: 1, quantityOnHand: 1, quantityReserved: 1}, {session: ctx.session});
-        if (rows.length === 0) continue; // untracked line (digital/service)
-
-        const ordered = defaultWarehouse
+        const ordered = defaultWarehouseId
             ? [...rows].sort((a, b) =>
-                  nestedEntityToRef(a.warehouse)?.toString() === defaultWarehouse._id.toString() ? -1
-                  : nestedEntityToRef(b.warehouse)?.toString() === defaultWarehouse._id.toString() ? 1 : 0)
+                  nestedEntityToRef(a.warehouse)?.toString() === defaultWarehouseId ? -1
+                  : nestedEntityToRef(b.warehouse)?.toString() === defaultWarehouseId ? 1 : 0)
             : rows;
 
-        let reserved = false;
+        // One warehouse for the whole line when possible: fewer parcels
+        let covered = false;
         for (const row of ordered) {
-            const warehouseId = refId(row.warehouse);
-            const result = await inventoryService.reserveStock(
-                item.product,
-                item.variant,
-                warehouseId,
-                item.quantity,
-                ctx,
-            );
-            if (result) {
-                reservations.push({
-                    product: item.product,
-                    variant: item.variant,
-                    warehouse: warehouseId,
-                    quantity: item.quantity,
-                    state: "reserved",
-                });
-                reserved = true;
+            if (await hold(item, refId(row.warehouse), item.quantity)) {
+                covered = true;
                 break;
             }
         }
 
-        if (!reserved) {
-            // Undo this call's partial holds so callers that catch the error (and
-            // keep their transaction) never commit untracked reservations.
+        // Otherwise split it: take what each warehouse has, default first
+        let remaining = covered ? 0 : item.quantity;
+        for (const row of covered ? [] : ordered) {
+            const take = Math.min(remaining, Math.max(0, row.quantityOnHand - row.quantityReserved));
+            if (take > 0 && await hold(item, refId(row.warehouse), take)) remaining -= take;
+            if (remaining <= 0) break;
+        }
+
+        if (remaining > 0) {
+            // Undo this call's holds so callers that catch the error (and keep
+            // their transaction) never commit a partial reservation.
             for (const held of reservations) {
                 await inventoryService.releaseReservation(held.product, held.variant, held.warehouse, held.quantity, ctx);
             }
@@ -148,63 +189,20 @@ export async function reserveCheckoutStock(
     return reservations;
 }
 
-/**
- * Converts a checkout's "reserved" reservations into sales: decrements stock,
- * writes InventoryMovement rows, and flips reservation state to "consumed".
- * Idempotent — already-consumed/released entries are skipped.
- */
-export async function consumeCheckoutReservations(checkout: ICheckout, ctx: ReservationCtx): Promise<void> {
-    const companyId = nestedEntityToRef(checkout.company);
-    if (!companyId) return;
-
-    for (const reservation of checkout.reservations ?? []) {
-        if (reservation.state !== "reserved") continue;
-
-        const productId = nestedEntityToRef(reservation.product);
-        const variantId = nestedEntityToRef(reservation.variant);
-        const warehouseId = nestedEntityToRef(reservation.warehouse);
-        if (!productId || !warehouseId) continue;
-
-        const before = await Inventory.findOne(
-            {product: productId, warehouse: warehouseId, company: companyId, variant: variantId ?? null},
-            {quantityOnHand: 1},
-            {session: ctx.session},
-        );
-
-        await inventoryService.confirmSale(productId, variantId, warehouseId, reservation.quantity, ctx);
-
-        const quantityBefore = before?.quantityOnHand ?? 0;
-        await inventoryMovementService.create(
-            {
-                inventory: before?._id,
-                product: productId,
-                variant: variantId,
-                warehouse: warehouseId,
-                quantity: -reservation.quantity,
-                reason: "sale",
-                quantityBefore,
-                quantityAfter: quantityBefore - reservation.quantity,
-                performedBy: typeof ctx.auditUserId === "string" ? new ObjectId(ctx.auditUserId) : ctx.auditUserId,
-                referenceType: "Checkout",
-                referenceId: checkout._id,
-                company: companyId,
-            },
-            ctx,
-        );
-
-        reservation.state = "consumed";
-    }
-
-    checkout.markModified("reservations");
-    await checkout.save({session: ctx.session});
-}
+/** A Checkout or ProductOrder: anything that holds stock reservations. */
+type ReservationHolder = {
+    reservations?: ICheckoutReservation[];
+    markModified(path: string): void;
+    save(options?: {session?: ReservationCtx["session"]}): Promise<unknown>;
+};
 
 /**
- * Releases every "reserved" reservation on a checkout (cancel / expiry).
- * Idempotent — only "reserved" entries are released.
+ * Releases every "reserved" hold on a checkout or order (payment reset,
+ * expiry, cancel, full refund). Idempotent — only "reserved" entries are
+ * released; consumed (shipped) ones stay as they are.
  */
-export async function releaseCheckoutReservations(checkout: ICheckout, ctx: ReservationCtx): Promise<void> {
-    for (const reservation of checkout.reservations ?? []) {
+export async function releaseReservations(holder: ReservationHolder, ctx: ReservationCtx): Promise<void> {
+    for (const reservation of holder.reservations ?? []) {
         if (reservation.state !== "reserved") continue;
 
         const productId = nestedEntityToRef(reservation.product);
@@ -216,55 +214,6 @@ export async function releaseCheckoutReservations(checkout: ICheckout, ctx: Rese
         reservation.state = "released";
     }
 
-    checkout.markModified("reservations");
-    await checkout.save({session: ctx.session});
-}
-
-/**
- * Puts sold stock back (full refund of an order that never shipped): every
- * "consumed" reservation is returned to its warehouse with a `return`
- * movement and flipped to "released", so a second call is a no-op.
- * Returns the number of lines restocked.
- */
-export async function restockConsumedReservations(checkout: ICheckout, ctx: ReservationCtx & {referenceId?: ObjectId}): Promise<number> {
-    const companyId = nestedEntityToRef(checkout.company);
-    if (!companyId) return 0;
-    let restocked = 0;
-
-    for (const reservation of checkout.reservations ?? []) {
-        if (reservation.state !== "consumed") continue;
-
-        const productId = nestedEntityToRef(reservation.product);
-        const variantId = nestedEntityToRef(reservation.variant);
-        const warehouseId = nestedEntityToRef(reservation.warehouse);
-        if (!productId || !warehouseId) continue;
-
-        const updated = await inventoryService.adjust(productId, variantId, warehouseId, reservation.quantity, ctx);
-        if (!updated) continue; // inventory row deleted since the sale — nothing to return to
-
-        await inventoryMovementService.create(
-            {
-                inventory: updated._id,
-                product: productId,
-                variant: variantId,
-                warehouse: warehouseId,
-                quantity: reservation.quantity,
-                reason: "return",
-                quantityBefore: updated.quantityOnHand - reservation.quantity,
-                quantityAfter: updated.quantityOnHand,
-                performedBy: typeof ctx.auditUserId === "string" ? new ObjectId(ctx.auditUserId) : ctx.auditUserId,
-                referenceType: ctx.referenceId ? "ProductOrder" : "Checkout",
-                referenceId: ctx.referenceId ?? checkout._id,
-                company: companyId,
-            },
-            ctx,
-        );
-
-        reservation.state = "released";
-        restocked += 1;
-    }
-
-    checkout.markModified("reservations");
-    await checkout.save({session: ctx.session});
-    return restocked;
+    holder.markModified("reservations");
+    await holder.save({session: ctx.session});
 }

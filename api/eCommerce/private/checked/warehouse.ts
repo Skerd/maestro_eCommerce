@@ -9,6 +9,9 @@ import {WarehouseActions} from "@eCommerceModule/database/schemas/warehouse/ware
 import {warehouseToDTO, warehousesToDTO} from "@eCommerceModule/utilities/mappers/warehouse/warehouseMapper.dto";
 import {warehousesToSelect} from "@eCommerceModule/utilities/mappers/warehouse/warehouseMapper.select";
 import {detachWarehouseFromPosConfigsOrThrow} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerce/warehouse";
 export const {router} = createCrudRouter({
@@ -26,7 +29,20 @@ export const {router} = createCrudRouter({
     toSelect: warehousesToSelect,
     buildCreateData: buildCreateDataFromSchemaDef(WarehouseSchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(WarehouseSchemaDef),
+    /** Stock can't vanish with its warehouse: rows holding stock or reservations block the delete. */
     beforeDelete: async (params, doc) => {
+        const holdsStock = await inventoryService.exists(
+            {
+                company: params.company._id,
+                warehouse: doc._id,
+                deletedAt: null,
+                $or: [{quantityOnHand: {$ne: 0}}, {quantityReserved: {$gt: 0}}],
+            },
+            {session: params.session, logger: params.logger, languageCode: params.languageCode},
+        );
+        if (holdsStock) {
+            throw apiValidationException("warehouse_has_stock", "", null, params.languageCode);
+        }
         await detachWarehouseFromPosConfigsOrThrow({
             warehouseId: doc._id,
             companyId: params.company._id,
@@ -36,5 +52,12 @@ export const {router} = createCrudRouter({
     },
     extraSelectFilter: () => ({isActive: true}),
     actions: WarehouseActions,
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: Warehouse,
+        service: warehouseService,
+        entityName: "Warehouse",
+        keys: ["code"],
+        errorCode: "warehouse_already_exists",
+    }),
     rateLimits: {read: 60, write: 30, delete: 20},
 });

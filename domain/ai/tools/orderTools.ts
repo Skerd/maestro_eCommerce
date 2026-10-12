@@ -50,6 +50,7 @@ import {
     toNumber,
     userDisplayName
 } from "@coreModule/domain/ai/tools/assistantToolKit";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 
 const ORDER_STATUS_VALUES = enumValues<ProductOrderStatus>({
     pending: true,
@@ -166,6 +167,10 @@ async function rollUpRevenue(
 }
 
 async function executeOrders(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "productorders[read:grandTotal]");
+    if (!access.allowed) return accessDenied("shop orders");
+
     const args = SearchOrdersArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -303,6 +308,10 @@ async function resolveOrderId(orderNumber: string, ctx: AssistantToolContext) {
 }
 
 async function executeFulfillments(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "fulfillments[read:status]");
+    if (!access.allowed) return accessDenied("shipments");
+
     const args = SearchFulfillmentsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -407,6 +416,10 @@ const returnParameters = {
 };
 
 async function executeReturns(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "returnrequests[read:status]");
+    if (!access.allowed) return accessDenied("return requests");
+
     const args = SearchReturnsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.

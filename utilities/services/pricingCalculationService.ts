@@ -89,7 +89,7 @@ export async function calculatePricing(
     companyId: ObjectId,
 ): Promise<PricingCalculationResult> {
     const now = new Date();
-    const rules = await PricingRule.find({company: companyId, isActive: true})
+    const rules = await PricingRule.find({company: companyId, isActive: true}).noDeleted()
         .sort({priority: -1, createdAt: -1})
         .lean();
 

@@ -28,6 +28,7 @@ import {
     validateDiscount,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
@@ -105,6 +106,13 @@ export const {router} = createCrudRouter({
         return data;
     },
     actions: DiscountActions,
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: Discount,
+        service: discountService,
+        entityName: "Discount",
+        keys: ["code"],
+        errorCode: "discount_already_exists",
+    }),
     rateLimits: {read: 60, write: 30, delete: 20},
     enrichList: async (docs) => discountsToDTOWithLabels(docs),
     enrichSingle: async (doc) => discountToDTOWithLabels(doc),

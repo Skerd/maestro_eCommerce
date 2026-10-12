@@ -10,14 +10,18 @@ import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/priv
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
-import {ProductActions} from "@eCommerceModule/database/schemas/product/product.actions";
+import {assertPricedWhenActive, assertValidBundle, ProductActions} from "@eCommerceModule/database/schemas/product/product.actions";
 import {productsToDTO, productToDTO} from "@eCommerceModule/utilities/mappers/product/productMapper.dto";
 import {productsToSelect} from "@eCommerceModule/utilities/mappers/product/productMapper.select";
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 
 const mediaUpload = mediaUploadMW({
     fields: {mainImage: 1, gallery: 20, documents: 20},
     maxFileSize: 250 * 1024 * 1024,
 });
+
+const buildProductCreate = buildCreateDataFromSchemaDef(ProductSchemaDef);
+const buildProductUpdate = buildUpdateDataFromSchemaDef(ProductSchemaDef);
 
 export const basePath = "/api/eCommerce/product";
 export const {router} = createCrudRouter({
@@ -50,8 +54,38 @@ export const {router} = createCrudRouter({
     },
     createMiddleware: [mediaUpload],
     editMiddleware: [mediaUpload],
-    buildCreateData: buildCreateDataFromSchemaDef(ProductSchemaDef),
-    buildUpdateData: buildUpdateDataFromSchemaDef(ProductSchemaDef),
+    buildCreateData: async (params) => {
+        const data = buildProductCreate(params);
+        assertPricedWhenActive(data, params.languageCode);
+        await assertValidBundle(data, params);
+        return data;
+    },
+    buildUpdateData: async (params, writeFields) => {
+        const data = buildProductUpdate(params, writeFields);
+        const {existing} = params;
+        assertPricedWhenActive(
+            {
+                status: data.status ?? existing.status,
+                price: "price" in data ? data.price : existing.price,
+                hasVariants: data.hasVariants ?? existing.hasVariants,
+            },
+            params.languageCode,
+        );
+        if (data.type || data.bundleComponents) {
+            await assertValidBundle(
+                {_id: existing._id, type: data.type ?? existing.type, bundleComponents: data.bundleComponents ?? existing.bundleComponents},
+                params,
+            );
+        }
+        return data;
+    },
     actions: ProductActions,
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: Product,
+        service: productService,
+        entityName: "Product",
+        keys: ["gtin", "upc", "ean"],
+        errorCode: "product_already_exists",
+    }),
     rateLimits: {read: 60, write: 30, delete: 20},
 });

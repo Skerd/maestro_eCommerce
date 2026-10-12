@@ -9,6 +9,7 @@ import {createCustomerGroupMemberFormSchema} from "armonia/src/modules/eCommerce
 import {removeCustomerGroupMemberFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/removeCustomerGroupMember.form.validator";
 import CustomerGroupModel from "./customerGroup";
 import {customerGroupService} from "./customerGroup.service";
+import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
 import {customerGroupMemberService} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.service";
 
 export class CustomerGroupActions {
@@ -64,6 +65,8 @@ export class CustomerGroupActions {
     })
     async addMember(params: Record<string, any>): Promise<ActionMessage> {
         const {logger, languageCode, company, actionUserCtx, session, userId, customerGroup} = params;
+        // Group membership drives pricing rules, so it is staff-only
+        SchemaGuard.checkModelPermission(CustomerGroupMember, "create", actionUserCtx, languageCode);
         const groupId = new ObjectId(customerGroup);
         const memberUserId = new ObjectId(userId);
 
@@ -96,6 +99,7 @@ export class CustomerGroupActions {
     })
     async removeMember(params: Record<string, any>): Promise<ActionMessage> {
         const {logger, languageCode, company, actionUserCtx, session, userId, customerGroup} = params;
+        SchemaGuard.checkModelPermission(CustomerGroupMember, "delete", actionUserCtx, languageCode);
         const groupId = new ObjectId(customerGroup);
 
         const member = await customerGroupMemberService.findOne(

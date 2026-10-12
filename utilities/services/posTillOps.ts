@@ -17,7 +17,7 @@ import {
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
-import {resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
+import {assertPosSellable, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
 type Ctx = {
     logger: any;
@@ -87,6 +87,7 @@ async function buildDraftLines(
             status: "active",
         }).noDeleted().session(ctx.session ?? null);
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
+        assertPosSellable(product, ctx.languageCode);
 
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);

@@ -182,6 +182,13 @@ export const productOrderSheetView: ViewConfig = {
                                                     icon: "#Hash",
                                                 },
                                                 {
+                                                    name: "snapshot.variantLabel",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    labelKey: "itemSnapshotVariantLabel",
+                                                    icon: "#IconTag",
+                                                },
+                                                {
                                                     name: "quantity",
                                                     type: "text",
                                                     className: "text-sm",

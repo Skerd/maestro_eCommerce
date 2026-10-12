@@ -12,7 +12,12 @@ export async function runScheduledPublish(parentLogger?: serverLogger): Promise<
 
     try {
         const productResult = await Product.updateMany(
-            {status: "draft", publishedAt: {$lte: now, $ne: null}},
+            {
+                status: "draft",
+                publishedAt: {$lte: now, $ne: null},
+                // Same rule as assertPricedWhenActive: unpriced products stay in draft
+                $or: [{price: {$ne: null}}, {hasVariants: true}],
+            },
             {$set: {status: "active"}},
         ).noDeleted();
 

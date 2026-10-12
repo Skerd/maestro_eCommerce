@@ -2,6 +2,10 @@ import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import type {UserContext} from "@coreModule/utilities/types/types";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {getModelCollectedData} from "@coreModule/database/collections";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {openPosSessionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/openPosSession.form.validator";
 import type {OpenPosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/openPosSession.form.validator";
 import {cashMovePosSessionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/cashMovePosSession.form.validator";
@@ -12,6 +16,29 @@ import {reconcilePosSessionFormSchema} from "armonia/src/modules/eCommerce/api/e
 import type {ReconcilePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/reconcilePosSession.form.validator";
 import {cashMovePosSession, closePosSession, openPosSession} from "@eCommerceModule/utilities/services/posService";
 import {getPosSessionReconciliation} from "@eCommerceModule/utilities/services/posTillOps";
+import PosSessionModel from "./posSession";
+
+/**
+ * Session lifecycle and cash-drawer moves are gated on the session's field write
+ * tags: `possessions[write:state]` to open, close and reconcile, and
+ * `possessions[write:cashMoves]` for cash in/out. Admin roles receive both at boot.
+ */
+function assertPosSessionWrite(
+    params: {languageCode: string; actionUserCtx: UserContext},
+    field: "state" | "cashMoves",
+): void {
+    const {languageCode, actionUserCtx} = params;
+    const writeFields = SchemaGuard.sanitizeFields(
+        PosSessionModel,
+        getModelCollectedData("posSessions").writeFields!,
+        "write",
+        actionUserCtx,
+        languageCode,
+    );
+    if (!writeFields[field]) {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+    }
+}
 
 function tillCtx(params: AuthenticatedMWType & {session?: TransactionRequiredParams["session"]}) {
     return {
@@ -34,6 +61,7 @@ export class PosSessionActions {
         schema: openPosSessionFormSchema,
     })
     async open(params: TransactionRequiredParams & OpenPosSessionFormType) {
+        assertPosSessionWrite(params, "state");
         const data = await openPosSession(
             {
                 configId: params.configId,
@@ -52,6 +80,7 @@ export class PosSessionActions {
         schema: cashMovePosSessionFormSchema,
     })
     async cashMove(params: TransactionRequiredParams & CashMovePosSessionFormType) {
+        assertPosSessionWrite(params, "cashMoves");
         const data = await cashMovePosSession(
             {
                 _id: params._id,
@@ -73,6 +102,7 @@ export class PosSessionActions {
         schema: closePosSessionFormSchema,
     })
     async close(params: TransactionRequiredParams & ClosePosSessionFormType) {
+        assertPosSessionWrite(params, "state");
         const data = await closePosSession(
             {
                 _id: params._id,
@@ -91,6 +121,7 @@ export class PosSessionActions {
         schema: reconcilePosSessionFormSchema,
     })
     async reconciliation(params: AuthenticatedMWType & ReconcilePosSessionFormType) {
+        assertPosSessionWrite(params, "state");
         const data = await getPosSessionReconciliation(
             params.sessionId,
             tillCtx(params),

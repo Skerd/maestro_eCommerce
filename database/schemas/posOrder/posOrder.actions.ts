@@ -2,6 +2,10 @@ import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import type {UserContext} from "@coreModule/utilities/types/types";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {getModelCollectedData} from "@coreModule/database/collections";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {holdPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
 import type {HoldPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
@@ -11,6 +15,30 @@ import {refundPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eComme
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import {payPosOrder, refundPosOrder} from "@eCommerceModule/utilities/services/posService";
 import {deleteHeldPosOrder, holdPosOrder, reprintPosOrder} from "@eCommerceModule/utilities/services/posTillOps";
+import PosOrderModel from "./posOrder";
+
+/**
+ * Till operations write system-managed POS fields, so they are gated on those
+ * fields' write tags: `posorders[write:state]` to ring up sales (and every till
+ * read that goes with it), `posorders[write:amountRefunded]` to refund. Admin
+ * roles receive both at boot; cashier roles must be granted them.
+ */
+export function assertPosOrderWrite(
+    params: {languageCode: string; actionUserCtx: UserContext},
+    field: "state" | "amountRefunded",
+): void {
+    const {languageCode, actionUserCtx} = params;
+    const writeFields = SchemaGuard.sanitizeFields(
+        PosOrderModel,
+        getModelCollectedData("posOrders").writeFields!,
+        "write",
+        actionUserCtx,
+        languageCode,
+    );
+    if (!writeFields[field]) {
+        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
+    }
+}
 
 function tillCtx(params: AuthenticatedMWType & {session?: TransactionRequiredParams["session"]}) {
     return {
@@ -34,6 +62,7 @@ export class PosOrderActions {
         schema: holdPosOrderFormSchema,
     })
     async hold(params: TransactionRequiredParams & HoldPosOrderFormType) {
+        assertPosOrderWrite(params, "state");
         const data = await holdPosOrder(
             {
                 sessionId: params.sessionId,
@@ -56,6 +85,7 @@ export class PosOrderActions {
         schema: payPosOrderFormSchema,
     })
     async pay(params: TransactionRequiredParams & PayPosOrderFormType) {
+        assertPosOrderWrite(params, "state");
         const data = await payPosOrder(
             {
                 sessionId: params.sessionId,
@@ -82,6 +112,7 @@ export class PosOrderActions {
         schema: refundPosOrderFormSchema,
     })
     async refund(params: TransactionRequiredParams & RefundPosOrderFormType) {
+        assertPosOrderWrite(params, "amountRefunded");
         const data = await refundPosOrder(
             {
                 _id: params._id,
@@ -102,6 +133,7 @@ export class PosOrderActions {
         schema: validateSingleForm,
     })
     async reprint(params: AuthenticatedMWType & {_id: string}) {
+        assertPosOrderWrite(params, "state");
         const data = await reprintPosOrder(params._id, tillCtx(params));
         return {data};
     }
@@ -113,6 +145,7 @@ export class PosOrderActions {
         schema: validateSingleForm,
     })
     async deleteHeld(params: TransactionRequiredParams & {_id: string}) {
+        assertPosOrderWrite(params, "state");
         const data = await deleteHeldPosOrder(params._id, tillCtx(params));
         return {data};
     }

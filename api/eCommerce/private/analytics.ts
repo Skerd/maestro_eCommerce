@@ -13,6 +13,8 @@ import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import Product from "@eCommerceModule/database/schemas/product/product";
+import Currency from "@coreModule/database/schemas/currency/currency";
+import {ObjectId} from "mongodb";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 
 export const basePath = "/api/eCommerce/analytics";
@@ -83,6 +85,37 @@ function dateRange(period: string): {start: Date; end: Date} {
     return {start, end};
 }
 
+/**
+ * Money is never summed across currencies: revenue figures are for one
+ * currency — `?currency=<id>`, or else the one with the most paid orders in
+ * the period. The response lists every currency that had sales so the panel
+ * can switch.
+ */
+async function revenueCurrency(req: Request, companyId: ObjectId, start: Date, end: Date) {
+    const used = await productOrderService.aggregate([
+        {$match: {company: companyId, createdAt: {$gte: start, $lte: end}, paymentStatus: {$in: REVENUE_PAYMENT_STATUSES}, "deletedAt": null}},
+        {$group: {_id: "$currency", orderCount: {$sum: 1}}},
+        {$sort: {orderCount: -1}},
+    ]);
+    const codes = new Map(
+        (await Currency.find({_id: {$in: used.map(row => row._id)}}, {abbreviation: 1}).lean())
+            .map(currency => [currency._id.toString(), currency.abbreviation]),
+    );
+    const currencies = used.map(row => ({
+        _id: String(row._id),
+        abbreviation: codes.get(String(row._id)),
+        orderCount: Number(row.orderCount ?? 0),
+    }));
+
+    const requested = queryString(req, "currency", "");
+    const selectedId = ObjectId.isValid(requested) ? requested : currencies[0]?._id;
+    return {
+        currencyId: selectedId ? new ObjectId(selectedId) : null,
+        currency: currencies.find(currency => currency._id === selectedId) ?? null,
+        currencies,
+    };
+}
+
 // Revenue analytics
 router.get(
     "/revenue",
@@ -93,6 +126,7 @@ router.get(
         assertCanRead(params, ProductOrder, "grandTotal");
         const period = queryString(req, "period", "30d");
         const {start, end} = dateRange(period);
+        const {currencyId, currency, currencies} = await revenueCurrency(req, company._id, start, end);
 
         const [result] = await productOrderService.aggregate([
             {
@@ -100,6 +134,7 @@ router.get(
                     company: company._id,
                     createdAt: {$gte: start, $lte: end},
                     paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
+                    currency: currencyId,
                     "deletedAt": null,
                 },
             },
@@ -122,6 +157,7 @@ router.get(
                     company: company._id,
                     createdAt: {$gte: start, $lte: end},
                     paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
+                    currency: currencyId,
                     "deletedAt": null,
                 },
             },
@@ -144,6 +180,8 @@ router.get(
                 totalTax: result?.totalTax ?? 0,
                 totalShipping: result?.totalShipping ?? 0,
                 daily: dailyRevenue,
+                currency,
+                currencies,
             },
         };
     }),
@@ -218,9 +256,10 @@ router.get(
         const period = queryString(req, "period", "30d");
         const limit = Number(queryString(req, "limit", "10"));
         const {start, end} = dateRange(period);
+        const {currencyId, currency} = await revenueCurrency(req, company._id, start, end);
 
         const topProducts = await productOrderService.aggregate([
-            {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, paymentStatus: {$in: REVENUE_PAYMENT_STATUSES}, "deletedAt": null}},
+            {$match: {company: company._id, createdAt: {$gte: start, $lte: end}, paymentStatus: {$in: REVENUE_PAYMENT_STATUSES}, currency: currencyId, "deletedAt": null}},
             {$unwind: "$items"},
             {
                 $group: {
@@ -244,6 +283,7 @@ router.get(
             data: {
                 topProducts,
                 byStatus: countsByKey(statusCounts),
+                currency,
             },
         };
     }),

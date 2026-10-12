@@ -9,6 +9,7 @@ import ProductVariant from "@eCommerceModule/database/schemas/productVariant/pro
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
 import {productAttributeToDTO, productAttributesToDTO} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.dto";
 import {productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.select";
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerce/productAttribute";
 export const {router} = createCrudRouter({
@@ -34,5 +35,12 @@ export const {router} = createCrudRouter({
             throw apiValidationException("product_attribute_in_use_by_variants", "", null, languageCode);
         }
     },
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: ProductAttribute,
+        service: productAttributeService,
+        entityName: "ProductAttribute",
+        keys: ["name"],
+        errorCode: "productAttribute_already_exists",
+    }),
     rateLimits: {read: 60, write: 30, delete: 20},
 });

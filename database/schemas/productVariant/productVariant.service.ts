@@ -7,4 +7,9 @@ export class ProductVariantService extends BaseCrudService<IProductVariant, type
     }
 }
 
+/** The chosen option values of a variant, e.g. "Red / XL". */
+export function variantOptionsLabel(variant: {attributeCombination?: {value?: string}[]}): string {
+    return (variant.attributeCombination ?? []).map(option => option.value).filter(Boolean).join(" / ");
+}
+
 export const productVariantService = new ProductVariantService();

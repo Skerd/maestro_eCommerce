@@ -109,12 +109,24 @@ router.put(
                 product: product._id,
                 company: company._id,
                 status: "active",
-            }).lean();
+            }).noDeleted().lean();
             if (!variantDoc) throw apiValidationException("variant_not_found", "", null, languageCode);
         }
 
         const filter = {company: company._id, user: actionUserCtx.userId};
         let cart = await Cart.findOne(filter);
+
+        // One cart, one currency: totals and the payment are in a single currency
+        const firstLine = (cart?.items as any[] | undefined)?.[0];
+        if (firstLine && product.currency) {
+            const firstProduct: any = await Product.findOne(
+                {_id: firstLine.product?._id ?? firstLine.product, company: company._id},
+                {currency: 1},
+            ).lean();
+            if (firstProduct?.currency && firstProduct.currency.toString() !== product.currency.toString()) {
+                throw apiValidationException("cart_currency_mismatch", "productId", null, languageCode);
+            }
+        }
 
         if (!cart) {
             assertQuantityAllowed(product, quantity, languageCode);
@@ -227,7 +239,7 @@ router.post(
             isActive: true,
             startsAt: {$lte: now},
             $or: [{endsAt: null}, {endsAt: {$gte: now}}],
-        });
+        }).noDeleted();
         if (!discount) return {valid: false, message: "discount_not_found"};
 
         const userId = new ObjectId(actionUserCtx.userId);

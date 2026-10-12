@@ -84,7 +84,8 @@ export const {router} = createCrudRouter({
         const customerId = orderDoc.customer?._id;
         const actorIsCustomer = !!customerId && customerId.toString() === actionUserCtx.userId.toString();
 
-        if (!customerId || (!actorIsCustomer && !actionUserCtx.isAdmin)) {
+        // Only the buyer reviews: a review is published under the buyer's name
+        if (!customerId || !actorIsCustomer) {
             throw apiValidationException("only_customer_can_review", "", null, languageCode);
         }
 

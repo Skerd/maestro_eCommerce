@@ -9,6 +9,6 @@ export function applyPosOrderIndexes(PosOrderSchema: Schema): void {
     PosOrderSchema.index({refundOf: 1}, {sparse: true});
     PosOrderSchema.index(
         {company: 1, clientRequestId: 1},
-        {unique: true, sparse: true, partialFilterExpression: {clientRequestId: {$type: "string"}}},
+        {unique: true, partialFilterExpression: {clientRequestId: {$type: "string"}}},
     );
 }

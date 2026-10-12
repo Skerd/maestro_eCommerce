@@ -4,13 +4,15 @@
  *    (safety net when both the buyer's /confirm and the webhook were lost).
  *  - Everything else is expired and its held stock released.
  * Also purges expired/failed checkouts older than PURGE_AFTER_DAYS — confirmed
- * ones are kept, they hold the order's stock reservations.
+ * ones are kept, charges taken at checkout reference them.
  */
 
+import { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
+import { mongooseInstance } from "@coreModule/connections/connectToMongoDb";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
-import { releaseCheckoutReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
+import { releaseReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
 import { placePaidCheckoutInBackground } from "@eCommerceModule/utilities/services/checkoutPlacementService";
 import { getPaymentAdapter } from "@eCommerceModule/utilities/services/payment/paymentService";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
@@ -30,6 +32,37 @@ async function chargeSucceeded(checkout: any): Promise<boolean> {
     if (!adapter?.isEnabled()) return false;
     const intent = await adapter.retrievePaymentIntent(intentId);
     return intent.status === "succeeded";
+}
+
+/**
+ * Expires one checkout and releases its holds in a single transaction, re-reading
+ * it first: a checkout that was confirmed or resumed since the batch was loaded
+ * is left alone, and a failure part-way releases nothing.
+ */
+async function expireCheckout(checkoutId: ObjectId, ctx: { logger: serverLogger; languageCode: string }): Promise<boolean> {
+    const session = await mongooseInstance.startSession();
+    let expired = false;
+    try {
+        await session.withTransaction(async () => {
+            expired = false;
+            const checkout = await Checkout.findOne({
+                _id: checkoutId,
+                status: { $in: ["pending", "payment_processing"] },
+                expiresAt: { $lte: new Date() },
+            }).session(session);
+            if (!checkout) return;
+
+            if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
+                await releaseReservations(checkout, { ...ctx, session });
+            }
+            checkout.status = "expired";
+            await checkout.save({ session });
+            expired = true;
+        });
+    } finally {
+        await session.endSession();
+    }
+    return expired;
 }
 
 export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<void> {
@@ -61,13 +94,7 @@ export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<vo
                     if (intent.status === "succeeded") continue; // paid meanwhile — next run places it
                 }
 
-                if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
-                    await releaseCheckoutReservations(checkout, { logger, languageCode: lang });
-                }
-
-                checkout.status = "expired";
-                await checkout.save();
-                expiredCount += 1;
+                if (await expireCheckout(checkout._id, { logger, languageCode: lang })) expiredCount += 1;
             } catch (e: any) {
                 logger.err(`Failed to settle checkout ${checkout._id}`, e);
             }

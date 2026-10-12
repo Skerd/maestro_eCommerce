@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -6,14 +7,17 @@ import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eComme
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import type {CashMovePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/cashMovePosSession.form.validator";
 import type {ClosePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/closePosSession.form.validator";
+import User from "@coreModule/database/schemas/user/user";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import PosConfig, {type IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
@@ -36,7 +40,9 @@ import {
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
-import {resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
+import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
+import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
+import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 
 type Ctx = {
     logger: any;
@@ -90,6 +96,7 @@ async function consumePosStock(params: {
         warehouse: warehouseId,
         company: companyId,
         variant: variantId ?? null,
+        deletedAt: null,
     };
 
     const before = await Inventory.findOne(filter, {quantityOnHand: 1, quantityReserved: 1}, {session: ctx.session});
@@ -99,28 +106,17 @@ async function consumePosStock(params: {
         throw apiValidationException("pos_insufficient_stock", "quantity", null, ctx.languageCode);
     }
 
-    let updated;
-    if (allowOversell) {
-        updated = await Inventory.findOneAndUpdate(
-            filter,
-            {$inc: {quantityOnHand: -quantity}},
-            {new: true, upsert: true, session: ctx.session},
-        );
-    } else {
-        updated = await Inventory.findOneAndUpdate(
-            {
-                ...filter,
-                $expr: {$gte: [{$subtract: ["$quantityOnHand", "$quantityReserved"]}, quantity]},
-            },
-            {$inc: {quantityOnHand: -quantity}},
-            {new: true, session: ctx.session},
-        );
-        if (!updated) {
-            throw apiValidationException("pos_insufficient_stock", "quantity", null, ctx.languageCode);
-        }
+    const updated = await inventoryService.takeStock(
+        {product: productId, variant: variantId, warehouse: warehouseId, company: companyId},
+        quantity,
+        !!allowOversell,
+        ctx,
+    );
+    if (!updated) {
+        throw apiValidationException("pos_insufficient_stock", "quantity", null, ctx.languageCode);
     }
 
-    const quantityAfter = updated?.quantityOnHand ?? onHand - quantity;
+    const quantityAfter = updated.quantityOnHand;
     await inventoryMovementService.create(
         {
             inventory: updated?._id,
@@ -167,6 +163,7 @@ async function consumePosStockAcrossWarehouses(params: {
             warehouse: warehouseId,
             company: rest.companyId,
             variant: rest.variantId ?? null,
+            deletedAt: null,
         };
         const before = await Inventory.findOne(
             filter,
@@ -209,17 +206,18 @@ async function restockPosStock(params: {
         warehouse: warehouseId,
         company: companyId,
         variant: variantId ?? null,
+        deletedAt: null,
     };
     const before = await Inventory.findOne(filter, {quantityOnHand: 1}, {session: ctx.session});
     const onHand = before?.quantityOnHand ?? 0;
-    const updated = await Inventory.findOneAndUpdate(
-        filter,
-        {$inc: {quantityOnHand: quantity}},
-        {upsert: true, new: true, session: ctx.session},
+    const updated = await inventoryService.addStock(
+        {product: productId, variant: variantId, warehouse: warehouseId, company: companyId},
+        quantity,
+        ctx,
     );
     await inventoryMovementService.create(
         {
-            inventory: updated?._id ?? before?._id,
+            inventory: updated._id,
             product: productId,
             variant: variantId,
             warehouse: warehouseId,
@@ -234,6 +232,49 @@ async function restockPosStock(params: {
         },
         {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId},
     );
+}
+
+/** Where a till sells: its first warehouse's address, which decides the VAT rates. */
+function posTaxAddress(config: Pick<IPosConfig, "warehouses">): {country: string; state?: string; postalCode?: string} | null {
+    const warehouse = config.warehouses?.[0];
+    const country = nestedEntityToRef(warehouse?.address?.country);
+    if (!country) return null;
+    const state = nestedEntityToRef(warehouse?.address?.state);
+    return {country: country.toString(), state: state?.toString(), postalCode: warehouse?.address?.postalCode};
+}
+
+function stockKeyOf(productId: unknown, variantId?: unknown): string {
+    return `${String(productId)}:${variantId ? String(variantId) : ""}`;
+}
+
+/**
+ * Per stock key, how much each warehouse can still take back from a POS sale:
+ * the sale's `sale` movements minus the `return` movements of its earlier refunds.
+ */
+async function returnableByWarehouse(posOrderId: ObjectId, ctx: Ctx): Promise<Map<string, Map<string, number>>> {
+    const refunds = await PosOrder.find({refundOf: posOrderId, company: ctx.company._id}, {_id: 1}).session(ctx.session ?? null);
+    const movements = await inventoryMovementService.find(
+        {
+            company: ctx.company._id,
+            referenceType: "PosOrder",
+            $or: [
+                {referenceId: posOrderId, reason: "sale"},
+                {referenceId: {$in: refunds.map(refund => refund._id)}, reason: "return"},
+            ],
+        },
+        {session: ctx.session, logger: ctx.logger, languageCode: ctx.languageCode},
+    );
+
+    const returnable = new Map<string, Map<string, number>>();
+    for (const movement of movements) {
+        const key = stockKeyOf(nestedEntityToRef(movement.product), nestedEntityToRef(movement.variant));
+        const warehouse = String(nestedEntityToRef(movement.warehouse));
+        const perWarehouse = returnable.get(key) ?? new Map<string, number>();
+        // Sales are negative movements (adds to what can come back), returns positive
+        perWarehouse.set(warehouse, roundMoney((perWarehouse.get(warehouse) ?? 0) - movement.quantity));
+        returnable.set(key, perWarehouse);
+    }
+    return returnable;
 }
 
 export async function openPosSession(
@@ -485,6 +526,7 @@ export async function loadPosCatalog(
     const filter: Record<string, unknown> = {
         company: ctx.company._id,
         status: "active",
+        type: {$nin: POS_UNSELLABLE_TYPES},
     };
 
     if (params.barcode?.trim()) {
@@ -499,7 +541,7 @@ export async function loadPosCatalog(
             ...(variantProductIds.length ? [{_id: {$in: variantProductIds}}] : []),
         ];
     } else if (params.search?.trim()) {
-        const q = params.search.trim();
+        const q = escapeRegex(params.search.trim());
         filter.$or = [
             {title: {$regex: q, $options: "i"}},
             {sku: {$regex: q, $options: "i"}},
@@ -507,7 +549,7 @@ export async function loadPosCatalog(
         ];
     } else {
         // Default grid: exclude bare variable parents without forcing variants-only browse
-        filter.type = {$nin: ["variable"]};
+        filter.type = {$nin: ["variable", ...POS_UNSELLABLE_TYPES]};
     }
     if (params.categoryId) {
         filter.categories = params.categoryId;
@@ -545,7 +587,7 @@ export async function loadPosCatalog(
                 {product: {$in: productIds}, variant: null},
                 ...(variantIds.length ? [{variant: {$in: variantIds}}] : []),
             ],
-        })
+        }).noDeleted()
             .select("product variant quantityOnHand quantityReserved")
             .lean();
     }
@@ -561,6 +603,7 @@ export async function loadPosCatalog(
 
     const hasWarehouseStock = warehouseIds.length > 0;
 
+    const productById = new Map(rows.map((p: any) => [p._id.toString(), p]));
     const variantsByProduct = new Map<string, any[]>();
     for (const v of variants) {
         const pid = v.product.toString();
@@ -570,12 +613,9 @@ export async function loadPosCatalog(
             sku: v.sku,
             barcode: v.barcode,
             price: v.price,
-            trackInventory: !!v.trackInventory,
+            trackInventory: isStockTracked(productById.get(pid), v),
             label:
-                (v.attributeCombination ?? [])
-                    .map((a: any) => a.value)
-                    .filter(Boolean)
-                    .join(" / ") ||
+                variantOptionsLabel(v) ||
                 v.sku ||
                 v.barcode ||
                 v._id.toString(),
@@ -595,7 +635,7 @@ export async function loadPosCatalog(
             barcode: p.barcode ?? p.ean,
             price: p.price ?? 0,
             currency: p.currency?.toString?.() ?? p.currency,
-            trackInventory: !!p.trackInventory,
+            trackInventory: isStockTracked(p),
             type: p.type,
             hasVariants: !!p.hasVariants || productVariants.length > 0,
             shortDescription: p.shortDescription,
@@ -667,6 +707,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             status: "active",
         }).noDeleted();
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
+        assertPosSellable(product, ctx.languageCode);
 
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
@@ -688,7 +729,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             productName: product.title,
             productSku: product.sku,
             barcode: product.barcode ?? product.ean,
-            trackInventory: !!product.trackInventory,
+            productType: product.type,
         });
         subtotal = roundMoney(subtotal + gross);
         lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
@@ -699,6 +740,18 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const orderDiscount = roundMoney((afterLineDisc * orderDiscPct) / 100);
     const discountTotal = roundMoney(lineDiscountTotal + orderDiscount);
     const amountTotal = roundMoney(Math.max(0, subtotal - discountTotal));
+
+    // Till prices include VAT: extract each line's share at the selling warehouse's rates,
+    // after its part of the order discount
+    const taxAddress = posTaxAddress(config);
+    for (const line of lines) {
+        const share = afterLineDisc > 0 ? line.priceTotal / afterLineDisc : 0;
+        const taxedAmount = roundMoney(line.priceTotal - orderDiscount * share);
+        line.taxAmount = taxAddress
+            ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id)
+            : 0;
+    }
+    const amountTax = roundMoney(lines.reduce((sum, line) => sum + line.taxAmount, 0));
 
     if (discountTotal > 0.001 && config.pinForDiscount) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
@@ -735,6 +788,10 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
     }
 
+    if (body.customerId && !(await User.exists({_id: new ObjectId(body.customerId), companies: ctx.company._id}))) {
+        throw apiValidationException("pos_customer_not_found", "customerId", null, ctx.languageCode);
+    }
+
     let posOrder: IPosOrder;
     if (body.heldOrderId) {
         const held = await PosOrder.findOne({
@@ -763,7 +820,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     posOrder.cashier = ctx.userId as any;
     posOrder.customer = body.customerId ? (new ObjectId(body.customerId) as any) : undefined;
     posOrder.customerName = body.customerName || (body.customerId ? undefined : "Walk-in Customer");
-    posOrder.lines = lines.map(({trackInventory: _t, ...rest}) => rest) as any;
+    posOrder.lines = lines as any;
     posOrder.payments = body.payments.map(p => {
         const method = methodById.get(p.paymentMethodId);
         return {
@@ -777,7 +834,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             terminalId: p.terminalId || method?.terminalId,
         };
     }) as any;
-    posOrder.amountTax = 0;
+    posOrder.amountTax = amountTax;
     posOrder.amountTotal = amountTotal;
     posOrder.amountPaid = amountPaid;
     posOrder.amountReturn = amountReturn;
@@ -789,8 +846,12 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     if (body.clientRequestId) posOrder.clientRequestId = body.clientRequestId;
     await posOrder.save({session: ctx.session});
 
-    for (const line of lines) {
-        if (!line.trackInventory) continue;
+    const stockLines = await trackedStockLines(
+        lines.map(line => ({product: line.product, variant: line.variant, quantity: line.quantity})),
+        ctx.company._id,
+        ctx,
+    );
+    for (const line of stockLines) {
         await consumePosStockAcrossWarehouses({
             productId: line.product,
             variantId: line.variant,
@@ -803,6 +864,12 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             ctx,
         });
     }
+
+    const soldVariants = await ProductVariant.find(
+        {_id: {$in: lines.flatMap(line => (line.variant ? [line.variant] : []))}, company: ctx.company._id},
+        {attributeCombination: 1},
+    ).session(ctx.session ?? null).lean();
+    const variantLabels = new Map(soldVariants.map(variant => [variant._id.toString(), variantOptionsLabel(variant)]));
 
     const orderNumber = await generateOrderNumber(ctx.company._id);
     const productOrder = new ProductOrder({
@@ -818,9 +885,15 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             quantity: l.quantity,
             unitPrice: l.unitPrice,
             totalPrice: l.priceTotal,
-            snapshot: {title: l.productName, sku: l.productSku},
+            snapshot: {
+                title: l.productName,
+                sku: l.productSku,
+                productType: l.productType,
+                variantLabel: l.variant ? variantLabels.get(l.variant.toString()) || undefined : undefined,
+            },
         })),
         currency: currencyId,
+        currencyCode: config.currency?.abbreviation,
         shippingAddress: {
             firstName: "POS",
             lastName: "Sale",
@@ -837,7 +910,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         subtotal,
         discountTotal,
         shippingTotal: 0,
-        taxTotal: 0,
+        taxTotal: amountTax,
         grandTotal: amountTotal,
         notes: body.note ? `POS ${posOrder.name}: ${body.note}` : `POS ${posOrder.name}`,
         idempotencyKey: `pos:${posOrder._id.toString()}`,
@@ -1047,7 +1120,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 discountAmount: roundMoney((line.discountAmount ?? 0) * ratio),
                 priceSubtotal: roundMoney((line.priceSubtotal ?? 0) * ratio),
                 priceTotal: roundMoney((line.priceTotal ?? 0) * ratio),
-                taxAmount: 0,
+                taxAmount: roundMoney((line.taxAmount ?? 0) * ratio),
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
@@ -1093,7 +1166,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 discountAmount: roundMoney((line.discountAmount ?? 0) * lineRatio),
                 priceSubtotal: roundMoney((line.priceSubtotal ?? 0) * lineRatio),
                 priceTotal: roundMoney((line.priceTotal ?? 0) * lineRatio),
-                taxAmount: 0,
+                taxAmount: roundMoney((line.taxAmount ?? 0) * lineRatio),
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
@@ -1139,7 +1212,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             terminalReference: p.terminalReference,
             terminalId: p.terminalId,
         })),
-        amountTax: 0,
+        amountTax: roundMoney(refundLines.reduce((sum, line) => sum + line.taxAmount, 0)),
         amountTotal: refundAmount,
         amountPaid: refundAmount,
         amountReturn: 0,
@@ -1151,22 +1224,36 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     });
     await refundOrder.save({session: ctx.session});
 
-    for (const {line, quantity} of restockPlan) {
-        const product = await Product.findById(line.product).select("trackInventory").session(ctx.session ?? null);
-        if (!product?.trackInventory) continue;
-        const productId = nestedEntityToRef(line.product);
-        const variantId = nestedEntityToRef(line.variant);
-        if (!productId) continue;
-        await restockPosStock({
-            productId,
-            variantId,
-            warehouseId,
+    const restockLines = await trackedStockLines(
+        restockPlan.flatMap(({line, quantity}) => {
+            const productId = nestedEntityToRef(line.product);
+            return productId ? [{product: productId, variant: nestedEntityToRef(line.variant), quantity}] : [];
+        }),
+        ctx.company._id,
+        ctx,
+    );
+    const returnable = await returnableByWarehouse(original._id, ctx);
+    for (const line of restockLines) {
+        const restock = (toWarehouse: ObjectId, quantity: number) => restockPosStock({
+            productId: line.product,
+            variantId: line.variant,
+            warehouseId: toWarehouse,
             quantity,
             companyId: ctx.company._id,
             posOrderId: refundOrder._id,
             auditUserId: ctx.userId,
             ctx,
         });
+
+        // Back to the warehouses the sale drew from; anything beyond that goes to the till's first warehouse
+        let remaining = line.quantity;
+        for (const [sourceWarehouse, open] of returnable.get(stockKeyOf(line.product, line.variant)) ?? []) {
+            const take = Math.min(remaining, open);
+            if (take <= 0.0001) continue;
+            await restock(new ObjectId(sourceWarehouse), take);
+            remaining = roundMoney(remaining - take);
+        }
+        if (remaining > 0.0001) await restock(warehouseId, remaining);
     }
 
     // Persist refunded quantities on the original sale lines
@@ -1258,7 +1345,7 @@ export type {TestPosTerminalConnectionResult} from "./posTerminalConnection";
 export {testPosTerminalConnection} from "./posTerminalConnection";
 
 /**
- * Charge a bank payment terminal configured on a card/bank POS payment method.
+ * Charge a bank payment terminal configured on a card POS payment method.
  * - `manual`: staff confirms on an external terminal; we only validate config and return approved.
  * - `local_http`: POST JSON to {http|https}://{host}:{port}{path} (local ECR / bank POS bridge).
  */
@@ -1282,7 +1369,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
         isActive: true,
     }).noDeleted().session(ctx.session ?? null);
     if (!method) throw apiValidationException("pos_payment_method_invalid", "paymentMethodId", null, ctx.languageCode);
-    if (method.type !== "card" && method.type !== "bank") {
+    if (method.type !== "card") {
         throw apiValidationException("pos_terminal_not_for_method", "paymentMethodId", null, ctx.languageCode);
     }
     if (!method.terminalEnabled) {

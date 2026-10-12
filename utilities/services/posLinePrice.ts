@@ -4,6 +4,18 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 
 /**
+ * Product types the till cannot sell: gift cards and digital downloads are only
+ * issued by the online order flow (fulfillOrderPaidExtras).
+ */
+export const POS_UNSELLABLE_TYPES = ["gift_card", "digital"];
+
+export function assertPosSellable(product: {type: string}, languageCode: string): void {
+    if (POS_UNSELLABLE_TYPES.includes(product.type)) {
+        throw apiValidationException("pos_product_not_sellable", "productId", null, languageCode);
+    }
+}
+
+/**
  * Server-side unit price for a POS line: the variant's price when a variant is
  * given, else the product's. Client-sent unit prices are never trusted — the
  * till UI doesn't edit prices, and discounts go through discountPercent (which
@@ -19,7 +31,7 @@ export async function resolvePosLineUnitPrice(
     const variant = await ProductVariant.findOne(
         {_id: new ObjectId(variantId), product: product._id, company: ctx.company._id},
         {price: 1},
-    ).session(ctx.session ?? null);
+    ).noDeleted().session(ctx.session ?? null);
     if (!variant) throw apiValidationException("pos_variant_not_found", "variantId", null, ctx.languageCode);
 
     return Number(variant.price ?? product.price ?? 0);

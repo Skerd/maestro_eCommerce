@@ -1,4 +1,6 @@
 import {ObjectId} from "mongodb";
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {action} from "@coreModule/api/actionDecorator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
@@ -24,6 +26,44 @@ function assertStatusWrite(params: Record<string, any>) {
     }
 }
 
+/**
+ * An active product is sold at its price (variants fall back to it), so it can't
+ * go on sale without one unless its variants carry their own prices.
+ */
+export function assertPricedWhenActive(
+    product: {status?: string; price?: number | string | null; hasVariants?: boolean},
+    languageCode: string,
+): void {
+    const unpriced = product.price == null || product.price === "";
+    if (product.status === "active" && unpriced && !product.hasVariants) {
+        throw apiValidationException("product_price_required", "price", null, languageCode);
+    }
+}
+
+/**
+ * A bundle is exploded one level deep when stock moves, so each component must
+ * be another live product of the company that is not itself a bundle.
+ */
+export async function assertValidBundle(
+    product: {_id?: unknown; type?: string; bundleComponents?: {product: unknown}[]},
+    params: Pick<TransactionRequiredParams, "company" | "session" | "logger" | "languageCode">,
+): Promise<void> {
+    if (product.type !== "bundle" || !product.bundleComponents?.length) return;
+    const {company, session, logger, languageCode} = params;
+    const componentIds = product.bundleComponents.map(component => nestedEntityToRef(component.product));
+    const selfId = nestedEntityToRef(product._id)?.toString();
+    const components = await productService.find(
+        {_id: {$in: componentIds}, company: company._id, type: {$ne: "bundle"}},
+        {session, logger, languageCode, withDeleted: false},
+        undefined,
+        "_id",
+    );
+    const valid = new Set(components.map(component => component._id.toString()));
+    if (componentIds.some(id => !id || id.toString() === selfId || !valid.has(id.toString()))) {
+        throw apiValidationException("bundle_component_invalid", "bundleComponents", null, languageCode);
+    }
+}
+
 export class ProductActions {
     @action({
         auth: "private",
@@ -43,6 +83,7 @@ export class ProductActions {
 
         // Omit slug so Product pre-save derives a unique slug from the new title.
         // Omit child id lists so the copy does not share variants / stock / reviews.
+        // Omit publishedAt: a draft copy with a past date would be auto-published by the scheduled-publish job.
         const {
             _id: _origId,
             createdAt,
@@ -50,6 +91,7 @@ export class ProductActions {
             deletedAt,
             deletedBy,
             slug: _slug,
+            publishedAt: _publishedAt,
             variants: _variants,
             inventories: _inventories,
             reviews: _reviews,
@@ -92,6 +134,7 @@ export class ProductActions {
         if (existing.status !== "draft") {
             throw apiValidationException("product_not_draft", "", null, languageCode);
         }
+        assertPricedWhenActive({...existing.toObject(), status: "active"}, languageCode);
 
         const $set: Record<string, unknown> = {status: "active"};
         if (!existing.publishedAt) {
@@ -155,9 +198,10 @@ export class ProductActions {
             throw apiValidationException("product_not_archived", "", null, languageCode);
         }
 
+        // Clear publishedAt so the scheduled-publish job doesn't put the product straight back on sale
         await productService.updateByIdOrThrow(
             existing._id,
-            {status: "draft"},
+            {status: "draft", publishedAt: null},
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 

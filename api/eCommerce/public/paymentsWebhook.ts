@@ -9,7 +9,6 @@ import ProductOrder from "@eCommerceModule/database/schemas/productOrder/product
 import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
 import PaymentWebhookEvent from "@financeModule/database/schemas/paymentWebhookEvent/paymentWebhookEvent";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
-import {consumeCheckoutReservations} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {
@@ -47,7 +46,6 @@ async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; lan
         (order.timeline as any[]).push({event: "payment_received", timestamp: new Date()});
         await order.save();
 
-        await consumeCheckoutReservations(checkout, ctx);
         await fulfillOrderPaidExtras(order, ctx);
 
         await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {
@@ -62,7 +60,8 @@ async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; lan
 /**
  * Stripe webhook — authenticated by signature over the raw body (retained via
  * `needsRawBody` + body-parser verify), not by JWT. Idempotent per event id
- * via the PaymentWebhookEvent unique index.
+ * via the PaymentWebhookEvent unique index; an event whose processing fails is
+ * forgotten again so the redelivery is processed.
  */
 router.post(
     "/stripe",
@@ -100,66 +99,72 @@ router.post(
             throw e;
         }
 
-        if (event.type === "payment_intent.succeeded" || event.type === "payment_intent.payment_failed") {
-            const intent = event.data as any;
-            const intentId = intent.id as string;
+        try {
+            if (event.type === "payment_intent.succeeded" || event.type === "payment_intent.payment_failed") {
+                const intent = event.data as any;
+                const intentId = intent.id as string;
 
-            const checkout = await Checkout.findOne({stripePaymentIntentId: intentId});
+                const checkout = await Checkout.findOne({stripePaymentIntentId: intentId});
 
-            if (event.type === "payment_intent.succeeded") {
-                await paymentTransactionService.markSucceeded(intentId, {eventId: event.id}, {logger, languageCode});
-                if (checkout) {
-                    let amountMatches = true;
-                    try {
-                        await assertIntentMatchesCheckout(
-                            checkout,
-                            {amountMinor: Number(intent.amount), currencyCode: intent.currency},
-                            {logger, languageCode},
-                        );
-                    } catch {
-                        // Logged inside; the charge is recorded but no order is auto-placed
-                        amountMatches = false;
+                if (event.type === "payment_intent.succeeded") {
+                    await paymentTransactionService.markSucceeded(intentId, {eventId: event.id}, {logger, languageCode});
+                    if (checkout) {
+                        let amountMatches = true;
+                        try {
+                            await assertIntentMatchesCheckout(
+                                checkout,
+                                {amountMinor: Number(intent.amount), currencyCode: intent.currency},
+                                {logger, languageCode},
+                            );
+                        } catch {
+                            // Logged inside; the charge is recorded but no order is auto-placed
+                            amountMatches = false;
+                        }
+                        if (amountMatches) await applyPaymentSucceeded(checkout, {logger, languageCode});
                     }
-                    if (amountMatches) await applyPaymentSucceeded(checkout, {logger, languageCode});
+                } else {
+                    const failureReason = intent.last_payment_error?.message as string | undefined;
+                    await paymentTransactionService.markFailed(intentId, failureReason, {eventId: event.id}, {logger, languageCode});
+                    if (checkout && checkout.status === "payment_processing") {
+                        checkout.status = "pending"; // buyer can retry with another method
+                        await checkout.save();
+                    }
+                    if (checkout) {
+                        const companyId = ((checkout.company as any)?._id ?? checkout.company)?.toString?.() ?? "";
+                        const order = await ProductOrder.findOne({
+                            idempotencyKey: checkout.idempotencyKey,
+                            company: checkout.company,
+                        }).select("_id orderNumber customer email grandTotal currency");
+                        const customerId =
+                            ((order?.customer as any)?._id ?? order?.customer)?.toString?.()
+                            || ((checkout.user as any)?._id ?? checkout.user)?.toString?.()
+                            || "";
+                        if (companyId && (customerId || order?.email)) {
+                            await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAYMENT_FAILED, {
+                                companyId,
+                                languageCode,
+                                order,
+                                customerId: customerId || undefined,
+                                orderEmail: order?.email,
+                                extra: {failureReason: failureReason ?? "", checkoutId: checkout._id.toString()},
+                            });
+                        }
+                    }
                 }
+
+                // Marketplace escrow holds: mirror the customer's payment outcome
+                // onto the hold ledger row so releases/refunds know the money is real.
+                await EscrowTransaction.updateMany(
+                    {gatewayPaymentIntentId: intentId, type: "hold"},
+                    {$set: {gatewayStatus: event.type === "payment_intent.succeeded" ? "succeeded" : "failed"}},
+                );
             } else {
-                const failureReason = intent.last_payment_error?.message as string | undefined;
-                await paymentTransactionService.markFailed(intentId, failureReason, {eventId: event.id}, {logger, languageCode});
-                if (checkout && checkout.status === "payment_processing") {
-                    checkout.status = "pending"; // buyer can retry with another method
-                    await checkout.save();
-                }
-                if (checkout) {
-                    const companyId = ((checkout.company as any)?._id ?? checkout.company)?.toString?.() ?? "";
-                    const order = await ProductOrder.findOne({
-                        idempotencyKey: checkout.idempotencyKey,
-                        company: checkout.company,
-                    }).select("_id orderNumber customer email grandTotal");
-                    const customerId =
-                        ((order?.customer as any)?._id ?? order?.customer)?.toString?.()
-                        || ((checkout.user as any)?._id ?? checkout.user)?.toString?.()
-                        || "";
-                    if (companyId && (customerId || order?.email)) {
-                        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAYMENT_FAILED, {
-                            companyId,
-                            languageCode,
-                            order,
-                            customerId: customerId || undefined,
-                            orderEmail: order?.email,
-                            extra: {failureReason: failureReason ?? "", checkoutId: checkout._id.toString()},
-                        });
-                    }
-                }
+                logger.debug(`Ignoring unhandled stripe event type: ${event.type}`);
             }
-
-            // Marketplace escrow holds: mirror the customer's payment outcome
-            // onto the hold ledger row so releases/refunds know the money is real.
-            await EscrowTransaction.updateMany(
-                {gatewayPaymentIntentId: intentId, type: "hold"},
-                {$set: {gatewayStatus: event.type === "payment_intent.succeeded" ? "succeeded" : "failed"}},
-            );
-        } else {
-            logger.debug(`Ignoring unhandled stripe event type: ${event.type}`);
+        } catch (e) {
+            // Forget the event so Stripe's redelivery processes it instead of being acknowledged as a duplicate
+            await PaymentWebhookEvent.deleteOne({gateway: "stripe", eventId: event.id});
+            throw e;
         }
 
         return {received: true};

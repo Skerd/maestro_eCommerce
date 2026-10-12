@@ -39,6 +39,7 @@ import {
     toNumber,
     userDisplayName
 } from "@coreModule/domain/ai/tools/assistantToolKit";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 
 const DISCOUNT_TYPE_VALUES = enumValues<DiscountType>({
     percentage: true,
@@ -84,6 +85,10 @@ const discountParameters = {
 };
 
 async function executeDiscounts(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "discounts[read:code]");
+    if (!access.allowed) return accessDenied("discount codes");
+
     const args = SearchDiscountsArgs.parse(rawArgs ?? {});
     const now = new Date();
 
@@ -202,6 +207,10 @@ const reviewParameters = {
 };
 
 async function executeReviews(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "productreviews[read:rating]");
+    if (!access.allowed) return accessDenied("product reviews");
+
     const args = SearchReviewsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -308,6 +317,10 @@ const cartParameters = {
 };
 
 async function executeCarts(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "carts[read:subtotal]");
+    if (!access.allowed) return accessDenied("shopping carts");
+
     const args = SearchCartsArgs.parse(rawArgs ?? {});
     const idleHours = args.idleHours ?? DEFAULT_IDLE_HOURS;
     const idleBefore = new Date(Date.now() - idleHours * MS_PER_HOUR);

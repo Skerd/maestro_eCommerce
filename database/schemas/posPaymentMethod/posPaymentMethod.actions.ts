@@ -19,6 +19,8 @@ export class PosPaymentMethodActions {
     })
     async testConnection(params: Record<string, any>): Promise<TestPosTerminalConnectionResponse> {
         const {logger, languageCode, company, session, _id} = params;
+        // Probing a terminal calls out to its configured address: payment-method managers only
+        assertCanWriteActive(params);
 
         const method = await posPaymentMethodService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
@@ -49,9 +51,8 @@ export class PosPaymentMethodActions {
     }
 }
 
-async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<ActionMessage> {
-    const {logger, languageCode, session, company, actionUserCtx, _id} = params;
-
+function assertCanWriteActive(params: Record<string, any>): void {
+    const {languageCode, actionUserCtx} = params;
     const writeFields = SchemaGuard.sanitizeFields(
         PosPaymentMethodModel,
         getModelCollectedData("posPaymentMethods").writeFields!,
@@ -62,6 +63,12 @@ async function setActiveState(params: Record<string, any>, isActive: boolean): P
     if (!writeFields.isActive) {
         throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
     }
+}
+
+async function setActiveState(params: Record<string, any>, isActive: boolean): Promise<ActionMessage> {
+    const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+
+    assertCanWriteActive(params);
 
     const existing = await posPaymentMethodService.findOneOrThrow(
         {_id: new ObjectId(_id), company: company._id},

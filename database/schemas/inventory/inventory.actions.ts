@@ -95,7 +95,7 @@ async function findLatestInboundSupply(
 
 async function applyQuantityChange(
     params: TransactionRequiredParams & {_id: string; quantity: number},
-    direction: "restock" | "deduct",
+    reason: InventoryMovementReason,
     movement: {
         note?: string;
         manufacturer?: string;
@@ -113,11 +113,10 @@ async function applyQuantityChange(
 
     const inventory = await inventoryService.findOneOrThrow(
         {_id: new ObjectId(_id), company: company._id},
-        {logger, languageCode, session},
+        {logger, languageCode, session, withDeleted: false},
     );
 
-    const delta = direction === "restock" ? quantity : -quantity;
-    const reason: InventoryMovementReason = direction === "restock" ? "restock" : "write_off";
+    const delta = reason === "restock" ? quantity : -quantity;
     const quantityBefore = inventory.quantityOnHand;
 
     assertWithinReserved(inventory, delta, languageCode);
@@ -129,7 +128,12 @@ async function applyQuantityChange(
     }
     const variantId = nestedEntityToRef(inventory.variant);
 
-    await inventoryService.adjust(productId, variantId, warehouseId, delta, {logger, languageCode, session});
+    // Update the row that was validated above, never another row with the same key
+    await inventoryService.updateById(
+        inventory._id,
+        {$inc: {quantityOnHand: delta}},
+        {logger, languageCode, session, auditUserId: actionUserCtx.userId},
+    );
 
     await inventoryMovementService.create(
         {
@@ -193,7 +197,7 @@ export class InventoryActions {
             inventoryId: new ObjectId(params._id),
             batchLot,
         });
-        return applyQuantityChange(params, "deduct", {
+        return applyQuantityChange(params, params.reason ?? "write_off", {
             note: blankToUndefined(params.note),
             receipts: params.receipts?.length ? params.receipts.map((id) => new ObjectId(id)) : undefined,
             occurredAt: new Date(),

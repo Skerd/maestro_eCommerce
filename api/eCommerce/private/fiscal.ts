@@ -18,6 +18,9 @@ import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.dto";
 import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
+import {getModelCollectedData} from "@coreModule/database/collections";
+import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
 
 export const basePath = "/api/eCommerce/fiscal";
 export const router = Router();
@@ -57,6 +60,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(fiscalizeFormSchema),
     asyncHandler(async (params: any) => {
+        assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
         try {
             const result = await fiscalizePosOrder(posOrderId, company._id, {
@@ -86,6 +90,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 20}),
     validateFormZod(einvoiceFormSchema),
     asyncHandler(async (params: any) => {
+        assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
         const order = await PosOrder.findOne({_id: posOrderId, company: company._id}).noDeleted();
         if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
@@ -125,6 +130,17 @@ router.post(
     rateLimiter({windowMs: 60000, max: 10}),
     validateFormZod(registerTcrFormSchema),
     asyncHandler(async (params: any) => {
+        // Registering the cash register changes the fiscal configuration
+        const writable = SchemaGuard.sanitizeFields(
+            FiscalConfig,
+            getModelCollectedData("fiscalConfigs").writeFields!,
+            "write",
+            params.actionUserCtx,
+            params.languageCode,
+        );
+        if (!writable.tcrCode) {
+            throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
+        }
         const {company, languageCode, fiscalConfigId, validFrom, validTo} = params;
         const config = await loadFiscalConfigWithCert(company._id, fiscalConfigId);
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
@@ -154,6 +170,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(getTaxpayerFormSchema),
     asyncHandler(async (params: any) => {
+        assertPosOrderWrite(params, "state");
         const {company, languageCode, fiscalConfigId, tin} = params;
         const config = await loadFiscalConfigWithCert(company._id, fiscalConfigId);
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);

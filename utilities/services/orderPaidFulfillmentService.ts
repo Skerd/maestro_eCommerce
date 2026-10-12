@@ -19,9 +19,9 @@ const DEFAULT_DOWNLOAD_EXPIRY_DAYS = 30;
 /**
  * Post-payment extras for a ProductOrder: issues gift cards for gift_card
  * lines (one card per unit, balance = unit price) and download entitlements
- * for digital lines. Idempotent — existing cards/deliveries for the same
- * order+product are left alone, so the checkout-confirm and webhook paths can
- * both call it safely.
+ * for digital lines, going by the product type frozen on each line. Idempotent
+ * — existing cards/deliveries for the same order+product are left alone, so
+ * the checkout-confirm and webhook paths can both call it safely.
  */
 export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: FulfillmentCtx): Promise<void> {
     if (order.items.length === 0) return;
@@ -39,15 +39,19 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
         return productId ? [productId] : [];
     });
     const readOpts = {session: ctx.session, logger: ctx.logger, languageCode};
-    const specialProducts = await productService.find(
-        {_id: {$in: productIds}, company: companyId, type: {$in: ["gift_card", "digital"]}},
-        readOpts,
+    // A product deleted after purchase still owes what was paid for
+    const products = await productService.find(
+        {_id: {$in: productIds}, company: companyId},
+        {...readOpts, withDeleted: true},
         undefined,
         "type documents downloadLimit downloadExpiryDays title",
     );
-    if (specialProducts.length === 0) return;
+    const productMap = new Map(products.map((product) => [product._id.toString(), product]));
+    // The type frozen on the line decides; orders placed before the snapshot fall back to the live type
+    const lineType = (item: IProductOrder["items"][number]) =>
+        item.snapshot?.productType ?? productMap.get(nestedEntityToRef(item.product)?.toString() ?? "")?.type;
+    if (!order.items.some((item) => ["gift_card", "digital"].includes(lineType(item) ?? ""))) return;
 
-    const productMap = new Map(specialProducts.map((product) => [product._id.toString(), product]));
     const issuedGiftCodes: string[] = [];
 
     // Cards carry no line reference, so allocate the order's existing cards to
@@ -60,9 +64,9 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
     for (const item of order.items) {
         const productId = nestedEntityToRef(item.product);
         const product = productId ? productMap.get(productId.toString()) : undefined;
-        if (!product) continue;
+        const type = lineType(item);
 
-        if (product.type === "gift_card") {
+        if (type === "gift_card") {
             const existing = Math.min(item.quantity, Math.max(0, existingGiftCards - giftCardsAccountedFor));
             giftCardsAccountedFor += item.quantity;
             if (existing >= item.quantity) continue;
@@ -87,7 +91,7 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
             ctx.logger?.debug(`Issued ${item.quantity - existing} gift card(s) for order ${order._id}`);
         }
 
-        if (product.type === "digital") {
+        if (type === "digital" && product) {
             const existingDelivery = await digitalDeliveryService.findOne(
                 {order: orderId, product: product._id},
                 readOpts,
@@ -139,6 +143,7 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
         await notifyProductOrderCustomer(NotificationEventCodes.GIFT_CARD_ISSUED, {
             companyId,
             languageCode,
+            session: ctx.session,
             order,
             extra: {giftCardCodes: issuedGiftCodes},
         });
@@ -148,6 +153,7 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
         await notifyProductOrderCustomer(NotificationEventCodes.DIGITAL_DELIVERY_READY, {
             companyId,
             languageCode,
+            session: ctx.session,
             order,
             extra: {downloadLinks},
         });

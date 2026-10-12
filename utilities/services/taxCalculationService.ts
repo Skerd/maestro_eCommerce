@@ -1,12 +1,21 @@
 import {ObjectId} from "mongodb";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
+import Product from "@eCommerceModule/database/schemas/product/product";
+import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 
 export type ShippingAddress = {
     country?: string;
     state?: string;
     postalCode?: string;
 };
+
+/** One applied rate, as stored on the checkout / order `taxBreakdown`. */
+export type TaxBreakdownLine = {name: string; rate: number; amount: number};
+
+export type TaxResult = {amount: number; breakdown: TaxBreakdownLine[]};
 
 export type TaxLineContext = {
     /** When omitted, all rates with appliesTo "all" are used */
@@ -25,14 +34,15 @@ export interface TaxCalculatorProvider {
         shippingAddress: ShippingAddress,
         companyId: ObjectId,
         context: TaxLineContext,
-    ): Promise<number>;
+    ): Promise<TaxResult>;
 }
 
 function matchesPostalCode(postalCode: string | undefined, patterns: string[] | undefined): boolean {
     if (!patterns?.length) return true;
     if (!postalCode) return false;
     return patterns.some((pattern) => {
-        const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`, "i");
+        // Only `*` is a wildcard; everything else in the configured pattern is literal
+        const regex = new RegExp(`^${escapeRegex(pattern).replace(/\\\*/g, ".*")}$`, "i");
         return regex.test(postalCode);
     });
 }
@@ -59,25 +69,26 @@ function rateApplies(appliesTo: string, productType?: "physical" | "digital"): b
 const internalZonesTaxProvider: TaxCalculatorProvider = {
     name: "internal",
     async calculate(subtotal, shippingAddress, companyId, context) {
-        if (!shippingAddress.country) return 0;
+        if (!shippingAddress.country) return {amount: 0, breakdown: []};
 
         let countryId: ObjectId;
         try {
             countryId = new ObjectId(shippingAddress.country);
         } catch {
-            return 0;
+            return {amount: 0, breakdown: []};
         }
 
         const zones = await TaxZone.find({
             company: companyId,
             country: countryId,
             isActive: true,
-        }).sort({priority: -1}).lean();
+        }).noDeleted().sort({priority: -1}).lean();
 
-        if (zones.length === 0) return 0;
+        if (zones.length === 0) return {amount: 0, breakdown: []};
 
         let taxAmount = 0;
         let runningBase = subtotal;
+        const breakdown: TaxBreakdownLine[] = [];
 
         for (const zone of zones) {
             if (!zoneMatchesAddress(zone, shippingAddress.state, shippingAddress.postalCode)) continue;
@@ -88,11 +99,12 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
 
                 const rateAmount = (runningBase * rate.rate) / 100;
                 taxAmount += rateAmount;
+                breakdown.push({name: rate.name, rate: rate.rate, amount: rateAmount});
                 if (rate.isCompound) runningBase += rateAmount;
             }
         }
 
-        return Math.round(taxAmount * 100) / 100;
+        return {amount: roundMoney(taxAmount), breakdown};
     },
 };
 
@@ -114,6 +126,74 @@ export async function calculateTax(
     shippingAddress: ShippingAddress,
     companyId: ObjectId,
     context: TaxLineContext = {},
-): Promise<number> {
+): Promise<TaxResult> {
     return activeTaxProvider().calculate(subtotal, shippingAddress, companyId, context);
+}
+
+/** Which rate scope a product type is taxed under; other types only take "all" rates. */
+const TAX_PRODUCT_TYPE: Record<string, TaxLineContext["productType"]> = {
+    physical: "physical",
+    variable: "physical",
+    bundle: "physical",
+    digital: "digital",
+};
+
+/**
+ * Tax for a set of priced lines: lines are grouped by rate scope (physical /
+ * digital / rest) so type-specific rates apply, the order discount is spread
+ * over the groups in proportion to their value, and the applied rates are
+ * merged into one breakdown.
+ */
+export async function calculateLinesTax(
+    lines: {product: unknown; totalPrice: number}[],
+    discountTotal: number,
+    shippingAddress: ShippingAddress,
+    companyId: ObjectId,
+): Promise<TaxResult> {
+    const productIds = lines.map(line => nestedEntityToRef(line.product)?.toString() ?? "");
+    const products = await Product.find({_id: {$in: productIds.filter(Boolean)}, company: companyId}, {type: 1}).lean();
+    const typeOf = new Map(products.map(product => [product._id.toString(), product.type]));
+
+    const groups = new Map<TaxLineContext["productType"], number>();
+    lines.forEach((line, idx) => {
+        const scope = TAX_PRODUCT_TYPE[typeOf.get(productIds[idx]) ?? ""];
+        groups.set(scope, (groups.get(scope) ?? 0) + line.totalPrice);
+    });
+    const subtotal = [...groups.values()].reduce((sum, value) => sum + value, 0);
+
+    let amount = 0;
+    const merged = new Map<string, TaxBreakdownLine>();
+    for (const [productType, value] of groups) {
+        const share = subtotal > 0 ? value / subtotal : 0;
+        const base = Math.max(0, value - discountTotal * share);
+        const result = await calculateTax(base, shippingAddress, companyId, {productType});
+        amount += result.amount;
+        for (const line of result.breakdown) {
+            const key = `${line.name}|${line.rate}`;
+            const existing = merged.get(key);
+            if (existing) existing.amount += line.amount;
+            else merged.set(key, {...line});
+        }
+    }
+
+    return {
+        amount: roundMoney(amount),
+        breakdown: [...merged.values()].map(line => ({...line, amount: roundMoney(line.amount)})),
+    };
+}
+
+/**
+ * Tax contained in a tax-inclusive amount (till prices include VAT), using the
+ * rates of the product type's scope at the given address. Compound rates are
+ * folded in by pricing a base of 100 through the active provider.
+ */
+export async function calculateInclusiveTax(
+    gross: number,
+    productType: string | undefined,
+    address: ShippingAddress,
+    companyId: ObjectId,
+): Promise<number> {
+    const {amount} = await calculateTax(100, address, companyId, {productType: TAX_PRODUCT_TYPE[productType ?? ""]});
+    const rate = amount / 100;
+    return rate > 0 ? roundMoney(gross - gross / (1 + rate)) : 0;
 }

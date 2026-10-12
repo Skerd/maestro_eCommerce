@@ -10,6 +10,7 @@ import {
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 
 /** The priced fields shared by Cart and Checkout documents. */
@@ -70,13 +71,13 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     const [products, variants] = await Promise.all([
         Product.find(
             {_id: {$in: productIds}, company: ctx.companyId, status: "active"},
-            {title: 1, sku: 1, price: 1, mainImage: 1, categories: 1, collections: 1, type: 1, hasVariants: 1, weight: 1},
+            {title: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1},
         ).noDeleted().session(ctx.session ?? null).lean(),
         variantIds.length
             ? ProductVariant.find(
                   {_id: {$in: variantIds}, company: ctx.companyId, status: "active"},
                   {product: 1, sku: 1, price: 1, mainImage: 1},
-              ).session(ctx.session ?? null).lean()
+              ).noDeleted().session(ctx.session ?? null).lean()
             : Promise.resolve([]),
     ]);
     const productMap = new Map(products.map((p: any) => [p._id.toString(), p]));
@@ -104,12 +105,18 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     if (removed.length) notices.removedItems = removed.filter(Boolean);
     doc.items.splice(0, doc.items.length, ...kept);
 
+    // Collection membership comes from the collections themselves, as on the storefront
+    const collectionsByProduct = await collectionIdsByProduct(
+        [...new Set(doc.items.map(item => idOf(item.product)))].map(id => new ObjectId(id)),
+        ctx.companyId,
+        ctx.session,
+    );
     const meta: LineCatalogMeta[] = doc.items.map(item => {
         const product: any = productMap.get(idOf(item.product));
         return {
             productId: idOf(item.product),
             categoryIds: (product?.categories ?? []).map(idOf),
-            collectionIds: (product?.collections ?? []).map(idOf),
+            collectionIds: collectionsByProduct.get(idOf(item.product)) ?? [],
             isGiftCard: product?.type === "gift_card",
             weight: Number(product?.weight ?? 0) * item.quantity,
         };
@@ -143,7 +150,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     // 3. Re-validate the applied discount against the re-priced lines
     const applied = doc.appliedDiscounts?.[0];
     if (applied) {
-        const discount = await Discount.findOne({_id: idOf(applied.discount), company: ctx.companyId}).session(ctx.session ?? null);
+        const discount = await Discount.findOne({_id: idOf(applied.discount), company: ctx.companyId}).noDeleted().session(ctx.session ?? null);
         const result = discount
             ? await validateDiscountForCustomer(
                   toValidationCart(doc, meta, ctx.userId),
