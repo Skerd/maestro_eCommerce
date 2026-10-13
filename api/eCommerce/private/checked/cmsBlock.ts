@@ -29,23 +29,3 @@ export const {router} = createCrudRouter({
     actions: CmsBlockActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });
-
-router.get(
-    "/public",
-    rateLimiter({windowMs: 60000, max: 300}),
-    asyncHandler(async (req: any, res: any) => {
-        const {company} = req;
-        const now = new Date();
-
-        const blocks = await CmsBlock.find({
-            company: company._id,
-            isActive: true,
-            $and: [
-                {$or: [{startsAt: null}, {startsAt: {$exists: false}}, {startsAt: {$lte: now}}]},
-                {$or: [{endsAt: null}, {endsAt: {$exists: false}}, {endsAt: {$gte: now}}]},
-            ],
-        }).sort({position: 1}).lean();
-
-        return res.json({data: cmsBlocksToDTO(blocks as any[])});
-    }),
-);
