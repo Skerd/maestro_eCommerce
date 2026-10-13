@@ -15,6 +15,7 @@ import {stockCountService} from "@eCommerceModule/database/schemas/stockCount/st
 import {InventoryActions} from "@eCommerceModule/database/schemas/inventory/inventory.actions";
 import {assertStockDocumentLines} from "@eCommerceModule/utilities/services/stockDocumentLines";
 import {productOrderLinesToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
+import {attachOrderLineProductCopy} from "@eCommerceModule/utilities/mappers/productOrder/orderLineDisplay";
 
 let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
@@ -186,5 +187,32 @@ describe("operator UI support", () => {
             items: [{_id: lineId, quantity: 2, snapshot: {title: "Tee", variantLabel: "Red / XL"}}],
         } as any);
         expect(options).toEqual([{value: lineId.toString(), label: "Tee (Red / XL) × 2"}]);
+    });
+
+    it("copies the sold product onto a fulfillment or return line", () => {
+        const lineId = new ObjectId();
+        const productId = new ObjectId();
+        const variantId = new ObjectId();
+        const [line] = attachOrderLineProductCopy(
+            [{orderItemId: lineId.toString(), quantity: 2}],
+            {
+                items: [{
+                    _id: lineId,
+                    product: {_id: productId, title: "Tee", slug: "tee", sku: "TEE-1", status: "active", type: "physical"},
+                    variant: {_id: variantId, sku: "TEE-1-RED", price: 10, status: "active"},
+                    snapshot: {title: "Tee", sku: "TEE-1", variantLabel: "Red / XL", productType: "physical"},
+                }],
+            } as any,
+        );
+        expect(line.product).toMatchObject({_id: productId.toString(), title: "Tee", sku: "TEE-1"});
+        expect(line.variant).toMatchObject({_id: variantId.toString(), sku: "TEE-1-RED"});
+        expect(line.snapshot).toMatchObject({title: "Tee", sku: "TEE-1", variantLabel: "Red / XL", productType: "physical"});
+
+        const [missing] = attachOrderLineProductCopy(
+            [{orderItemId: new ObjectId().toString(), quantity: 1}],
+            {items: []} as any,
+        );
+        expect(missing.product).toBeUndefined();
+        expect(missing.snapshot).toBeUndefined();
     });
 });

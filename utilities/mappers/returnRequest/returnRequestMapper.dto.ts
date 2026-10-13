@@ -2,7 +2,7 @@ import type {IReturnRequest} from "@eCommerceModule/database/schemas/returnReque
 import type {ReturnRequest} from "armonia/src/modules/eCommerce/api/eCommerce/private/returnRequest/returnRequest.dto";
 import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
 import type {ProductOrderSimple} from "armonia/src/modules/eCommerce/dto/productOrder.dto";
-import {dateToISOString, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {dateToISOString, mapSnippet, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
 import {
@@ -18,7 +18,7 @@ export function returnRequestToDTO(rr: IReturnRequest): ReturnRequest {
         type: rr.type,
         status: rr.status,
         items: (rr.items ?? []).map((i) => ({
-            orderItemId: i.orderItemId?.toString(),
+            orderItemId: objectIdToString(i.orderItemId),
             quantity: i.quantity,
             reason: i.reason,
         })),

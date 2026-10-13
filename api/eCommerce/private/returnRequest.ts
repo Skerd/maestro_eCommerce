@@ -12,6 +12,7 @@ import {ObjectId} from "mongodb";
 import {ReturnRequestActions} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.actions";
 import {returnRequestToDTO, returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {returnRequestsToSelect} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.select";
+import {withOrderLineProductCopies} from "@eCommerceModule/utilities/mappers/productOrder/orderLineDisplay";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {findCompanyAdminReceiverIds} from "@eCommerceModule/utilities/services/companyStaffRecipients";
@@ -32,6 +33,17 @@ export const {router} = createCrudRouter({
     toDTO: returnRequestToDTO,
     toDTOArray: returnRequestsToDTO,
     toSelect: returnRequestsToSelect,
+    enrichList: async (docs, params) => withOrderLineProductCopies(returnRequestsToDTO(docs), params.company._id, {
+        logger: params.logger,
+        languageCode: params.languageCode,
+    }),
+    enrichSingle: async (doc, params) => {
+        const [row] = await withOrderLineProductCopies([returnRequestToDTO(doc)], params.company._id, {
+            logger: params.logger,
+            languageCode: params.languageCode,
+        });
+        return row;
+    },
     actions: ReturnRequestActions,
     /** Items must be shipped lines of this company's order, not already claimed by another return. */
     buildCreateData: async (params) => {

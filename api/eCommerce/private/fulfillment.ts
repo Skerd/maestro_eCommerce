@@ -11,6 +11,7 @@ import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/
 import {FulfillmentActions} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.actions";
 import {fulfillmentToDTO, fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/fulfillmentMapper.dto";
 import {fulfillmentsToSelect} from "@eCommerceModule/utilities/mappers/fulfillment/fulfillmentMapper.select";
+import {withOrderLineProductCopies} from "@eCommerceModule/utilities/mappers/productOrder/orderLineDisplay";
 
 const buildFulfillmentCreate = buildCreateDataFromSchemaDef(FulfillmentSchemaDef);
 const buildFulfillmentUpdate = buildUpdateDataFromSchemaDef(FulfillmentSchemaDef);
@@ -27,6 +28,17 @@ export const {router} = createCrudRouter({
     toDTO: fulfillmentToDTO,
     toDTOArray: fulfillmentsToDTO,
     toSelect: fulfillmentsToSelect,
+    enrichList: async (docs, params) => withOrderLineProductCopies(fulfillmentsToDTO(docs), params.company._id, {
+        logger: params.logger,
+        languageCode: params.languageCode,
+    }),
+    enrichSingle: async (doc, params) => {
+        const [row] = await withOrderLineProductCopies([fulfillmentToDTO(doc)], params.company._id, {
+            logger: params.logger,
+            languageCode: params.languageCode,
+        });
+        return row;
+    },
     actions: FulfillmentActions,
     /** Items must be lines of this company's order, within what is still left to fulfil. */
     buildCreateData: async (params) => {
