@@ -4,10 +4,10 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 
-export const FISCAL_CONFIG_NAME = demoName("Albania TEST Fiscalization");
+export const FISCAL_CONFIG_NAME = demoName("TEST Fiscalization");
 
 /**
- * Albanian TEST fiscalization placeholder. Never writes certificate material.
+ * TEST fiscalization placeholder (CIS-compatible fields). Never writes certificate material.
  * Idempotent on `{company, name}`.
  */
 export async function createFiscalConfigs(
@@ -33,8 +33,8 @@ export async function createFiscalConfigs(
             selfcareUrl: "https://fiscal.test.local/selfcare",
             proxyUrl: "https://fiscal.test.local/proxy",
             sellerName: "Demo TEST",
-            sellerAddress: "Myslym Shyr",
-            sellerTown: "Tirana",
+            sellerAddress: "Central Avenue 1",
+            sellerTown: "Metro City",
             sellerCountry: "ALB",
             isVatRegistered: true,
             environment: "test" as const,

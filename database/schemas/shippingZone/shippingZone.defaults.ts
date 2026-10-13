@@ -4,10 +4,10 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 
-const SHIPPING_ZONE_NAME = demoName("Albania Domestic");
+const SHIPPING_ZONE_NAME = demoName("Domestic");
 
 /**
- * Seeds Albania Domestic rates. Idempotent on `{company, name}`.
+ * Seeds domestic shipping rates. Idempotent on `{company, name}`.
  * Skips when the country ref did not resolve.
  */
 export async function createShippingZones(
@@ -34,14 +34,14 @@ export async function createShippingZones(
                     name: "Standard",
                     type: "flat" as const,
                     price: 4.5,
-                    carrier: "Posta Shqiptare",
+                    carrier: "National Post",
                     estimatedDeliveryDays: 3,
                 },
                 {
                     name: "Express",
                     type: "flat" as const,
                     price: 9.9,
-                    carrier: "Courier",
+                    carrier: "Express Courier",
                     estimatedDeliveryDays: 1,
                 },
                 {

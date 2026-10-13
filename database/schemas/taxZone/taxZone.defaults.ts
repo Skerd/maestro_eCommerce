@@ -4,10 +4,10 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 
-const TAX_ZONE_NAME = demoName("Albania Standard VAT");
+const TAX_ZONE_NAME = demoName("Standard VAT");
 
 /**
- * Seeds Albania Standard VAT. Idempotent on `{company, name}`.
+ * Seeds Standard VAT for the company country. Idempotent on `{company, name}`.
  * Skips when the country ref did not resolve.
  */
 export async function createTaxZones(

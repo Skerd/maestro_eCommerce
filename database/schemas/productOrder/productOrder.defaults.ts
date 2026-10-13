@@ -25,6 +25,7 @@ export type ProductOrderSeed = {
     notes?: string;
 };
 
+/** Status-diversity showcase orders (kept small; catalog coverage is generated below). */
 export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
     {
         orderNumber: "DEMO-ORD-1001",
@@ -120,8 +121,44 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
     },
 ];
 
+const REVIEW_COVERAGE_CHUNK = 8;
+
+/**
+ * One delivered+paid order per chunk of catalog products so every SKU has a
+ * purchase that can gate a product review.
+ */
+function buildReviewCoverageSeeds(
+    productKeys: readonly string[],
+    bySeedKey: CreateProductsResult["bySeedKey"],
+): ProductOrderSeed[] {
+    const seeds: ProductOrderSeed[] = [];
+    for (let i = 0; i < productKeys.length; i += REVIEW_COVERAGE_CHUNK) {
+        const chunk = productKeys.slice(i, i + REVIEW_COVERAGE_CHUNK);
+        const batch = Math.floor(i / REVIEW_COVERAGE_CHUNK) + 1;
+        const needsShipping = chunk.some((key) => {
+            const type = bySeedKey[key]?.type;
+            return type === "physical" || type === "variable" || type === "bundle";
+        });
+        seeds.push({
+            orderNumber: `DEMO-REV-${String(batch).padStart(4, "0")}`,
+            status: "delivered",
+            paymentStatus: "paid",
+            fulfillmentStatus: "fulfilled",
+            productKeys: chunk,
+            shippingTotal: needsShipping ? 4.5 : 0,
+            discountTotal: 0,
+            taxRate: 0.2,
+            daysAgo: 14 + (batch % 20),
+            notes: "Review-coverage delivered order (ecom-demo-seed).",
+        });
+    }
+    return seeds;
+}
+
 export type CreateProductOrdersResult = {
     byOrderNumber: Record<string, HydratedDocument<IProductOrder>>;
+    /** First delivered coverage order that includes this product seed key. */
+    orderNumberByProductKey: Record<string, string>;
 };
 
 /** Maps seed order status → timeline event keys used by production actions / locales. */
@@ -136,8 +173,8 @@ const statusTimelineEvent: Record<ProductOrderStatus, string> = {
 };
 
 /**
- * Seeds catalog orders across statuses using the three demo products.
- * Idempotent on `idempotencyKey` (globally unique; includes soft-deleted rows).
+ * Seeds showcase orders across statuses, then delivered coverage orders for
+ * every catalog product (review gating). Idempotent on `idempotencyKey`.
  */
 export async function createProductOrders(
     parentLogger: serverLogger,
@@ -162,9 +199,16 @@ export async function createProductOrders(
         ...(geo.countryId ? {country: geo.countryId} : {}),
     };
     const byOrderNumber: Record<string, HydratedDocument<IProductOrder>> = {};
+    const orderNumberByProductKey: Record<string, string> = {};
 
-    for (let oi = 0; oi < defaultProductOrderSeeds.length; oi++) {
-        const seed = defaultProductOrderSeeds[oi];
+    const catalogKeys = Object.keys(products.bySeedKey).sort();
+    const allSeeds = [
+        ...defaultProductOrderSeeds,
+        ...buildReviewCoverageSeeds(catalogKeys, products.bySeedKey),
+    ];
+
+    for (let oi = 0; oi < allSeeds.length; oi++) {
+        const seed = allSeeds[oi]!;
         try {
             const items = [];
             let missingProduct = false;
@@ -184,7 +228,11 @@ export async function createProductOrders(
                     quantity,
                     unitPrice,
                     totalPrice: unitPrice * quantity,
-                    snapshot: {title: product.title, sku: product.sku},
+                    snapshot: {
+                        title: product.title,
+                        sku: product.sku,
+                        productType: product.type,
+                    },
                 });
             }
             if (missingProduct) continue;
@@ -270,6 +318,14 @@ export async function createProductOrders(
                 await order.save();
             }
             byOrderNumber[seed.orderNumber] = order;
+
+            if (seed.status === "delivered" && seed.paymentStatus === "paid") {
+                for (const key of seed.productKeys) {
+                    if (!orderNumberByProductKey[key]) {
+                        orderNumberByProductKey[key] = seed.orderNumber;
+                    }
+                }
+            }
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
             console.log(e);
@@ -278,5 +334,5 @@ export async function createProductOrders(
     }
 
     logger.finish("Finished creating product orders!", Object.keys(byOrderNumber).length);
-    return {byOrderNumber};
+    return {byOrderNumber, orderNumberByProductKey};
 }

@@ -34,7 +34,7 @@ export async function createInventories(
     logger.start("Creating inventory...");
 
     if (!warehouseId) {
-        logger.warn("Skipping inventory: Tirana warehouse was not seeded.");
+        logger.warn("Skipping inventory: primary warehouse was not seeded.");
         logger.finish("Finished creating inventory!", 0);
         return {rows: []};
     }

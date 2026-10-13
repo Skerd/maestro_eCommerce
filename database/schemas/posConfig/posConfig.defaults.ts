@@ -6,10 +6,10 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 import type {CreatePosPaymentMethodsResult} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.defaults";
 
-export const TIRANA_FRONT_TILL_NAME = demoName("Tirana Front Till");
+export const FRONT_FLOOR_TILL_NAME = demoName("Front Floor Till");
 
 /**
- * Seeds the Tirana front till. Requires at least one warehouse (schema validator).
+ * Seeds the front-floor till. Requires at least one warehouse (schema validator).
  * Does not write `managerPins.pinHash`. Idempotent on `{company, name}`.
  */
 export async function createPosConfigs(
@@ -24,7 +24,7 @@ export async function createPosConfigs(
     logger.start("Creating POS configs...");
 
     if (!warehouseId) {
-        logger.warn("Skipping POS config: Tirana warehouse was not seeded.");
+        logger.warn("Skipping POS config: primary warehouse was not seeded.");
         logger.finish("Finished creating POS configs!", 0);
         return undefined;
     }
@@ -38,12 +38,12 @@ export async function createPosConfigs(
 
     try {
         const payload = {
-            name: TIRANA_FRONT_TILL_NAME,
+            name: FRONT_FLOOR_TILL_NAME,
             paymentMethods: [cash._id, card._id],
             warehouses: [warehouseId],
             currency: currencyId,
             ...(fiscalConfigId ? {fiscalConfig: fiscalConfigId} : {}),
-            receiptHeader: "Demo — Tirana Front Till",
+            receiptHeader: "Demo — Front Floor Till",
             receiptFooter: "Thank you — demo till",
             ifaceBarcodeScanner: true,
             ifaceCashControl: true,
@@ -58,7 +58,7 @@ export async function createPosConfigs(
             createdBy: company.createdBy,
         };
 
-        let doc = await PosConfig.findOne({company: company._id, name: TIRANA_FRONT_TILL_NAME});
+        let doc = await PosConfig.findOne({company: company._id, name: FRONT_FLOOR_TILL_NAME});
         if (!doc) {
             doc = await PosConfig.create(payload);
         } else {

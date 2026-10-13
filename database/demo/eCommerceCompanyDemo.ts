@@ -9,6 +9,7 @@ import {defaultCompaniesValues} from "@coreModule/database/schemas/company/compa
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {createWarehouses} from "@eCommerceModule/database/schemas/warehouse/warehouse.defaults";
 import {createProductAttributes} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.defaults";
+import {createProductMedia} from "@eCommerceModule/database/seeds/catalog/productMedia";
 import {createProducts, type CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import {createProductVariants} from "@eCommerceModule/database/schemas/productVariant/productVariant.defaults";
 import {createInventories} from "@eCommerceModule/database/schemas/inventory/inventory.defaults";
@@ -84,10 +85,11 @@ export async function seedECommerceDemoData(
 
     const warehouses = await createWarehouses(logger, company, geo, addr);
     const attributes = await createProductAttributes(logger, company);
-    const products = await createProducts(logger, company, currency._id, attributes);
+    const productMedia = await createProductMedia(logger, company);
+    const products = await createProducts(logger, company, currency._id, attributes, productMedia);
     const variants = await createProductVariants(logger, company, currency._id, products, attributes);
     const inventories = await createInventories(logger, company, products, warehouses.primaryWarehouseId, variants);
-    const collections = await createCollections(logger, company, products);
+    const collections = await createCollections(logger, company, products, productMedia);
     await createSavedSearches(logger, company, demoCustomerId, collections);
     const groups = await createCustomerGroups(logger, company);
     await createCustomerGroupMembers(logger, company, groups, staffIds);

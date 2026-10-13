@@ -17,7 +17,7 @@ type CustomerAddressSeed = {
 };
 
 /**
- * Seeds echo's Tirana shipping + billing addresses. Idempotent on `{company, customer, label}`.
+ * Seeds echo's demo shipping + billing addresses. Idempotent on `{company, customer, label}`.
  * One default may exist per type. City and country are required — skip when geo refs are missing.
  */
 export async function createCustomerAddresses(

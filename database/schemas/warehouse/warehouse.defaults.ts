@@ -6,8 +6,8 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import {demoName} from "@coreModule/utilities/helpers";
 
-export const TIRANA_WAREHOUSE_SEED_KEY = "wh-tirana-main";
-export const DURRES_WAREHOUSE_SEED_KEY = "wh-durres-overflow";
+export const PRIMARY_WAREHOUSE_SEED_KEY = "wh-central-main";
+export const SECONDARY_WAREHOUSE_SEED_KEY = "wh-harbor-overflow";
 
 export type WarehouseSeed = {
     seedKey: string;
@@ -35,29 +35,29 @@ export async function createWarehouses(
     const logger = getLogger("mongoDbInitialization-createWarehouses", parentLogger);
     logger.start("Creating warehouses...");
 
-    const tiranaLat = addr.geoLocation?.latitude ?? 41.32426719964653;
-    const tiranaLng = addr.geoLocation?.longitude ?? 19.80706909189647;
+    const primaryLat = addr.geoLocation?.latitude ?? 41.32426719964653;
+    const primaryLng = addr.geoLocation?.longitude ?? 19.80706909189647;
 
     const seeds: readonly (WarehouseSeed & {latitude: number; longitude: number})[] = [
         {
-            seedKey: TIRANA_WAREHOUSE_SEED_KEY,
-            name: demoName("Tirana Main Warehouse"),
-            code: "TIA-MAIN",
+            seedKey: PRIMARY_WAREHOUSE_SEED_KEY,
+            name: demoName("Central Main Warehouse"),
+            code: "CEN-MAIN",
             isDefault: true,
             street: addr.street,
             postalCode: addr.postalCode,
-            latitude: tiranaLat,
-            longitude: tiranaLng,
+            latitude: primaryLat,
+            longitude: primaryLng,
         },
         {
-            seedKey: DURRES_WAREHOUSE_SEED_KEY,
-            name: demoName("Durrës Overflow"),
-            code: "DUR-OVF",
+            seedKey: SECONDARY_WAREHOUSE_SEED_KEY,
+            name: demoName("Harbor Overflow"),
+            code: "HBR-OVF",
             isDefault: false,
-            street: "Rruga Taulantia",
+            street: "Harbor Industrial Park 12",
             postalCode: "2001",
-            latitude: 41.3231,
-            longitude: 19.4414,
+            latitude: primaryLat - 0.001,
+            longitude: primaryLng - 0.36,
         },
     ];
 
@@ -102,6 +102,6 @@ export async function createWarehouses(
     logger.finish("Finished creating warehouses!", Object.keys(bySeedKey).length);
     return {
         bySeedKey,
-        primaryWarehouseId: bySeedKey[TIRANA_WAREHOUSE_SEED_KEY]?._id,
+        primaryWarehouseId: bySeedKey[PRIMARY_WAREHOUSE_SEED_KEY]?._id,
     };
 }

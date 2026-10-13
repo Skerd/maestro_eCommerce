@@ -20,6 +20,7 @@ export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
         config: {
             headline: "Summer studio essentials",
             subheadline: "New cuts, lighter layers, and studio kit for the season.",
+            imageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&h=900&fit=crop&auto=format&q=80",
             ctaLabel: "Shop featured",
             ctaHref: "/products",
         },
@@ -34,13 +35,13 @@ export const defaultCmsBlockSeeds: readonly CmsBlockSeed[] = [
         title: demoName("Featured collection strip"),
         type: "featured_collection",
         position: 2,
-        config: {headline: "Featured", collectionSlug: "featured", limit: 4},
+        config: {headline: "Featured", collectionSlug: "featured", limit: 8},
     },
     {
         title: demoName("Flash sale teaser"),
         type: "flash_sale",
         position: 3,
-        config: {headline: "Flash sale", collectionSlug: "sale", limit: 4},
+        config: {headline: "Flash sale", collectionSlug: "sale", limit: 8},
     },
 ];
 

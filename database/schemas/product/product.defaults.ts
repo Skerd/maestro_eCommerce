@@ -1,12 +1,20 @@
+import {createHash} from "crypto";
 import dayjs from "dayjs";
 import type {HydratedDocument} from "mongoose";
 import type {Types} from "mongoose";
+import {ObjectId} from "mongodb";
 import Product, {type IProduct, type ProductStatus, type ProductType} from "./product";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductAttributesResult} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.defaults";
+import {
+    catalogProductSeeds,
+    type CatalogProductSeed,
+} from "@eCommerceModule/database/schemas/product/product.catalog.seeds";
+import {resolveProductVideoUrls} from "@eCommerceModule/database/schemas/product/product.catalog.media";
+import type {CreateProductMediaResult} from "@eCommerceModule/database/seeds/catalog/productMedia";
 
 export type ProductSeed = {
     seedKey: string;
@@ -84,190 +92,199 @@ export type ProductSeed = {
     hasVariants?: boolean;
     /** When false, only core catalog fields are written (minimal demo product). */
     fullyFilled?: boolean;
+    bundleComponents?: readonly {productKey: string; quantity: number}[];
 };
 
-export const defaultProductSeeds: readonly ProductSeed[] = [
-    {
-        seedKey: "prod-01-brand-tee",
-        title: demoName("Brand T-Shirt"),
-        slug: "demo-brand-tshirt",
-        type: "variable",
+/**
+ * Deterministic unique 12-digit barcode per seed key.
+ * SKU numeric suffixes alone collide across categories (…-003, …-003).
+ */
+function uniqueProductBarcode(seedKey: string): string {
+    const digest = createHash("sha256").update(`ecom-barcode:${seedKey}`).digest();
+    let digits = "";
+    for (let i = 0; i < digest.length && digits.length < 12; i++) {
+        digits += String(digest[i] % 10);
+    }
+    return digits.padStart(12, "0").slice(0, 12);
+}
+
+function expandCatalogSeed(seed: CatalogProductSeed): ProductSeed {
+    const type = seed.type ?? "physical";
+    const isDigital = type === "digital";
+    const isGiftCard = type === "gift_card";
+    const isBundle = type === "bundle";
+    const ships = type === "physical" || type === "variable" || isBundle;
+    const tracksStock = seed.trackInventory ?? (type === "physical" || type === "variable");
+    const fullyFilled = seed.fullyFilled !== false;
+    const brand = seed.brand ?? "Demo";
+    const vendor = seed.vendor ?? "Demo Vendor";
+    const barcode = uniqueProductBarcode(seed.seedKey);
+    const description =
+        seed.description ??
+        `${seed.shortDescription} Fully populated demo catalog item for storefront and operations workflows.`;
+
+    if (!fullyFilled) {
+        return {
+            seedKey: seed.seedKey,
+            title: demoName(seed.title),
+            slug: seed.slug,
+            type,
+            status: "active",
+            categorySlug: seed.categorySlug,
+            price: seed.price,
+            sku: seed.sku,
+            tags: seed.tags ?? ["ecom-demo-seed"],
+            shortDescription: seed.shortDescription,
+            description,
+            trackInventory: tracksStock,
+            fullyFilled: false,
+            bundleComponents: seed.bundleComponents,
+        };
+    }
+
+    const compareAt = seed.compareAtPrice;
+    const cost =
+        seed.costPrice ??
+        (isGiftCard ? 0 : Math.round(seed.price * 0.4 * 100) / 100);
+    const msrp = compareAt ? Math.round(compareAt * 1.1 * 100) / 100 : Math.round(seed.price * 1.15 * 100) / 100;
+
+    const fulfillmentHint = isGiftCard
+        ? "Issued as store credit after payment"
+        : isBundle
+          ? "Ships as component SKUs; stock reserved per line"
+          : isDigital
+            ? "Instant digital delivery"
+            : "Tracked warehouse stock";
+
+    return {
+        seedKey: seed.seedKey,
+        title: demoName(seed.title),
+        slug: seed.slug,
+        type,
         status: "active",
-        categorySlug: "fashion-men",
-        price: 29.9,
-        compareAtPrice: 39.9,
-        costPrice: 12,
-        msrp: 44.9,
-        sku: "DEMO-TEE-001",
-        barcode: "5901234123457",
-        gtin: "05901234123457",
-        upc: "012345678905",
-        ean: "5901234123457",
-        mpn: "DEMO-TEE-MW-001",
-        hsCode: "610910",
-        countryOfOrigin: "AL",
-        brand: "Demo",
-        vendor: "Demo Apparel",
-        featured: true,
-        badges: ["bestseller", "new"],
-        tags: ["apparel", "merch", "ecom-demo-seed"],
-        shortDescription: "Soft cotton tee with embossed demo mark.",
-        description:
-            "Premium midweight cotton t-shirt. Demo variable product with size and color options. Cut for everyday studio wear with a reinforced collar and side-seamed construction.",
-        highlights: ["180gsm cotton", "Size & color variants", "Machine washable"],
-        careInstructions: "Machine wash cold, tumble dry low. Do not bleach. Iron on reverse.",
-        warranty: "90-day workmanship warranty against manufacturing defects.",
+        categorySlug: seed.categorySlug,
+        price: seed.price,
+        compareAtPrice: compareAt,
+        costPrice: cost,
+        msrp,
+        sku: seed.sku,
+        barcode,
+        gtin: `0${barcode}`,
+        upc: barcode.slice(0, 12),
+        ean: barcode,
+        mpn: `${seed.sku}-MW`,
+        hsCode: seed.hsCode,
+        countryOfOrigin: "EU",
+        brand,
+        vendor,
+        featured: seed.featured ?? false,
+        badges: seed.badges ?? [],
+        tags: seed.tags ?? ["ecom-demo-seed", seed.categorySlug],
+        shortDescription: seed.shortDescription,
+        description,
+        highlights: ["Demo-ready catalog fields", fulfillmentHint, `${brand} collection`],
+        careInstructions: isGiftCard
+            ? "Delivered by email after payment. Treat the code like cash."
+            : isDigital
+              ? "Download from your account after purchase. Keep your access token private."
+              : isBundle
+                ? "Bundle components ship together when all lines are in stock."
+                : "Follow care label. Store in a dry place away from direct heat.",
+        warranty: isGiftCard
+            ? "Unused balance refundable within 14 days of purchase (demo policy)."
+            : isDigital
+              ? "30-day re-download guarantee for corrupted files."
+              : "90-day workmanship warranty against manufacturing defects.",
         faqs: [
-            {question: "Does it shrink?", answer: "Expect under 3% shrinkage after the first wash."},
-            {question: "Are variants stocked separately?", answer: "Yes — each size/color has its own inventory row."},
+            {
+                question: "Is this a demo product?",
+                answer: "Yes — seeded for storefront and panel demos with full catalog fields.",
+            },
+            {
+                question: isGiftCard
+                    ? "How do I redeem it?"
+                    : isBundle
+                      ? "What is included?"
+                      : isDigital
+                        ? "How do I download?"
+                        : "When will it ship?",
+                answer: isGiftCard
+                    ? "Apply the issued gift-card code at checkout. Balance covers eligible order totals."
+                    : isBundle
+                      ? "See the bundle components on the product sheet — each line reserves its own stock."
+                      : isDigital
+                        ? "A download link is issued after payment clears."
+                        : "Orders placed before 14:00 typically leave the primary warehouse the next business day.",
+            },
         ],
-        attributes: [
-            {name: "Fit", values: ["Regular"]},
-            {name: "Neckline", values: ["Crew"]},
-        ],
+        attributes: isGiftCard
+            ? [{name: "Format", values: ["Gift card"]}]
+            : isBundle
+              ? [{name: "Format", values: ["Bundle"]}]
+              : isDigital
+                ? [{name: "Format", values: ["Digital download"]}]
+                : [
+                      {name: "Brand", values: [brand]},
+                      {name: "Line", values: ["Demo"]},
+                  ],
         specifications: [
-            {label: "Fabric", value: "100% cotton"},
-            {label: "Weight", value: "180 gsm"},
-            {label: "Origin", value: "Albania"},
+            {label: "SKU", value: seed.sku},
+            {label: "Brand", value: brand},
+            {label: "Type", value: type},
+            ...(seed.hsCode ? [{label: "HS Code", value: seed.hsCode}] : []),
+            {label: "Origin", value: "EU"},
         ],
         seo: {
-            metaTitle: "Brand T-Shirt | Demo Merch",
-            metaDescription: "Soft cotton tee with size and color variants for catalog demos.",
-            metaKeywords: ["t-shirt", "merch", "demo"],
-            canonicalUrl: "https://demo.local/products/demo-brand-tshirt",
-            openGraphTitle: "Brand T-Shirt",
-            openGraphDescription: "Demo variable apparel product with full catalog fields.",
+            metaTitle: `${seed.title} | Demo Shop`,
+            metaDescription: seed.shortDescription,
+            metaKeywords: [seed.title.toLowerCase(), brand.toLowerCase(), type, "demo"],
+            canonicalUrl: `https://demo.local/products/${seed.slug}`,
+            openGraphTitle: seed.title,
+            openGraphDescription: seed.shortDescription,
             twitterCard: "summary_large_image",
             structuredDataType: "Product",
             sitemapInclude: true,
-            sitemapPriority: 0.8,
+            sitemapPriority: seed.featured ? 0.9 : 0.7,
             noIndex: false,
         },
-        saleStartsAt: dayjs().subtract(7, "day").toDate(),
-        saleEndsAt: dayjs().add(21, "day").toDate(),
-        taxable: true,
-        taxClass: "standard",
+        saleStartsAt: compareAt ? dayjs().subtract(5, "day").toDate() : undefined,
+        saleEndsAt: compareAt ? dayjs().add(25, "day").toDate() : undefined,
+        taxable: !isGiftCard,
+        taxClass: isGiftCard ? undefined : "standard",
         minOrderQty: 1,
-        maxOrderQty: 20,
+        maxOrderQty: isGiftCard || isDigital ? 5 : 20,
         stepQty: 1,
-        weight: 0.22,
-        weightUnit: "kg",
-        dimensions: {length: 28, width: 20, height: 2},
-        dimensionUnit: "cm",
-        volumetricWeight: 0.25,
-        shippingClass: "apparel",
+        weight: ships ? (seed.weight ?? 0.5) : undefined,
+        weightUnit: ships ? "kg" : undefined,
+        dimensions: ships ? {length: 28, width: 20, height: 8} : undefined,
+        dimensionUnit: ships ? "cm" : undefined,
+        volumetricWeight: ships ? (seed.weight ?? 0.5) * 1.1 : undefined,
+        shippingClass: ships
+            ? seed.categorySlug.startsWith("fashion")
+                ? "apparel"
+                : "standard"
+            : undefined,
         isHazmat: false,
-        requiresShipping: true,
-        trackInventory: true,
+        requiresShipping: ships,
+        trackInventory: tracksStock,
         allowBackorder: false,
         lowStockThreshold: 5,
         safetyStock: 3,
         backorderLimit: 0,
         preorderEnabled: false,
         availableForSale: true,
-        videoUrls: ["https://demo.local/media/products/demo-brand-tshirt.mp4"],
-        hasVariants: true,
+        videoUrls: resolveProductVideoUrls(seed),
+        downloadLimit: isDigital ? 5 : undefined,
+        downloadExpiryDays: isDigital ? 30 : undefined,
+        stock: seed.stock,
+        reserved: seed.reserved,
+        hasVariants: seed.hasVariants ?? false,
         fullyFilled: true,
-    },
-    {
-        seedKey: "prod-02-hoodie",
-        title: demoName("Studio Hoodie"),
-        slug: "studio-hoodie",
-        type: "physical",
-        status: "active",
-        categorySlug: "fashion-men",
-        price: 69,
-        compareAtPrice: 89,
-        costPrice: 28,
-        msrp: 99,
-        sku: "DEMO-HDY-002",
-        barcode: "5901234123464",
-        gtin: "05901234123464",
-        upc: "012345678912",
-        ean: "5901234123464",
-        mpn: "DEMO-HDY-FL-002",
-        hsCode: "611020",
-        countryOfOrigin: "AL",
-        brand: "Demo",
-        vendor: "Demo Apparel",
-        featured: true,
-        badges: ["sale"],
-        tags: ["apparel", "merch", "ecom-demo-seed"],
-        shortDescription: "Heavyweight fleece hoodie for studio days.",
-        description:
-            "Brushed interior fleece, ribbed cuffs, kangaroo pocket. Ships from Tirana warehouse. Fully filled demo physical product for catalog and inventory workflows.",
-        highlights: ["320gsm fleece", "Kangaroo pocket", "Unisex fit"],
-        careInstructions: "Wash inside out at 30°C. Hang dry. Avoid fabric softener.",
-        warranty: "6-month fabric warranty excluding normal wear.",
-        faqs: [
-            {question: "Is sizing true to size?", answer: "Yes — order your usual hoodie size."},
-            {question: "Can it be backordered?", answer: "No — when stock hits zero the listing stops selling."},
-        ],
-        attributes: [
-            {name: "Fit", values: ["Relaxed"]},
-            {name: "Closure", values: ["Pullover"]},
-        ],
-        specifications: [
-            {label: "Fabric", value: "80% cotton / 20% polyester"},
-            {label: "Weight", value: "320 gsm"},
-            {label: "Pocket", value: "Kangaroo"},
-        ],
-        seo: {
-            metaTitle: "Studio Hoodie | Demo",
-            metaDescription: "Heavyweight fleece hoodie seeded with full product fields for demos.",
-            metaKeywords: ["hoodie", "fleece", "studio"],
-            canonicalUrl: "https://demo.local/products/studio-hoodie",
-            openGraphTitle: "Studio Hoodie",
-            openGraphDescription: "Demo physical product with complete catalog data.",
-            twitterCard: "summary_large_image",
-            structuredDataType: "Product",
-            sitemapInclude: true,
-            sitemapPriority: 0.7,
-            noIndex: false,
-        },
-        saleStartsAt: dayjs().subtract(3, "day").toDate(),
-        saleEndsAt: dayjs().add(14, "day").toDate(),
-        taxable: true,
-        taxClass: "standard",
-        minOrderQty: 1,
-        maxOrderQty: 10,
-        stepQty: 1,
-        weight: 0.65,
-        weightUnit: "kg",
-        dimensions: {length: 35, width: 28, height: 6},
-        dimensionUnit: "cm",
-        volumetricWeight: 0.7,
-        shippingClass: "apparel",
-        isHazmat: false,
-        requiresShipping: true,
-        trackInventory: true,
-        allowBackorder: false,
-        lowStockThreshold: 5,
-        safetyStock: 4,
-        backorderLimit: 0,
-        preorderEnabled: false,
-        availableForSale: true,
-        videoUrls: ["https://demo.local/media/products/studio-hoodie.mp4"],
-        stock: 42,
-        reserved: 3,
-        fullyFilled: true,
-    },
-    {
-        seedKey: "prod-03-logo-pack",
-        title: demoName("Logo Source Pack"),
-        slug: "logo-source-pack",
-        type: "digital",
-        status: "active",
-        categorySlug: "electronics",
-        price: 49,
-        sku: "DEMO-DIG-003",
-        tags: ["digital", "ecom-demo-seed"],
-        shortDescription: "Downloadable SVG/PNG logo starter kit.",
-        description: "Minimal digital demo product — only core fields populated.",
-        trackInventory: false,
-        fullyFilled: false,
-    },
-];
+        bundleComponents: seed.bundleComponents,
+    };
+}
+
+export const defaultProductSeeds: readonly ProductSeed[] = catalogProductSeeds.map(expandCatalogSeed);
 
 export type CreateProductsResult = {
     bySeedKey: Record<string, HydratedDocument<IProduct>>;
@@ -282,6 +299,7 @@ export async function createProducts(
     company: ICompany,
     currencyId: Types.ObjectId,
     attributes: CreateProductAttributesResult,
+    media?: CreateProductMediaResult,
 ): Promise<CreateProductsResult> {
     const logger = getLogger("mongoDbInitialization-createProducts", parentLogger);
     logger.start("Creating products...");
@@ -298,6 +316,8 @@ export async function createProducts(
             })
                 .select("_id")
                 .lean();
+
+            const mediaBundle = media?.bySeedKey[seed.seedKey];
 
             const payload: Record<string, unknown> = seed.fullyFilled
                 ? {
@@ -361,6 +381,12 @@ export async function createProducts(
                       status: seed.status,
                       publishedAt: seed.status === "active" ? dayjs().subtract(14, "day").toDate() : undefined,
                       hasVariants: seed.hasVariants ?? false,
+                      ...(mediaBundle
+                          ? {
+                                mainImage: mediaBundle.mainImage,
+                                gallery: mediaBundle.gallery as ObjectId[],
+                            }
+                          : {}),
                       company: company._id,
                       createdBy: company.createdBy,
                   }
@@ -385,6 +411,12 @@ export async function createProducts(
                       status: seed.status,
                       publishedAt: seed.status === "active" ? dayjs().subtract(14, "day").toDate() : undefined,
                       hasVariants: false,
+                      ...(mediaBundle
+                          ? {
+                                mainImage: mediaBundle.mainImage,
+                                gallery: mediaBundle.gallery as ObjectId[],
+                            }
+                          : {}),
                       company: company._id,
                       createdBy: company.createdBy,
                   };
@@ -415,32 +447,65 @@ export async function createProducts(
         }
     }
 
-    const tee = bySeedKey["prod-01-brand-tee"];
-    const hoodie = bySeedKey["prod-02-hoodie"];
-    const logoPack = bySeedKey["prod-03-logo-pack"];
-    if (tee && hoodie && logoPack) {
-        await Product.updateOne(
-            {_id: tee._id},
-            {
-                $set: {
-                    relatedProducts: [hoodie._id],
-                    upsells: [hoodie._id],
-                    crossSells: [logoPack._id],
-                    frequentlyBoughtTogether: [hoodie._id],
+    for (const seed of catalogProductSeeds) {
+        if (seed.type !== "bundle" || !seed.bundleComponents?.length) continue;
+        const bundle = bySeedKey[seed.seedKey];
+        if (!bundle) {
+            logger.warn(`Skipping bundle components for "${seed.seedKey}": bundle product was not seeded.`);
+            continue;
+        }
+        const components: {product: Types.ObjectId; quantity: number}[] = [];
+        let missing = false;
+        for (const line of seed.bundleComponents) {
+            const component = bySeedKey[line.productKey];
+            if (!component) {
+                logger.warn(
+                    `Skipping bundle "${seed.seedKey}": component "${line.productKey}" was not seeded.`,
+                );
+                missing = true;
+                break;
+            }
+            if (component.type === "bundle") {
+                logger.warn(
+                    `Skipping bundle "${seed.seedKey}": component "${line.productKey}" is itself a bundle.`,
+                );
+                missing = true;
+                break;
+            }
+            components.push({product: component._id, quantity: line.quantity});
+        }
+        if (missing || components.length === 0) continue;
+        await Product.updateOne({_id: bundle._id}, {$set: {bundleComponents: components}});
+        bundle.set("bundleComponents", components);
+    }
+
+    const byCategory = new Map<string, HydratedDocument<IProduct>[]>();
+    for (const seed of defaultProductSeeds) {
+        const doc = bySeedKey[seed.seedKey];
+        if (!doc) continue;
+        const list = byCategory.get(seed.categorySlug) ?? [];
+        list.push(doc);
+        byCategory.set(seed.categorySlug, list);
+    }
+
+    for (const [, products] of byCategory) {
+        for (let i = 0; i < products.length; i++) {
+            const product = products[i];
+            const related = products.filter((_, idx) => idx !== i).slice(0, 3).map((p) => p._id);
+            const upsell = products[(i + 1) % products.length]?._id;
+            const cross = products[(i + 2) % products.length]?._id;
+            await Product.updateOne(
+                {_id: product._id},
+                {
+                    $set: {
+                        relatedProducts: related,
+                        upsells: upsell ? [upsell] : [],
+                        crossSells: cross ? [cross] : [],
+                        frequentlyBoughtTogether: upsell ? [upsell] : [],
+                    },
                 },
-            },
-        );
-        await Product.updateOne(
-            {_id: hoodie._id},
-            {
-                $set: {
-                    relatedProducts: [tee._id],
-                    upsells: [tee._id],
-                    crossSells: [logoPack._id],
-                    frequentlyBoughtTogether: [tee._id],
-                },
-            },
-        );
+            );
+        }
     }
 
     logger.finish("Finished creating products!", Object.keys(bySeedKey).length);

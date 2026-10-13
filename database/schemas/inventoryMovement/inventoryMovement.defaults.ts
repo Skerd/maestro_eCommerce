@@ -10,7 +10,7 @@ import type {CreateInventoriesResult} from "@eCommerceModule/database/schemas/in
 export const HOODIE_INITIAL_MOVE_NOTE = `ecom-demo-seed:move-hoodie-initial`;
 
 /**
- * Seeds one `initial` restock against Tirana + the studio hoodie.
+ * Seeds one `initial` restock against the primary warehouse + the studio hoodie.
  * Write-locked schema — `Model.create` still works. Idempotent via `note`.
  */
 export async function createInventoryMovements(
@@ -30,7 +30,7 @@ export async function createInventoryMovements(
         return undefined;
     }
     if (!warehouseId) {
-        logger.warn("Skipping inventory movement: Tirana warehouse was not seeded.");
+        logger.warn("Skipping inventory movement: primary warehouse was not seeded.");
         logger.finish("Finished creating inventory movements!", 0);
         return undefined;
     }
