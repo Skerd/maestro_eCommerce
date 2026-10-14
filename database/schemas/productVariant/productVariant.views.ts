@@ -323,7 +323,8 @@ export const productVariantSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
-                                            cardColumns: 2,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["attribute", "value"],
                                             fields: [
                                                 {

@@ -209,6 +209,8 @@ export const stockTransferSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 10,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["product", "quantity"],
                                             fields: [
                                                 {

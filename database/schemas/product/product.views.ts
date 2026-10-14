@@ -1037,6 +1037,8 @@ export const productSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["product", "quantity"],
                                             fields: [
                                                 {
@@ -1454,6 +1456,8 @@ export const productSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["name", "values"],
                                             fields: [
                                                 {name: "name", type: "text", className: "text-sm font-medium", labelKey: "name"},
@@ -1496,6 +1500,8 @@ export const productSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["label", "value"],
                                             fields: [
                                                 {name: "label", type: "text", className: "text-sm font-medium", labelKey: "specLabel"},

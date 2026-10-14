@@ -308,6 +308,8 @@ export const collectionSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["field", "operator", "value"],
                                             fields: [
                                                 {

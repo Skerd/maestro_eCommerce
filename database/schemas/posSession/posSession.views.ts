@@ -311,6 +311,8 @@ export const posSessionSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 1,
                                             compactSummaryFields: ["type", "amount"],
                                             fields: [
                                                 {

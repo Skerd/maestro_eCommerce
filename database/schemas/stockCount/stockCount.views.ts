@@ -112,6 +112,8 @@ export const stockCountSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 10,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["product", "expectedQuantity", "countedQuantity"],
                                             fields: [
                                                 {

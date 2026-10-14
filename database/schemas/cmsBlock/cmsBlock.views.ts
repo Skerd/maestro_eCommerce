@@ -279,7 +279,8 @@ export const cmsBlockSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
-                                            cardColumns: 2,
+                                            entityCards: true,
+                                            columns: 1,
                                             compactSummaryFields: ["headline", "imageUrl"],
                                             fields: [
                                                 {name: "headline", type: "text", icon: "#IconTag", labelKey: "headline"},
@@ -327,7 +328,8 @@ export const cmsBlockSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
-                                            cardColumns: 2,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["title", "imageUrl"],
                                             fields: [
                                                 {name: "title", type: "text", icon: "#IconTag", labelKey: "itemTitle"},
@@ -373,7 +375,8 @@ export const cmsBlockSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 8,
-                                            cardColumns: 2,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["name"],
                                             fields: [
                                                 {name: "name", type: "text", icon: "#IconLayout", labelKey: "categoryName"},

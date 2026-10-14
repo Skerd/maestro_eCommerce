@@ -562,6 +562,8 @@ export const productOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 2,
                                             compactSummaryFields: ["discount", "amount"],
                                             fields: [
                                                 {
@@ -618,6 +620,8 @@ export const productOrderSheetView: ViewConfig = {
                                         widget: "#SheetEmbeddedItemsList",
                                         widgetProps: {
                                             pageSize: 5,
+                                            entityCards: true,
+                                            columns: 3,
                                             compactSummaryFields: ["name", "rate", "amount"],
                                             fields: [
                                                 {
