@@ -3,24 +3,20 @@ import type {DefaultRoleDefinition} from "@coreModule/database/schemas/role/role
 // RolePermission groups are the capitalised collection names.
 const CATALOG_READ = ["Products", "Productvariants", "Productattributes", "Productcategories", "Productcollections"];
 
-const catalogOwn = [
-    ...CATALOG_READ,
-    "Pricingrules",
-    "Discounts",
-    "Customergroups",
-    "Customergroupmembers",
-    "Productreviews",
-    "Cmsblocks",
-    "Shippingzones",
-    "Taxzones",
-    "Savedsearches",
-];
+const catalogContentOwn = [...CATALOG_READ, "Cmsblocks", "Productreviews"];
+const pricingOwn = ["Pricingrules", "Discounts", "Customergroups", "Customergroupmembers", "Taxzones"];
+const catalogOwn = [...catalogContentOwn, ...pricingOwn, "Shippingzones", "Savedsearches"];
 const ordersOwn = ["Productorders", "Fulfillments", "Returnrequests"];
 const stockOwn = ["Warehouses", "Inventories", "Stocktransfers", "Stockcounts"];
 const tillOwn = ["Posorders", "Possessions"];
 const tillSetupOwn = ["Posconfigs", "Pospaymentmethods", "Fiscalconfigs"];
 // The stock ledger and buyer-side records are written by the system, so they are only ever read
 const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
+const buyerRead = ["Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
+
+function unique(values: string[]): string[] {
+    return [...new Set(values)];
+}
 
 function ecomRole(
     name: string,
@@ -63,5 +59,47 @@ export const eCommerceDefaultRoles: DefaultRoleDefinition[] = [
         "Sells and refunds at the till and runs the till session. Can look up the catalog and stock.",
         tillOwn,
         [...CATALOG_READ, "Inventories", "Warehouses", "Posconfigs", "Pospaymentmethods"],
+    ),
+    ecomRole(
+        "Catalog Editor",
+        "ecom_catalog_editor",
+        "Maintains products, variants, categories, collections, storefront content, and reviews. Cannot change prices, discounts, orders, or stock.",
+        catalogContentOwn,
+        [...pricingOwn, "Shippingzones"],
+    ),
+    ecomRole(
+        "Pricing Officer",
+        "ecom_pricing_officer",
+        "Sets pricing rules, discounts, customer groups, and tax zones. Can look up the catalog and shipping zones but cannot change them.",
+        pricingOwn,
+        [...CATALOG_READ, "Shippingzones"],
+    ),
+    ecomRole(
+        "Order Manager",
+        "ecom_order_manager",
+        "Runs web orders through shipment and return. Can look up the catalog, stock, and the buyer trail but cannot change prices or stock rows.",
+        ordersOwn,
+        [...CATALOG_READ, "Warehouses", "Inventories", "Shippingzones", "Taxzones", ...buyerRead, "Inventorymovements"],
+    ),
+    ecomRole(
+        "Customer Support",
+        "ecom_customer_support",
+        "Handles return requests and reviews. Can look up orders, shipments, the catalog, and the buyer trail but cannot refund an order or change the catalog.",
+        ["Returnrequests", "Productreviews"],
+        [...CATALOG_READ, "Productorders", "Fulfillments", ...buyerRead],
+    ),
+    ecomRole(
+        "POS Supervisor",
+        "ecom_pos_supervisor",
+        "Configures tills, payment methods, and fiscal devices, and can sell at the till. Can look up the catalog and stock.",
+        [...tillOwn, ...tillSetupOwn],
+        [...CATALOG_READ, "Inventories", "Warehouses"],
+    ),
+    ecomRole(
+        "Store Analyst",
+        "ecom_analyst",
+        "Read-only access across the catalog, orders, stock, tills, and buyer records. Cannot change anything.",
+        [],
+        unique([...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...systemRead]),
     ),
 ];
