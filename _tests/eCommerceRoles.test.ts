@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import {describe, expect, it} from "vitest";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import {eCommerceDefaultRoles} from "@eCommerceModule/database/schemas/role/eCommerce.role.defaults";
+import {eCommerceRoleUserSeeds} from "@eCommerceModule/database/schemas/role/eCommerce.role.users";
 
 /** Permission groups the eCommerce models actually generate (capitalised tag prefix, as createRolePermissions names them). */
 async function eCommercePermissionGroups(): Promise<Set<string>> {
@@ -28,6 +29,12 @@ async function eCommercePermissionGroups(): Promise<Set<string>> {
 }
 
 describe("eCommerce default role pack", () => {
+    it("has one demo user for every default role", () => {
+        const slugs = eCommerceRoleUserSeeds.map((seed) => seed.slug);
+        expect(new Set(slugs).size).toBe(slugs.length);
+        expect(slugs.sort()).toEqual(eCommerceDefaultRoles.map((role) => role.slug).sort());
+    });
+
     it("only names permission groups that exist", async () => {
         const groups = await eCommercePermissionGroups();
         for (const role of eCommerceDefaultRoles) {
