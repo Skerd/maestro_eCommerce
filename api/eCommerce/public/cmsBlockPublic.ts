@@ -5,6 +5,7 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
 import {cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.dto";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {sanitizeCmsHtml} from "@eCommerceModule/utilities/shop/cmsHtmlSanitizer";
 
 /**
  * GET /api/eCommerce/cmsBlock/public — the route sinfonia's useCmsBlocks
@@ -33,6 +34,9 @@ router.get(
             ],
         }).noDeleted().sort({position: 1});
 
-        return {data: cmsBlocksToDTO(blocks)};
+        const data = cmsBlocksToDTO(blocks).map(block =>
+            block.config?.html ? {...block, config: {...block.config, html: sanitizeCmsHtml(block.config.html)}} : block,
+        );
+        return {data};
     }),
 );

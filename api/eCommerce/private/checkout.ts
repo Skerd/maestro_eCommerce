@@ -25,7 +25,7 @@ import {
 } from "@eCommerceModule/utilities/services/checkoutPlacementService";
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
-import {productOrderToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
+import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -425,6 +425,6 @@ router.post(
         if (!checkout) throw apiValidationException("checkout_not_found", null, null, languageCode);
 
         const {order} = await placeOrderFromCheckout(checkout, {email, phone, notes}, placementCtx(params));
-        return {data: productOrderToDTO(order)};
+        return {data: productOrderToBuyerDTO(order)};
     }),
 );

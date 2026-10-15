@@ -2,6 +2,7 @@ import {ObjectId} from "mongodb";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import ShippingZone, {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
+import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 
 export type CartForShipping = {
     subtotal: number;
@@ -109,9 +110,10 @@ const internalZonesShippingProvider: ShippingRateProvider = {
         }).noDeleted().lean();
 
         const availableRates: AvailableShippingRate[] = [];
+        const destinationState = await resolveZoneState(countryId, cart.destinationState);
 
         for (const zone of zones) {
-            if (!zoneMatchesAddress(zone, cart.destinationState, cart.destinationPostalCode)) continue;
+            if (!zoneMatchesAddress(zone, destinationState, cart.destinationPostalCode)) continue;
 
             const rates: ShippingZoneRate[] = zone.rates ?? [];
             for (const rate of rates) {

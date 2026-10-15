@@ -38,9 +38,12 @@ type PricingCtx = {
     session?: ClientSession | null;
 };
 
-/** Catalog facts about a priced line, used by discounts, shipping and tax. */
+/** Catalog facts about a priced line, used by discounts, shipping and tax, and shown on the cart line. */
 export type LineCatalogMeta = {
     productId: string;
+    slug?: string;
+    /** The product's order-quantity rules, so the storefront steps quantities the way the API enforces them. */
+    quantityRules: {min: number; max?: number; step: number};
     categoryIds: string[];
     collectionIds: string[];
     isGiftCard: boolean;
@@ -71,7 +74,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     const [products, variants] = await Promise.all([
         Product.find(
             {_id: {$in: productIds}, company: ctx.companyId, status: "active"},
-            {title: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1},
+            {title: 1, slug: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1, minOrderQty: 1, maxOrderQty: 1, stepQty: 1},
         ).noDeleted().session(ctx.session ?? null).lean(),
         variantIds.length
             ? ProductVariant.find(
@@ -115,6 +118,12 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
         const product: any = productMap.get(idOf(item.product));
         return {
             productId: idOf(item.product),
+            slug: product?.slug,
+            quantityRules: {
+                min: Math.max(1, product?.minOrderQty ?? 1),
+                max: product?.maxOrderQty > 0 ? product.maxOrderQty : undefined,
+                step: Math.max(1, product?.stepQty ?? 1),
+            },
             categoryIds: (product?.categories ?? []).map(idOf),
             collectionIds: collectionsByProduct.get(idOf(item.product)) ?? [],
             isGiftCard: product?.type === "gift_card",

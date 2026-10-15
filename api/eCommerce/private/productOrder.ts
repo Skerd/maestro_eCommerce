@@ -16,7 +16,7 @@ import {paymentTransactionService} from "@financeModule/database/schemas/payment
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import type {TransactionEnabledParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
-import {productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
+import {productOrderToBuyerDTO, productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {productOrderLinesToSelect, productOrdersToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
 import {productOrderLineSelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderLineSelect.form.validator";
 import type {ProductOrderLineSelectFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderLineSelect.form.validator";
@@ -167,7 +167,7 @@ router.post(
             productOrderService.count(filter, {...ctx, withDeleted: false}),
         ]);
 
-        return {data: orders.map(productOrderToDTO), total, page, limit};
+        return {data: orders.map(productOrderToBuyerDTO), total, page, limit};
     }),
 );
 
@@ -190,6 +190,6 @@ router.post(
 
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
-        return {data: productOrderToDTO(order)};
+        return {data: productOrderToBuyerDTO(order)};
     }),
 );

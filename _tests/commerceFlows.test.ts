@@ -517,6 +517,28 @@ describe("calculateShipping", () => {
         expect(small.map(rate => rate.rateName)).toEqual(["Standard"]);
         expect(large.map(rate => rate.rateName)).toEqual(["Standard", "Free over 60"]);
     });
+
+    it("matches a state-limited zone from the state name a storefront address carries", async () => {
+        const {calculateShipping} = await import("@eCommerceModule/utilities/services/shippingCalculationService");
+        const ShippingZone = (await import("@eCommerceModule/database/schemas/shippingZone/shippingZone")).default;
+        const country = new ObjectId();
+        const tirana = new ObjectId();
+        await mongoose.connection.db!.collection("states").insertMany([
+            {_id: tirana, name: "Tirana District", country},
+            {_id: new ObjectId(), name: "Tirana District", country: new ObjectId()},
+        ]);
+        await ShippingZone.create({
+            name: "Tirana", countries: [country], states: [tirana], isActive: true, company: companyId,
+            rates: [{name: "Courier", type: "flat", price: 3}],
+        } as any);
+        const rates = (state?: string) =>
+            calculateShipping({subtotal: 20, itemCount: 1, destinationCountry: country.toString(), destinationState: state}, companyId);
+
+        expect((await rates("tirana district")).map(rate => rate.rateName)).toEqual(["Courier"]);
+        expect((await rates(tirana.toString())).map(rate => rate.rateName)).toEqual(["Courier"]);
+        expect(await rates("Durrës District")).toEqual([]);
+        expect(await rates(undefined)).toEqual([]);
+    });
 });
 
 describe("order ship action", () => {

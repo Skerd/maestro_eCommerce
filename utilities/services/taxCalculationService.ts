@@ -2,6 +2,7 @@ import {ObjectId} from "mongodb";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
+import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
@@ -89,9 +90,10 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
         let taxAmount = 0;
         let runningBase = subtotal;
         const breakdown: TaxBreakdownLine[] = [];
+        const state = await resolveZoneState(countryId, shippingAddress.state);
 
         for (const zone of zones) {
-            if (!zoneMatchesAddress(zone, shippingAddress.state, shippingAddress.postalCode)) continue;
+            if (!zoneMatchesAddress(zone, state, shippingAddress.postalCode)) continue;
 
             const rates = (zone.rates as {name: string; rate: number; isCompound: boolean; appliesTo: string}[]) ?? [];
             for (const rate of rates) {

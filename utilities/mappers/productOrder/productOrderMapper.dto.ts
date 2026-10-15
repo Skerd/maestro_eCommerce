@@ -1,5 +1,5 @@
 import type {IProductOrder, IProductOrderAddress} from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import type {ProductOrder, ProductOrderAddress} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.dto";
+import type {BuyerProductOrder, ProductOrder, ProductOrderAddress} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.dto";
 import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
 import type {CountrySimple} from "armonia/src/modules/core/dto/country.dto";
 import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
@@ -99,6 +99,22 @@ export function productOrderToDTO(order: IProductOrder): ProductOrder {
         ...mapLifeCycleToDTO(order),
         ...mapSoftDeleteToDTO(order),
         ...mapOwnershipToDTO(order),
+    };
+}
+
+/** Timeline events a buyer is shown; the rest (stock and gift-card shortfalls, restock notes) are for staff. */
+const BUYER_TIMELINE_EVENTS = new Set([
+    "order_placed", "payment_received", "order_confirmed", "order_processing", "order_partially_shipped", "order_shipped",
+    "shipment_delivered", "shipment_failed", "order_delivered", "fulfilled", "order_cancelled", "order_refunded",
+    "order_partially_refunded", "refunded",
+]);
+
+/** The order as its buyer may see it (storefront routes): staff-only fields and events are dropped. */
+export function productOrderToBuyerDTO(order: IProductOrder): BuyerProductOrder {
+    const {internalNotes, stripePaymentIntentId, idempotencyKey, paymentTransactions, timeline, ...dto} = productOrderToDTO(order);
+    return {
+        ...dto,
+        timeline: timeline?.filter(entry => BUYER_TIMELINE_EVENTS.has(entry.event)).map(({event, timestamp}) => ({event, timestamp})),
     };
 }
 

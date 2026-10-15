@@ -12,7 +12,7 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {cartToDTO} from "@eCommerceModule/utilities/mappers/cart/cartMapper.dto";
 import {validateDiscountForCustomer} from "@eCommerceModule/utilities/services/discountValidationService";
-import {repriceCart, toValidationCart} from "@eCommerceModule/utilities/services/cartPricingService";
+import {type LineCatalogMeta, repriceCart, toValidationCart} from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
 import {
     addCartItemFormSchema,
@@ -46,17 +46,25 @@ function assertQuantityAllowed(product: any, quantity: number, languageCode: str
 
 /** Re-prices, re-arms the abandoned-cart reminder, saves, and returns the DTO. */
 async function repriceAndSave(cart: ICart, params: any): Promise<{data: ReturnType<typeof cartToDTO>}> {
-    const {notices} = await repriceCart(cart as any, {
+    const {notices, meta} = await repriceCart(cart as any, {
         companyId: params.company._id,
         userId: new ObjectId(params.actionUserCtx.userId),
         languageCode: params.languageCode,
     });
     cart.abandonedNotifiedAt = undefined;
     await cart.save();
-    return {data: withNotices(cartToDTO(cart.toObject() as ICart), notices)};
+    return {data: toCartResponse(cart, notices, meta)};
 }
 
-function withNotices(dto: ReturnType<typeof cartToDTO>, notices: CartNotices) {
+/** The cart DTO plus what the storefront needs per line (product link, quantity rules) and any re-pricing notices. */
+function toCartResponse(cart: ICart, notices: CartNotices, meta: LineCatalogMeta[]) {
+    const dto = cartToDTO(cart.toObject() as ICart);
+    // meta is built from the re-priced lines, in the same order as cart.items
+    dto.items = dto.items.map((item, index) => ({
+        ...item,
+        product: {...item.product, slug: meta[index]?.slug},
+        quantityRules: meta[index]?.quantityRules,
+    }));
     return Object.keys(notices).length ? {...dto, notices} : dto;
 }
 
@@ -72,7 +80,7 @@ router.get(
         if (!cart) return {data: null};
 
         const before = JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]);
-        const {notices} = await repriceCart(cart as any, {
+        const {notices, meta} = await repriceCart(cart as any, {
             companyId: company._id,
             userId: new ObjectId(actionUserCtx.userId),
             languageCode: params.languageCode,
@@ -80,7 +88,7 @@ router.get(
         if (JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]) !== before) {
             await cart.save();
         }
-        return {data: withNotices(cartToDTO(cart.toObject() as ICart), notices)};
+        return {data: toCartResponse(cart, notices, meta)};
     }),
 );
 
@@ -310,8 +318,7 @@ router.delete(
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         cart.appliedGiftCard = undefined;
-        await cart.save();
-        return {data: cartToDTO(cart.toObject() as ICart)};
+        return repriceAndSave(cart, params);
     }),
 );
 

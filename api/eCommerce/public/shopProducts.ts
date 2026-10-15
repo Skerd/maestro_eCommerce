@@ -13,6 +13,19 @@ import {shopProductsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerc
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 
+/** The category and every category below it, at any depth. */
+async function withDescendantCategories(companyId: unknown, rootId: unknown): Promise<unknown[]> {
+    const categories = await Category.find({company: companyId}, {_id: 1, parent: 1}).lean();
+    const ids = [String(rootId)];
+    for (let i = 0; i < ids.length; i++) {
+        for (const category of categories) {
+            const id = String(category._id);
+            if (category.parent && String(category.parent) === ids[i] && !ids.includes(id)) ids.push(id);
+        }
+    }
+    return categories.filter(category => ids.includes(String(category._id))).map(category => category._id);
+}
+
 export const basePath = "/api/eCommerce/shopProducts";
 export const router = Router();
 
@@ -60,7 +73,8 @@ router.post(
         } else if (categorySlug) {
             const category = await Category.findOne({company: company._id, slug: String(categorySlug).toLowerCase()}, {_id: 1});
             if (!category) return {data: [], total: 0, page, limit};
-            filter.categories = category._id;
+            // A category lists its subcategories' products too ("Home" includes "Home > Decor")
+            filter.categories = {$in: await withDescendantCategories(company._id, category._id)};
         }
 
         if (collectionId || collectionSlug) {
