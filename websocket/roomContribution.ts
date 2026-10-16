@@ -17,6 +17,7 @@ export function registerECommerceRoomContributions(): void {
         productreviews: "Product reviews",
         inventories: "Inventories",
         analytics: "Analytics",
+        odooimport: "Odoo import",
         // Tenancy system-settings resource owned by this module
         categories_configurations: "Categories configurations",
         productAttributes_configurations: "Product attributes configurations",
@@ -33,5 +34,7 @@ export function registerECommerceRoomContributions(): void {
         posPaymentMethods_configurations: "POS payment methods configurations",
         fiscalConfigs_configurations: "Fiscal configs configurations",
         cmsBlocks_configurations: "CMS blocks configurations",
+        odooConnection_configurations: "Odoo connection",
+        odooimport_configurations: "Odoo import",
     });
 }

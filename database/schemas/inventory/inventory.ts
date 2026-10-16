@@ -42,17 +42,20 @@ const InventorySchema = new Schema<IInventory>(
             ref: "Product",
             required: true,
             refAllowlist: ProductSimpleSnippet,
+            dynamicTableConfiguration: {refDisplayKey: ["title"]},
         },
         variant: {
             type: SchemaTypes.ObjectId,
             ref: "ProductVariant",
             refAllowlist: ProductVariantSimpleSnippet,
+            dynamicTableConfiguration: {refDisplayKey: ["sku"]},
         },
         warehouse: {
             type: SchemaTypes.ObjectId,
             ref: "Warehouse",
             required: true,
             refAllowlist: WarehouseSimpleSnippet,
+            dynamicTableConfiguration: {refDisplayKey: ["name"]},
         },
         quantityOnHand: {
             type: SchemaTypes.Number, 
