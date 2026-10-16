@@ -3,6 +3,7 @@ import {runLowStockAlert} from "@eCommerceModule/utilities/cronJobs/lowStockAler
 import {runScheduledPublish} from "@eCommerceModule/utilities/cronJobs/scheduledPublishJob";
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
+import {runShopHostProbe} from "@eCommerceModule/utilities/cronJobs/shopHostProbeJob";
 
 export function registerECommerceCronHandlers(): void {
     registerCronHandler({
@@ -54,6 +55,19 @@ export function registerECommerceCronHandlers(): void {
             name: "Abandoned cart reminders",
             cronExpression: "0 45 * * * *",
             priority: 10,
+        },
+    });
+
+    registerCronHandler({
+        code: "eCommerce.shopHostProbe",
+        handler: async ctx => {
+            await runShopHostProbe(ctx);
+        },
+        version: "1",
+        defaultJob: {
+            name: "Shop host probe",
+            cronExpression: "0 */1 * * * *",
+            priority: 15,
         },
     });
 }
