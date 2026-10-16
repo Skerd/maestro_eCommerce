@@ -232,6 +232,7 @@ export async function createProductOrders(
                         title: product.title,
                         sku: product.sku,
                         productType: product.type,
+                        imageUrl: product.mainImage?.toString(),
                     },
                 });
             }

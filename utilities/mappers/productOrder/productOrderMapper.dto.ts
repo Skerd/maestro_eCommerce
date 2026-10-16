@@ -7,13 +7,21 @@ import type {ProductSimple} from "armonia/src/modules/eCommerce/dto/product.dto"
 import type {ProductVariantSimple} from "armonia/src/modules/eCommerce/dto/productVariant.dto";
 import type {DiscountSimple} from "armonia/src/modules/eCommerce/dto/discount.dto";
 import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {mapSnippet, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {DiscountSimpleSnippet} from "@eCommerceModule/database/schemas/discount/discount.snippets";
+import type {IProductOrderItem} from "@eCommerceModule/database/schemas/productOrder/productOrder";
+
+/** Frozen sale image, else the live catalog image when the line's product/variant is populated. */
+export function lineSnapshotImageUrl(item: IProductOrderItem): string | undefined {
+    if (item.snapshot?.imageUrl) return item.snapshot.imageUrl;
+    return nestedEntityToRef(item.variant?.mainImage)?.toString()
+        ?? nestedEntityToRef(item.product?.mainImage)?.toString();
+}
 
 function mapAddress(addr: IProductOrderAddress | undefined): ProductOrderAddress | undefined {
     if (!addr) return undefined;
@@ -48,7 +56,7 @@ export function productOrderToDTO(order: IProductOrder): ProductOrder {
             snapshot: {
                 title: item.snapshot?.title ?? item.product?.title,
                 sku: item.snapshot?.sku,
-                imageUrl: item.snapshot?.imageUrl,
+                imageUrl: lineSnapshotImageUrl(item),
                 variantLabel: item.snapshot?.variantLabel,
                 productType: item.snapshot?.productType,
             },

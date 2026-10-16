@@ -153,12 +153,13 @@ router.post(
 
         const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId)};
         const ctx = {logger, languageCode};
+        const itemPopulate = ["items.product", "items.variant"];
 
         const [orders, total] = await Promise.all([
             productOrderService.find(
                 filter,
                 {...ctx, withDeleted: false},
-                undefined,
+                itemPopulate,
                 "orderNumber status paymentStatus fulfillmentStatus grandTotal subtotal shippingTotal taxTotal discountTotal items createdAt",
                 {createdAt: -1},
                 limit,
@@ -186,6 +187,7 @@ router.post(
                 customer: new ObjectId(actionUserCtx.userId),
             },
             {withDeleted: false, logger, languageCode},
+            ["items.product", "items.variant"],
         );
 
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);

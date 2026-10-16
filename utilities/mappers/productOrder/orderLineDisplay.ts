@@ -3,6 +3,7 @@ import type {IProductOrder, IProductOrderItem} from "@eCommerceModule/database/s
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import {mapSnippet, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import {lineSnapshotImageUrl} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import type {ProductSimple} from "armonia/src/modules/eCommerce/dto/product.dto";
 import type {ProductVariantSimple} from "armonia/src/modules/eCommerce/dto/productVariant.dto";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
@@ -33,7 +34,7 @@ function copyOfLine(line: IProductOrderItem | undefined): OrderLineProductCopy {
     const snapshot = {
         title: line.snapshot?.title ?? product?.title,
         sku: line.snapshot?.sku ?? product?.sku,
-        imageUrl: line.snapshot?.imageUrl,
+        imageUrl: lineSnapshotImageUrl(line),
         variantLabel: line.snapshot?.variantLabel,
         productType: line.snapshot?.productType ?? product?.type,
     };
