@@ -4,32 +4,20 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import Category from "@eCommerceModule/database/schemas/category/category";
-import Collection from "@eCommerceModule/database/schemas/collection/collection";
 import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {escapeRegex} from "@coreModule/utilities/helpers";
 import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
-import {shopProductsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
+import {buildShopCatalogFilter, refineShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
+import {
+    shopProductsFormSchema,
+    type ShopProductSort,
+    type ShopProductsFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
-import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
-
-/** The category and every category below it, at any depth. */
-async function withDescendantCategories(companyId: unknown, rootId: unknown): Promise<unknown[]> {
-    const categories = await Category.find({company: companyId}, {_id: 1, parent: 1}).lean();
-    const ids = [String(rootId)];
-    for (let i = 0; i < ids.length; i++) {
-        for (const category of categories) {
-            const id = String(category._id);
-            if (category.parent && String(category.parent) === ids[i] && !ids.includes(id)) ids.push(id);
-        }
-    }
-    return categories.filter(category => ids.includes(String(category._id))).map(category => category._id);
-}
 
 export const basePath = "/api/eCommerce/shopProducts";
 export const router = Router();
 
-const SORTS: Record<string, Record<string, 1 | -1>> = {
+const SORTS: Record<ShopProductSort, Record<string, 1 | -1>> = {
     newest: {createdAt: -1},
     priceAsc: {price: 1},
     priceDesc: {price: -1},
@@ -41,7 +29,7 @@ router.post(
     authMW("public"),
     rateLimiter({windowMs: 60000, max: 120}),
     validateFormZod(shopProductsFormSchema),
-    asyncHandler(async (params: any): Promise<ShopProductsResponse> => {
+    asyncHandler(async (params: any & ShopProductsFormType): Promise<ShopProductsResponse> => {
         const {
             languageCode,
             origin,
@@ -56,42 +44,28 @@ router.post(
         } = params;
 
         const company = await resolveShopCompany(origin, languageCode);
+        const filter = await buildShopCatalogFilter({
+            companyId: company._id,
+            search,
+            categorySlug,
+            categoryIds,
+            collectionSlug,
+            collectionId,
+        });
+        if (!filter) return {data: [], total: 0, page, limit};
 
-        const filter: Record<string, unknown> = {
-            company: company._id,
-            status: "active",
-        };
+        await refineShopCatalogFilter(filter, {
+            priceMin: params.priceMin,
+            priceMax: params.priceMax,
+            inStock: params.inStock,
+            onSale: params.onSale,
+            brands: params.brands,
+            types: params.types,
+            attributes: params.attributes,
+            minRating: params.minRating,
+        });
 
-        if (search) {
-            filter.title = {$regex: escapeRegex(String(search).trim()), $options: "i"};
-        }
-
-        if (Array.isArray(categoryIds) && categoryIds.length > 0) {
-            const categories = await Category.find({company: company._id, _id: {$in: categoryIds}}, {_id: 1});
-            if (categories.length === 0) return {data: [], total: 0, page, limit};
-            filter.categories = {$in: categories.map((category) => category._id)};
-        } else if (categorySlug) {
-            const category = await Category.findOne({company: company._id, slug: String(categorySlug).toLowerCase()}, {_id: 1});
-            if (!category) return {data: [], total: 0, page, limit};
-            // A category lists its subcategories' products too ("Home" includes "Home > Decor")
-            filter.categories = {$in: await withDescendantCategories(company._id, category._id)};
-        }
-
-        if (collectionId || collectionSlug) {
-            const collection = collectionId
-                ? await Collection.findOne(
-                    {company: company._id, _id: collectionId, isVisible: true},
-                    {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1},
-                )
-                : await Collection.findOne(
-                    {company: company._id, slug: String(collectionSlug).toLowerCase(), isVisible: true},
-                    {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1},
-                );
-            if (!collection) return {data: [], total: 0, page, limit};
-            applyCollectionMembershipToProductFilter(collection, filter);
-        }
-
-        const sortSpec = SORTS[sort as string] ?? SORTS.newest;
+        const sortSpec = (sort && SORTS[sort]) || SORTS.newest;
 
         const [products, total] = await Promise.all([
             Product.find(filter).noDeleted()
