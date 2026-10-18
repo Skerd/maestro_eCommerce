@@ -1,6 +1,6 @@
 # eCommerce Module (Maestro)
 
-Server-side implementation of the Arpeggio eCommerce domain: Mongoose models, business services, HTTP routes, cron jobs, and DTO mappers.
+Server-side implementation of the Arpeggio eCommerce domain: product commerce and the services marketplace. Mongoose models, business services, HTTP routes, cron jobs, and DTO mappers.
 
 Contracts (types, schema-defs, validators) live in **armonia** at `armonia/src/modules/eCommerce/`. This module implements the runtime layer.
 
@@ -10,19 +10,20 @@ Enable via `ENABLED_MODULES=eCommerce` (or leave unset to load all present modul
 
 ```
 eCommerce/
-├── api/eCommerce/private/     # Express route files (auto-discovered)
+├── api/eCommerce/private/              # Product commerce routes
+├── api/eCommerceMarketplace/private/   # Marketplace routes (stable /api/eCommerceMarketplace/*)
 ├── database/
-│   ├── moduleBootstrap.ts     # Model registry for initializer
-│   └── schemas/<resource>/    # Mongoose models, services, indexes, views
+│   ├── moduleBootstrap.ts             # Model registry for initializer
+│   └── schemas/<resource>/            # Mongoose models (catalog + marketplace)
 └── utilities/
-    ├── mappers/               # Document → DTO / select mappers
-    ├── services/              # Domain services (slug generation, checkout, …)
-    └── cron/                  # Module-specific cron handlers
+    ├── mappers/                       # Document → DTO / select mappers
+    ├── services/                      # Domain services (slug generation, checkout, …)
+    └── cron/                          # Module-specific cron handlers
 ```
 
 ## API routes
 
-Routes are discovered from `api/eCommerce/private/`. Each file exports `basePath` and `router`.
+Routes are discovered from `api/eCommerce/` and `api/eCommerceMarketplace/`. Each file exports `basePath` and `router`. Marketplace HTTP paths stay under `/api/eCommerceMarketplace/*`.
 
 | Route file | Base path (typical) | Description |
 |------------|---------------------|-------------|

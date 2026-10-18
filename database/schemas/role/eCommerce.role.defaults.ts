@@ -11,6 +11,18 @@ const stockOwn = ["Warehouses", "Inventories", "Stocktransfers", "Stockcounts"];
 const tillOwn = ["Posorders", "Possessions"];
 const tillSetupOwn = ["Posconfigs", "Pospaymentmethods", "Fiscalconfigs"];
 const odooOwn = ["Odooconnections", "Odoolinks"];
+const marketplaceCatalogOwn = [
+    "Listings",
+    "Listingcategories",
+    "Listingpackages",
+    "Listingaddons",
+    "Listingflags",
+    "Promotions",
+    "Providerprofiles",
+];
+const marketplaceDemandOwn = ["Taskrequests", "Marketplacebids", "Orders", "Bookings", "Disputes", "Reviews"];
+const marketplaceLedgerRead = ["Orderdeliveries", "Ordermilestones", "Orderrevisions"];
+const marketplaceOwn = [...marketplaceCatalogOwn, ...marketplaceDemandOwn];
 // The stock ledger and buyer-side records are written by the system, so they are only ever read
 const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
 const buyerRead = ["Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
@@ -43,9 +55,9 @@ export const eCommerceDefaultRoles: DefaultRoleDefinition[] = [
     ecomRole(
         "Store Manager",
         "ecom_store_manager",
-        "Runs the store: catalog, pricing, orders, shipments, returns, stock, and the tills.",
-        [...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...odooOwn],
-        systemRead,
+        "Runs the store: catalog, pricing, orders, shipments, returns, stock, tills, and the marketplace.",
+        [...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...odooOwn, ...marketplaceOwn],
+        [...systemRead, ...marketplaceLedgerRead],
     ),
     ecomRole(
         "Warehouse Operator",
@@ -99,8 +111,24 @@ export const eCommerceDefaultRoles: DefaultRoleDefinition[] = [
     ecomRole(
         "Store Analyst",
         "ecom_analyst",
-        "Read-only access across the catalog, orders, stock, tills, and buyer records. Cannot change anything.",
+        "Read-only access across the catalog, orders, stock, tills, marketplace, and buyer records. Cannot change anything.",
         [],
-        unique([...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...systemRead]),
+        unique([
+            ...catalogOwn,
+            ...ordersOwn,
+            ...stockOwn,
+            ...tillOwn,
+            ...tillSetupOwn,
+            ...systemRead,
+            ...marketplaceOwn,
+            ...marketplaceLedgerRead,
+        ]),
+    ),
+    ecomRole(
+        "Marketplace Operator",
+        "ecom_marketplace_operator",
+        "Runs the services marketplace: listings, task requests, bids, escrowed orders, disputes, reviews, and provider profiles.",
+        marketplaceOwn,
+        marketplaceLedgerRead,
     ),
 ];

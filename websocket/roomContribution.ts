@@ -1,9 +1,7 @@
 import {registerRoomDisplayNames} from "@coreModule/websocket/roomRegistry";
 
 /**
- * Site rooms for eCommerce (catalog) panel paths
- * (e.g. `/eCommerce/products` → room `products` via SiteRoomProvider).
- *
+ * Site rooms for eCommerce panel paths (product commerce + marketplace).
  * Keep in sync with eCommerce sidebarContribution + routeConfigContribution.
  */
 export function registerECommerceRoomContributions(): void {
@@ -18,6 +16,21 @@ export function registerECommerceRoomContributions(): void {
         inventories: "Inventories",
         analytics: "Analytics",
         odooimport: "Odoo import",
+        // Marketplace (`/eCommerceMarketplace/...`)
+        marketplacesystemmap: "Marketplace system map",
+        listings: "Listings",
+        listingflags: "Listing flags",
+        promotions: "Promotions",
+        taskrequests: "Task requests",
+        bids: "Bids",
+        orders: "Orders",
+        disputes: "Disputes",
+        reviews: "Reviews",
+        bookings: "Bookings",
+        providerprofile: "Provider profile",
+        listingaddons: "Listing add-ons",
+        listingpackages: "Listing packages",
+        listingcategories: "Listing categories",
         // Tenancy system-settings resource owned by this module
         categories_configurations: "Categories configurations",
         productAttributes_configurations: "Product attributes configurations",
@@ -36,5 +49,6 @@ export function registerECommerceRoomContributions(): void {
         cmsBlocks_configurations: "CMS blocks configurations",
         odooConnection_configurations: "Odoo connection",
         odooimport_configurations: "Odoo import",
+        listingcategories_configurations: "Listing categories configurations",
     });
 }

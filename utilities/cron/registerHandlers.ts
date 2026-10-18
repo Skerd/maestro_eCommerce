@@ -4,6 +4,8 @@ import {runScheduledPublish} from "@eCommerceModule/utilities/cronJobs/scheduled
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
 import {runShopHostProbe} from "@eCommerceModule/utilities/cronJobs/shopHostProbeJob";
+import {runOrderAutoComplete} from "@eCommerceModule/utilities/cronJobs/orderAutoCompleteJob";
+import {runTaskRequestExpiry} from "@eCommerceModule/utilities/cronJobs/taskRequestExpiryJob";
 
 export function registerECommerceCronHandlers(): void {
     registerCronHandler({
@@ -68,6 +70,32 @@ export function registerECommerceCronHandlers(): void {
             name: "Shop host probe",
             cronExpression: "0 */1 * * * *",
             priority: 15,
+        },
+    });
+
+    registerCronHandler({
+        code: "eCommerceMarketplace.orderAutoComplete",
+        handler: async ctx => {
+            await runOrderAutoComplete(ctx.logger);
+        },
+        version: "1",
+        defaultJob: {
+            name: "Order auto-complete",
+            cronExpression: "0 0 * * * *",
+            priority: 20,
+        },
+    });
+
+    registerCronHandler({
+        code: "eCommerceMarketplace.taskRequestExpiry",
+        handler: async ctx => {
+            await runTaskRequestExpiry(ctx.logger);
+        },
+        version: "1",
+        defaultJob: {
+            name: "Task request expiry",
+            cronExpression: "0 0 * * * *",
+            priority: 20,
         },
     });
 }

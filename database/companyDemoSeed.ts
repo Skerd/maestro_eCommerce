@@ -2,8 +2,9 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {createCategories} from "@eCommerceModule/database/schemas/category/category.defaults";
 import {createECommerceRoleUsers} from "@eCommerceModule/database/schemas/role/eCommerce.role.users";
 import {seedECommerceDemoData} from "@eCommerceModule/database/demo/eCommerceCompanyDemo";
+import {seedMarketplaceCompanyDemoData} from "@eCommerceModule/database/marketplaceCompanyDemoSeed";
 
-/** After property management (20); before marketplace (40). Seeds shared categories + catalog. */
+/** After property management (20). Seeds catalog, then marketplace demo data. */
 export const companyDemoSeedOrder = 30;
 
 export async function seedCompanyDemoData(parentLogger: serverLogger | undefined, company: any): Promise<void> {
@@ -11,4 +12,5 @@ export async function seedCompanyDemoData(parentLogger: serverLogger | undefined
     await createECommerceRoleUsers(logger, company);
     await createCategories(logger, company);
     await seedECommerceDemoData(logger, company);
+    await seedMarketplaceCompanyDemoData(parentLogger, company);
 }

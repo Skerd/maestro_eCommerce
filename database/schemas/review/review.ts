@@ -1,0 +1,84 @@
+import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {IUser} from "@coreModule/database/schemas/user/user";
+import {ICompany} from "@coreModule/database/schemas/company/company";
+import {IListing} from "@eCommerceModule/database/schemas/listing/listing";
+import {IOrder} from "@eCommerceModule/database/schemas/order/order";
+import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
+import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import auditPlugin from "@coreModule/database/plugins/auditPlugin";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
+import {addModelData} from "@coreModule/database/collections";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {ReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/review/review.schema-def";
+import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
+import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
+import {ListingSimpleSnippet} from "@eCommerceModule/database/schemas/listing/listing.snippets";
+import {OrderWithTaskOrListingSnippet} from "@eCommerceModule/database/schemas/order/order.snippets";
+import {applyReviewIndexes} from "./review.indexes";
+import {reviewViews} from "./review.views";
+
+export interface IReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
+    order: IOrder;
+    listing: IListing;
+    rating: number;
+    comment?: string;
+    reviewer: IUser;
+    company: ICompany;
+}
+
+const ReviewSchema = new Schema<IReview>(
+    {
+        order: {
+            type: SchemaTypes.ObjectId,
+            ref: "Order",
+            required: true,
+            refAllowlist: OrderWithTaskOrListingSnippet,
+        },
+        listing: {
+            type: SchemaTypes.ObjectId,
+            ref: "Listing",
+            required: true,
+            refAllowlist: ListingSimpleSnippet,
+        },
+        rating: {
+            type: SchemaTypes.Number,
+            required: true,
+            min: 1,
+            max: 5,
+        },
+        comment: {
+            type: SchemaTypes.String,
+            default: "",
+            trim: true,
+        },
+        reviewer: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            required: true,
+            refAllowlist: SimpleUserSnippet,
+        },
+        company: {
+            type: SchemaTypes.ObjectId,
+            ref: "Company",
+            required: true,
+            refAllowlist: CompanyBlankSnippet,
+        },
+    },
+    {
+        accessMode: "loose",
+    },
+);
+
+ownershipPlugin(ReviewSchema);
+auditPlugin(ReviewSchema);
+softDeletePlugin(ReviewSchema);
+lifeCyclePlugin(ReviewSchema);
+applyReviewIndexes(ReviewSchema);
+const Review = model<IReview>("Review", ReviewSchema);
+normalizeSchemaPermissions(Review);
+export default Review;
+
+addModelData(Review, reviewViews);
+validateSchemaDefAgainstMongoose(ReviewSchema, ReviewSchemaDef, "Review", ["listing", "reviewer"]);
