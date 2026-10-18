@@ -17,7 +17,8 @@ export const providerProfileSheetView: ViewConfig = {
     accessModel: "providerprofiles",
     apiUrl: "/api/eCommerceMarketplace/providerProfile",
     header: {
-        titleField: "user.fullName",
+        // The full name comes from the sheet component (`headerTitle`); `name` is the readable key here.
+        titleField: "user.name",
         subtitleKey: "providerProfileSubtitle",
         showCloseButton: true,
     },
@@ -39,7 +40,7 @@ export const providerProfileSheetView: ViewConfig = {
                                 label: "user",
                                 widgetProps: {
                                     icon: "#User",
-                                    valuePath: ["user.fullName", "user.name"],
+                                    valuePath: ["user.name", "user.surname"],
                                     joinSeparator: " ",
                                     type: "user",
                                 },
@@ -51,6 +52,8 @@ export const providerProfileSheetView: ViewConfig = {
                                 name: "averageRating",
                                 widget: "#DisplayCard",
                                 label: "rating",
+                                // Computed from reviews, not a model field — the API decides the payload.
+                                skipReadAccessGate: true,
                                 widgetProps: {icon: "#Star", format: "locale"},
                             },
                         },
@@ -60,6 +63,7 @@ export const providerProfileSheetView: ViewConfig = {
                                 name: "reviewCount",
                                 widget: "#DisplayCard",
                                 label: "ratingCount",
+                                skipReadAccessGate: true,
                                 widgetProps: {icon: "#MessageSquare", format: "locale"},
                             },
                         },
@@ -69,6 +73,7 @@ export const providerProfileSheetView: ViewConfig = {
                                 name: "completionRate",
                                 widget: "#DisplayCard",
                                 label: "completionRate",
+                                skipReadAccessGate: true,
                                 widgetProps: {icon: "#CheckCircle", format: "locale"},
                             },
                         },
@@ -199,6 +204,157 @@ export const providerProfileSheetView: ViewConfig = {
     ],
 };
 
+const providerProfileFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.profile"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "bio",
+                            widget: "#Textarea",
+                            label: "form.bioLabel",
+                            widgetProps: {className: "min-h-[140px]"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "skills",
+                            widget: "#StringArrayInput",
+                            label: "form.skillsLabel",
+                            placeholder: "form.skillsPlaceholder",
+                            widgetProps: {
+                                removeTooltipKey: "form.skillsRemoveTooltip",
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        // FormRepeater owns TitleWithCollapse when `title` is set so the add button
+        // stays in the section header (inBetween), not below it.
+        render: "#Field",
+        permissions: {write: "availability"},
+        field: {
+            name: "availability",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.section.availability",
+                arrayField: "availability",
+                defaultItem: {dayOfWeek: "1", startTime: "09:00", endTime: "17:00"},
+                addLabel: "form.availabilityAddRow",
+                removeLabel: "form.availabilityRemoveRow",
+                rowTitleFields: ["dayOfWeek", "startTime", "endTime"],
+                rowTitleSeparators: [" ", " - "],
+                rowTitlePlaceholder: "form.availabilityRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 3},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "dayOfWeek",
+                                    widget: "#SimpleSelect",
+                                    label: "form.dayOfWeekLabel",
+                                    required: true,
+                                    widgetProps: {options: weekdayOptions},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "startTime",
+                                    widget: "#DateInput",
+                                    label: "form.startTimeLabel",
+                                    placeholder: "form.startTimePlaceholder",
+                                    required: true,
+                                    widgetProps: {valueFormat: "HH:mm", timeOnly: true},
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "endTime",
+                                    widget: "#DateInput",
+                                    label: "form.endTimeLabel",
+                                    placeholder: "form.endTimePlaceholder",
+                                    required: true,
+                                    widgetProps: {valueFormat: "HH:mm", timeOnly: true},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.portfolio"},
+        permissions: {write: "portfolio"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "portfolio",
+                            widget: "#MediaField",
+                            label: "form.portfolioLabel",
+                            widgetProps: {
+                                mediaType: "file",
+                                mode: "multiple",
+                                maxCount: 20,
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+];
+
+export const providerProfileCreateFormView: ViewConfig = {
+    model: "providerprofiles",
+    viewType: "form",
+    viewMode: "create",
+    accessModel: "providerprofiles",
+    apiUrl: "/api/eCommerceMarketplace/providerProfile",
+    method: "PUT",
+    nodes: [
+        {
+            // Company list picks the provider; the account page locks it to that user.
+            render: "#Field",
+            props: {skipRenderWhenFormExtraTruthy: "lockUser"},
+            field: {
+                name: "userId",
+                widget: "#ApiSelect",
+                label: "form.userLabel",
+                placeholder: "form.userPlaceholder",
+                required: true,
+                widgetProps: {
+                    apiUrl: "/api/company/users/select",
+                    method: "POST",
+                    normalizeEmptyToUndefined: true,
+                },
+            },
+        },
+        ...providerProfileFormNodes,
+    ],
+};
+
 export const providerProfileEditFormView: ViewConfig = {
     model: "providerprofiles",
     viewType: "form",
@@ -206,127 +362,11 @@ export const providerProfileEditFormView: ViewConfig = {
     accessModel: "providerprofiles",
     apiUrl: "/api/eCommerceMarketplace/providerProfile",
     method: "PATCH",
-    nodes: [
-        {
-            render: "#TitleWithCollapse",
-            props: {title: "form.section.profile"},
-            children: [
-                {
-                    render: "#FormGrid",
-                    props: {columns: 1},
-                    children: [
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "bio",
-                                widget: "#Textarea",
-                                label: "form.bioLabel",
-                                widgetProps: {className: "min-h-[140px]"},
-                            },
-                        },
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "skills",
-                                widget: "#StringArrayInput",
-                                label: "form.skillsLabel",
-                                placeholder: "form.skillsPlaceholder",
-                                widgetProps: {
-                                    removeTooltipKey: "form.skillsRemoveTooltip",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            // FormRepeater owns TitleWithCollapse when `title` is set so the add button
-            // stays in the section header (inBetween), not below it.
-            render: "#Field",
-            permissions: {write: "availability"},
-            field: {
-                name: "availability",
-                widget: "#FormRepeater",
-                widgetProps: {
-                    title: "form.section.availability",
-                    arrayField: "availability",
-                    defaultItem: {dayOfWeek: "1", startTime: "09:00", endTime: "17:00"},
-                    addLabel: "form.availabilityAddRow",
-                    removeLabel: "form.availabilityRemoveRow",
-                    rowTitleFields: ["dayOfWeek", "startTime", "endTime"],
-                    rowTitleSeparators: [" ", " - "],
-                    rowTitlePlaceholder: "form.availabilityRowTitle",
-                    rowTemplate: [
-                        {
-                            render: "#FormGrid",
-                            props: {columns: 3},
-                            children: [
-                                {
-                                    render: "#Field",
-                                    field: {
-                                        name: "dayOfWeek",
-                                        widget: "#SimpleSelect",
-                                        label: "form.dayOfWeekLabel",
-                                        required: true,
-                                        widgetProps: {options: weekdayOptions},
-                                    },
-                                },
-                                {
-                                    render: "#Field",
-                                    field: {
-                                        name: "startTime",
-                                        widget: "#DateInput",
-                                        label: "form.startTimeLabel",
-                                        placeholder: "form.startTimePlaceholder",
-                                        required: true,
-                                        widgetProps: {valueFormat: "HH:mm", timeOnly: true},
-                                    },
-                                },
-                                {
-                                    render: "#Field",
-                                    field: {
-                                        name: "endTime",
-                                        widget: "#DateInput",
-                                        label: "form.endTimeLabel",
-                                        placeholder: "form.endTimePlaceholder",
-                                        required: true,
-                                        widgetProps: {valueFormat: "HH:mm", timeOnly: true},
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-        },
-        {
-            render: "#TitleWithCollapse",
-            props: {title: "form.section.portfolio"},
-            permissions: {write: "portfolio"},
-            children: [
-                {
-                    render: "#FormGrid",
-                    props: {columns: 1},
-                    children: [
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "portfolio",
-                                widget: "#MediaField",
-                                label: "form.portfolioLabel",
-                                widgetProps: {
-                                    mediaType: "file",
-                                    mode: "multiple",
-                                    maxCount: 20,
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-    ],
+    nodes: providerProfileFormNodes,
 };
 
-export const providerProfileViews: ViewConfig[] = [providerProfileSheetView, providerProfileEditFormView];
+export const providerProfileViews: ViewConfig[] = [
+    providerProfileSheetView,
+    providerProfileCreateFormView,
+    providerProfileEditFormView,
+];

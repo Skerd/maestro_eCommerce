@@ -15,7 +15,6 @@
  * @module listingTools
  */
 
-import {ObjectId} from "mongodb";
 import {z} from "zod";
 import {registerAssistantTool} from "@coreModule/domain/ai/tools/toolRegistry";
 import type {AssistantTool, AssistantToolContext} from "@coreModule/domain/ai/tools/assistantTool.types";
@@ -232,8 +231,6 @@ async function executeProviders(rawArgs: unknown, ctx: AssistantToolContext): Pr
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
-    // As in the panel, a non-admin only sees their own provider profile
-    if (!access.isAdmin) query.user = new ObjectId(ctx.userId);
 
     if (args.search != null) query.bio = regexClause(args.search);
     if (args.skill != null) query.skills = regexClause(args.skill);

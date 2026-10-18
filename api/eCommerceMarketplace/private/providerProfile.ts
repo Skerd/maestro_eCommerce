@@ -9,6 +9,8 @@ import {
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
 import {createProviderProfileFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/createProviderProfile.form.validator";
 import {editProviderProfileFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/editProviderProfile.form.validator";
+import {providerProfileFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.form.validator";
+import {userService} from "@coreModule/database/schemas/user/user.service";
 import ProviderProfile, {type IProviderProfile} from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
 import {ProviderProfileActions} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.actions";
@@ -35,16 +37,17 @@ export const {router} = createCrudRouter<IProviderProfile, CreateProviderProfile
     toDTO: (doc) => providerProfileToDTO(doc),
     toDTOArray: providerProfilesToDTOArray,
     toSelect: providerProfilesToSelect,
-    /** Admins manage every profile; everyone else only their own. */
-    documentFilter: ({company, actionUserCtx}) => ({
-        company: company._id,
-        ...(!actionUserCtx.isAdmin && {user: new ObjectId(actionUserCtx.userId)}),
-    }),
-    extraSelectFilter: ({actionUserCtx}) => (actionUserCtx.isAdmin ? {} : {user: new ObjectId(actionUserCtx.userId)}),
-    /** One live profile per user; the user is the caller. */
+    listSchema: providerProfileFormSchema,
+    /** Account page narrows to one user; the company list shows every profile. */
+    extraListFilter: ({userId}) => (userId ? {user: new ObjectId(userId)} : {}),
+    /** One live profile per user; the user is the caller unless the form names another. */
     buildCreateData: async (params) => {
         const {actionUserCtx, company, session, logger, languageCode} = params;
-        const user = new ObjectId(actionUserCtx.userId);
+        const user = new ObjectId(params.userId ?? actionUserCtx.userId);
+        if (!user.equals(actionUserCtx.userId)
+            && !(await userService.findOne({_id: user, companies: company._id}, {session, logger, languageCode}, null, "_id"))) {
+            throw apiValidationException("cant_access_this_user", "user", null, languageCode);
+        }
         if (await providerProfileService.findOne({user, company: company._id}, {session, logger, languageCode}, null, "_id")) {
             throw apiValidationException("provider_profile_already_exists", null, null, languageCode);
         }

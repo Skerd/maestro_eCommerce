@@ -7,7 +7,8 @@ export const bookingSheetView: ViewConfig = {
     accessModel: "bookings",
     apiUrl: "/api/eCommerceMarketplace/booking",
     header: {
-        titleField: "provider.fullName",
+        // The full name comes from the sheet component (`headerTitle`); `name` is the readable key here.
+        titleField: "provider.name",
         subtitleKey: "bookingSubtitle",
         showCloseButton: true,
     },
@@ -47,7 +48,7 @@ export const bookingSheetView: ViewConfig = {
                                 label: "provider",
                                 widgetProps: {
                                     icon: "#User",
-                                    valuePath: ["provider.fullName", "provider.name"],
+                                    valuePath: ["provider.name", "provider.surname"],
                                     joinSeparator: " ",
                                     type: "user",
                                 },

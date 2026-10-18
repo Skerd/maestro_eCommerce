@@ -26,8 +26,8 @@ export type ECommerceMarketplaceConfig = {
 function defaultConnectUrls(): {returnUrl: string; refreshUrl: string} {
     const base = clientHostFor("core");
     return {
-        returnUrl: base ? `${base}/eCommerceMarketplace/providerprofile?connect=return` : "",
-        refreshUrl: base ? `${base}/eCommerceMarketplace/providerprofile?connect=refresh` : "",
+        returnUrl: base ? `${base}/account/providerprofile?connect=return` : "",
+        refreshUrl: base ? `${base}/account/providerprofile?connect=refresh` : "",
     };
 }
 
