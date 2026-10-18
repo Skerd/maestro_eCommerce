@@ -16,6 +16,7 @@
 import {z} from "zod";
 import {registerAssistantTool} from "@coreModule/domain/ai/tools/toolRegistry";
 import type {AssistantTool, AssistantToolContext} from "@coreModule/domain/ai/tools/assistantTool.types";
+import {accessDenied, requireCompanyAdmin} from "@coreModule/domain/ai/tools/assistantToolAccess";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {taskRequestService} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.service";
@@ -100,6 +101,10 @@ async function completedValue(
 }
 
 async function execute(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // Company-wide figures: non-admins only see their own marketplace records
+    const access = await requireCompanyAdmin(ctx);
+    if (!access.allowed) return accessDenied("company-wide marketplace figures");
+
     const args = MarketplaceOverviewArgs.parse(rawArgs ?? {});
     const windowDays = args.windowDays ?? DEFAULT_WINDOW_DAYS;
     const now = new Date();

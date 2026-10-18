@@ -17,8 +17,10 @@ import {ObjectId} from "mongodb";
 import {z} from "zod";
 import {registerAssistantTool} from "@coreModule/domain/ai/tools/toolRegistry";
 import type {AssistantTool, AssistantToolContext} from "@coreModule/domain/ai/tools/assistantTool.types";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 import {taskRequestService} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.service";
 import {bidService} from "@eCommerceModule/database/schemas/bid/bid.service";
+import {bidVisibilityFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
 import type {TaskRequestStatus} from "@eCommerceModule/database/schemas/taskRequest/taskRequest";
 import type {BidStatus} from "@eCommerceModule/database/schemas/bid/bid";
@@ -83,6 +85,10 @@ const taskParameters = {
 };
 
 async function executeTaskRequests(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "taskrequests[read:title]");
+    if (!access.allowed) return accessDenied("task requests");
+
     const args = SearchTaskRequestsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -231,10 +237,16 @@ const bidParameters = {
 };
 
 async function executeBids(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "marketplacebids[read:amount]");
+    if (!access.allowed) return accessDenied("bids");
+
     const args = SearchBidsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
+    // As in the panel, a non-admin only sees their own bids and the bids on their own requests
+    query.$and = [await bidVisibilityFilter(companyObjectId(ctx), {userId: ctx.userId, isAdmin: access.isAdmin}, findOptions(ctx))];
 
     if (args.taskRequestReference != null) {
         const rx = regexClause(args.taskRequestReference);

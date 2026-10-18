@@ -9,7 +9,6 @@ import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
 import { addModelData } from "@coreModule/database/collections";
 import { COLUMN_TYPE } from "armonia/src/modules/core/database/filter/typeOperators";
-import { CompanyBlankSnippet } from "@coreModule/database/schemas/company/company.snippets";
 import { ListingSimpleSnippet } from "@eCommerceModule/database/schemas/listing/listing.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {PromotionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/promotion/promotion.schema-def";
@@ -50,12 +49,6 @@ const PromotionSchema = new Schema<IPromotion>(
             ref: "Listing",
             required: true,
             refAllowlist: ListingSimpleSnippet,
-        },
-        company: {
-            type: SchemaTypes.ObjectId,
-            ref: "Company",
-            required: true,
-            refAllowlist: CompanyBlankSnippet,
         },
         type: {
             type: SchemaTypes.String,

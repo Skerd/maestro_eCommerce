@@ -21,9 +21,11 @@ import {ObjectId} from "mongodb";
 import {z} from "zod";
 import {registerAssistantTool} from "@coreModule/domain/ai/tools/toolRegistry";
 import type {AssistantTool, AssistantToolContext} from "@coreModule/domain/ai/tools/assistantTool.types";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {bookingService} from "@eCommerceModule/database/schemas/booking/booking.service";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
+import {orderChildFilter, orderPartyFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import type {OrderStatus} from "@eCommerceModule/database/schemas/order/order";
 import type {DisputeStatus} from "@eCommerceModule/database/schemas/dispute/dispute";
 import {
@@ -131,10 +133,16 @@ async function rollUpValue(
 }
 
 async function executeOrders(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "orders[read:amount]");
+    if (!access.allowed) return accessDenied("marketplace orders");
+
     const args = SearchOrdersArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
+    // As in the panel, a non-admin only sees the jobs they are a party to
+    query.$and = [orderPartyFilter({userId: ctx.userId, isAdmin: access.isAdmin})];
 
     if (args.search != null) query.name = regexClause(args.search);
 
@@ -244,10 +252,16 @@ const bookingParameters = {
 };
 
 async function executeBookings(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "bookings[read:startAt]");
+    if (!access.allowed) return accessDenied("bookings");
+
     const args = SearchBookingsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
+    // As in the panel, a non-admin only sees the bookings of their own jobs
+    query.$and = [await orderChildFilter(companyObjectId(ctx), {userId: ctx.userId, isAdmin: access.isAdmin}, findOptions(ctx))];
 
     if (args.upcomingOnly === true) {
         query.startAt = {$gte: new Date()};
@@ -325,10 +339,16 @@ const disputeParameters = {
 };
 
 async function executeDisputes(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "disputes[read:reason]");
+    if (!access.allowed) return accessDenied("disputes");
+
     const args = SearchDisputesArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
+    // As in the panel, a non-admin only sees the disputes on their own jobs
+    query.$and = [await orderChildFilter(companyObjectId(ctx), {userId: ctx.userId, isAdmin: access.isAdmin}, findOptions(ctx))];
 
     if (args.search != null) {
         const rx = regexClause(args.search);

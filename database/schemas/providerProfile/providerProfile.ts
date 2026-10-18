@@ -65,6 +65,7 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
             ],
             default: [],
         },
+        // `as any` below: Mongoose 6 typings reject `_id: false` on an inline array item
         availability: {
             type: [
                 {
@@ -89,11 +90,11 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
             ],
             default: [],
         } as any,
-        stripeAccountId: {type: SchemaTypes.String, trim: true},
-        stripeChargesEnabled: {type: SchemaTypes.Boolean, default: false},
-        stripePayoutsEnabled: {type: SchemaTypes.Boolean, default: false},
-        stripeDetailsSubmitted: {type: SchemaTypes.Boolean, default: false},
-        stripeAccountSyncedAt: {type: SchemaTypes.Date},
+        stripeAccountId: {type: SchemaTypes.String, trim: true, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        stripeChargesEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        stripePayoutsEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        stripeDetailsSubmitted: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        stripeAccountSyncedAt: {type: SchemaTypes.Date, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
     },
     {
         accessMode: "loose",

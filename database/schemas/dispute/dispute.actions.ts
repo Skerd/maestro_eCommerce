@@ -2,119 +2,61 @@ import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {resolveDisputeActionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/resolveDispute.action.validator";
-import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
-import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import type {ResolveDisputeFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/dispute.schema-def";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/shared.types";
+import {runAfterCommit, type TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import type {UserContext} from "@coreModule/utilities/types/types";
 import {orderDeliveryService} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
-import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
-import {createEscrowRefund, createEscrowReleaseAndFee} from "@financeModule/utilities/escrowHelper";
+import type {IDispute} from "@eCommerceModule/database/schemas/dispute/dispute";
+import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
+import {refundRemainingEscrow, releaseRemainingEscrow} from "@eCommerceModule/database/schemas/order/orderEscrow";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 
-function ensureAdmin(actionUserCtx: Record<string, any>, languageCode: string | undefined): void {
+function ensureAdmin(actionUserCtx: UserContext, languageCode: string): void {
     if (!actionUserCtx.isAdmin) {
-        throw apiValidationException("only_admin_can_update_dispute", null, null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
+        throw apiValidationException("only_admin_can_update_dispute", null, null, languageCode);
     }
 }
 
-function parseOrderRefs(order: any): {orderAmount: number; currencyId: unknown; companyId: unknown} {
-    const orderAmount =
-        typeof order.amount === "number" ? order.amount : parseFloat(String(order.amount || 0));
-    const currencyId = order.currency?._id || order.currency;
-    const companyId = order.company?._id || order.company;
-    return {orderAmount, currencyId, companyId};
+/** Loads a live dispute that is still open or under review, with its order. */
+async function loadOpenDispute(
+    params: TransactionRequiredParams & SingleForm,
+    wrongStatusKey: string,
+): Promise<{dispute: IDispute; order: IOrder}> {
+    const {session, logger, languageCode, company, _id} = params;
+    const opts = {session, logger, languageCode};
+
+    const dispute = await disputeService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
+    // Admins also see soft-deleted rows, so the lookup alone does not rule them out
+    if (dispute.deletedAt) {
+        throw apiValidationException("dispute_deleted", null, null, languageCode);
+    }
+    if (dispute.status !== "open" && dispute.status !== "under_review") {
+        throw apiValidationException(wrongStatusKey, null, null, languageCode);
+    }
+
+    const order = await orderService.findOneOrThrow({_id: dispute.order._id, company: company._id}, opts);
+    return {dispute, order};
 }
 
-async function resolveOrderCompletingEscrow(order: any, params: Record<string, any>): Promise<void> {
-    const {session, logger, languageCode, actionUserCtx, company} = params;
-
-    const currentStatus = order.status;
-
-    const delivery =
-        currentStatus === "in_progress"
-            ? await orderDeliveryService.findOne(
-                  {order: order._id, status: "submitted", company: company._id},
-                  {session, logger, languageCode},
-                  null,
-                  "_id status",
-              )
-            : null;
-
-    if (delivery) {
-        await orderDeliveryService.updateByIdOrThrow(
-            delivery._id,
-            {$set: {status: "accepted"}},
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-        );
-    }
-
-    await orderService.updateByIdOrThrow(
-        order._id,
-        {$set: {status: "completed"}},
-        {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-    );
-
-    const {orderAmount, currencyId, companyId} = parseOrderRefs(order);
-    const hadEscrowEligibleStatus = delivery || ["accepted", "in_progress"].includes(currentStatus);
-    if (orderAmount > 0 && currencyId && companyId && hadEscrowEligibleStatus) {
-        const disputeProviderId = order.provider?._id || order.provider;
-        const providerStripeAccountId = disputeProviderId
-            ? await providerProfileService.getPayoutAccountId(disputeProviderId, companyId as ObjectId, {session, logger, languageCode})
-            : undefined;
-        await createEscrowReleaseAndFee(
-            order._id,
-            orderAmount,
-            currencyId as ObjectId,
-            companyId as ObjectId,
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-            {providerStripeAccountId},
-        );
-    }
-
-    if (delivery) {
-        const providerId = order.provider?._id || order.provider;
-        const providerIdStr = providerId?.toString?.() ?? "";
-        if (providerIdStr) {
-            emitNotificationEvent(NotificationEventCodes.ORDER_DELIVERY_ACCEPTED, {
-                receiverIds: [providerIdStr],
-                payload: {
-                    companyId: companyId?.toString?.() ?? company._id.toString(),
-                    languageCode,
-                    orderId: order._id.toString(),
-                    orderName: order.name ?? "",
-                },
-            });
-        }
-    }
-}
-
-async function closeOrderRefundEscrow(order: any, params: Record<string, any>): Promise<void> {
-    const {session, logger, languageCode, actionUserCtx} = params;
-
-    const currentStatus = order.status;
-
-    if (currentStatus === "completed" || currentStatus === "cancelled") {
-        return;
-    }
-
-    await orderService.updateByIdOrThrow(
-        order._id,
-        {$set: {status: "cancelled"}},
-        {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-    );
-
-    const {orderAmount, currencyId, companyId} = parseOrderRefs(order);
-
-    if (["accepted", "in_progress"].includes(currentStatus) && orderAmount > 0 && currencyId && companyId) {
-        await createEscrowRefund(
-            order._id,
-            orderAmount,
-            currencyId as ObjectId,
-            companyId as ObjectId,
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-        );
-    }
+/** Tells both order parties how the dispute ended, once the transaction commits. */
+async function notifyParties(params: TransactionRequiredParams, code: string, dispute: IDispute, order: IOrder): Promise<void> {
+    await runAfterCommit(params.session, async () => {
+        emitNotificationEvent(code, {
+            receiverIds: [order.customer._id.toString(), order.provider._id.toString()],
+            payload: {
+                companyId: params.company._id.toString(),
+                languageCode: params.languageCode,
+                disputeId: dispute._id.toString(),
+                orderId: order._id.toString(),
+                orderName: order.name,
+            },
+        });
+    });
 }
 
 export class DisputeActions {
@@ -125,27 +67,15 @@ export class DisputeActions {
         schema: validateSingleForm,
     })
     async startReview(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, session, company, actionUserCtx, _id} = params;
+        const p = params as TransactionRequiredParams & SingleForm;
+        const {logger, languageCode, session, actionUserCtx, _id} = p;
 
         logger.start(`Marking dispute under review: ${_id}...`);
         ensureAdmin(actionUserCtx, languageCode);
 
-        const dispute = await disputeService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
-        );
-
-        if (dispute.deletedAt) {
-            throw apiValidationException("dispute_deleted", "", null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
-        }
-
+        const {dispute} = await loadOpenDispute(p, "dispute_start_review_requires_open_status");
         if (dispute.status !== "open") {
-            throw apiValidationException(
-                "dispute_start_review_requires_open_status",
-                null,
-                null,
-                languageCode ?? DEFAULT_EXCEPTION_LANGUAGE,
-            );
+            throw apiValidationException("dispute_start_review_requires_open_status", null, null, languageCode);
         }
 
         await disputeService.updateByIdOrThrow(
@@ -158,6 +88,7 @@ export class DisputeActions {
         return {message: "Dispute marked as under review"};
     }
 
+    /** Decides for the provider: the order completes and whatever is still held is released. */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
@@ -165,62 +96,43 @@ export class DisputeActions {
         schema: resolveDisputeActionFormSchema,
     })
     async resolve(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, session, company, actionUserCtx, _id, resolution} = params;
+        const p = params as TransactionRequiredParams & ResolveDisputeFormType;
+        const {logger, languageCode, session, company, actionUserCtx, _id, resolution} = p;
+        const writeOpts = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
 
         logger.start(`Resolving dispute: ${_id}...`);
         ensureAdmin(actionUserCtx, languageCode);
 
-        const dispute = await disputeService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
-            "order",
-            "_id status reason resolution order company deletedAt deletedBy",
-        );
-
-        if (dispute.deletedAt) {
-            throw apiValidationException("dispute_deleted", "", null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
-        }
-
-        const st = dispute.status as string;
-        if (st !== "open" && st !== "under_review") {
-            throw apiValidationException(
-                "dispute_cannot_resolve_in_current_status",
-                null,
-                null,
-                languageCode ?? DEFAULT_EXCEPTION_LANGUAGE,
-            );
-        }
-
-        const resolutionText = typeof resolution === "string" ? resolution.trim() : "";
+        const resolutionText = resolution.trim();
         if (!resolutionText) {
-            throw apiValidationException("validation_required", "", null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
+            throw apiValidationException("validation_required", null, null, languageCode);
         }
 
-        await disputeService.updateByIdOrThrow(
-            dispute._id,
-            {$set: {status: "resolved", resolution: resolutionText}},
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-        );
+        const {dispute, order} = await loadOpenDispute(p, "dispute_cannot_resolve_in_current_status");
 
-        const orderId = dispute.order?._id ?? dispute.order;
-        if (!orderId) {
-            logger.finish(`Resolved dispute ${_id} (no linked order)`);
-            return {message: "Dispute resolved"};
+        await disputeService.updateByIdOrThrow(dispute._id, {$set: {status: "resolved", resolution: resolutionText}}, writeOpts);
+
+        if (order.status !== "completed" && order.status !== "cancelled") {
+            const delivery = await orderDeliveryService.findOne(
+                {order: order._id, status: "submitted", company: company._id},
+                {session, logger, languageCode},
+                null,
+                "_id",
+            );
+            if (delivery) {
+                await orderDeliveryService.updateByIdOrThrow(delivery._id, {$set: {status: "accepted"}}, writeOpts);
+            }
+            await orderService.updateByIdOrThrow(order._id, {$set: {status: "completed"}}, writeOpts);
+            await releaseRemainingEscrow(order, {...writeOpts, companyId: company._id});
         }
 
-        const order = await orderService.findOneOrThrow(
-            {_id: new ObjectId(String(orderId)), company: company._id},
-            {session, logger, languageCode},
-            "currency",
-            "_id amount currency company status customer provider name",
-        );
-
-        await resolveOrderCompletingEscrow(order, params);
+        await notifyParties(p, NotificationEventCodes.DISPUTE_RESOLVED, dispute, order);
 
         logger.finish(`Resolved dispute ${_id}`);
         return {message: "Dispute resolved"};
     }
 
+    /** Decides for the customer: the order is cancelled and whatever is still held is refunded. */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
@@ -228,57 +140,28 @@ export class DisputeActions {
         schema: resolveDisputeActionFormSchema,
     })
     async close(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, session, company, actionUserCtx, _id, resolution} = params;
+        const p = params as TransactionRequiredParams & ResolveDisputeFormType;
+        const {logger, languageCode, session, company, actionUserCtx, _id, resolution} = p;
+        const writeOpts = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
 
         logger.start(`Closing dispute: ${_id}...`);
         ensureAdmin(actionUserCtx, languageCode);
 
-        const dispute = await disputeService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode},
-            "order",
-            "_id status reason resolution order deletedAt deletedBy company",
-        );
-
-        if (dispute.deletedAt) {
-            throw apiValidationException("dispute_deleted", "", null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
-        }
-
-        const st = dispute.status as string;
-        if (st !== "open" && st !== "under_review") {
-            throw apiValidationException(
-                "dispute_cannot_close_in_current_status",
-                null,
-                null,
-                languageCode ?? DEFAULT_EXCEPTION_LANGUAGE,
-            );
-        }
-
-        const resolutionText = typeof resolution === "string" ? resolution.trim() : "";
+        const resolutionText = resolution.trim();
         if (!resolutionText) {
-            throw apiValidationException("validation_required", "", null, languageCode ?? DEFAULT_EXCEPTION_LANGUAGE);
+            throw apiValidationException("validation_required", null, null, languageCode);
         }
 
-        await disputeService.updateByIdOrThrow(
-            dispute._id,
-            {$set: {status: "closed", resolution: resolutionText}},
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-        );
+        const {dispute, order} = await loadOpenDispute(p, "dispute_cannot_close_in_current_status");
 
-        const orderId = dispute.order?._id ?? dispute.order;
-        if (!orderId) {
-            logger.finish(`Closed dispute ${_id} (no linked order)`);
-            return {message: "Dispute closed"};
+        await disputeService.updateByIdOrThrow(dispute._id, {$set: {status: "closed", resolution: resolutionText}}, writeOpts);
+
+        if (order.status !== "completed" && order.status !== "cancelled") {
+            await orderService.updateByIdOrThrow(order._id, {$set: {status: "cancelled"}}, writeOpts);
+            await refundRemainingEscrow(order, {...writeOpts, companyId: company._id});
         }
 
-        const order = await orderService.findOneOrThrow(
-            {_id: new ObjectId(String(orderId)), company: company._id},
-            {session, logger, languageCode},
-            "currency",
-            "_id amount currency company status customer provider name",
-        );
-
-        await closeOrderRefundEscrow(order, params);
+        await notifyParties(p, NotificationEventCodes.DISPUTE_CLOSED, dispute, order);
 
         logger.finish(`Closed dispute ${_id}`);
         return {message: "Dispute closed"};

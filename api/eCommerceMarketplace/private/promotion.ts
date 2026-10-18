@@ -2,20 +2,25 @@ import {ObjectId} from "mongodb";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
-import {PromotionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/promotion/promotion.schema-def";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
+import {
+    PromotionSchemaDef,
+    type CreatePromotionFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/promotion/promotion.schema-def";
 import {createPromotionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/promotion/createPromotion.form.validator";
-import {editPromotionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/promotion/editPromotion.form.validator";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
-import Promotion from "@eCommerceModule/database/schemas/promotion/promotion";
+import Promotion, {type IPromotion} from "@eCommerceModule/database/schemas/promotion/promotion";
 import {PromotionActions} from "@eCommerceModule/database/schemas/promotion/promotion.actions";
 import {promotionService} from "@eCommerceModule/database/schemas/promotion/promotion.service";
 import {promotionToDTO, promotionsToDTOArray} from "@eCommerceModule/utilities/mappers/promotion/promotionMapper.dto";
 import {promotionsToSelect} from "@eCommerceModule/utilities/mappers/promotion/promotionMapper.select";
+import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 const buildCreate = buildCreateDataFromSchemaDef(PromotionSchemaDef);
 
 export const basePath = "/api/eCommerceMarketplace/promotion";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IPromotion, CreatePromotionFormType>({
     collectionName: "promotions",
     model: Promotion,
     service: promotionService,
@@ -25,41 +30,38 @@ export const {router} = createCrudRouter({
     rateLimits: {read: 60, write: 20, delete: 20},
     actions: PromotionActions,
     createSchema: createPromotionFormSchema,
-    editSchema: editPromotionFormSchema,
+    // Not edited via PATCH; pause / resume / stop are PromotionActions
+    editSchema: validateSingleForm,
     toDTO: promotionToDTO,
     toDTOArray: promotionsToDTOArray,
     toSelect: promotionsToSelect,
+    /** The listing's provider (or an admin) promotes an active listing. */
     buildCreateData: async (params) => {
-        const listing = await listingService.findOne(
-            {_id: new ObjectId(params.listing), company: params.company._id, status: "active"},
-            {session: params.session, logger: params.logger, languageCode: params.languageCode},
+        const {session, logger, languageCode, company, actionUserCtx} = params;
+        const listing = await listingService.findOneOrThrow(
+            {_id: new ObjectId(params.listing), company: company._id, status: "active"},
+            {session, logger, languageCode},
+            null,
+            "_id provider",
         );
-        const data = buildCreate(params);
-        data.listing = listing._id;
-        if (data.type === undefined) data.type = "featured";
-        return data;
+        assertOwnerOrAdmin(listing.provider, actionUserCtx, languageCode);
+        return {...buildCreate(params), listing: listing._id};
     },
-    buildUpdateData: async () =>
-        ({}) /** Promotion fields use write: no-permission — pause/resume/stop via actions */,
+    /** Pause / resume / stop are PromotionActions. */
+    buildUpdateData: () => ({}),
     afterCreate: async (created, params) => {
         const {session, logger, languageCode} = params;
-        const listingId = (created.listing?._id ?? created.listing)?.toString();
-        if (!listingId) return;
-        await listingService.updateByIdOrThrow(
-            new ObjectId(listingId),
-            {$push: {promotions: created._id}},
-            {session, logger, languageCode},
-        );
+        await listingService.updateByIdOrThrow(created.listing._id, {$addToSet: {promotions: created._id}}, {session, logger, languageCode});
+    },
+    beforeDelete: async (params, doc) => {
+        const {session, logger, languageCode, company, actionUserCtx} = params;
+        const listing = await listingService.findOneOrThrow({_id: doc.listing._id, company: company._id}, {session, logger, languageCode}, null, "provider");
+        assertOwnerOrAdmin(listing.provider, actionUserCtx, languageCode);
+        await assertCanDelete(Promotion.modelName, doc._id, languageCode, session);
     },
     afterDelete: async (params, doc) => {
         const {session, logger, languageCode} = params;
-        const listingId = (doc.listing?._id ?? doc.listing)?.toString();
-        if (!listingId) return;
-        await listingService.updateByIdOrThrow(
-            new ObjectId(listingId),
-            {$pull: {promotions: doc._id}},
-            {session, logger, languageCode},
-        );
+        await listingService.updateByIdOrThrow(doc.listing._id, {$pull: {promotions: doc._id}}, {session, logger, languageCode});
     },
     overrideRestoreHandler: async (params) => {
         const {logger, languageCode, session, _id, company, actionUserCtx} = params;
@@ -69,14 +71,8 @@ export const {router} = createCrudRouter({
             {_id: new ObjectId(_id), company: company._id},
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
-        const listingId = (restored.listing?._id ?? restored.listing)?.toString();
-        if (listingId) {
-            await listingService.updateByIdOrThrow(
-                new ObjectId(listingId),
-                {$push: {promotions: restored._id}},
-                {session, logger, languageCode},
-            );
-        }
+        await listingService.updateByIdOrThrow(restored.listing._id, {$addToSet: {promotions: restored._id}}, {session, logger, languageCode});
+        logger.finish(`Restored Promotion ${_id}`);
         return {message: "Promotion successfully restored"};
     },
 });

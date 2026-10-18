@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const orderMilestoneSheetView: ViewConfig = {
     model: "ordermilestones",
@@ -23,20 +24,18 @@ export const orderMilestoneSheetView: ViewConfig = {
                             render: "#DisplayCard",
                             permissions: {read: "order"},
                             field: {
-                                name: "orderId",
+                                name: "order",
                                 widget: "#DisplayCard",
                                 label: "order",
-                                widgetProps: {icon: "#Package"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "currency"},
-                            field: {
-                                name: "currencySymbol",
-                                widget: "#DisplayCard",
-                                label: "currency",
-                                widgetProps: {icon: "#Coins"},
+                                widgetProps: {
+                                    icon: "#Package",
+                                    valuePath: ["order.status"],
+                                    linkedRefPath: "order",
+                                    linkedSheetModel: "orders",
+                                    linkedSheetWidget: "#OrderSheetView",
+                                    linkedSheetEntityProp: "order",
+                                    linkedSheetValueField: "status",
+                                },
                             },
                         },
                         {
@@ -46,7 +45,7 @@ export const orderMilestoneSheetView: ViewConfig = {
                                 name: "amount",
                                 widget: "#DisplayCard",
                                 label: "amount",
-                                widgetProps: {icon: "#DollarSign"},
+                                widgetProps: {icon: "#DollarSign", format: "locale", valuePath: ["currency.symbol", "amount"], joinSeparator: " "},
                             },
                         },
                         {
@@ -56,7 +55,7 @@ export const orderMilestoneSheetView: ViewConfig = {
                                 name: "status",
                                 widget: "#DisplayCard",
                                 label: "status",
-                                widgetProps: {icon: "#Tag"},
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "orderMilestoneStatus", type: "enum"},
                             },
                         },
                         {
@@ -66,78 +65,15 @@ export const orderMilestoneSheetView: ViewConfig = {
                                 name: "orderIndex",
                                 widget: "#DisplayCard",
                                 label: "orderIndex",
-                                widgetProps: {icon: "#Hash"},
+                                widgetProps: {icon: "#Hash", format: "locale"},
                             },
                         },
                     ],
                 },
             ],
         },
+        lifecycleSheetGroup,
     ],
 };
 
-export const orderMilestoneCreateFormView: ViewConfig = {
-    model: "ordermilestones",
-    viewType: "form",
-    viewMode: "create",
-    accessModel: "ordermilestones",
-    apiUrl: "/api/eCommerceMarketplace/order/createMilestone",
-    method: "POST",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 2},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "orderId",
-                        widget: "#ApiSelect",
-                        label: "form.orderIdLabel",
-                        required: true,
-                        widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "name",
-                        widget: "#Input",
-                        label: "form.nameLabel",
-                        required: true,
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "amount",
-                        widget: "#Input",
-                        label: "form.amountLabel",
-                        required: true,
-                        widgetProps: {type: "number", min: 0, step: "any"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "currencyId",
-                        widget: "#ApiSelect",
-                        label: "form.currencyLabel",
-                        widgetProps: {apiUrl: "/api/finance/currency/select"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "orderIndex",
-                        widget: "#Input",
-                        label: "form.orderIndexLabel",
-                        widgetProps: {type: "number", min: 0, step: 1},
-                    },
-                },
-            ],
-        },
-    ],
-};
-
-export const orderMilestoneViews: ViewConfig[] = [orderMilestoneSheetView, orderMilestoneCreateFormView];
+export const orderMilestoneViews: ViewConfig[] = [orderMilestoneSheetView];

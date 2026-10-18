@@ -43,6 +43,10 @@ const ListingPackageSchema = new Schema<IListingPackage>(
             ref: "Listing",
             required: true,
             refAllowlist: ListingSimpleSnippet,
+            permissions: {
+                self: {write: "no-permission"},
+                others: {write: "no-permission"},
+            },
         },
         provider: {
             type: SchemaTypes.ObjectId,

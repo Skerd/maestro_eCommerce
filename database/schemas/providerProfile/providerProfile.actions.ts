@@ -1,7 +1,7 @@
 import {action} from "@coreModule/api/actionDecorator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
-import ProviderProfile from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
 import {stripeConnectAdapter} from "@financeModule/utilities/services/payment/stripeConnectAdapter";
 import {getECommerceMarketplaceConfig} from "@eCommerceModule/utilities/config";
@@ -23,6 +23,10 @@ function onboardingUrls(): {returnUrl: string; refreshUrl: string} {
     return {returnUrl: stripeConnectReturnUrl, refreshUrl: stripeConnectRefreshUrl};
 }
 
+/**
+ * Stripe calls cannot be rolled back, so these actions run without a Mongo
+ * transaction: each makes one profile write after the gateway call succeeds.
+ */
 export class ProviderProfileActions {
     /**
      * Starts (or resumes) Stripe Connect Express onboarding for the CURRENT
@@ -32,10 +36,11 @@ export class ProviderProfileActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 10},
-        transaction: true,
     })
     async createAccountLink(params: Record<string, any>): Promise<ConnectOnboardingResult> {
-        const {logger, languageCode, session, company, actionUserCtx, userInfo} = params;
+        const {logger, languageCode, company, actionUserCtx, userInfo} = params as AuthenticatedMWType;
+        // Live profile only: admins otherwise also see soft-deleted rows
+        const opts = {logger, languageCode, withDeleted: false};
 
         logger.start(`Creating Stripe Connect account link for user: ${actionUserCtx.userId}...`);
 
@@ -48,25 +53,19 @@ export class ProviderProfileActions {
             throw apiValidationException("connect_redirect_urls_not_configured", null, null, languageCode);
         }
 
-        const profile = await providerProfileService.findOneOrThrow(
-            {user: actionUserCtx.userId, company: company._id},
-            {withDeleted: false, session, logger, languageCode},
-        );
+        const profile = await providerProfileService.findOneOrThrow({user: actionUserCtx.userId, company: company._id}, opts);
 
-        let stripeAccountId = (profile as any).stripeAccountId as string | undefined;
+        let stripeAccountId = profile.stripeAccountId;
         if (!stripeAccountId) {
-            stripeAccountId = await stripeConnectAdapter.createExpressAccount(
-                (userInfo as any)?.email,
-                {
-                    providerProfileId: profile._id.toString(),
-                    userId: actionUserCtx.userId.toString(),
-                    companyId: company._id.toString(),
-                },
-            );
+            stripeAccountId = await stripeConnectAdapter.createExpressAccount(userInfo.username, {
+                providerProfileId: profile._id.toString(),
+                userId: actionUserCtx.userId,
+                companyId: company._id.toString(),
+            });
             await providerProfileService.updateByIdOrThrow(
                 profile._id,
                 {$set: {stripeAccountId, stripeAccountSyncedAt: new Date()}},
-                {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+                {...opts, auditUserId: actionUserCtx.userId},
             );
         }
 
@@ -84,10 +83,11 @@ export class ProviderProfileActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 20},
-        transaction: true,
     })
     async refreshAccountStatus(params: Record<string, any>): Promise<ConnectStatusResult> {
-        const {logger, languageCode, session, company, actionUserCtx} = params;
+        const {logger, languageCode, company, actionUserCtx} = params as AuthenticatedMWType;
+        // Live profile only: admins otherwise also see soft-deleted rows
+        const opts = {logger, languageCode, withDeleted: false};
 
         logger.start(`Refreshing Stripe Connect status for user: ${actionUserCtx.userId}...`);
 
@@ -95,12 +95,8 @@ export class ProviderProfileActions {
             throw apiValidationException("payment_gateway_not_configured", null, null, languageCode);
         }
 
-        const profile = await ProviderProfile.findOne(
-            {user: actionUserCtx.userId, company: company._id},
-            {stripeAccountId: 1},
-            {session},
-        ).noDeleted();
-        if (!profile?.stripeAccountId) {
+        const profile = await providerProfileService.findOneOrThrow({user: actionUserCtx.userId, company: company._id}, opts, null, "stripeAccountId");
+        if (!profile.stripeAccountId) {
             throw apiValidationException("connect_account_not_created", null, null, languageCode);
         }
 
@@ -116,7 +112,7 @@ export class ProviderProfileActions {
                     stripeAccountSyncedAt: new Date(),
                 },
             },
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+            {...opts, auditUserId: actionUserCtx.userId},
         );
 
         logger.finish(`Successfully refreshed Stripe Connect status for user: ${actionUserCtx.userId}`);

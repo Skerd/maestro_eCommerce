@@ -7,16 +7,19 @@
  * out yet?".
  *
  * SECURITY: arguments are untrusted LLM output — re-validated with Zod, free
- * text regex-escaped, and every query hard-scoped to `ctx.companyId`. Provider
+ * text regex-escaped, and every query hard-scoped to `ctx.companyId`. Each tool
+ * needs the panel's read permission, and a non-admin sees only their own profile. Provider
  * payout details are reported as booleans only: whether Stripe onboarding is
  * complete, never the account identifier itself.
  *
  * @module listingTools
  */
 
+import {ObjectId} from "mongodb";
 import {z} from "zod";
 import {registerAssistantTool} from "@coreModule/domain/ai/tools/toolRegistry";
 import type {AssistantTool, AssistantToolContext} from "@coreModule/domain/ai/tools/assistantTool.types";
+import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
@@ -100,6 +103,10 @@ const listingParameters = {
 };
 
 async function executeListings(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "listings[read:title]");
+    if (!access.allowed) return accessDenied("marketplace listings");
+
     const args = SearchListingsArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
@@ -217,10 +224,16 @@ const providerParameters = {
 };
 
 async function executeProviders(rawArgs: unknown, ctx: AssistantToolContext): Promise<unknown> {
+    // The assistant shows only what the panel would: the same read permission
+    const access = await requirePermission(ctx, "providerprofiles[read:bio]");
+    if (!access.allowed) return accessDenied("provider profiles");
+
     const args = SearchProvidersArgs.parse(rawArgs ?? {});
 
     // Hard company scope — the only scope the tool is allowed to read.
     const query: Record<string, unknown> = companyScope(ctx);
+    // As in the panel, a non-admin only sees their own provider profile
+    if (!access.isAdmin) query.user = new ObjectId(ctx.userId);
 
     if (args.search != null) query.bio = regexClause(args.search);
     if (args.skill != null) query.skills = regexClause(args.skill);

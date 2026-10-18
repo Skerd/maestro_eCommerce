@@ -6,7 +6,8 @@ import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
-import {IOwnershipPluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import {IOwnershipPluginFields, ILifeCyclePluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import { ICompany } from "@coreModule/database/schemas/company/company";
 import { addModelData } from "@coreModule/database/collections";
 import { validateSchemaDefAgainstMongoose } from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -17,7 +18,7 @@ import { ListingSimpleSnippet } from "@eCommerceModule/database/schemas/listing/
 import { applyListingAddOnIndexes } from "./listingAddOn.indexes";
 import { listingAddOnViews } from "./listingAddOn.views";
 
-export interface IListingAddOn extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
+export interface IListingAddOn extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     listing: IListing;
     provider: IUser;
@@ -36,6 +37,10 @@ const ListingAddOnSchema = new Schema<IListingAddOn>(
             ref: "Listing",
             required: true,
             refAllowlist: ListingSimpleSnippet,
+            permissions: {
+                self: {write: "no-permission"},
+                others: {write: "no-permission"},
+            },
         },
         provider: {
             type: SchemaTypes.ObjectId,
@@ -78,6 +83,7 @@ const ListingAddOnSchema = new Schema<IListingAddOn>(
 
 ownershipPlugin(ListingAddOnSchema);
 auditPlugin(ListingAddOnSchema);
+softDeletePlugin(ListingAddOnSchema);
 lifeCyclePlugin(ListingAddOnSchema);
 applyListingAddOnIndexes(ListingAddOnSchema);
 const ListingAddOn = model<IListingAddOn>("ListingAddOn", ListingAddOnSchema);

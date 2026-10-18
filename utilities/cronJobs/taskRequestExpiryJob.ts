@@ -1,10 +1,14 @@
 /**
- * Hourly job: close open TaskRequests whose expiresAt has passed.
+ * Hourly job: close open TaskRequests whose expiresAt has passed and tell the
+ * users still waiting on a bid, as a manual close does.
  */
 
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
+import { emitNotificationEvent } from "@coreModule/domain/notifications/notificationEventBus";
 import { taskRequestService } from "@eCommerceModule/database/schemas/taskRequest/taskRequest.service";
+import { pendingBidderIds } from "@eCommerceModule/database/schemas/taskRequest/taskRequest.actions";
+import { NotificationEventCodes } from "@eCommerceModule/domain/notifications/notificationEventCodes";
 
 export async function runTaskRequestExpiry(parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("task_request_expiry", parentLogger);
@@ -19,7 +23,7 @@ export async function runTaskRequestExpiry(parentLogger?: serverLogger): Promise
             { status: "open", expiresAt: { $lte: now } },
             { logger, languageCode: lang },
             null,
-            "_id",
+            "_id title company",
             { expiresAt: 1 },
             500,
             0
@@ -32,6 +36,20 @@ export async function runTaskRequestExpiry(parentLogger?: serverLogger): Promise
                     { $set: { status: "closed" } },
                     { logger, languageCode: lang }
                 );
+
+                const companyId = req.company._id;
+                const bidderIds = await pendingBidderIds(req._id, companyId, { logger, languageCode: lang });
+                if (bidderIds.length > 0) {
+                    emitNotificationEvent(NotificationEventCodes.TASK_REQUEST_CLOSED, {
+                        receiverIds: bidderIds,
+                        payload: {
+                            companyId: companyId.toString(),
+                            languageCode: lang,
+                            taskRequestId: req._id.toString(),
+                            taskRequestTitle: req.title,
+                        },
+                    });
+                }
                 logger.debug(`Closed expired task request ${req._id.toString()}`);
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : String(e);

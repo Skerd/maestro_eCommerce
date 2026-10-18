@@ -7,12 +7,8 @@ import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
 import { addModelData } from "@coreModule/database/collections";
-import { CompanyBlankSnippet } from "@coreModule/database/schemas/company/company.snippets";
 import { SimpleUserSnippet } from "@coreModule/database/schemas/user/user.snippets";
-import {
-    OrderSimpleSnippet,
-    OrderWithTaskOrListingSnippet
-} from "@eCommerceModule/database/schemas/order/order.snippets";
+import { OrderWithTaskOrListingSnippet } from "@eCommerceModule/database/schemas/order/order.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {DisputeSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/dispute.schema-def";
 import { applyDisputeIndexes } from "./dispute.indexes";

@@ -14,7 +14,7 @@ export function reviewToDTO(review: IReview): Review {
         _id: review._id.toString(),
         order: mapSnippet<OrderWithTaskOrListing>()(review.order, OrderWithTaskOrListingSnippet),
         listing: mapSnippet<ListingSimple>()(review.listing, ListingSimpleSnippet),
-        rating: typeof review.rating === "number" ? review.rating : parseInt(String(review.rating || 0), 10),
+        rating: review.rating,
         comment: review.comment,
         reviewer: mapSnippet<SimpleUser>()(review.reviewer, SimpleUserSnippet),
         ...mapOwnershipToDTO(review),

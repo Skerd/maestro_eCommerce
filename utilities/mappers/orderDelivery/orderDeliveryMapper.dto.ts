@@ -1,29 +1,27 @@
-import { IOrderDelivery } from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
-import { OrderDelivery } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderDelivery/orderDelivery.dto";
+import type {IOrderDelivery} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
+import type {OrderDelivery} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderDelivery/orderDelivery.dto";
+import type {OrderSimple} from "armonia/src/modules/eCommerce/dto/order.dto";
+import {OrderSimpleSnippet} from "@eCommerceModule/database/schemas/order/order.snippets";
+import {mapMedia, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {
+    mapLifeCycleToDTO,
+    mapOwnershipToDTO,
+    mapSoftDeleteToDTO,
+} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
-import {mapLifeCycleToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-
-function mapAttachment(a: any) {
-    if (!a) return null;
+export function orderDeliveryToDTO(delivery: IOrderDelivery): OrderDelivery {
     return {
-        _id: a._id?.toString?.() || "",
-        url: a.url,
-        originalName: a.originalName,
+        _id: delivery._id.toString(),
+        order: mapSnippet<OrderSimple>()(delivery.order, OrderSimpleSnippet),
+        message: delivery.message,
+        attachments: delivery.attachments.map(mapMedia),
+        status: delivery.status,
+        ...mapOwnershipToDTO(delivery),
+        ...mapSoftDeleteToDTO(delivery),
+        ...mapLifeCycleToDTO(delivery),
     };
 }
 
-export function orderDeliveryToDTO(d: IOrderDelivery): OrderDelivery {
-    const atts = Array.isArray(d.attachments) ? d.attachments : [];
-    return {
-        _id: d._id.toString(),
-        orderId: d.order?._id?.toString?.() || (typeof d.order === "string" ? d.order : ""),
-        message: d.message,
-        attachments: atts.map(mapAttachment).filter(Boolean),
-        status: d.status,
-        ...mapLifeCycleToDTO(d),
-    };
-}
-
-export function orderDeliveriesToDTO(items: IOrderDelivery[]): OrderDelivery[] {
-    return items.map(orderDeliveryToDTO);
+export function orderDeliveriesToDTO(deliveries: IOrderDelivery[]): OrderDelivery[] {
+    return deliveries.map(orderDeliveryToDTO);
 }

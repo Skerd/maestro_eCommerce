@@ -12,7 +12,6 @@ import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields}
 import {addModelData} from "@coreModule/database/collections";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 import {ReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/review/review.schema-def";
-import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ListingSimpleSnippet} from "@eCommerceModule/database/schemas/listing/listing.snippets";
 import {OrderWithTaskOrListingSnippet} from "@eCommerceModule/database/schemas/order/order.snippets";
@@ -21,7 +20,8 @@ import {reviewViews} from "./review.views";
 
 export interface IReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IOrder;
-    listing: IListing;
+    /** Set for listing orders; task-request orders have no listing. */
+    listing?: IListing;
     rating: number;
     comment?: string;
     reviewer: IUser;
@@ -39,7 +39,6 @@ const ReviewSchema = new Schema<IReview>(
         listing: {
             type: SchemaTypes.ObjectId,
             ref: "Listing",
-            required: true,
             refAllowlist: ListingSimpleSnippet,
         },
         rating: {
@@ -58,12 +57,6 @@ const ReviewSchema = new Schema<IReview>(
             ref: "User",
             required: true,
             refAllowlist: SimpleUserSnippet,
-        },
-        company: {
-            type: SchemaTypes.ObjectId,
-            ref: "Company",
-            required: true,
-            refAllowlist: CompanyBlankSnippet,
         },
     },
     {

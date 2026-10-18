@@ -26,6 +26,7 @@ export function orderToDTO(order: IOrder, deliverySubmitted = false, hasActiveDi
         currency: mapSnippet<CurrencySimple>()(order.currency, CurrencySimpleSnippet),
         status: order.status,
         deliveryDueDate: order.deliveryDueDate,
+        note: order.note,
         deliverySubmitted,
         hasActiveDispute,
         ...mapOwnershipToDTO(order),

@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const orderDeliverySheetView: ViewConfig = {
     model: "orderdeliveries",
@@ -23,10 +24,28 @@ export const orderDeliverySheetView: ViewConfig = {
                             render: "#DisplayCard",
                             permissions: {read: "order"},
                             field: {
-                                name: "orderId",
+                                name: "order",
                                 widget: "#DisplayCard",
                                 label: "order",
-                                widgetProps: {icon: "#Package"},
+                                widgetProps: {
+                                    icon: "#Package",
+                                    valuePath: ["order.status"],
+                                    linkedRefPath: "order",
+                                    linkedSheetModel: "orders",
+                                    linkedSheetWidget: "#OrderSheetView",
+                                    linkedSheetEntityProp: "order",
+                                    linkedSheetValueField: "status",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "status"},
+                            field: {
+                                name: "status",
+                                widget: "#DisplayCard",
+                                label: "status",
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "orderDeliveryStatus", type: "enum"},
                             },
                         },
                     ],
@@ -48,56 +67,23 @@ export const orderDeliverySheetView: ViewConfig = {
                 },
             ],
         },
-    ],
-};
-
-export const orderDeliveryCreateFormView: ViewConfig = {
-    model: "orderdeliveries",
-    viewType: "form",
-    viewMode: "create",
-    accessModel: "orderdeliveries",
-    apiUrl: "/api/eCommerceMarketplace/order/submitDelivery",
-    method: "POST",
-    nodes: [
         {
-            render: "#FormGrid",
-            props: {columns: 1},
+            render: "#SheetGroup",
+            props: {title: "attachments"},
             children: [
                 {
-                    render: "#Field",
+                    render: "#SheetMediaFilesStrip",
+                    permissions: {read: "attachments"},
                     field: {
-                        name: "_id",
-                        widget: "#ApiSelect",
-                        label: "form.orderIdLabel",
-                        required: true,
-                        widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "message",
-                        widget: "#Textarea",
-                        label: "form.messageLabel",
-                        widgetProps: {className: "min-h-[120px]"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "attachmentIds",
-                        widget: "#MediaField",
-                        label: "form.attachmentsLabel",
-                        widgetProps: {
-                            mediaType: "file",
-                            mode: "multiple",
-                            maxCount: 20,
-                        },
+                        name: "attachments",
+                        widget: "#SheetMediaFilesStrip",
+                        widgetProps: {canDownload: true, canRemove: false, isBig: false},
                     },
                 },
             ],
         },
+        lifecycleSheetGroup,
     ],
 };
 
-export const orderDeliveryViews: ViewConfig[] = [orderDeliverySheetView, orderDeliveryCreateFormView];
+export const orderDeliveryViews: ViewConfig[] = [orderDeliverySheetView];

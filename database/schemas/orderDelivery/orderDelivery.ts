@@ -9,7 +9,8 @@ import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
-import {IOwnershipPluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import {IOwnershipPluginFields, ILifeCyclePluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import { applyOrderDeliveryIndexes } from "./orderDelivery.indexes";
 import { orderDeliveryViews } from "./orderDelivery.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -17,7 +18,7 @@ import {OrderDeliverySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerc
 
 export type OrderDeliveryStatus = "submitted" | "accepted" | "revision_requested";
 
-export interface IOrderDelivery extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
+export interface IOrderDelivery extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     order: IOrder;
     message?: string;
@@ -59,11 +60,17 @@ const OrderDeliverySchema = new Schema<IOrderDelivery>(
     },
     {
         accessMode: "loose",
+        // Written only by OrderActions; the CRUD router is read-only
+        permissions: {
+            self: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+            others: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+        },
     }
 );
 
 ownershipPlugin(OrderDeliverySchema);
 auditPlugin(OrderDeliverySchema);
+softDeletePlugin(OrderDeliverySchema);
 lifeCyclePlugin(OrderDeliverySchema);
 applyOrderDeliveryIndexes(OrderDeliverySchema);
 validateSchemaDefAgainstMongoose(OrderDeliverySchema, OrderDeliverySchemaDef, "OrderDelivery", ["status"]);

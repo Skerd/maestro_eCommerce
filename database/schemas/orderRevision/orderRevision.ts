@@ -11,8 +11,8 @@ import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
-import { CompanyBlankSnippet } from "@coreModule/database/schemas/company/company.snippets";
-import {IOwnershipPluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import {IOwnershipPluginFields, ILifeCyclePluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import { applyOrderRevisionIndexes } from "./orderRevision.indexes";
 import { orderRevisionViews } from "./orderRevision.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -20,7 +20,7 @@ import {OrderRevisionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerc
 
 export type OrderRevisionStatus = "pending" | "completed";
 
-export interface IOrderRevision extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
+export interface IOrderRevision extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     order: IOrder;
     delivery: IOrderDelivery;
@@ -31,12 +31,6 @@ export interface IOrderRevision extends Document, IOwnershipPluginFields, ILifeC
 
 const OrderRevisionSchema = new Schema<IOrderRevision>(
     {
-        company: {
-            type: SchemaTypes.ObjectId,
-            ref: "Company",
-            required: true,
-            refAllowlist: CompanyBlankSnippet,
-        },
         order: {
             type: SchemaTypes.ObjectId,
             ref: "Order",
@@ -74,17 +68,22 @@ const OrderRevisionSchema = new Schema<IOrderRevision>(
     },
     {
         accessMode: "loose",
+        // Written only by OrderActions; the CRUD router is read-only
+        permissions: {
+            self: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+            others: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+        },
     }
 );
 
 ownershipPlugin(OrderRevisionSchema);
 auditPlugin(OrderRevisionSchema);
+softDeletePlugin(OrderRevisionSchema);
 lifeCyclePlugin(OrderRevisionSchema);
 applyOrderRevisionIndexes(OrderRevisionSchema);
 validateSchemaDefAgainstMongoose(OrderRevisionSchema, OrderRevisionSchemaDef, "OrderRevision", [
     "requestedBy",
     "status",
-    "company",
 ]);
 const OrderRevision = model<IOrderRevision>("OrderRevision", OrderRevisionSchema);
 normalizeSchemaPermissions(OrderRevision);

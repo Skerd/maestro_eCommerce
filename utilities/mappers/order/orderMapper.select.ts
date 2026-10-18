@@ -1,14 +1,13 @@
 import type {ApiSelectDatum} from "armonia/src/modules/core/types/shared.types";
-import {IOrder} from "@eCommerceModule/database/schemas/order/order";
+import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
 
-export function orderToSelect(order: IOrder | any): ApiSelectDatum {
-    const title = [order.name, order.listing?.title, order.taskRequest?.title].filter(Boolean).join(" - ") || order.name || "";
+export function orderToSelect(order: IOrder): ApiSelectDatum {
     return {
         value: order._id.toString(),
-        label: title,
+        label: [order.name, order.listing?.title, order.taskRequest?.title].filter(Boolean).join(" - "),
     };
 }
 
-export function ordersToSelect(orders: (IOrder | any)[]): ApiSelectDatum[] {
+export function ordersToSelect(orders: IOrder[]): ApiSelectDatum[] {
     return orders.map(orderToSelect);
 }

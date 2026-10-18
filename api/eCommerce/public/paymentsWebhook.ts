@@ -154,9 +154,10 @@ router.post(
 
                 // Marketplace escrow holds: mirror the customer's payment outcome
                 // onto the hold ledger row so releases/refunds know the money is real.
+                const holdPaid = event.type === "payment_intent.succeeded";
                 await EscrowTransaction.updateMany(
                     {gatewayPaymentIntentId: intentId, type: "hold"},
-                    {$set: {gatewayStatus: event.type === "payment_intent.succeeded" ? "succeeded" : "failed"}},
+                    {$set: {gatewayStatus: holdPaid ? "succeeded" : "failed", status: holdPaid ? "completed" : "failed"}},
                 );
             } else {
                 logger.debug(`Ignoring unhandled stripe event type: ${event.type}`);

@@ -36,6 +36,7 @@ import {ICity} from "@coreModule/database/schemas/city/city";
 import {IListingCategory} from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
 import type {IListingPackage} from "@eCommerceModule/database/schemas/listingPackage/listingPackage";
 import type {IListingAddOn} from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn";
+import type {IPromotion} from "@eCommerceModule/database/schemas/promotion/promotion";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 
 export type ListingStatus = "draft" | "active" | "inactive";
@@ -63,7 +64,7 @@ export interface IListing extends Document, IOwnershipPluginFields, ISoftDeleteP
     faqs?: { question: string; answer: string }[];
     requirements?: string[];
     tags?: string[];
-    promotions?: any[];
+    promotions?: IPromotion[];
     listingPackages?: IListingPackage[];
     listingAddOns?: IListingAddOn[];
     avgRating?: number;

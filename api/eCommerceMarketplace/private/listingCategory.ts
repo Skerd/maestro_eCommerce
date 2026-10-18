@@ -1,17 +1,37 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
-import {ListingCategorySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingCategory/listingCategory.schema-def";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {
+    ListingCategorySchemaDef,
+    type CreateListingCategoryFormType,
+    type EditListingCategoryFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingCategory/listingCategory.schema-def";
 import {createListingCategoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingCategory/createListingCategory.form.validator";
 import {editListingCategoryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingCategory/editListingCategory.form.validator";
 import {listingCategorySelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingCategory/listingCategory.select.form.validator";
-import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
+import ListingCategory, {type IListingCategory} from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
 import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
 import {listingCategoriesToDTO, listingCategoryToDTO} from "@eCommerceModule/utilities/mappers/listingCategory/listingCategoryMapper.dto";
 import {listingCategoriesToSelect} from "@eCommerceModule/utilities/mappers/listingCategory/listingCategoryMapper.select";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
+
+const buildUpdate = buildUpdateDataFromSchemaDef(ListingCategorySchemaDef);
+
+/** Throws when `parentId` is the category itself or one of its descendants. */
+async function assertNotOwnAncestor(categoryId: ObjectId, parentId: ObjectId, companyId: ObjectId, opts: CrudOptions & {languageCode: string}): Promise<void> {
+    let current: ObjectId | undefined = parentId;
+    while (current) {
+        if (current.equals(categoryId)) {
+            throw apiValidationException("listing_category_parent_cycle", null, null, opts.languageCode);
+        }
+        const ancestor = await listingCategoryService.findOne({_id: current, company: companyId}, opts, null, "parentListingCategory");
+        current = ancestor?.parentListingCategory?._id;
+    }
+}
 
 export const basePath = "/api/eCommerceMarketplace/listingCategory";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IListingCategory, CreateListingCategoryFormType, EditListingCategoryFormType>({
     collectionName: "listingcategories",
     model: ListingCategory,
     service: listingCategoryService,
@@ -25,11 +45,14 @@ export const {router} = createCrudRouter({
     toDTO: listingCategoryToDTO,
     toDTOArray: listingCategoriesToDTO,
     toSelect: listingCategoriesToSelect,
-    extraSelectFilter: async ({excludeCategoryId}) => {
-        if (!excludeCategoryId || !ObjectId.isValid(excludeCategoryId as string)) return {};
-        return {_id: {$ne: new ObjectId(excludeCategoryId as string)}};
-    },
+    extraSelectFilter: ({excludeCategoryId}) => (excludeCategoryId ? {_id: {$ne: new ObjectId(excludeCategoryId)}} : {}),
     buildCreateData: buildCreateDataFromSchemaDef(ListingCategorySchemaDef),
-    buildUpdateData: buildUpdateDataFromSchemaDef(ListingCategorySchemaDef),
+    buildUpdateData: async (params, writeFields) => {
+        const {parentListingCategory, existing, company, session, logger, languageCode} = params;
+        if (parentListingCategory && writeFields.parentListingCategory) {
+            await assertNotOwnAncestor(existing._id, new ObjectId(parentListingCategory), company._id, {session, logger, languageCode});
+        }
+        return buildUpdate(params, writeFields);
+    },
     rateLimits: {read: 60, write: 30, delete: 20},
 });

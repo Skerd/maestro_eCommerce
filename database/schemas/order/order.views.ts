@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const orderSheetView: ViewConfig = {
     model: "orders",
@@ -6,7 +7,7 @@ export const orderSheetView: ViewConfig = {
     accessModel: "orders",
     apiUrl: "/api/eCommerceMarketplace/order",
     header: {
-        titleField: "listing.title",
+        titleField: "name",
         subtitleKey: "order",
         showCloseButton: true,
     },
@@ -173,6 +174,98 @@ export const orderSheetView: ViewConfig = {
                 },
             ],
         },
+        {
+            render: "#SheetGroup",
+            dependent: "note",
+            permissions: {read: "note"},
+            props: {title: "note"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-2 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "note"},
+                            field: {
+                                name: "note",
+                                widget: "#ExpandableText",
+                                label: "note",
+                                widgetProps: {className: "text-sm"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        // Loaded by the single route for the order's parties (see readOrderChildren)
+        {
+            render: "#SheetGroup",
+            dependentAny: ["deliveries"],
+            dependentRuntimeOnly: true,
+            props: {title: "deliveries"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ReferencesRender",
+                            field: {
+                                name: "deliveries",
+                                widget: "#ReferencesRender",
+                                widgetProps: {cardWidget: "#OrderDeliveryCard", itemDataProp: "delivery", pageSize: 3},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            dependentAny: ["milestones"],
+            dependentRuntimeOnly: true,
+            props: {title: "milestones"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ReferencesRender",
+                            field: {
+                                name: "milestones",
+                                widget: "#ReferencesRender",
+                                widgetProps: {cardWidget: "#OrderMilestoneCard", itemDataProp: "milestone", pageSize: 3},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            dependentAny: ["revisions"],
+            dependentRuntimeOnly: true,
+            props: {title: "revisions"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ReferencesRender",
+                            field: {
+                                name: "revisions",
+                                widget: "#ReferencesRender",
+                                widgetProps: {cardWidget: "#OrderRevisionCard", itemDataProp: "revision", pageSize: 3},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        lifecycleSheetGroup,
     ],
 };
 

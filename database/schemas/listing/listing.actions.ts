@@ -1,10 +1,33 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import Listing, {type IListing, type ListingStatus} from "@eCommerceModule/database/schemas/listing/listing";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
-import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/shared.types";
+
+/**
+ * `status` is write: no-permission so PATCH can't change it, which means no role
+ * can hold it either. Like the reservation actions, the gate is write access to
+ * an ordinary listing field, plus ownership of the listing.
+ */
+async function loadOwnListing(params: TransactionRequiredParams & SingleForm): Promise<IListing> {
+    const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+
+    SchemaGuard.sanitizeFields(Listing, {title: {}}, "write", actionUserCtx, languageCode);
+
+    const listing = await listingService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, {logger, languageCode, session});
+    assertOwnerOrAdmin(listing.provider, actionUserCtx, languageCode);
+    return listing;
+}
+
+async function setStatus(params: TransactionRequiredParams & SingleForm, listing: IListing, status: ListingStatus): Promise<void> {
+    const {logger, languageCode, session, actionUserCtx} = params;
+    await listingService.updateByIdOrThrow(listing._id, {$set: {status}}, {logger, languageCode, session, auditUserId: actionUserCtx.userId});
+}
 
 export class ListingActions {
     @action({
@@ -14,23 +37,17 @@ export class ListingActions {
         schema: validateSingleForm,
     })
     async activate(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+        const p = params as TransactionRequiredParams & SingleForm;
+        p.logger.start("Activating listing...");
 
-        logger.start("Activating listing...");
-        SchemaGuard.sanitizeFields(Listing, {status: {}}, "write", actionUserCtx, languageCode);
+        const listing = await loadOwnListing(p);
+        // An active listing must be orderable: createFromListing prices it from these fields
+        if (listing.price == null || !listing.priceCurrency) {
+            throw apiValidationException("listing_price_required", null, null, p.languageCode);
+        }
+        await setStatus(p, listing, "active");
 
-        await listingService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {logger, languageCode, session},
-        );
-
-        await listingService.updateByIdOrThrow(
-            new ObjectId(_id),
-            {status: "active"},
-            {logger, languageCode, session, auditUserId: actionUserCtx.userId},
-        );
-
-        logger.finish("Listing activated!");
+        p.logger.finish("Listing activated!");
         return {message: "Listing successfully activated!"};
     }
 
@@ -41,23 +58,13 @@ export class ListingActions {
         schema: validateSingleForm,
     })
     async deactivate(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+        const p = params as TransactionRequiredParams & SingleForm;
+        p.logger.start("Deactivating listing...");
 
-        logger.start("Deactivating listing...");
-        SchemaGuard.sanitizeFields(Listing, {status: {}}, "write", actionUserCtx, languageCode);
+        const listing = await loadOwnListing(p);
+        await setStatus(p, listing, "inactive");
 
-        await listingService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {logger, languageCode, session},
-        );
-
-        await listingService.updateByIdOrThrow(
-            new ObjectId(_id),
-            {status: "inactive"},
-            {logger, languageCode, session, auditUserId: actionUserCtx.userId},
-        );
-
-        logger.finish("Listing deactivated!");
+        p.logger.finish("Listing deactivated!");
         return {message: "Listing successfully deactivated!"};
     }
 }

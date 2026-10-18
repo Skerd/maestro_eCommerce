@@ -1,60 +1,24 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {runAfterCommit} from "@coreModule/utilities/middlewares/transactionUtils";
+import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {createDisputeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/createDispute.form.validator";
-import {editDisputeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/editDispute.form.validator";
-import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import type {CreateDisputeFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/dispute/dispute.schema-def";
+import Dispute, {type IDispute} from "@eCommerceModule/database/schemas/dispute/dispute";
 import {DisputeActions} from "@eCommerceModule/database/schemas/dispute/dispute.actions";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
+import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {disputeToDTO, disputesToDTO} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.dto";
 import {disputesToSelect} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.select";
-
-async function assertOrderPartyAccess(orderId: string, params: Record<string, any>): Promise<void> {
-    const {logger, languageCode, actionUserCtx, company} = params;
-    const currentUserId = actionUserCtx.userId?.toString?.();
-
-    const order = await orderService.findOne(
-        {_id: new ObjectId(orderId), company: company._id},
-        {logger, languageCode},
-        "customer provider",
-        "_id customer provider",
-    );
-
-    if (!order) {
-        throw apiValidationException("order_not_found", null, null, languageCode);
-    }
-
-    const customerId = (order as any).customer?._id?.toString?.() || (order as any).customer?.toString?.();
-    const providerId = (order as any).provider?._id?.toString?.() || (order as any).provider?.toString?.();
-
-    if (customerId !== currentUserId && providerId !== currentUserId) {
-        throw apiValidationException("only_order_parties_can_view_disputes", null, null, languageCode);
-    }
-}
-
-async function nonAdminOrderScope(params: Record<string, any>): Promise<Record<string, unknown>> {
-    const {logger, languageCode, actionUserCtx, company} = params;
-    const currentUserId = actionUserCtx.userId?.toString?.();
-
-    const myOrders = await orderService.find(
-        {
-            company: company._id,
-            $or: [
-                {customer: new ObjectId(currentUserId)},
-                {provider: new ObjectId(currentUserId)},
-            ],
-        },
-        {logger, languageCode},
-        null,
-        "_id",
-    );
-    const orderIds = myOrders.map((o: any) => o._id);
-    return {order: orderIds.length === 0 ? {$in: []} : {$in: orderIds}};
-}
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 export const basePath = "/api/eCommerceMarketplace/dispute";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IDispute, CreateDisputeFormType>({
     collectionName: "disputes",
     model: Dispute,
     service: disputeService,
@@ -63,65 +27,70 @@ export const {router} = createCrudRouter({
     selectSearchField: "reason",
     rateLimits: {read: 60, write: 30, delete: 20},
     createSchema: createDisputeFormSchema,
-    editSchema: editDisputeFormSchema,
+    // Not edited via PATCH; lifecycle uses /startReview, /resolve, /close
+    editSchema: validateSingleForm,
     toDTO: disputeToDTO,
     toDTOArray: disputesToDTO,
     toSelect: disputesToSelect,
-    extraListFilter: async ({actionUserCtx, company, logger, languageCode}) => {
-        if (actionUserCtx.isAdmin) {
-            return {};
-        }
-        return nonAdminOrderScope({actionUserCtx, company, logger, languageCode});
-    },
-    enrichSingle: async (doc, params) => {
-        const orderId =
-            (doc as any).order?._id?.toString?.() || (doc as any).order?.toString?.();
-        if (!params.actionUserCtx.isAdmin && orderId) {
-            await assertOrderPartyAccess(orderId, params);
-        }
-        return disputeToDTO(doc);
-    },
-    /** Domain-guard create (like productReview): order-party/uniqueness checks; initiator derived. status default on schema. */
+    documentFilter: async ({company, actionUserCtx, logger, languageCode}) => ({
+        company: company._id,
+        $and: [await orderChildFilter(company._id, actionUserCtx, {logger, languageCode})],
+    }),
+    extraSelectFilter: ({company, actionUserCtx, logger, languageCode}) => orderChildFilter(company._id, actionUserCtx, {logger, languageCode}),
+    /** A party opens one dispute per non-final order; the initiator is the caller. */
     buildCreateData: async ({order: orderRef, reason, actionUserCtx, company, session, logger, languageCode}) => {
-        const order = await orderService.findOne(
-            {_id: new ObjectId(orderRef), company: company._id},
-            {session, logger, languageCode},
-            "customer provider",
-            "_id customer provider status",
-        );
+        const opts = {session, logger, languageCode};
+        const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
 
-        if (!order) {
-            throw apiValidationException("order_not_found", null, null, languageCode);
-        }
-
-        const customerId = (order as any).customer?._id?.toString?.() || (order as any).customer?.toString?.();
-        const providerId = (order as any).provider?._id?.toString?.() || (order as any).provider?.toString?.();
-        const currentUserId = actionUserCtx.userId?.toString?.();
-
-        if (customerId !== currentUserId && providerId !== currentUserId) {
+        if (!isOrderParty(order, actionUserCtx.userId, "customer") && !isOrderParty(order, actionUserCtx.userId, "provider")) {
             throw apiValidationException("only_order_parties_can_raise_dispute", null, null, languageCode);
         }
-
-        const existingDispute = await disputeService.findOne(
-            {order: new ObjectId(orderRef)},
-            {session, logger, languageCode},
-        );
-
-        if (existingDispute) {
+        if (order.status === "cancelled" || order.status === "completed") {
+            throw apiValidationException("cannot_dispute_final_order", null, null, languageCode);
+        }
+        if (await disputeService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
             throw apiValidationException("dispute_already_exists_for_order", null, null, languageCode);
         }
 
-        if (["cancelled", "completed"].includes((order as any).status)) {
-            throw apiValidationException("cannot_dispute_final_order", null, null, languageCode);
-        }
-
         return {
-            order: new ObjectId(orderRef),
-            initiator: actionUserCtx.userId,
+            order: order._id,
+            initiator: new ObjectId(actionUserCtx.userId),
             reason: reason.trim(),
         };
     },
+    afterCreate: async (created, params) => {
+        const {session, logger, languageCode, company, actionUserCtx} = params;
+        const order = await orderService.findOneOrThrow({_id: created.order._id, company: company._id}, {session, logger, languageCode});
+        const otherParty = isOrderParty(order, actionUserCtx.userId, "customer") ? order.provider : order.customer;
+
+        await runAfterCommit(session, async () => {
+            emitNotificationEvent(NotificationEventCodes.DISPUTE_OPENED, {
+                receiverIds: [otherParty._id.toString()],
+                payload: {
+                    companyId: company._id.toString(),
+                    languageCode,
+                    disputeId: created._id.toString(),
+                    orderId: order._id.toString(),
+                    orderName: order.name,
+                },
+            });
+        });
+    },
     /** Status and resolution via DisputeActions. */
-    buildUpdateData: async () => ({}),
+    buildUpdateData: () => ({}),
+    /** Only an admin removes a dispute: an open one blocks delivery acceptance and the payout. */
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: Dispute,
+        service: disputeService,
+        entityName: "Dispute",
+        keys: ["order"],
+        errorCode: "dispute_already_exists_for_order",
+    }),
+    beforeDelete: async (params, doc) => {
+        if (!params.actionUserCtx.isAdmin) {
+            throw apiValidationException("user_permissions_not_sufficient", null, null, params.languageCode);
+        }
+        await assertCanDelete(Dispute.modelName, doc._id, params.languageCode, params.session);
+    },
     actions: DisputeActions,
 });

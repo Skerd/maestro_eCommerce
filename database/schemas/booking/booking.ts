@@ -10,7 +10,6 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
 import { addModelData } from "@coreModule/database/collections";
 import { COLUMN_TYPE } from "armonia/src/modules/core/database/filter/typeOperators";
-import { CompanyBlankSnippet } from "@coreModule/database/schemas/company/company.snippets";
 import { SimpleUserSnippet } from "@coreModule/database/schemas/user/user.snippets";
 import { OrderSimpleSnippet } from "@eCommerceModule/database/schemas/order/order.snippets";
 import { validateSchemaDefAgainstMongoose } from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";

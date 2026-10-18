@@ -161,6 +161,7 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
                 country: {
                     type: SchemaTypes.ObjectId,
                     ref: "Country",
+                    required: true,
                     refAllowlist: CountrySimpleSnippet,
                     dynamicTableConfiguration: {
                         hideColumn: true,
@@ -177,6 +178,7 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
                 city: {
                     type: SchemaTypes.ObjectId,
                     ref: "City",
+                    required: true,
                     refAllowlist: CitySimpleSnippet,
                     dynamicTableConfiguration: {
                         hideColumn: true,

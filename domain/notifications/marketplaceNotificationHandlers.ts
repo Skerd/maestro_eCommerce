@@ -21,6 +21,10 @@ type MarketplaceCode =
     | typeof NotificationEventCodes.ORDER_DELIVERY_SUBMITTED
     | typeof NotificationEventCodes.ORDER_DELIVERY_ACCEPTED
     | typeof NotificationEventCodes.ORDER_REVISION_REQUESTED
+    | typeof NotificationEventCodes.ORDER_MILESTONE_RELEASED
+    | typeof NotificationEventCodes.DISPUTE_OPENED
+    | typeof NotificationEventCodes.DISPUTE_RESOLVED
+    | typeof NotificationEventCodes.DISPUTE_CLOSED
     | typeof NotificationEventCodes.TASK_REQUEST_CREATED;
 
 const DESCRIPTIONS: Record<MarketplaceCode, (payload: Record<string, unknown>) => string> = {
@@ -46,6 +50,14 @@ const DESCRIPTIONS: Record<MarketplaceCode, (payload: Record<string, unknown>) =
         `Delivery accepted! Order completed: ${p.orderName as string}`,
     [NotificationEventCodes.ORDER_REVISION_REQUESTED]: p =>
         `Revision requested for order: ${p.orderName as string}`,
+    [NotificationEventCodes.ORDER_MILESTONE_RELEASED]: p =>
+        `Milestone "${p.milestoneName as string}" released for order: ${p.orderName as string}`,
+    [NotificationEventCodes.DISPUTE_OPENED]: p =>
+        `A dispute has been opened on order: ${p.orderName as string}`,
+    [NotificationEventCodes.DISPUTE_RESOLVED]: p =>
+        `The dispute on order ${p.orderName as string} was resolved; the order is completed`,
+    [NotificationEventCodes.DISPUTE_CLOSED]: p =>
+        `The dispute on order ${p.orderName as string} was closed; the order is cancelled`,
     [NotificationEventCodes.TASK_REQUEST_CREATED]: p =>
         `A new task request matching your listing has been posted: ${p.taskRequestTitle as string}`,
 };
@@ -62,6 +74,10 @@ const IMPORTANCE: Record<MarketplaceCode, NotificationImportance> = {
     [NotificationEventCodes.ORDER_DELIVERY_SUBMITTED]: NotificationImportance.HIGH,
     [NotificationEventCodes.ORDER_DELIVERY_ACCEPTED]: NotificationImportance.HIGH,
     [NotificationEventCodes.ORDER_REVISION_REQUESTED]: NotificationImportance.HIGH,
+    [NotificationEventCodes.ORDER_MILESTONE_RELEASED]: NotificationImportance.HIGH,
+    [NotificationEventCodes.DISPUTE_OPENED]: NotificationImportance.HIGH,
+    [NotificationEventCodes.DISPUTE_RESOLVED]: NotificationImportance.HIGH,
+    [NotificationEventCodes.DISPUTE_CLOSED]: NotificationImportance.HIGH,
     [NotificationEventCodes.TASK_REQUEST_CREATED]: NotificationImportance.MEDIUM,
 };
 
@@ -89,6 +105,12 @@ function contentFor(code: MarketplaceCode, payload: Record<string, unknown>): Re
             return {orderId: payload.orderId, orderName: payload.orderName, additionalDays: payload.additionalDays};
         case NotificationEventCodes.ORDER_REVISION_REQUESTED:
             return {orderId: payload.orderId, orderName: payload.orderName, reason: payload.reason};
+        case NotificationEventCodes.ORDER_MILESTONE_RELEASED:
+            return {orderId: payload.orderId, orderName: payload.orderName, milestoneName: payload.milestoneName};
+        case NotificationEventCodes.DISPUTE_OPENED:
+        case NotificationEventCodes.DISPUTE_RESOLVED:
+        case NotificationEventCodes.DISPUTE_CLOSED:
+            return {disputeId: payload.disputeId, orderId: payload.orderId, orderName: payload.orderName};
         case NotificationEventCodes.TASK_REQUEST_CREATED:
             return {
                 taskRequestId: payload.taskRequestId,
@@ -137,5 +159,9 @@ export function registerECommerceMarketplaceNotificationHandlers(): void {
     bindHandler(NotificationEventCodes.ORDER_DELIVERY_SUBMITTED);
     bindHandler(NotificationEventCodes.ORDER_DELIVERY_ACCEPTED);
     bindHandler(NotificationEventCodes.ORDER_REVISION_REQUESTED);
+    bindHandler(NotificationEventCodes.ORDER_MILESTONE_RELEASED);
+    bindHandler(NotificationEventCodes.DISPUTE_OPENED);
+    bindHandler(NotificationEventCodes.DISPUTE_RESOLVED);
+    bindHandler(NotificationEventCodes.DISPUTE_CLOSED);
     bindHandler(NotificationEventCodes.TASK_REQUEST_CREATED);
 }

@@ -9,7 +9,8 @@ import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
-import {IOwnershipPluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import {IOwnershipPluginFields, ILifeCyclePluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
 import { applyOrderMilestoneIndexes } from "./orderMilestone.indexes";
 import { orderMilestoneViews } from "./orderMilestone.views";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -17,7 +18,7 @@ import {OrderMilestoneSchemaDef} from "armonia/src/modules/eCommerce/api/eCommer
 
 export type OrderMilestoneStatus = "pending" | "released" | "delivered";
 
-export interface IOrderMilestone extends Document, IOwnershipPluginFields, ILifeCyclePluginFields {
+export interface IOrderMilestone extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     order: IOrder;
     name: string;
@@ -71,14 +72,20 @@ const OrderMilestoneSchema = new Schema<IOrderMilestone>(
     },
     {
         accessMode: "loose",
+        // Written only by OrderActions; the CRUD router is read-only
+        permissions: {
+            self: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+            others: {create: "no-permission", delete: "no-permission", restore: "no-permission"},
+        },
     }
 );
 
 ownershipPlugin(OrderMilestoneSchema);
 auditPlugin(OrderMilestoneSchema);
+softDeletePlugin(OrderMilestoneSchema);
 lifeCyclePlugin(OrderMilestoneSchema);
 applyOrderMilestoneIndexes(OrderMilestoneSchema);
-validateSchemaDefAgainstMongoose(OrderMilestoneSchema, OrderMilestoneSchemaDef, "OrderMilestone", ["status"]);
+validateSchemaDefAgainstMongoose(OrderMilestoneSchema, OrderMilestoneSchemaDef, "OrderMilestone", ["status", "currency"]);
 const OrderMilestone = model<IOrderMilestone>("OrderMilestone", OrderMilestoneSchema);
 normalizeSchemaPermissions(OrderMilestone);
 export default OrderMilestone;

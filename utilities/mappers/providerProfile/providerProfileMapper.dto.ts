@@ -3,42 +3,39 @@ import type {ProviderProfile} from "armonia/src/modules/eCommerce/api/eCommerceM
 import type {SimpleUser} from "armonia/src/modules/core/dto/user.dto";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {mapMedia, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
-import {mapLifeCycleToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
+import {
+    mapLifeCycleToDTO,
+    mapOwnershipToDTO,
+    mapSoftDeleteToDTO,
+} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
+import type {ProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 
-export function providerProfileToDTO(
-    profile: IProviderProfile | null,
-    metrics?: { averageRating?: number; reviewCount?: number; completionRate?: number }
-): ProviderProfile | null {
-    if (!profile) return null;
-
-    const portfolio = (profile.portfolio || []).map(mapMedia);
-    const availability = (profile.availability || []).map((slot) => ({
-        dayOfWeek: slot.dayOfWeek,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-    }));
-
+export function providerProfileToDTO(profile: IProviderProfile, metrics?: ProviderProfileMetrics): ProviderProfile {
     return {
-        _id: profile._id?.toString?.(),
+        _id: profile._id.toString(),
         user: mapSnippet<SimpleUser>()(profile.user, SimpleUserSnippet),
-        skills: profile.skills || [],
+        skills: profile.skills ?? [],
         bio: profile.bio,
-        portfolio: portfolio.length ? portfolio : undefined,
-        availability,
+        portfolio: profile.portfolio?.length ? profile.portfolio.map(mapMedia) : undefined,
+        availability: (profile.availability ?? []).map((slot) => ({
+            dayOfWeek: slot.dayOfWeek,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+        })),
         averageRating: metrics?.averageRating,
         reviewCount: metrics?.reviewCount,
         completionRate: metrics?.completionRate,
-        stripeAccountId: (profile as any).stripeAccountId || undefined,
-        stripeChargesEnabled: !!(profile as any).stripeChargesEnabled,
-        stripePayoutsEnabled: !!(profile as any).stripePayoutsEnabled,
-        stripeDetailsSubmitted: !!(profile as any).stripeDetailsSubmitted,
-        stripeAccountSyncedAt: (profile as any).stripeAccountSyncedAt
-            ? new Date((profile as any).stripeAccountSyncedAt).toISOString()
-            : undefined,
+        stripeAccountId: profile.stripeAccountId,
+        stripeChargesEnabled: profile.stripeChargesEnabled,
+        stripePayoutsEnabled: profile.stripePayoutsEnabled,
+        stripeDetailsSubmitted: profile.stripeDetailsSubmitted,
+        stripeAccountSyncedAt: profile.stripeAccountSyncedAt?.toISOString(),
+        ...mapOwnershipToDTO(profile),
+        ...mapSoftDeleteToDTO(profile),
         ...mapLifeCycleToDTO(profile),
     };
 }
 
 export function providerProfilesToDTOArray(profiles: IProviderProfile[]): ProviderProfile[] {
-    return profiles.map((profile) => providerProfileToDTO(profile)!).filter(Boolean);
+    return profiles.map((profile) => providerProfileToDTO(profile));
 }

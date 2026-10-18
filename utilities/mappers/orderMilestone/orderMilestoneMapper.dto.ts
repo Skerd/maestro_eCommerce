@@ -1,23 +1,31 @@
-import { IOrderMilestone } from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone";
-import { OrderMilestone } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/orderMilestone.dto";
+import type {IOrderMilestone} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone";
+import type {OrderMilestone} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/orderMilestone.dto";
+import type {OrderSimple} from "armonia/src/modules/eCommerce/dto/order.dto";
+import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
+import {OrderSimpleSnippet} from "@eCommerceModule/database/schemas/order/order.snippets";
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {
+    mapLifeCycleToDTO,
+    mapOwnershipToDTO,
+    mapSoftDeleteToDTO,
+} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
-import {mapLifeCycleToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-
-export function orderMilestoneToDTO(m: IOrderMilestone): OrderMilestone {
-    const currency = m.currency;
+export function orderMilestoneToDTO(milestone: IOrderMilestone): OrderMilestone {
     return {
-        _id: m._id.toString(),
-        orderId: m.order?._id?.toString?.() || (typeof m.order === "string" ? m.order : ""),
-        name: m.name,
-        amount: typeof m.amount === "number" ? m.amount : parseFloat(String(m.amount || 0)),
-        currencyId: currency?._id?.toString?.() || (typeof m.currency === "string" ? m.currency : ""),
-        currencySymbol: currency?.symbol,
-        status: m.status,
-        orderIndex: m.orderIndex ?? 0,
-        ...mapLifeCycleToDTO(m),
+        _id: milestone._id.toString(),
+        order: mapSnippet<OrderSimple>()(milestone.order, OrderSimpleSnippet),
+        name: milestone.name,
+        amount: milestone.amount,
+        currency: mapSnippet<CurrencySimple>()(milestone.currency, CurrencySimpleSnippet),
+        status: milestone.status,
+        orderIndex: milestone.orderIndex,
+        ...mapOwnershipToDTO(milestone),
+        ...mapSoftDeleteToDTO(milestone),
+        ...mapLifeCycleToDTO(milestone),
     };
 }
 
-export function orderMilestonesToDTO(items: IOrderMilestone[]): OrderMilestone[] {
-    return items.map(orderMilestoneToDTO);
+export function orderMilestonesToDTO(milestones: IOrderMilestone[]): OrderMilestone[] {
+    return milestones.map(orderMilestoneToDTO);
 }

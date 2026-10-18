@@ -1,80 +1,37 @@
-import {Router} from "express";
 import {ObjectId} from "mongodb";
-import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW, {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
-import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import {orderDeliveryService} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
-import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
-import {getModelCollectedData} from "@coreModule/database/collections";
-import type {TableResponse} from "armonia/src/modules/core/types/shared.types";
-import type {OrderDelivery as OrderDeliveryDto} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderDelivery/orderDelivery.dto";
-import {OrderDeliveryFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderDelivery/orderDelivery.form.type";
+import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {orderDeliveryFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderDelivery/orderDelivery.form.validator";
-import SchemaGuard from "@coreModule/database/security/schemaGuard";
-import OrderDelivery from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
-import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.dto";
+import OrderDelivery, {type IOrderDelivery} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
+import {orderDeliveryService} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
+import {orderDeliveryToDTO, orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.dto";
+import {orderDeliveriesToSelect} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.select";
+import {orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 /**
- * List-only. Mutations live on OrderActions:
- * - submitDelivery → POST /api/eCommerceMarketplace/order/submitDelivery
- * - acceptDelivery → POST /api/eCommerceMarketplace/order/acceptDelivery
+ * Read-only: deliveries are written by OrderActions.submitDelivery (model create / delete / restore are
+ * no-permission). Non-admins only see the deliveries of their own orders.
  */
 export const basePath = "/api/eCommerceMarketplace/orderDelivery";
-export const router = Router();
-
-router.post(
-    "",
-    authMW("private"),
-    rateLimiter({windowMs: 60000, max: 60}),
-    validateFormZod(orderDeliveryFormSchema),
-    asyncHandler(getOrderDeliveries),
-);
-
-async function getOrderDeliveries(
-    params: AuthenticatedMWType & OrderDeliveryFormType,
-): Promise<TableResponse<OrderDeliveryDto>> {
-    const {logger, languageCode, actionUserCtx, company, limit, offset, orderId} = params;
-
-    logger.start("Fetching order deliveries...");
-
-    if (!orderId) {
-        return {data: [], total: 0};
-    }
-
-    await orderService.findOneOrThrow(
-        {_id: new ObjectId(orderId), company: company._id},
-        {logger, languageCode},
-    );
-
-    const sanitizedFields = SchemaGuard.sanitizeFields(
-        OrderDelivery,
-        getModelCollectedData("orderdeliveries").readFields ?? {},
-        "read",
-        actionUserCtx,
-        languageCode,
-    );
-    const populate = SchemaGuard.generatePopulate(sanitizedFields, OrderDelivery.schema);
-
-    const filter = {order: new ObjectId(orderId), company: company._id};
-
-    const [items, total] = await Promise.all([
-        orderDeliveryService.find(
-            filter,
-            {logger, languageCode},
-            populate.populate,
-            populate.select || "",
-            {createdAt: -1},
-            limit,
-            offset,
-        ),
-        orderDeliveryService.count(filter, {logger, languageCode}),
-    ]);
-
-    logger.finish("Finished fetching order deliveries!");
-
-    return {
-        data: orderDeliveriesToDTO(items),
-        total,
-    };
-}
+export const {router} = createCrudRouter<IOrderDelivery>({
+    collectionName: "orderdeliveries",
+    model: OrderDelivery,
+    service: orderDeliveryService,
+    entityName: "OrderDelivery",
+    defaultSort: {createdAt: -1},
+    listSchema: orderDeliveryFormSchema,
+    createSchema: validateSingleForm,
+    buildCreateData: () => ({}),
+    editSchema: validateSingleForm,
+    buildUpdateData: () => ({}),
+    toDTO: orderDeliveryToDTO,
+    toDTOArray: orderDeliveriesToDTO,
+    toSelect: orderDeliveriesToSelect,
+    documentFilter: async ({company, actionUserCtx, logger, languageCode}) => ({
+        company: company._id,
+        $and: [await orderChildFilter(company._id, actionUserCtx, {logger, languageCode})],
+    }),
+    extraListFilter: ({orderId}) => (orderId ? {order: new ObjectId(orderId)} : {}),
+    extraSelectFilter: ({company, actionUserCtx, logger, languageCode}) => orderChildFilter(company._id, actionUserCtx, {logger, languageCode}),
+    rateLimits: {read: 60, write: 30, delete: 20},
+});

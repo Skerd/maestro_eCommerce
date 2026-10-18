@@ -1,23 +1,85 @@
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
-import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
-import {UserContext} from "@coreModule/utilities/types/types";
-import {ITaskRequest} from "@eCommerceModule/database/schemas/taskRequest/taskRequest";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {runAfterCommit, type TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import type {ITaskRequest} from "@eCommerceModule/database/schemas/taskRequest/taskRequest";
 import {taskRequestService} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.service";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {bidService} from "@eCommerceModule/database/schemas/bid/bid.service";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
-import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
+import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/shared.types";
 
-function assertMayChangeTaskRequestStatus(doc: ITaskRequest, actionUserCtx: UserContext, languageCode: string | undefined = DEFAULT_EXCEPTION_LANGUAGE): void {
-    if (doc.status === "awarded") {
-        throw apiValidationException("task_request_awarded_no_status_change", "", null, languageCode);
+/** How long a task request takes bids, from creation or from being reopened. */
+export const TASK_REQUEST_OPEN_DAYS = 30;
+
+export function taskRequestExpiry(from: Date = new Date()): Date {
+    return new Date(from.getTime() + TASK_REQUEST_OPEN_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Tells the providers with an active listing in the task's category and city
+ * about it, once the surrounding transaction (if any) commits. Returns how many.
+ */
+export async function notifyMatchingProviders(
+    taskRequest: ITaskRequest,
+    params: AuthenticatedMWType & {session?: TransactionRequiredParams["session"]},
+): Promise<number> {
+    const {logger, languageCode, company, session} = params;
+
+    const listings = await listingService.find(
+        {
+            company: company._id,
+            category: taskRequest.category._id,
+            "address.city": taskRequest.address.city._id,
+            status: "active",
+            provider: {$ne: taskRequest.requester._id},
+        },
+        {session, logger, languageCode},
+        null,
+        "provider",
+    );
+    const providerIds = [...new Set(listings.map((listing) => listing.provider._id.toString()))];
+    if (providerIds.length === 0) return 0;
+
+    await runAfterCommit(session, async () => {
+        emitNotificationEvent(NotificationEventCodes.TASK_REQUEST_CREATED, {
+            receiverIds: providerIds,
+            payload: {
+                companyId: company._id.toString(),
+                languageCode,
+                taskRequestId: taskRequest._id.toString(),
+                taskRequestTitle: taskRequest.title,
+                categoryId: taskRequest.category._id.toString(),
+                cityId: taskRequest.address.city._id.toString(),
+            },
+        });
+    });
+    return providerIds.length;
+}
+
+/** Ids of the users with a pending bid on the task. */
+export async function pendingBidderIds(taskRequestId: ObjectId, companyId: ObjectId, opts: {logger: AuthenticatedMWType["logger"]; languageCode: string}): Promise<string[]> {
+    const bids = await bidService.find({taskRequest: taskRequestId, status: "pending", company: companyId}, opts, null, "bidder");
+    return [...new Set(bids.map((bid) => bid.bidder._id.toString()))];
+}
+
+async function loadOwnTaskRequest(params: TransactionRequiredParams & SingleForm): Promise<ITaskRequest> {
+    const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+    const taskRequest = await taskRequestService.findOneOrThrow(
+        {_id: new ObjectId(_id), company: company._id},
+        {session, logger, languageCode},
+        null,
+        "status requester title",
+    );
+    assertOwnerOrAdmin(taskRequest.requester, actionUserCtx, languageCode);
+    if (taskRequest.status === "awarded") {
+        throw apiValidationException("task_request_awarded_no_status_change", null, null, languageCode);
     }
-    if (!actionUserCtx.isAdmin && doc.requester?._id?.toString() !== actionUserCtx.userId) {
-        throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
-    }
+    return taskRequest;
 }
 
 export class TaskRequestActions {
@@ -28,32 +90,27 @@ export class TaskRequestActions {
         schema: validateSingleForm,
     })
     async close(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+        const p = params as TransactionRequiredParams & SingleForm;
+        const {logger, languageCode, company, actionUserCtx, session, _id} = p;
 
         logger.start(`Closing task request: ${_id}...`);
 
-        const doc = await taskRequestService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, {session, logger, languageCode}, null, "status requester");
+        const taskRequest = await loadOwnTaskRequest(p);
+        if (taskRequest.status === "open") {
+            await taskRequestService.updateByIdOrThrow(taskRequest._id, {$set: {status: "closed"}}, {session, logger, languageCode, auditUserId: actionUserCtx.userId});
 
-        assertMayChangeTaskRequestStatus(doc, actionUserCtx, languageCode);
-
-        if (doc.status === "open") {
-            await taskRequestService.updateByIdOrThrow(new ObjectId(_id), {status: "closed"}, {session, logger, languageCode, auditUserId: actionUserCtx.userId});
-
-            const bids = await bidService.aggregate(
-                [{$match: {taskRequest: doc._id, status: "pending", company: company._id}}, {$group: {_id: "$bidder"}}],
-                {logger, languageCode},
-            );
-            const pendingBidders = bids.map((b: any) => b._id?.toString()).filter(Boolean) as string[];
-
-            if (pendingBidders.length > 0) {
-                emitNotificationEvent(NotificationEventCodes.TASK_REQUEST_CLOSED, {
-                    receiverIds: pendingBidders,
-                    payload: {
-                        companyId: company._id.toString(),
-                        languageCode,
-                        taskRequestId: doc._id.toString(),
-                        taskRequestTitle: doc.title,
-                    },
+            const bidderIds = await pendingBidderIds(taskRequest._id, company._id, {logger, languageCode});
+            if (bidderIds.length > 0) {
+                await runAfterCommit(session, async () => {
+                    emitNotificationEvent(NotificationEventCodes.TASK_REQUEST_CLOSED, {
+                        receiverIds: bidderIds,
+                        payload: {
+                            companyId: company._id.toString(),
+                            languageCode,
+                            taskRequestId: taskRequest._id.toString(),
+                            taskRequestTitle: taskRequest.title,
+                        },
+                    });
                 });
             }
         }
@@ -62,6 +119,7 @@ export class TaskRequestActions {
         return {message: "Finished closing task request"};
     }
 
+    /** Reopening restarts the bidding window, so an expired request is not closed again straight away. */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
@@ -69,16 +127,18 @@ export class TaskRequestActions {
         schema: validateSingleForm,
     })
     async reopen(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, company, actionUserCtx, session, _id} = params;
+        const p = params as TransactionRequiredParams & SingleForm;
+        const {logger, languageCode, actionUserCtx, session, _id} = p;
 
         logger.start(`Reopening task request: ${_id}...`);
 
-        const doc = await taskRequestService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, {session, logger, languageCode}, null, "status requester");
-
-        assertMayChangeTaskRequestStatus(doc, actionUserCtx, languageCode);
-
-        if (doc.status === "closed") {
-            await taskRequestService.updateByIdOrThrow(new ObjectId(_id), {status: "open"}, {session, logger, languageCode, auditUserId: actionUserCtx.userId});
+        const taskRequest = await loadOwnTaskRequest(p);
+        if (taskRequest.status === "closed") {
+            await taskRequestService.updateByIdOrThrow(
+                taskRequest._id,
+                {$set: {status: "open", expiresAt: taskRequestExpiry()}},
+                {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+            );
         }
 
         logger.finish(`Finished reopening task request: ${_id}`);
@@ -92,51 +152,22 @@ export class TaskRequestActions {
         schema: validateSingleForm,
     })
     async notifyAll(params: Record<string, any>): Promise<ActionMessage> {
-        const {logger, languageCode, company, actionUserCtx, _id} = params;
+        const p = params as AuthenticatedMWType & SingleForm;
+        const {logger, languageCode, company, actionUserCtx, _id} = p;
 
         logger.start(`Notifying providers for task request: ${_id}...`);
 
-        const doc = await taskRequestService.findOneOrThrow(
+        const taskRequest = await taskRequestService.findOneOrThrow(
             {_id: new ObjectId(_id), company: company._id},
             {logger, languageCode},
             null,
             "title category address requester status",
         );
+        assertOwnerOrAdmin(taskRequest.requester, actionUserCtx, languageCode);
 
-        if (!actionUserCtx.isAdmin && doc.requester?._id?.toString() !== actionUserCtx.userId) {
-            throw apiValidationException("user_permissions_not_sufficient", "", null, languageCode);
-        }
+        const notified = await notifyMatchingProviders(taskRequest, p);
 
-        if (!doc.category || !doc.address?.city) {
-            logger.finish(`Task request ${_id} has no category or city — skipping notifications`);
-            return {message: "No providers to notify"};
-        }
-
-        const providers = await listingService.aggregate(
-            [
-                {$match: {company: company._id, category: doc.category, "address.city": doc.address.city, status: "active", deletedAt: {$exists: false}}},
-                {$group: {_id: "$provider"}},
-            ],
-            {logger, languageCode},
-        );
-
-        const providerIds = providers.map((p: any) => p._id?.toString()).filter(Boolean) as string[];
-
-        if (providerIds.length > 0) {
-            emitNotificationEvent(NotificationEventCodes.TASK_REQUEST_CREATED, {
-                receiverIds: providerIds,
-                payload: {
-                    companyId: company._id.toString(),
-                    languageCode,
-                    taskRequestId: doc._id.toString(),
-                    taskRequestTitle: doc.title,
-                    categoryId: doc.category.toString(),
-                    cityId: doc.address.city.toString(),
-                },
-            });
-        }
-
-        logger.finish(`Finished notifying ${providerIds.length} provider(s) for task request: ${_id}`);
-        return {message: `Notified ${providerIds.length} provider(s)`};
+        logger.finish(`Finished notifying ${notified} provider(s) for task request: ${_id}`);
+        return {message: `Notified ${notified} provider(s)`};
     }
 }

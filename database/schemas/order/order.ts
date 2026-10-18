@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from"mongoose";
+import {Document, model, Schema, SchemaTypes} from "mongoose";
 import {IUser} from"@coreModule/database/schemas/user/user";
 import {ICompany} from"@coreModule/database/schemas/company/company";
 import {ICurrency} from"@coreModule/database/schemas/currency/currency";
@@ -18,7 +18,7 @@ import {BidSimpleSnippet} from"@eCommerceModule/database/schemas/bid/bid.snippet
 import {ListingSimpleSnippet} from"@eCommerceModule/database/schemas/listing/listing.snippets";
 import {TaskRequestSimpleSnippet} from"@eCommerceModule/database/schemas/taskRequest/taskRequest.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import {OrderSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/order.schema-def";
+import {ORDER_NOTE_MAX, OrderSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/order.schema-def";
 import {applyOrderIndexes} from "./order.indexes";
 import {orderViews} from "./order.views";
 import dayjs from "dayjs";
@@ -38,6 +38,7 @@ export interface IOrder extends Document, IOwnershipPluginFields, ISoftDeletePlu
     status: OrderStatus;
     company: ICompany;
     deliveryDueDate?: Date;
+    note?: string;
 }
 
 const OrderSchema = new Schema<IOrder>(
@@ -93,6 +94,10 @@ const OrderSchema = new Schema<IOrder>(
             type: SchemaTypes.String,
             enum: ["pending", "accepted", "in_progress", "completed", "cancelled"],
             default: "pending",
+            permissions: {
+                self: {write: "no-permission"},
+                others: {write: "no-permission"},
+            },
             dynamicTableConfiguration: {
                 enumTones: {
                     pending:       "warning",
@@ -105,10 +110,28 @@ const OrderSchema = new Schema<IOrder>(
         },
         deliveryDueDate: {
             type: SchemaTypes.Date,
+            permissions: {
+                self: {write: "no-permission"},
+                others: {write: "no-permission"},
+            },
+        },
+        note: {
+            type: SchemaTypes.String,
+            trim: true,
+            maxlength: ORDER_NOTE_MAX,
+            permissions: {
+                self: {write: "no-permission"},
+                others: {write: "no-permission"},
+            },
         },
     },
     {
         accessMode: "loose",
+        // Orders are created only by OrderActions.createFromListing and BidActions.accept
+        permissions: {
+            self: {create: "no-permission"},
+            others: {create: "no-permission"},
+        },
     }
 );
 

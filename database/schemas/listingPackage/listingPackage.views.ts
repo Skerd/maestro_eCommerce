@@ -146,10 +146,11 @@ export const listingPackageSheetView: ViewConfig = {
     ],
 };
 
-const listingPackageFormFields: ViewConfig["nodes"] = [
+/** Parent listing: chosen on create, shown read-only on edit (a row never moves between listings). */
+const listingPackageListingCreateRow: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
-        props: {columns: 2},
+        props: {columns: 1},
         children: [
             {
                 render: "#Field",
@@ -161,6 +162,35 @@ const listingPackageFormFields: ViewConfig["nodes"] = [
                     widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
                 },
             },
+        ],
+    },
+];
+
+const listingPackageListingEditRow: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 1},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "listing",
+                    widget: "#ApiSelect",
+                    label: "form.listingIdLabel",
+                    skipWriteAccessGate: true,
+                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                },
+                permissions: {read: "listing"},
+            },
+        ],
+    },
+];
+
+const listingPackageFormFields: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
             {
                 render: "#Field",
                 field: {
@@ -248,7 +278,7 @@ export const listingPackageCreateFormView: ViewConfig = {
     accessModel: "listingpackages",
     apiUrl: "/api/eCommerceMarketplace/listingPackage",
     method: "PUT",
-    nodes: listingPackageFormFields,
+    nodes: [...listingPackageListingCreateRow, ...listingPackageFormFields],
 };
 
 export const listingPackageEditFormView: ViewConfig = {
@@ -258,7 +288,7 @@ export const listingPackageEditFormView: ViewConfig = {
     accessModel: "listingpackages",
     apiUrl: "/api/eCommerceMarketplace/listingPackage",
     method: "PATCH",
-    nodes: [...listingPackageEditId, ...listingPackageFormFields],
+    nodes: [...listingPackageEditId, ...listingPackageListingEditRow, ...listingPackageFormFields],
 };
 
 export const listingPackageViews: ViewConfig[] = [

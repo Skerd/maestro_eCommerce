@@ -1,45 +1,57 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {BidActions} from "@eCommerceModule/database/schemas/bid/bid.actions";
-import Bid from "@eCommerceModule/database/schemas/bid/bid";
+import Bid, {type IBid} from "@eCommerceModule/database/schemas/bid/bid";
 import {bidService} from "@eCommerceModule/database/schemas/bid/bid.service";
 import {taskRequestService} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.service";
 import {bidToDTO, bidsToDTOArray} from "@eCommerceModule/utilities/mappers/bid/bidMapper.dto";
 import {createBidFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/bid/createBid.form.validator";
-import {editBidFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/bid/editBid.form.validator";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import type {CreateBidFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/bid/bid.schema-def";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {SelectResponse} from "armonia/src/modules/core/types/shared.types";
 import {bidsToSelect} from "@eCommerceModule/utilities/mappers/bid/bidMapper.select";
+import {assertOwnerOrAdmin, bidVisibilityFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 
 export const basePath = "/api/eCommerceMarketplace/bid";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IBid, CreateBidFormType>({
     collectionName: "marketplacebids",
     model: Bid,
     service: bidService,
     entityName: "MarketplaceBid",
     defaultSort: {createdAt: -1},
     createSchema: createBidFormSchema,
-    editSchema: editBidFormSchema,
+    // Not edited via PATCH; accept / reject (withdraw) are BidActions
+    editSchema: validateSingleForm,
     toDTO: bidToDTO,
     toDTOArray: bidsToDTOArray,
     toSelect: bidsToSelect,
+    documentFilter: async ({company, actionUserCtx, logger, languageCode}) => ({
+        company: company._id,
+        $and: [await bidVisibilityFilter(company._id, actionUserCtx, {logger, languageCode})],
+    }),
     overrideSelectHandler: async (params): Promise<SelectResponse> => {
-        const {logger, languageCode, company, name, limit = 20, page = 1, actionUserCtx} = params;
+        const {logger, languageCode, company, name, limit, page, actionUserCtx} = params;
 
         logger.start("Fetching bids for select...");
 
-        const sanitizedFields = SchemaGuard.sanitizeFields(Bid, { name: {}, amount: {}, taskRequest: {keys: { title: {}}}, currency: {keys: { symbol: {} }} }, "read", actionUserCtx, languageCode);
+        const sanitizedFields = SchemaGuard.sanitizeFields(Bid, {name: {}, amount: {}, taskRequest: {keys: {title: {}}}, currency: {keys: {symbol: {}}}}, "read", actionUserCtx, languageCode);
         const populate = SchemaGuard.generatePopulate(sanitizedFields, Bid.schema);
 
-        const filter: Record<string, unknown> = {company: company._id};
+        const conditions: Record<string, unknown>[] = [
+            {company: company._id},
+            await bidVisibilityFilter(company._id, actionUserCtx, {logger, languageCode}),
+        ];
         if (name?.trim()) {
-            filter.status = {$regex: name.trim(), $options: "i"};
+            conditions.push({name: {$regex: escapeRegex(name.trim()), $options: "i"}});
         }
+        const filter = {$and: conditions};
 
-        const offset = (page - 1) * limit;
         const [bids, total] = await Promise.all([
-            bidService.find(filter, {logger, languageCode}, populate.populate, populate.select, {createdAt: -1}, limit, offset),
+            bidService.find(filter, {logger, languageCode}, populate.populate, populate.select, {createdAt: -1}, limit, (page - 1) * limit),
             bidService.count(filter, {logger, languageCode}),
         ]);
 
@@ -47,26 +59,41 @@ export const {router} = createCrudRouter({
 
         return {data: bidsToSelect(bids), total};
     },
-    /** Domain-guard create (like productReview): open-task check; currency/bidder derived server-side. status default on schema. */
+    /** Open, unexpired task of someone else; one live bid per bidder. Currency and bidder are derived server-side. */
     buildCreateData: async ({taskRequest: taskRequestId, amount, proposal, deliveryDays, actionUserCtx, company, logger, languageCode, session}) => {
-        const taskRequest = await taskRequestService.findOneOrThrow({_id: new ObjectId(taskRequestId), company: company._id}, {session, logger, languageCode});
-        if ((taskRequest as any).status !== "open") {
+        const opts = {session, logger, languageCode};
+        const taskRequest = await taskRequestService.findOneOrThrow({_id: new ObjectId(taskRequestId), company: company._id}, opts);
+        if (taskRequest.status !== "open" || taskRequest.expiresAt <= new Date()) {
             throw apiValidationException("task_request_not_open", null, null, languageCode);
         }
-
-        const currency = (taskRequest as any).currency?._id ?? taskRequest.currency;
+        const bidder = new ObjectId(actionUserCtx.userId);
+        if (taskRequest.requester._id.equals(bidder)) {
+            throw apiValidationException("cannot_bid_on_own_task_request", null, null, languageCode);
+        }
+        const existing = await bidService.findOne({taskRequest: taskRequest._id, bidder, status: "pending", company: company._id}, opts, null, "_id");
+        if (existing) {
+            throw apiValidationException("bid_already_submitted", null, null, languageCode);
+        }
 
         return {
-            taskRequest: new ObjectId(taskRequestId),
-            bidder: actionUserCtx.userId,
+            taskRequest: taskRequest._id,
+            bidder,
             amount,
-            currency,
+            currency: taskRequest.currency._id,
             proposal,
-            ...(deliveryDays !== undefined ? {deliveryDays} : {}),
+            deliveryDays,
         };
     },
-    /** Accept/reject via BidActions. */
-    buildUpdateData: async () => ({}),
+    /** Accept / reject (withdraw) via BidActions. */
+    buildUpdateData: () => ({}),
+    /** The bidder (or an admin) may delete a bid while it is still pending. */
+    beforeDelete: async (params, doc) => {
+        assertOwnerOrAdmin(doc.bidder, params.actionUserCtx, params.languageCode);
+        if (doc.status !== "pending") {
+            throw apiValidationException("bid_not_pending", null, null, params.languageCode);
+        }
+        await assertCanDelete(Bid.modelName, doc._id, params.languageCode, params.session);
+    },
     actions: BidActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });

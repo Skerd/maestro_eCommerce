@@ -1,4 +1,5 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
+import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 
 export const orderRevisionSheetView: ViewConfig = {
     model: "orderrevisions",
@@ -26,17 +27,15 @@ export const orderRevisionSheetView: ViewConfig = {
                                 name: "order",
                                 widget: "#DisplayCard",
                                 label: "order",
-                                widgetProps: {icon: "#Package", valuePath: ["order", "_id"]},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "delivery"},
-                            field: {
-                                name: "delivery",
-                                widget: "#DisplayCard",
-                                label: "delivery",
-                                widgetProps: {icon: "#Truck", valuePath: ["delivery", "_id"]},
+                                widgetProps: {
+                                    icon: "#Package",
+                                    valuePath: ["order.status"],
+                                    linkedRefPath: "order",
+                                    linkedSheetModel: "orders",
+                                    linkedSheetWidget: "#OrderSheetView",
+                                    linkedSheetEntityProp: "order",
+                                    linkedSheetValueField: "status",
+                                },
                             },
                         },
                         {
@@ -46,7 +45,17 @@ export const orderRevisionSheetView: ViewConfig = {
                                 name: "requestedBy",
                                 widget: "#DisplayCard",
                                 label: "requestedBy",
-                                widgetProps: {icon: "#User", valuePath: ["requestedBy", "fullName"]},
+                                widgetProps: {icon: "#User", valuePath: ["requestedBy.name", "requestedBy.surname"], joinSeparator: " ", type: "user"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "status"},
+                            field: {
+                                name: "status",
+                                widget: "#DisplayCard",
+                                label: "status",
+                                widgetProps: {icon: "#Tag", languageKeyCategory: "orderRevisionStatus", type: "enum"},
                             },
                         },
                     ],
@@ -68,44 +77,8 @@ export const orderRevisionSheetView: ViewConfig = {
                 },
             ],
         },
+        lifecycleSheetGroup,
     ],
 };
 
-export const orderRevisionCreateFormView: ViewConfig = {
-    model: "orderrevisions",
-    viewType: "form",
-    viewMode: "create",
-    accessModel: "orderrevisions",
-    apiUrl: "/api/eCommerceMarketplace/order/requestRevision",
-    method: "POST",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 1},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "_id",
-                        widget: "#ApiSelect",
-                        label: "form.orderIdLabel",
-                        required: true,
-                        widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "reason",
-                        widget: "#Textarea",
-                        label: "form.reasonLabel",
-                        required: true,
-                        widgetProps: {className: "min-h-[120px]"},
-                    },
-                },
-            ],
-        },
-    ],
-};
-
-export const orderRevisionViews: ViewConfig[] = [orderRevisionSheetView, orderRevisionCreateFormView];
+export const orderRevisionViews: ViewConfig[] = [orderRevisionSheetView];

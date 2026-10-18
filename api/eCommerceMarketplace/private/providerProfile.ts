@@ -2,10 +2,14 @@ import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {ProviderProfileSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
+import {
+    ProviderProfileSchemaDef,
+    type CreateProviderProfileFormType,
+    type EditProviderProfileFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
 import {createProviderProfileFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/createProviderProfile.form.validator";
 import {editProviderProfileFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/editProviderProfile.form.validator";
-import ProviderProfile from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
+import ProviderProfile, {type IProviderProfile} from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
 import {ProviderProfileActions} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.actions";
 import {
@@ -14,16 +18,13 @@ import {
 } from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMapper.dto";
 import {providerProfilesToSelect} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMapper.select";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
+import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 
-const buildCreate = buildCreateDataFromSchemaDef(ProviderProfileSchemaDef, {
-    bio: (v) => (typeof v === "string" ? v.trim() : ""),
-});
-const buildUpdate = buildUpdateDataFromSchemaDef(ProviderProfileSchemaDef, {
-    bio: (v) => (typeof v === "string" ? v.trim() : ""),
-});
+const buildCreate = buildCreateDataFromSchemaDef(ProviderProfileSchemaDef);
+const buildUpdate = buildUpdateDataFromSchemaDef(ProviderProfileSchemaDef);
 
 export const basePath = "/api/eCommerceMarketplace/providerProfile";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IProviderProfile, CreateProviderProfileFormType, EditProviderProfileFormType>({
     collectionName: "providerprofiles",
     model: ProviderProfile,
     service: providerProfileService,
@@ -31,49 +32,40 @@ export const {router} = createCrudRouter({
     defaultSort: {createdAt: -1},
     createSchema: createProviderProfileFormSchema,
     editSchema: editProviderProfileFormSchema,
-    toDTO: (doc) => providerProfileToDTO(doc)!,
+    toDTO: (doc) => providerProfileToDTO(doc),
     toDTOArray: providerProfilesToDTOArray,
     toSelect: providerProfilesToSelect,
-    documentFilter: async ({company, actionUserCtx, languageCode}) => {
-        const base: Record<string, unknown> = {company: company._id};
-        if (actionUserCtx?.isAdmin) {
-            return base;
-        }
-        const userId = actionUserCtx?.userId;
-        if (!userId) {
-            throw apiValidationException("unauthorized", null, null, languageCode);
-        }
-        return {...base, user: new ObjectId(userId)};
-    },
-    extraListFilter: async ({actionUserCtx}) => {
-        if (actionUserCtx?.isAdmin) {
-            return {};
-        }
-        const userId = actionUserCtx?.userId;
-        return userId ? {user: new ObjectId(userId)} : {};
-    },
+    /** Admins manage every profile; everyone else only their own. */
+    documentFilter: ({company, actionUserCtx}) => ({
+        company: company._id,
+        ...(!actionUserCtx.isAdmin && {user: new ObjectId(actionUserCtx.userId)}),
+    }),
+    extraSelectFilter: ({actionUserCtx}) => (actionUserCtx.isAdmin ? {} : {user: new ObjectId(actionUserCtx.userId)}),
+    /** One live profile per user; the user is the caller. */
     buildCreateData: async (params) => {
-        const userId = params.actionUserCtx?.userId;
-        if (!userId) {
-            throw apiValidationException("unauthorized", null, null, params.languageCode);
+        const {actionUserCtx, company, session, logger, languageCode} = params;
+        const user = new ObjectId(actionUserCtx.userId);
+        if (await providerProfileService.findOne({user, company: company._id}, {session, logger, languageCode}, null, "_id")) {
+            throw apiValidationException("provider_profile_already_exists", null, null, languageCode);
         }
-        const data = buildCreate(params);
-        data.user = new ObjectId(userId);
-        if (data.skills === undefined) data.skills = [];
-        if (data.bio === undefined) data.bio = "";
-        if (data.portfolio === undefined) data.portfolio = [];
-        if (data.availability === undefined) data.availability = [];
-        return data;
+        return {...buildCreate(params), user};
     },
     buildUpdateData: buildUpdate,
     enrichSingle: async (doc, params) => {
-        const metrics = await loadProviderProfileMetrics(doc.user?._id ?? doc.user, params.company._id, params);
-        return providerProfileToDTO(doc, metrics)!;
+        const metrics = await loadProviderProfileMetrics(doc.user._id, params.company._id, params);
+        return providerProfileToDTO(doc, metrics);
     },
     enrichUpdate: async (doc, params) => {
-        const metrics = await loadProviderProfileMetrics(doc.user?._id ?? doc.user, params.company._id, params);
-        return providerProfileToDTO(doc, metrics)!;
+        const metrics = await loadProviderProfileMetrics(doc.user._id, params.company._id, params);
+        return providerProfileToDTO(doc, metrics);
     },
+    overrideRestoreHandler: restoreUnlessKeyTaken({
+        model: ProviderProfile,
+        service: providerProfileService,
+        entityName: "ProviderProfile",
+        keys: ["user"],
+        errorCode: "provider_profile_already_exists",
+    }),
     rateLimits: {read: 60, write: 30, delete: 20},
     // Stripe Connect onboarding: POST /api/eCommerceMarketplace/providerProfile/{createAccountLink|refreshAccountStatus}
     actions: ProviderProfileActions,

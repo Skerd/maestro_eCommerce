@@ -14,7 +14,7 @@ export function bookingToDTO(b: IBooking): Booking {
         provider: mapSnippet<SimpleUser>()(b.provider, SimpleUserSnippet),
         startAt: b.startAt,
         endAt: b.endAt,
-        timezone: b.timezone || "UTC",
+        timezone: b.timezone,
         ...mapOwnershipToDTO(b),
         ...mapSoftDeleteToDTO(b),
         ...mapLifeCycleToDTO(b),
@@ -23,8 +23,4 @@ export function bookingToDTO(b: IBooking): Booking {
 
 export function bookingsToDTOArray(bs: IBooking[]): Booking[] {
     return bs.map(bookingToDTO);
-}
-
-export function bookingsToDTO(bs: IBooking[]): Booking[] {
-    return bookingsToDTOArray(bs);
 }

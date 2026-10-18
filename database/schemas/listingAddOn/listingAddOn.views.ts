@@ -114,10 +114,11 @@ export const listingAddOnSheetView: ViewConfig = {
     ],
 };
 
-const listingAddOnFormFields: ViewConfig["nodes"] = [
+/** Parent listing: chosen on create, shown read-only on edit (a row never moves between listings). */
+const listingAddOnListingCreateRow: ViewConfig["nodes"] = [
     {
         render: "#FormGrid",
-        props: {columns: 2},
+        props: {columns: 1},
         children: [
             {
                 render: "#Field",
@@ -129,6 +130,35 @@ const listingAddOnFormFields: ViewConfig["nodes"] = [
                     widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
                 },
             },
+        ],
+    },
+];
+
+const listingAddOnListingEditRow: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 1},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "listing",
+                    widget: "#ApiSelect",
+                    label: "form.listingIdLabel",
+                    skipWriteAccessGate: true,
+                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                },
+                permissions: {read: "listing"},
+            },
+        ],
+    },
+];
+
+const listingAddOnFormFields: ViewConfig["nodes"] = [
+    {
+        render: "#FormGrid",
+        props: {columns: 2},
+        children: [
             {
                 render: "#Field",
                 field: {
@@ -191,7 +221,7 @@ export const listingAddOnCreateFormView: ViewConfig = {
     accessModel: "listingaddons",
     apiUrl: "/api/eCommerceMarketplace/listingAddOn",
     method: "PUT",
-    nodes: listingAddOnFormFields,
+    nodes: [...listingAddOnListingCreateRow, ...listingAddOnFormFields],
 };
 
 export const listingAddOnEditFormView: ViewConfig = {
@@ -201,7 +231,7 @@ export const listingAddOnEditFormView: ViewConfig = {
     accessModel: "listingaddons",
     apiUrl: "/api/eCommerceMarketplace/listingAddOn",
     method: "PATCH",
-    nodes: [...listingAddOnEditExtra, ...listingAddOnFormFields],
+    nodes: [...listingAddOnEditExtra, ...listingAddOnListingEditRow, ...listingAddOnFormFields],
 };
 
 export const listingAddOnViews: ViewConfig[] = [

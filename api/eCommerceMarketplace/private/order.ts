@@ -1,188 +1,156 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {escapeRegex} from "@coreModule/utilities/helpers";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {OrderActions} from "@eCommerceModule/database/schemas/order/order.actions";
-import Order from "@eCommerceModule/database/schemas/order/order";
+import Order, {type IOrder} from "@eCommerceModule/database/schemas/order/order";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {reviewService} from "@eCommerceModule/database/schemas/review/review.service";
 import {orderDeliveryService} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
 import {orderToDTO, ordersToDTO} from "@eCommerceModule/utilities/mappers/order/orderMapper.dto";
 import {ordersToSelect} from "@eCommerceModule/utilities/mappers/order/orderMapper.select";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
-import {editOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/editOrder.form.validator";
+import {orderPartyFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {orderSelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/order.select.form.validator";
 import type {SelectResponse} from "armonia/src/modules/core/types/shared.types";
+import type {BaseCrudService, CrudOptions} from "@coreModule/database/services/baseCrudService";
+import {getModelCollectedData} from "@coreModule/database/collections";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import type {Document, Model} from "mongoose";
+import OrderDelivery from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
+import OrderMilestone from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone";
+import OrderRevision from "@eCommerceModule/database/schemas/orderRevision/orderRevision";
+import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
+import {orderRevisionService} from "@eCommerceModule/database/schemas/orderRevision/orderRevision.service";
+import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.dto";
+import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
+import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
 
-async function loadSubmittedDeliveryOrderIds(
-    orderIds: Array<{toString(): string}>,
-    companyId: unknown,
-    options: {logger: any; languageCode: string},
-): Promise<Set<string>> {
-    if (!orderIds.length) return new Set();
+const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
 
-    const rows = await orderDeliveryService.aggregate(
-        [
-            {
-                $match: {
-                    order: {$in: orderIds},
-                    status: "submitted",
-                    company: companyId,
-                },
-            },
-            {$group: {_id: "$order"}},
-        ],
-        options,
-    );
-
-    return new Set(rows.map((row: {_id: {toString(): string}}) => row._id.toString()));
+async function ordersWithSubmittedDelivery(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions): Promise<Set<string>> {
+    const deliveries = await orderDeliveryService.find({order: {$in: orderIds}, status: "submitted", company: companyId}, opts, null, "order");
+    return new Set(deliveries.map((delivery) => delivery.order._id.toString()));
 }
 
-async function hasSubmittedDelivery(
-    orderId: unknown,
-    companyId: unknown,
-    options: {logger: any; languageCode: string},
-): Promise<boolean> {
-    const count = await orderDeliveryService.count(
-        {order: orderId, status: "submitted", company: companyId},
-        options,
-    );
-    return count > 0;
+async function ordersWithActiveDispute(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions): Promise<Set<string>> {
+    const disputes = await disputeService.find({order: {$in: orderIds}, status: {$in: ACTIVE_DISPUTE_STATUSES}, company: companyId}, opts, null, "order");
+    return new Set(disputes.map((dispute) => dispute.order._id.toString()));
 }
 
-async function loadActiveDisputeOrderIds(
-    orderIds: Array<{toString(): string}>,
-    companyId: unknown,
-    options: {logger: any; languageCode: string},
-): Promise<Set<string>> {
-    if (!orderIds.length) {
-        return new Set();
+/**
+ * One related list for the order sheet, read through SchemaGuard like the CRUD
+ * routes; undefined when the caller has no read access to that model.
+ */
+async function readOrderChildren<T extends Document>(
+    model: Model<T>,
+    collectionName: string,
+    service: BaseCrudService<T, any>,
+    order: IOrder,
+    params: AuthenticatedMWType,
+    sort: Record<string, 1 | -1>,
+): Promise<T[] | undefined> {
+    const {logger, languageCode, company, actionUserCtx} = params;
+    let readFields;
+    try {
+        readFields = SchemaGuard.sanitizeFields(model, getModelCollectedData(collectionName).readFields!, "read", actionUserCtx, languageCode);
+    } catch {
+        return undefined;
     }
-    const disputes = await disputeService.find(
-        {
-            order: {$in: orderIds},
-            company: companyId,
-            status: {$in: ["open", "under_review"]},
-        },
-        options,
-        null,
-        "order",
-        undefined,
-        2000,
-        0,
-    );
-    const out = new Set<string>();
-    for (const row of disputes as any[]) {
-        const oid = row.order?._id ?? row.order;
-        if (oid) {
-            out.add(oid.toString());
-        }
-    }
-    return out;
+    const populate = SchemaGuard.generatePopulate(readFields, model.schema);
+    return service.find({order: order._id, company: company._id}, {logger, languageCode}, populate.populate, populate.select, sort);
 }
 
 export const basePath = "/api/eCommerceMarketplace/order";
 
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IOrder>({
     collectionName: "orders",
     model: Order,
     service: orderService,
     entityName: "Order",
     defaultSort: {createdAt: -1},
-    // Orders are created via BidActions.accept(), not through a direct API endpoint.
-    createSchema: null as any,
-    editSchema: editOrderFormSchema,
+    // Orders are created by OrderActions.createFromListing / BidActions.accept; model create is no-permission, so PUT is refused
+    createSchema: validateSingleForm,
+    buildCreateData: () => ({}),
+    // Not edited via PATCH; lifecycle uses the OrderActions routes
+    editSchema: validateSingleForm,
+    buildUpdateData: () => ({}),
     toDTO: orderToDTO,
     toDTOArray: ordersToDTO,
     toSelect: ordersToSelect,
     selectSchema: orderSelectFormSchema,
+    documentFilter: ({company, actionUserCtx}) => ({company: company._id, ...orderPartyFilter(actionUserCtx)}),
     overrideSelectHandler: async (params): Promise<SelectResponse> => {
-        const {
-            logger,
-            languageCode,
-            company,
-            name,
-            limit = 20,
-            page = 1,
-            status,
-            forReview,
-            actionUserCtx,
-        } = params;
+        const {logger, languageCode, company, name, limit, page, status, forReview, actionUserCtx} = params;
+        const opts = {logger, languageCode};
 
         logger.start("Fetching orders for select...");
 
         const sanitizedFields = SchemaGuard.sanitizeFields(Order, {name: {}, taskRequest: {keys: {title: {}}}, listing: {keys: {title: {}}}}, "read", actionUserCtx, languageCode);
         const populate = SchemaGuard.generatePopulate(sanitizedFields, Order.schema);
 
-        const filter: Record<string, unknown> = {company: company._id};
-
+        const conditions: Record<string, unknown>[] = [{company: company._id}, orderPartyFilter(actionUserCtx)];
         if (name?.trim()) {
-            const term = escapeRegex(name.trim());
-            filter.$or = [
-                {name: {$regex: term, $options: "i"}},
-            ];
+            conditions.push({name: {$regex: escapeRegex(name.trim()), $options: "i"}});
         }
 
         if (forReview) {
-            filter.status = "completed";
-            filter.customer = new ObjectId(actionUserCtx.userId);
-
-            const existingReviews = await reviewService.find(
-                {company: company._id},
-                {logger, languageCode},
-                null,
-                "order",
-                "_id order",
-                undefined,
-                5000
-            );
-            const reviewedOrderIds = (existingReviews as any[])
-                .map((r) => r.order?._id ?? r.order)
-                .filter(Boolean);
-            if (reviewedOrderIds.length > 0) {
-                filter._id = {$nin: reviewedOrderIds};
-            }
+            // The caller's completed orders that have no live review yet
+            const customerId = new ObjectId(actionUserCtx.userId);
+            const myCompleted = await orderService.find({company: company._id, customer: customerId, status: "completed"}, opts, null, "_id");
+            const reviews = await reviewService.find({company: company._id, order: {$in: myCompleted.map((order) => order._id)}}, opts, null, "order");
+            conditions.push({customer: customerId, status: "completed", _id: {$nin: reviews.map((review) => review.order._id)}});
         } else if (status) {
-            filter.status = status;
+            conditions.push({status});
         }
 
-        const offset = (page - 1) * limit;
+        const filter = {$and: conditions};
         const [orders, total] = await Promise.all([
-            orderService.find(filter, {logger, languageCode}, populate.populate, populate.select, {createdAt: -1}, limit, offset),
-            orderService.count(filter, {logger, languageCode}),
+            orderService.find(filter, opts, populate.populate, populate.select, {createdAt: -1}, limit, (page - 1) * limit),
+            orderService.count(filter, opts),
         ]);
 
         logger.finish("Finished fetching orders for select!");
 
         return {data: ordersToSelect(orders), total};
     },
-    buildCreateData: async () => {
-        throw new Error("Orders cannot be created directly");
-    },
-    buildUpdateData: async () => ({}),
     enrichList: async (docs, params) => {
         const {logger, languageCode, company} = params;
         const orderIds = docs.map((d) => d._id);
         const [submittedIds, activeDisputeIds] = await Promise.all([
-            loadSubmittedDeliveryOrderIds(orderIds, company._id, {logger, languageCode}),
-            loadActiveDisputeOrderIds(orderIds, company._id, {logger, languageCode}),
+            ordersWithSubmittedDelivery(orderIds, company._id, {logger, languageCode}),
+            ordersWithActiveDispute(orderIds, company._id, {logger, languageCode}),
         ]);
         return ordersToDTO(docs, submittedIds, activeDisputeIds);
     },
     enrichSingle: async (doc, params) => {
         const {logger, languageCode, company} = params;
-        const deliverySubmitted = await hasSubmittedDelivery(doc._id, company._id, {logger, languageCode});
-        const openDispute = await disputeService.findOne(
-            {
-                order: doc._id,
-                company: company._id,
-                status: {$in: ["open", "under_review"]},
-            },
-            {logger, languageCode},
-            null,
-            "_id",
-        );
-        return orderToDTO(doc, deliverySubmitted, Boolean(openDispute));
+        const [submittedIds, activeDisputeIds, deliveries, milestones, revisions] = await Promise.all([
+            ordersWithSubmittedDelivery([doc._id], company._id, {logger, languageCode}),
+            ordersWithActiveDispute([doc._id], company._id, {logger, languageCode}),
+            readOrderChildren(OrderDelivery, "orderdeliveries", orderDeliveryService, doc, params, {createdAt: -1}),
+            readOrderChildren(OrderMilestone, "ordermilestones", orderMilestoneService, doc, params, {orderIndex: 1}),
+            readOrderChildren(OrderRevision, "orderrevisions", orderRevisionService, doc, params, {createdAt: -1}),
+        ]);
+        return {
+            ...orderToDTO(doc, submittedIds.size > 0, activeDisputeIds.size > 0),
+            ...(deliveries && {deliveries: orderDeliveriesToDTO(deliveries)}),
+            ...(milestones && {milestones: orderMilestonesToDTO(milestones)}),
+            ...(revisions && {revisions: orderRevisionsToDTO(revisions)}),
+        };
+    },
+    /** Admin only, and only once the order is final: an active order still holds escrow. */
+    beforeDelete: async (params, doc) => {
+        if (!params.actionUserCtx.isAdmin) {
+            throw apiValidationException("user_permissions_not_sufficient", null, null, params.languageCode);
+        }
+        if (doc.status !== "completed" && doc.status !== "cancelled") {
+            throw apiValidationException("order_not_final", null, null, params.languageCode);
+        }
+        await assertCanDelete(Order.modelName, doc._id, params.languageCode, params.session);
     },
     actions: OrderActions,
     rateLimits: {read: 60, write: 30, delete: 20},

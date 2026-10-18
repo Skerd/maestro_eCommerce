@@ -1,20 +1,28 @@
 import {ObjectId} from "mongodb";
+import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
+import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {ListingAddOnSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingAddOn/listingAddOn.schema-def";
+import {
+    ListingAddOnSchemaDef,
+    type CreateListingAddOnFormType,
+    type EditListingAddOnFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingAddOn/listingAddOn.schema-def";
 import {createListingAddOnFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingAddOn/createListingAddOn.form.validator";
 import {editListingAddOnFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/listingAddOn/editListingAddOn.form.validator";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
-import ListingAddOn from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn";
+import ListingAddOn, {type IListingAddOn} from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn";
 import {listingAddOnService} from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn.service";
 import {listingAddOnToDTO, listingAddOnsToDTOArray} from "@eCommerceModule/utilities/mappers/listingAddOn/listingAddOnMapper.dto";
 import {listingAddOnsToSelect} from "@eCommerceModule/utilities/mappers/listingAddOn/listingAddOnMapper.select";
+import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 const buildCreate = buildCreateDataFromSchemaDef(ListingAddOnSchemaDef);
+const buildUpdate = buildUpdateDataFromSchemaDef(ListingAddOnSchemaDef);
 
 export const basePath = "/api/eCommerceMarketplace/listingAddOn";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IListingAddOn, CreateListingAddOnFormType, EditListingAddOnFormType>({
     collectionName: "listingaddons",
     model: ListingAddOn,
     service: listingAddOnService,
@@ -26,52 +34,60 @@ export const {router} = createCrudRouter({
     toDTOArray: listingAddOnsToDTOArray,
     toSelect: listingAddOnsToSelect,
     buildCreateData: async (params) => {
-        const {session, logger, languageCode, actionUserCtx} = params;
+        const {session, logger, languageCode, actionUserCtx, company} = params;
 
         const foundListing = await listingService.findOne(
-            {
-                _id: new ObjectId(params.listing),
-                company: params.company._id,
-                provider: actionUserCtx.userId
-            },
+            {_id: new ObjectId(params.listing), company: company._id, provider: new ObjectId(actionUserCtx.userId)},
             {session, logger, languageCode},
         );
-
         if (!foundListing) {
             throw apiValidationException("only_listing_provider_can_create_add_on", null, null, languageCode);
         }
 
-        const data = buildCreate(params);
-        const listingProvider = (foundListing as any).provider?._id ?? (foundListing as any).provider;
-        data.provider = new ObjectId(listingProvider);
-        return data;
+        return {...buildCreate(params), provider: foundListing.provider._id};
     },
-    buildUpdateData: buildUpdateDataFromSchemaDef(ListingAddOnSchemaDef),
+    buildUpdateData: (params, writeFields) => {
+        assertOwnerOrAdmin(params.existing.provider, params.actionUserCtx, params.languageCode);
+        return buildUpdate(params, writeFields);
+    },
     afterCreate: async (created, params) => {
         const {session, logger, languageCode} = params;
-        const listingId = (created.listing?._id ?? created.listing)?.toString();
-        if (!listingId) return;
         await listingService.updateByIdOrThrow(
-            new ObjectId(listingId),
+            created.listing._id,
             {$addToSet: {listingAddOns: created._id}},
             {session, logger, languageCode},
         );
     },
     beforeDelete: async (params, doc) => {
-        const providerId = (doc as any).provider?._id?.toString?.() ?? (doc as any).provider?.toString?.();
-        if (!params.actionUserCtx.isAdmin && providerId !== params.actionUserCtx.userId?.toString?.()) {
+        if (!params.actionUserCtx.isAdmin && doc.provider._id.toString() !== params.actionUserCtx.userId) {
             throw apiValidationException("only_listing_provider_can_delete_add_on", null, null, params.languageCode);
         }
+        await assertCanDelete(ListingAddOn.modelName, doc._id, params.languageCode, params.session);
     },
     afterDelete: async (params, doc) => {
         const {session, logger, languageCode} = params;
-        const listingId = (doc.listing?._id ?? doc.listing)?.toString();
-        if (!listingId) return;
         await listingService.updateByIdOrThrow(
-            new ObjectId(listingId),
+            doc.listing._id,
             {$pull: {listingAddOns: doc._id}},
             {session, logger, languageCode},
         );
+    },
+    overrideRestoreHandler: async (params) => {
+        const {logger, languageCode, session, _id, company, actionUserCtx} = params;
+        logger.start(`Restoring ListingAddOn ${_id}...`);
+        SchemaGuard.checkModelPermission(ListingAddOn, "restore", actionUserCtx, languageCode);
+        const restored = await listingAddOnService.restoreOneOrThrow(
+            {_id: new ObjectId(_id), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        // Throws when the listing itself is deleted, which rolls the restore back
+        await listingService.updateByIdOrThrow(
+            restored.listing._id,
+            {$addToSet: {listingAddOns: restored._id}},
+            {session, logger, languageCode},
+        );
+        logger.finish(`Restored ListingAddOn ${_id}`);
+        return {message: "ListingAddOn successfully restored"};
     },
     rateLimits: {read: 60, write: 30, delete: 20},
 });
