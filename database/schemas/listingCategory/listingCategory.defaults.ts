@@ -1,6 +1,7 @@
 import ListingCategory, { type IListingCategory } from "./listingCategory";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import { ICompany } from "@coreModule/database/schemas/company/company";
+import { demoName } from "@coreModule/utilities/helpers";
 import type { HydratedDocument } from "mongoose";
 
 export type CategorySeed = {
@@ -190,7 +191,7 @@ export async function createCategories(
             }
 
             const baseSet = {
-                name: seed.name,
+                name: demoName(seed.name),
                 slug: seed.slug,
                 order: seed.order,
             };

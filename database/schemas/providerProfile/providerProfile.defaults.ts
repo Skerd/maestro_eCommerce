@@ -23,15 +23,27 @@ const weekdayBusinessHours = [
 export const defaultProviderProfileSeeds: readonly ProviderProfileSeed[] = [
     {
         seedKey: "profile-provider",
-        bio: "Professional designer and developer with 10+ years of experience.",
-        skills: ["Logo Design", "Web Development", "React", "Node.js"],
+        bio: "DEMO marketplace provider — full-stack designer/developer with 10+ years across branding, React/Node web apps, and mobile MVPs. Available weekdays for kickoffs and delivery reviews.",
+        skills: [
+            "Logo Design",
+            "Web Development",
+            "React",
+            "Node.js",
+            "React Native",
+            "SEO",
+            "Video Editing",
+            "Product Photography",
+        ],
         availability: weekdayBusinessHours,
     },
     {
         seedKey: "profile-customer",
-        bio: "Entrepreneur looking for quality services.",
-        skills: [],
-        availability: [],
+        bio: "DEMO marketplace buyer — founder seeding sample orders, tasks, reviews, and disputes across the Pronix tenant.",
+        skills: ["Product Management", "Brand Strategy"],
+        availability: [
+            {dayOfWeek: 2, startTime: "10:00", endTime: "12:00"},
+            {dayOfWeek: 4, startTime: "14:00", endTime: "16:00"},
+        ],
     },
 ];
 

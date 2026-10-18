@@ -5,7 +5,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
-import {demoSeedName} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 import type {CreateTaskRequestsResult} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.defaults";
 import type {CreateBidsResult} from "@eCommerceModule/database/schemas/bid/bid.defaults";
@@ -20,6 +20,8 @@ export type OrderSeed = {
     amount: number;
     status: OrderStatus;
     deliveryDaysFromNow?: number;
+    /** Buyer note shown on the order sheet. */
+    note?: string;
 };
 
 export const defaultOrderSeeds: readonly OrderSeed[] = [
@@ -28,6 +30,7 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         listingSeedKey: "listing-01-logo-design",
         amount: 99,
         status: "completed",
+        note: "Please prioritize a wordmark that works on light and dark backgrounds.",
     },
     {
         seedKey: "order-02-website-pending",
@@ -35,6 +38,7 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 500,
         status: "pending",
         deliveryDaysFromNow: 14,
+        note: "Marketing site for our Tirana boutique — CMS pages and contact form required.",
     },
     {
         seedKey: "order-03-social-in-progress",
@@ -43,12 +47,14 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 150,
         status: "in_progress",
         deliveryDaysFromNow: 7,
+        note: "Coffee shop launch; keep templates editable in Canva where possible.",
     },
     {
         seedKey: "order-04-social-marketing-completed",
         listingSeedKey: "listing-04-social-media",
         amount: 200,
         status: "completed",
+        note: "Instagram-first month; captions should sound warm and local.",
     },
     {
         seedKey: "order-05-video-accepted",
@@ -56,12 +62,14 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 150,
         status: "accepted",
         deliveryDaysFromNow: 4,
+        note: "Raw footage link shared in chat; prefer upbeat music bed under VO.",
     },
     {
         seedKey: "order-06-voice-cancelled",
         listingSeedKey: "listing-06-voice-over",
         amount: 75,
         status: "cancelled",
+        note: "Cancelled after schedule conflict — keeping for demo history.",
     },
     {
         seedKey: "order-07-assistant-in-progress",
@@ -69,6 +77,7 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 250,
         status: "in_progress",
         deliveryDaysFromNow: 3,
+        note: "Inbox triage Mon–Fri mornings; escalate VIP threads immediately.",
     },
     {
         seedKey: "order-08-photo-pending",
@@ -76,12 +85,14 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 120,
         status: "pending",
         deliveryDaysFromNow: 6,
+        note: "White-background pack shots for 12 SKUs; Amazon sizing preferred.",
     },
     {
         seedKey: "order-09-mobile-completed",
         listingSeedKey: "listing-09-mobile-apps",
         amount: 800,
         status: "completed",
+        note: "Fitness MVP with Apple Health hooks; TestFlight build accepted.",
     },
     {
         seedKey: "order-10-seo-accepted",
@@ -89,6 +100,7 @@ export const defaultOrderSeeds: readonly OrderSeed[] = [
         amount: 180,
         status: "accepted",
         deliveryDaysFromNow: 5,
+        note: "Focus on landing pages for EU markets; Search Console access granted.",
     },
 ];
 
@@ -148,7 +160,7 @@ export async function createOrders(
 
             let existing = await Order.findOne({
                 company: company._id,
-                name: demoSeedName(seed.seedKey),
+                name: {$in: demoSeedNameCandidates(seed.seedKey)},
             });
 
             const payload = {
@@ -161,6 +173,7 @@ export async function createOrders(
                 amount: seed.amount,
                 currency: currency._id,
                 status: seed.status,
+                ...(seed.note ? {note: seed.note} : {}),
                 ...(seed.deliveryDaysFromNow !== undefined
                     ? {deliveryDueDate: dayjs().add(seed.deliveryDaysFromNow, "day").toDate()}
                     : {}),
@@ -172,7 +185,14 @@ export async function createOrders(
                 existing = await Order.create(payload);
                 logger.debug(`Successfully created order '${seed.seedKey}'`);
             } else {
-                existing.set(payload);
+                const nextName = demoSeedName(seed.seedKey);
+                if (existing.name !== nextName) {
+                    // `name` is immutable on the schema; migrate legacy demo-seed markers to include [DEMO].
+                    await Order.collection.updateOne({_id: existing._id}, {$set: {name: nextName}});
+                    existing.name = nextName;
+                }
+                const {name: _name, ...updatable} = payload;
+                existing.set(updatable);
                 await existing.save();
                 logger.debug(`Order '${seed.seedKey}' already exists; updated fields`);
             }

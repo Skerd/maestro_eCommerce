@@ -4,6 +4,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {IUser} from "@coreModule/database/schemas/user/user";
+import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateOrdersResult} from "@eCommerceModule/database/schemas/order/order.defaults";
 
 export type OrderMilestoneSeed = {
@@ -98,7 +99,7 @@ export async function createOrderMilestones(
 
             const payload = {
                 order: order._id,
-                name: seed.name,
+                name: demoName(seed.name),
                 amount: seed.amount,
                 currency: currency._id,
                 status: seed.status,

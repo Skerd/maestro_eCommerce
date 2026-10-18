@@ -16,7 +16,7 @@ export type OrderDeliverySeed = {
 /**
  * Deliveries the provider submitted against an order.
  *
- * Two of the three completed orders were accepted on the first submission; the
+ * Completed / accepted orders carry an accepted or submitted delivery; the
  * in-progress social-graphics order carries a `revision_requested` delivery, which is
  * what `orderRevision.defaults` hangs its revision request off.
  *
@@ -45,6 +45,24 @@ export const defaultOrderDeliverySeeds: readonly OrderDeliverySeed[] = [
         seedKey: "delivery-04-marketing",
         orderSeedKey: "order-04-social-marketing-completed",
         message: "Month-one campaign report plus the scheduled post calendar for month two.",
+        status: "accepted",
+    },
+    {
+        seedKey: "delivery-05-video",
+        orderSeedKey: "order-05-video-accepted",
+        message: "Cut 1 delivered — color grade applied, captions burned in, music bed under VO.",
+        status: "submitted",
+    },
+    {
+        seedKey: "delivery-06-assistant-week1",
+        orderSeedKey: "order-07-assistant-in-progress",
+        message: "Week-1 timesheet and inbox summary: 42 threads triaged, 6 meetings scheduled.",
+        status: "submitted",
+    },
+    {
+        seedKey: "delivery-07-seo",
+        orderSeedKey: "order-10-seo-accepted",
+        message: "Technical SEO crawl + prioritized fix spreadsheet for the first 10 landing pages.",
         status: "submitted",
     },
 ];

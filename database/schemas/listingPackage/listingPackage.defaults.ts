@@ -6,6 +6,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
+import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 
@@ -110,6 +111,33 @@ export const defaultListingPackageSeeds: readonly ListingPackageSeed[] = [
         deliveryDays: 4,
         order: 0,
     },
+    {
+        seedKey: "package-11-voice-standard",
+        listingSeedKey: "listing-06-voice-over",
+        name: "Standard VO",
+        description: "Up to 150 words, studio WAV/MP3, one revision round.",
+        amount: 75,
+        deliveryDays: 2,
+        order: 0,
+    },
+    {
+        seedKey: "package-12-assistant-weekly",
+        listingSeedKey: "listing-07-virtual-assistant",
+        name: "Weekly Block (10h)",
+        description: "Ten hours of VA time with same-day Slack responses during business hours.",
+        amount: 250,
+        deliveryDays: 7,
+        order: 0,
+    },
+    {
+        seedKey: "package-13-photo-catalog",
+        listingSeedKey: "listing-08-product-photo",
+        name: "Catalog Pack",
+        description: "Up to 10 SKUs, 3 angles each, white-background retouching included.",
+        amount: 120,
+        deliveryDays: 6,
+        order: 0,
+    },
 ];
 
 export type CreateListingPackagesResult = {
@@ -153,17 +181,18 @@ export async function createListingPackages(
             }
 
             const seedTag = demoSeedTag(seed.seedKey);
+            const displayName = demoName(seed.name);
             let existing = await ListingPackage.findOne({
                 company: company._id,
                 listing: listing._id,
-                name: seed.name,
+                name: {$in: [displayName, seed.name]},
             });
 
             const listingProvider = (listing as any).provider?._id ?? (listing as any).provider ?? provider._id;
             const payload = {
                 listing: listing._id,
                 provider: listingProvider,
-                name: seed.name,
+                name: displayName,
                 description: seed.description,
                 price: {
                     amount: seed.amount,

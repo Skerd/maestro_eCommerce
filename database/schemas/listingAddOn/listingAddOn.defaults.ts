@@ -6,6 +6,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
+import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 
@@ -88,6 +89,13 @@ export const defaultListingAddOnSeeds: readonly ListingAddOnSeed[] = [
         amount: 95,
         deliveryDays: 3,
     },
+    {
+        seedKey: "addon-11-seo-extra-pages",
+        listingSeedKey: "listing-10-seo",
+        name: "Extra 10 pages implementation",
+        amount: 90,
+        deliveryDays: 5,
+    },
 ];
 
 export type CreateListingAddOnsResult = {
@@ -131,17 +139,18 @@ export async function createListingAddOns(
             }
 
             const seedTag = demoSeedTag(seed.seedKey);
+            const displayName = demoName(seed.name);
             let existing = await ListingAddOn.findOne({
                 company: company._id,
                 listing: listing._id,
-                name: seed.name,
+                name: {$in: [displayName, seed.name]},
             });
 
             const listingProvider = (listing as any).provider?._id ?? (listing as any).provider ?? provider._id;
             const payload = {
                 listing: listing._id,
                 provider: listingProvider,
-                name: seed.name,
+                name: displayName,
                 price: {
                     amount: seed.amount,
                     currency: currency._id,

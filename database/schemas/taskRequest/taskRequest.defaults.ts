@@ -8,7 +8,8 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
-import {demoSeedName} from "@eCommerceModule/database/demo/demoSeed";
+import {demoName} from "@coreModule/utilities/helpers";
+import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
 import {resolveDemoImagesFromDir, resolveMediaObjectId, resolveMediaObjectIds} from "@eCommerceModule/database/demo/demoMedia";
 
 const DEMO_DATA_DIR = path.resolve(__dirname, "demoData");
@@ -170,7 +171,7 @@ export async function createTaskRequests(
 
             let existing = await TaskRequest.findOne({
                 company: company._id,
-                name: demoSeedName(seed.seedKey),
+                name: {$in: demoSeedNameCandidates(seed.seedKey)},
             });
 
             let mainImageId = resolveMediaObjectId(existing?.mainImage);
@@ -191,7 +192,7 @@ export async function createTaskRequests(
 
             const payload = {
                 name: demoSeedName(seed.seedKey),
-                title: seed.title,
+                title: demoName(seed.title),
                 description: seed.description,
                 category: category._id,
                 requester: requester._id,
@@ -209,11 +210,17 @@ export async function createTaskRequests(
 
             if (!existing) {
                 existing = await TaskRequest.create(payload);
-                logger.debug(`Successfully created task request '${seed.title}' (${seed.seedKey})`);
+                logger.debug(`Successfully created task request '${payload.title}' (${seed.seedKey})`);
             } else {
-                existing.set(payload);
+                const nextName = demoSeedName(seed.seedKey);
+                if (existing.name !== nextName) {
+                    await TaskRequest.collection.updateOne({_id: existing._id}, {$set: {name: nextName}});
+                    existing.name = nextName;
+                }
+                const {name: _name, ...updatable} = payload;
+                existing.set(updatable);
                 await existing.save();
-                logger.debug(`Task request '${seed.title}' (${seed.seedKey}) already exists; updated fields`);
+                logger.debug(`Task request '${payload.title}' (${seed.seedKey}) already exists; updated fields`);
             }
 
             taskRequests.push(existing);

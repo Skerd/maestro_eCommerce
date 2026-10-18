@@ -3,7 +3,7 @@ import type {HydratedDocument} from "mongoose";
 import Promotion, {type IPromotion, type PromotionLifecycleStatus, type PromotionType} from "./promotion";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {demoSeedName} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 
 export type PromotionSeed = {
@@ -130,7 +130,7 @@ export async function createPromotions(
 
             let existing = await Promotion.findOne({
                 company: company._id,
-                name: demoSeedName(seed.seedKey),
+                name: {$in: demoSeedNameCandidates(seed.seedKey)},
             });
 
             const startAt = dayjs().add(seed.startInDays, "day").startOf("day").toDate();
@@ -152,7 +152,13 @@ export async function createPromotions(
                 existing = await Promotion.create(payload);
                 logger.debug(`Successfully created promotion '${seed.seedKey}'`);
             } else {
-                existing.set(payload);
+                const nextName = demoSeedName(seed.seedKey);
+                if (existing.name !== nextName) {
+                    await Promotion.collection.updateOne({_id: existing._id}, {$set: {name: nextName}});
+                    existing.name = nextName;
+                }
+                const {name: _name, ...updatable} = payload;
+                existing.set(updatable);
                 await existing.save();
                 logger.debug(`Promotion '${seed.seedKey}' already exists; updated fields`);
             }

@@ -7,6 +7,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
+import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
 import {
     resolveDemoImagesFromDir,
@@ -102,7 +103,16 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
             "Tone of voice guidelines",
             "Internal links to promote if any",
         ],
-        faqs: [],
+        faqs: [
+            {
+                question: "Do you handle keyword research?",
+                answer: "Yes — basic keyword research is included. Deeper competitive analysis is available as an add-on.",
+            },
+            {
+                question: "Can you match our brand voice?",
+                answer: "Share a style guide or 2–3 sample posts and I will mirror tone and terminology.",
+            },
+        ],
     },
     {
         seedKey: "listing-04-social-media",
@@ -139,7 +149,16 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
         status: "active",
         tags: ["video", "editing", "youtube", "reels"],
         requirements: ["Raw footage via cloud link", "Script or outline", "Reference videos for style"],
-        faqs: [],
+        faqs: [
+            {
+                question: "What is the max runtime?",
+                answer: "Up to 10 minutes for the base package. Longer edits can be quoted as an add-on.",
+            },
+            {
+                question: "Do you include music licensing?",
+                answer: "Royalty-free tracks are included. Premium licensed tracks are available separately.",
+            },
+        ],
     },
     {
         seedKey: "listing-06-voice-over",
@@ -150,14 +169,23 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
         price: 75,
         pricingType: "fixed",
         deliveryDays: 2,
-        status: "active",
+        status: "inactive",
         tags: ["voiceover", "audio", "narration", "commercial"],
         requirements: [
             "Final script",
             "Pronunciation guide for names",
             "Desired tone (warm, corporate, energetic)",
         ],
-        faqs: [],
+        faqs: [
+            {
+                question: "Which accents can you deliver?",
+                answer: "Neutral US and UK English by default; other accents on request.",
+            },
+            {
+                question: "What file formats are included?",
+                answer: "WAV and MP3 masters, plus a dry take without music bed.",
+            },
+        ],
     },
     {
         seedKey: "listing-07-virtual-assistant",
@@ -171,7 +199,16 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
         status: "active",
         tags: ["virtual-assistant", "admin", "productivity", "remote"],
         requirements: ["List of recurring tasks", "Tool access instructions", "Preferred working hours"],
-        faqs: [],
+        faqs: [
+            {
+                question: "What tools do you work in?",
+                answer: "Gmail, Outlook, Notion, Slack, Asana, HubSpot, and common spreadsheets.",
+            },
+            {
+                question: "Is there a minimum weekly commitment?",
+                answer: "Five hours per week minimum so onboarding stays efficient.",
+            },
+        ],
     },
     {
         seedKey: "listing-08-product-photo",
@@ -189,7 +226,16 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
             "Shot list or SKU list",
             "Marketplace size requirements",
         ],
-        faqs: [],
+        faqs: [
+            {
+                question: "How many SKUs are included?",
+                answer: "Up to 10 SKUs with 3 angles each in the base package.",
+            },
+            {
+                question: "Do you ship products back?",
+                answer: "Yes — return shipping is billed at cost after the shoot.",
+            },
+        ],
     },
     {
         seedKey: "listing-09-mobile-apps",
@@ -230,7 +276,16 @@ export const defaultListingSeeds: readonly ListingSeed[] = [
             "Google Search Console access if available",
             "Primary target keywords",
         ],
-        faqs: [],
+        faqs: [
+            {
+                question: "Will you implement the fixes?",
+                answer: "Priority on-page fixes for up to 10 pages are included. Larger implementation can be scoped separately.",
+            },
+            {
+                question: "Do you guarantee rankings?",
+                answer: "No — SEO outcomes depend on competition and ongoing content. The deliverable is a clear, prioritized action plan.",
+            },
+        ],
     },
 ];
 
@@ -291,7 +346,7 @@ export async function createListings(
             }
 
             const payload = {
-                title: seed.title,
+                title: demoName(seed.title),
                 description: seed.description,
                 category: category._id,
                 provider: provider._id,
@@ -312,11 +367,11 @@ export async function createListings(
 
             if (!existing) {
                 existing = await Listing.create(payload);
-                logger.debug(`Successfully created listing '${seed.title}' (${seedTag})`);
+                logger.debug(`Successfully created listing '${payload.title}' (${seedTag})`);
             } else {
                 existing.set(payload);
                 await existing.save();
-                logger.debug(`Listing '${seed.title}' (${seedTag}) already exists; updated fields`);
+                logger.debug(`Listing '${payload.title}' (${seedTag}) already exists; updated fields`);
             }
 
             listings.push(existing);
