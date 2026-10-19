@@ -24,19 +24,19 @@ export function demoSeedTag(seedKey: string): string {
 
 /**
  * Explicit document `name` for seed identity + panel display.
- * Includes the standard `[DEMO]` suffix used by product-catalog seeds.
+ * Uses the seed key with the standard `[DEMO]` suffix (no `demo-seed:` prefix).
  */
 export function demoSeedName(seedKey: string): string {
-    return demoName(demoSeedTag(seedKey));
+    return demoName(seedKey);
 }
 
 /**
- * Lookup candidates for `demoSeedName`: current form plus the legacy tag without
- * `[DEMO]` so re-seeds find rows created before the suffix was added.
+ * Lookup candidates for `demoSeedName`: current form plus legacy `demo-seed:…`
+ * names (with/without `[DEMO]`) so re-seeds find and migrate older rows.
  */
 export function demoSeedNameCandidates(seedKey: string): string[] {
     const tagged = demoSeedTag(seedKey);
-    return [demoName(tagged), tagged];
+    return [demoName(seedKey), demoName(tagged), tagged];
 }
 
 /** Appends `[demo-seed:<seedKey>]` to human-readable text without disturbing it. */

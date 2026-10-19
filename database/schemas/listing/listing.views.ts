@@ -505,18 +505,23 @@ const listingFormFields: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "deliveryDays",
-                            widget: "#Input",
-                            label: "form.deliveryDaysLabel",
-                            placeholder: "form.deliveryDaysPlaceholder",
-                            widgetProps: {type: "number", min: 0, step: "any"},
+                            name: "provider",
+                            widget: "#ApiSelect",
+                            label: "form.providerLabel",
+                            placeholder: "form.providerPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                            },
                         },
                     },
                 ],
             },
             {
                 render: "#FormGrid",
-                props: {columns: 3},
+                props: {columns: 4},
                 children: [
                     {
                         render: "#Field",
@@ -552,6 +557,16 @@ const listingFormFields: ViewConfig["nodes"] = [
                                 ],
                                 className: "grow w-full",
                             },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: "any"},
                         },
                     },
                 ],

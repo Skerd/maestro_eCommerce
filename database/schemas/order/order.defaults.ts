@@ -187,7 +187,7 @@ export async function createOrders(
             } else {
                 const nextName = demoSeedName(seed.seedKey);
                 if (existing.name !== nextName) {
-                    // `name` is immutable on the schema; migrate legacy demo-seed markers to include [DEMO].
+                    // `name` is immutable on the schema; migrate legacy demo-seed names.
                     await Order.collection.updateOne({_id: existing._id}, {$set: {name: nextName}});
                     existing.name = nextName;
                 }

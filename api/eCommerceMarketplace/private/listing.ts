@@ -4,6 +4,7 @@ import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {ListingActions} from "@eCommerceModule/database/schemas/listing/listing.actions";
 import {
     ListingSchemaDef,
@@ -19,10 +20,27 @@ import {promotionService} from "@eCommerceModule/database/schemas/promotion/prom
 import {listingToDTO, listingsToDTO} from "@eCommerceModule/utilities/mappers/listing/listingMapper.dto";
 import {listingsToSelect} from "@eCommerceModule/utilities/mappers/listing/listingMapper.select";
 import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {userService} from "@coreModule/database/schemas/user/user.service";
 import type {SelectResponse} from "armonia/src/modules/core/types/shared.types";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import Listing, {type IListing} from "@eCommerceModule/database/schemas/listing/listing";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
+import type {ICompany} from "@coreModule/database/schemas/company/company";
+
+/** Provider must be the caller or another user in the same company. */
+async function assertProviderInCompany(
+    provider: ObjectId,
+    actionUserId: string,
+    company: ICompany,
+    languageCode: string,
+    opts: CrudOptions,
+): Promise<void> {
+    if (provider.equals(actionUserId)) return;
+    if (!(await userService.findOne({_id: provider, companies: company._id}, opts, null, "_id"))) {
+        throw apiValidationException("cant_access_this_user", "provider", null, languageCode);
+    }
+}
 
 const mediaUpload = mediaUploadMW({
     fields: {
@@ -105,13 +123,20 @@ export const {router} = createCrudRouter<IListing, CreateListingFormType, EditLi
 
         return {data: listingsToSelect(listings), total};
     },
-    buildCreateData: (params) => ({
-        ...buildCreate(params),
-        provider: new ObjectId(params.actionUserCtx.userId),
-    }),
-    buildUpdateData: (params, writeFields) => {
-        assertOwnerOrAdmin(params.existing.provider, params.actionUserCtx, params.languageCode);
-        return buildUpdate(params, writeFields);
+    buildCreateData: async (params) => {
+        const {actionUserCtx, company, session, logger, languageCode} = params;
+        const data = buildCreate(params);
+        await assertProviderInCompany(data.provider, actionUserCtx.userId, company, languageCode, {session, logger, languageCode});
+        return data;
+    },
+    buildUpdateData: async (params, writeFields) => {
+        const {actionUserCtx, company, session, logger, languageCode, existing} = params;
+        assertOwnerOrAdmin(existing.provider, actionUserCtx, languageCode);
+        const update = buildUpdate(params, writeFields);
+        if (update.provider) {
+            await assertProviderInCompany(update.provider, actionUserCtx.userId, company, languageCode, {session, logger, languageCode});
+        }
+        return update;
     },
     beforeDelete: async (params, doc) => {
         assertOwnerOrAdmin(doc.provider, params.actionUserCtx, params.languageCode);

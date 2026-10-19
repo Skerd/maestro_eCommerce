@@ -102,10 +102,6 @@ const ListingSchema = new Schema<IListing>(
             ref: "User",
             required: true,
             refAllowlist: SimpleUserSnippet,
-            permissions: {
-                self: {write: "no-permission"},
-                others: {write: "no-permission"},
-            }
         },
         price: {
             type: SchemaTypes.Number,
@@ -337,4 +333,4 @@ export default Listing;
 
 normalizeSchemaPermissions(Listing);
 addModelData(Listing, listingViews);
-validateSchemaDefAgainstMongoose(ListingSchema, ListingSchemaDef, "Listing", ["name", "provider", "status", "promotions", "listingPackages", "listingAddOns", "avgRating", "reviewCount"]);
+validateSchemaDefAgainstMongoose(ListingSchema, ListingSchemaDef, "Listing", ["name", "status", "promotions", "listingPackages", "listingAddOns", "avgRating", "reviewCount"]);
