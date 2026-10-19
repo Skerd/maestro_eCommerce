@@ -1,4 +1,3 @@
-import path from "path";
 import dayjs from "dayjs";
 import {ObjectId} from "mongodb";
 import type {HydratedDocument} from "mongoose";
@@ -10,9 +9,8 @@ import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
-import {resolveDemoImagesFromDir, resolveMediaObjectId, resolveMediaObjectIds} from "@eCommerceModule/database/demo/demoMedia";
-
-const DEMO_DATA_DIR = path.resolve(__dirname, "demoData");
+import {resolveTaskRequestPhotoIds} from "@eCommerceModule/database/demo/marketplace.demo.media";
+import {resolveDemoImagesFromUnsplash} from "@eCommerceModule/database/demo/demoMedia";
 
 export type DemoTaskAddress = {
     street: string;
@@ -174,21 +172,17 @@ export async function createTaskRequests(
                 name: {$in: demoSeedNameCandidates(seed.seedKey)},
             });
 
-            let mainImageId = resolveMediaObjectId(existing?.mainImage);
-            let galleryIds = resolveMediaObjectIds(existing?.imageGallery);
-
-            if (!existing || !mainImageId) {
-                const resolved = await resolveDemoImagesFromDir(
-                    DEMO_DATA_DIR,
-                    seed.seedKey,
-                    company,
-                    requester._id,
-                    logger,
-                    "taskRequest",
-                );
-                mainImageId = resolved.mainImageId;
-                galleryIds = resolved.galleryIds;
-            }
+            const resolved = await resolveDemoImagesFromUnsplash(
+                resolveTaskRequestPhotoIds(seed.seedKey),
+                seed.seedKey,
+                seed.title,
+                company,
+                requester._id,
+                logger,
+                "taskRequest",
+            );
+            const mainImageId = resolved.mainImageId;
+            const galleryIds = resolved.galleryIds;
 
             const payload = {
                 name: demoSeedName(seed.seedKey),
