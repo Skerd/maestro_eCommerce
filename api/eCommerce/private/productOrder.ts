@@ -26,6 +26,7 @@ import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/
 import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {z} from "zod";
+import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
@@ -146,11 +147,12 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validatePagedForm),
     asyncHandler(async (params: AuthenticatedMWType & PagedForm) => {
-        const {company, actionUserCtx, logger, languageCode} = params;
+        const {company, actionUserCtx, logger, languageCode, origin} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
 
-        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId)};
+        const filter: Record<string, unknown> = {customer: new ObjectId(actionUserCtx.userId)};
+        if (!isPlatformShopOrigin(origin)) filter.company = company._id;
         const ctx = {logger, languageCode};
         const itemPopulate = ["items.product", "items.variant"];
 
@@ -177,14 +179,16 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
     asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
-        const {languageCode, company, actionUserCtx, logger, _id} = params;
+        const {languageCode, company, actionUserCtx, logger, _id, origin} = params;
+
+        const filter: Record<string, unknown> = {
+            _id: new ObjectId(_id),
+            customer: new ObjectId(actionUserCtx.userId),
+        };
+        if (!isPlatformShopOrigin(origin)) filter.company = company._id;
 
         const order = await productOrderService.findOne(
-            {
-                _id: new ObjectId(_id),
-                company: company._id,
-                customer: new ObjectId(actionUserCtx.userId),
-            },
+            filter,
             {withDeleted: false, logger, languageCode},
             ["items.product", "items.variant"],
         );

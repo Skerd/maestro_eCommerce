@@ -15,6 +15,8 @@ import {cartViews} from "./cart.views";
 export interface ICartItem {
     product: Schema.Types.ObjectId;
     variant?: Schema.Types.ObjectId;
+    /** Seller tenant for the line (product.company). Required for platform multi-seller carts. */
+    sellerCompany?: Schema.Types.ObjectId | ICompany;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
@@ -43,6 +45,7 @@ const CartItemSubSchema = new Schema<ICartItem>(
     {
         product: {type: SchemaTypes.ObjectId, ref: "Product", required: true, refAllowlist: ProductSimpleSnippet},
         variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant", refAllowlist: ProductVariantSimpleSnippet},
+        sellerCompany: {type: SchemaTypes.ObjectId, ref: "Company", refAllowlist: CompanyBlankSnippet},
         quantity: {type: SchemaTypes.Number, required: true, min: 1},
         unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
         totalPrice: {type: SchemaTypes.Number, required: true, min: 0},

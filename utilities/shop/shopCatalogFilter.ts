@@ -5,9 +5,11 @@ import Collection from "@eCommerceModule/database/schemas/collection/collection"
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import {applyShopCatalogRefinement, type ShopCatalogRefinement} from "./shopCatalogRefinement";
+import {liveSellerCompanyClause} from "./shopLiveSellers";
 
 export type ShopCatalogScope = {
-    companyId: unknown;
+    /** When omitted, platform catalog — all active companies. */
+    companyId?: unknown;
     search?: string;
     categorySlug?: string;
     categoryIds?: string[];
@@ -16,8 +18,11 @@ export type ShopCatalogScope = {
 };
 
 /** The category and every category below it, at any depth. */
-async function withDescendantCategories(companyId: unknown, rootId: unknown): Promise<unknown[]> {
-    const categories = await Category.find({company: companyId}, {_id: 1, parent: 1}).lean();
+async function withDescendantCategories(
+    companyClause: Record<string, unknown>,
+    rootId: unknown,
+): Promise<unknown[]> {
+    const categories = await Category.find(companyClause, {_id: 1, parent: 1}).lean();
     const ids = [String(rootId)];
     for (let i = 0; i < ids.length; i++) {
         for (const category of categories) {
@@ -31,44 +36,52 @@ async function withDescendantCategories(companyId: unknown, rootId: unknown): Pr
 /**
  * Active storefront products in the browse scope. `null` when the requested
  * category or collection does not exist — the caller returns an empty page.
+ * Ambiguous platform slugs (multiple companies share the slug) also return null.
  */
 export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<Record<string, unknown> | null> {
     const filter: Record<string, unknown> = {
-        company: scope.companyId,
         status: "active",
     };
+
+    // Platform: only products owned by live companies (seed leftovers without a company stay out).
+    const companyClause: Record<string, unknown> = scope.companyId != null
+        ? {company: scope.companyId}
+        : await liveSellerCompanyClause();
+    filter.company = companyClause.company;
 
     const search = scope.search?.trim();
     if (search) filter.title = {$regex: escapeRegex(search), $options: "i"};
 
     if (scope.categoryIds && scope.categoryIds.length > 0) {
-        const categories = await Category.find({company: scope.companyId, _id: {$in: scope.categoryIds}}, {_id: 1});
+        const categories = await Category.find({...companyClause, _id: {$in: scope.categoryIds}}, {_id: 1});
         if (categories.length === 0) return null;
         filter.categories = {$in: categories.map(category => category._id)};
     } else if (scope.categorySlug) {
-        const category = await Category.findOne(
-            {company: scope.companyId, slug: scope.categorySlug.toLowerCase()},
+        const matches = await Category.find(
+            {...companyClause, slug: scope.categorySlug.toLowerCase()},
             {_id: 1},
-        );
-        if (!category) return null;
-        filter.categories = {$in: await withDescendantCategories(scope.companyId, category._id)};
+        ).lean();
+        if (matches.length === 0) return null;
+        if (scope.companyId == null && matches.length > 1) return null;
+        filter.categories = {$in: await withDescendantCategories(companyClause, matches[0]._id)};
     }
 
     const collectionFields = {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1};
     if (scope.collectionId) {
         const collection = await Collection.findOne(
-            {company: scope.companyId, _id: scope.collectionId, isVisible: true},
+            {...companyClause, _id: scope.collectionId, isVisible: true},
             collectionFields,
         );
         if (!collection) return null;
         applyCollectionMembershipToProductFilter(collection, filter);
     } else if (scope.collectionSlug) {
-        const collection = await Collection.findOne(
-            {company: scope.companyId, slug: scope.collectionSlug.toLowerCase(), isVisible: true},
+        const matches = await Collection.find(
+            {...companyClause, slug: scope.collectionSlug.toLowerCase(), isVisible: true},
             collectionFields,
         );
-        if (!collection) return null;
-        applyCollectionMembershipToProductFilter(collection, filter);
+        if (matches.length === 0) return null;
+        if (scope.companyId == null && matches.length > 1) return null;
+        applyCollectionMembershipToProductFilter(matches[0], filter);
     }
 
     return filter;
@@ -76,13 +89,15 @@ export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<R
 
 /** Products that have an active variant carrying each requested attribute name. */
 async function variantProductIdsByAttribute(
-    companyId: unknown,
+    companyId: unknown | undefined,
     groups: ShopCatalogRefinement["attributes"],
 ): Promise<Map<string, unknown[]> | undefined> {
     if (!groups || groups.length === 0) return undefined;
 
     const names = [...new Set(groups.map(group => group.name))];
-    const attributes = await ProductAttribute.find({company: companyId, name: {$in: names}})
+    const attributeFilter: Record<string, unknown> = {name: {$in: names}};
+    if (companyId != null) attributeFilter.company = companyId;
+    const attributes = await ProductAttribute.find(attributeFilter)
         .select("name")
         .noDeleted()
         .lean();
@@ -104,7 +119,9 @@ async function variantProductIdsByAttribute(
     });
     if (clauses.length === 0) return result;
 
-    const variants = await ProductVariant.find({company: companyId, status: "active", $or: clauses})
+    const variantFilter: Record<string, unknown> = {status: "active", $or: clauses};
+    if (companyId != null) variantFilter.company = companyId;
+    const variants = await ProductVariant.find(variantFilter)
         .select("product attributeCombination")
         .noDeleted()
         .lean();

@@ -35,6 +35,7 @@ import {
     refundRemainingEscrow,
 } from "@eCommerceModule/database/schemas/order/orderEscrow";
 import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
 import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
 import {createOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/createOrderMilestone.form.validator";
 import {releaseOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/releaseOrderMilestone.form.validator";
@@ -83,15 +84,17 @@ export class OrderActions {
     })
     async createFromListing(params: Record<string, any>): Promise<ActionMessage & {_id: string}> {
         const p = params as TransactionRequiredParams & CreateOrderFromListingFormType;
-        const {logger, languageCode, session, company, actionUserCtx, listing: listingRef, package: packageRef, addOns: addOnRefs, note} = p;
+        const {logger, languageCode, session, company, actionUserCtx, listing: listingRef, package: packageRef, addOns: addOnRefs, note, origin} = p;
         const opts = {session, logger, languageCode};
 
         logger.start(`Creating order from listing: ${listingRef}...`);
 
-        const listing = await listingService.findOneOrThrow(
-            {_id: new ObjectId(listingRef), status: "active", company: company._id},
-            opts,
-        );
+        const platform = isPlatformShopOrigin(origin ?? "");
+        const listingFilter: Record<string, unknown> = {_id: new ObjectId(listingRef), status: "active"};
+        if (!platform) listingFilter.company = company._id;
+
+        const listing = await listingService.findOneOrThrow(listingFilter, opts);
+        const orderCompanyId = platform ? listing.company._id : company._id;
 
         const providerId = listing.provider._id;
         if (providerId.toString() === actionUserCtx.userId) {
@@ -104,7 +107,7 @@ export class OrderActions {
 
         if (packageRef) {
             const pkg = await listingPackageService.findOneOrThrow(
-                {_id: new ObjectId(packageRef), listing: listing._id, company: company._id},
+                {_id: new ObjectId(packageRef), listing: listing._id, company: orderCompanyId},
                 opts,
             );
             amountCents = toCents(pkg.price.amount);
@@ -118,7 +121,7 @@ export class OrderActions {
 
         if (addOnRefs?.length) {
             const addOns = await listingAddOnService.find(
-                {_id: {$in: addOnRefs.map((id) => new ObjectId(id))}, listing: listing._id, company: company._id},
+                {_id: {$in: addOnRefs.map((id) => new ObjectId(id))}, listing: listing._id, company: orderCompanyId},
                 opts,
                 null,
                 "_id price deliveryDays",
@@ -143,7 +146,7 @@ export class OrderActions {
                 amount: amountCents / 100,
                 currency: currencyId,
                 status: "pending",
-                company: company._id,
+                company: orderCompanyId,
                 deliveryDueDate: new Date(Date.now() + deliveryDays * DAY_MS),
                 ...(note && {note}),
             },

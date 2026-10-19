@@ -8,7 +8,8 @@ import State from "@coreModule/database/schemas/state/state";
 import City from "@coreModule/database/schemas/city/city";
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
 import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {
     ShopListingLocation,
     ShopListingTaxonomyResponse,
@@ -34,12 +35,17 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopListingTaxonomyResponse> => {
         const {languageCode, origin} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
         // Aggregates skip the soft-delete filter, so live rows are matched explicitly
-        const activeMatch = {company: company._id, status: "active", deletedAt: null};
+        const activeMatch: Record<string, unknown> = {status: "active", deletedAt: null};
+        const companyFilter = ctx.mode === "tenant"
+            ? {company: ctx.company._id}
+            : await liveSellerCompanyClause();
+        Object.assign(activeMatch, companyFilter);
+        const categoryFilter = companyFilter;
 
         const [categories, categoryCounts, placeRows] = await Promise.all([
-            ListingCategory.find({company: company._id}).noDeleted()
+            ListingCategory.find(categoryFilter).noDeleted()
                 .select("name slug parentListingCategory order")
                 .sort({order: 1, name: 1})
                 .lean(),

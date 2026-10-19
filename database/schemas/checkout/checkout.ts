@@ -19,10 +19,21 @@ export type CheckoutReservationState = "reserved" | "consumed" | "released";
 export interface ICheckoutItem {
     product: Schema.Types.ObjectId;
     variant?: Schema.Types.ObjectId;
+    /** Seller tenant for the line (product.company); set on platform multi-seller carts. */
+    sellerCompany?: Schema.Types.ObjectId;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
     snapshot?: {title?: string; sku?: string; imageUrl?: string};
+}
+
+/** Per-seller shipping/tax slice on a platform multi-seller checkout. */
+export interface ICheckoutSellerGroup {
+    sellerCompany: Schema.Types.ObjectId;
+    subtotal: number;
+    shippingTotal: number;
+    taxTotal: number;
+    selectedShippingRate?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number};
 }
 
 /**
@@ -89,6 +100,8 @@ export interface ICheckout extends Document {
     sessionId?: string;
     company: ICompany;
     items: ICheckoutItem[];
+    /** Populated on platform checkouts with more than one seller. */
+    sellerGroups?: ICheckoutSellerGroup[];
     appliedDiscounts?: {discount: Schema.Types.ObjectId; code?: string; amount: number}[];
     shippingAddress?: ICheckoutAddress;
     billingAddress?: ICheckoutAddress;
@@ -124,6 +137,7 @@ const CheckoutSchema = new Schema<ICheckout>(
             type: {
                 product: {type: SchemaTypes.ObjectId, ref: "Product", required: true},
                 variant: {type: SchemaTypes.ObjectId, ref: "ProductVariant"},
+                sellerCompany: {type: SchemaTypes.ObjectId, ref: "Company"},
                 quantity: {type: SchemaTypes.Number, required: true, min: 1},
                 unitPrice: {type: SchemaTypes.Number, required: true, min: 0},
                 totalPrice: {type: SchemaTypes.Number, required: true, min: 0},
@@ -138,6 +152,27 @@ const CheckoutSchema = new Schema<ICheckout>(
             },
             default: [],
         }],
+        sellerGroups: {
+            type: [
+                {
+                    sellerCompany: {type: SchemaTypes.ObjectId, ref: "Company", required: true},
+                    subtotal: {type: SchemaTypes.Number, default: 0, min: 0},
+                    shippingTotal: {type: SchemaTypes.Number, default: 0, min: 0},
+                    taxTotal: {type: SchemaTypes.Number, default: 0, min: 0},
+                    selectedShippingRate: {
+                        type: {
+                            name: {type: SchemaTypes.String},
+                            carrier: {type: SchemaTypes.String},
+                            price: {type: SchemaTypes.Number, min: 0},
+                            estimatedDeliveryDays: {type: SchemaTypes.Number},
+                        },
+                        _id: false,
+                    },
+                    _id: false,
+                },
+            ],
+            default: [],
+        },
         appliedDiscounts: {
             type: [
                 {

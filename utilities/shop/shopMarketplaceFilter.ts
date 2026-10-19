@@ -5,14 +5,21 @@ import {promotionService} from "@eCommerceModule/database/schemas/promotion/prom
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {ShopPromotionMap} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import type {ShopListingsFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.form.validator";
+import {liveSellerCompanyClause} from "./shopLiveSellers";
 
-/** A category slug and every category below it; null when the slug matches nothing. */
-async function listingCategoryScope(companyId: ObjectId, slug: string): Promise<ObjectId[] | null> {
-    const categories: any[] = await ListingCategory.find({company: companyId}).noDeleted()
-        .select("slug parentListingCategory")
+/** A category slug and every category below it; null when the slug matches nothing or is ambiguous on platform. */
+async function listingCategoryScope(
+    companyClause: Record<string, unknown>,
+    platform: boolean,
+    slug: string,
+): Promise<ObjectId[] | null> {
+    const categories: any[] = await ListingCategory.find(companyClause).noDeleted()
+        .select("slug parentListingCategory company")
         .lean();
-    const root = categories.find((category) => category.slug === slug);
-    if (!root) return null;
+    const roots = categories.filter((category) => category.slug === slug);
+    if (roots.length === 0) return null;
+    if (platform && roots.length > 1) return null;
+    const root = roots[0];
 
     const scope: ObjectId[] = [root._id];
     for (let i = 0; i < scope.length; i++) {
@@ -25,14 +32,20 @@ async function listingCategoryScope(companyId: ObjectId, slug: string): Promise<
 }
 
 /**
- * Storefront listing filter: active listings of the shop company narrowed by
- * the browse form. Null when the category slug is unknown (an empty page).
+ * Storefront listing filter: active listings narrowed by the browse form.
+ * When `companyId` is omitted (platform), all live companies' active listings are included.
+ * Null when the category slug is unknown or ambiguous (an empty page).
  */
 export async function buildShopListingFilter(
-    companyId: ObjectId,
+    companyId: ObjectId | undefined,
     form: ShopListingsFormType,
 ): Promise<Record<string, unknown> | null> {
-    const filter: Record<string, unknown> = {company: companyId, status: "active"};
+    const filter: Record<string, unknown> = {status: "active"};
+    const platform = companyId == null;
+    const companyClause: Record<string, unknown> = platform
+        ? await liveSellerCompanyClause()
+        : {company: companyId};
+    filter.company = companyClause.company;
 
     if (form.search?.trim()) {
         const term = escapeRegex(form.search.trim());
@@ -43,7 +56,7 @@ export async function buildShopListingFilter(
         ];
     }
     if (form.categorySlug) {
-        const scope = await listingCategoryScope(companyId, form.categorySlug);
+        const scope = await listingCategoryScope(companyClause, platform, form.categorySlug);
         if (!scope) return null;
         filter.category = {$in: scope};
     }
@@ -65,7 +78,11 @@ export async function buildShopListingFilter(
 }
 
 /** Listings with a promotion running now, keyed by listing id. */
-export async function shopPromotionMap(companyId: ObjectId, opts: CrudOptions): Promise<ShopPromotionMap> {
+export async function shopPromotionMap(companyId: ObjectId | undefined, opts: CrudOptions): Promise<ShopPromotionMap> {
+    if (companyId == null) {
+        // Platform: no company-scoped promotion ranking — empty map keeps newest sort.
+        return new Map();
+    }
     const promotions = await promotionService.findRunning(companyId, opts);
     const map: ShopPromotionMap = new Map();
     for (const promotion of promotions) {

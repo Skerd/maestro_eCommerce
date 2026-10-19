@@ -4,7 +4,8 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import Category from "@eCommerceModule/database/schemas/category/category";
 import Collection from "@eCommerceModule/database/schemas/collection/collection";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {ShopTaxonomyResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
 export const basePath = "/api/eCommerce/shopTaxonomy";
@@ -17,11 +18,14 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopTaxonomyResponse> => {
         const {languageCode, origin} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
+        const companyFilter = ctx.mode === "tenant"
+            ? {company: ctx.company._id}
+            : await liveSellerCompanyClause();
 
         const [categories, collections] = await Promise.all([
-            Category.find({company: company._id}).noDeleted().select("name slug parent").sort({name: 1}).lean(),
-            Collection.find({company: company._id, isVisible: true}).noDeleted().select("name slug").sort({name: 1}).lean(),
+            Category.find(companyFilter).noDeleted().select("name slug parent").sort({name: 1}).lean(),
+            Collection.find({...companyFilter, isVisible: true}).noDeleted().select("name slug").sort({name: 1}).lean(),
         ]);
 
         return {

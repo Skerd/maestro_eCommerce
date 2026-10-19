@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {buildShopCatalogFilter, refineShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {
@@ -23,6 +23,8 @@ const SORTS: Record<ShopProductSort, Record<string, 1 | -1>> = {
     priceDesc: {price: -1},
     featured: {featured: -1, createdAt: -1},
 };
+
+const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company";
 
 router.post(
     "",
@@ -43,9 +45,10 @@ router.post(
             limit = 24,
         } = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
+        const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
         const filter = await buildShopCatalogFilter({
-            companyId: company._id,
+            companyId,
             search,
             categorySlug,
             categoryIds,
@@ -69,7 +72,8 @@ router.post(
 
         const [products, total] = await Promise.all([
             Product.find(filter).noDeleted()
-                .select("title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants")
+                .select(CARD_FIELDS)
+                .populate("company", "name logo shopSlug shopHost")
                 .sort(sortSpec)
                 .skip((page - 1) * limit)
                 .limit(limit)

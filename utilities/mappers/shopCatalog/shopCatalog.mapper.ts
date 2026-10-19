@@ -2,6 +2,7 @@ import type {
     ShopProductCard,
     ShopProductDetail,
     ShopProductVariant,
+    ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
 function mediaId(value: any): string | undefined {
@@ -14,7 +15,24 @@ function mediaIds(values: unknown): string[] | undefined {
     return values.map(mediaId).filter((v): v is string => Boolean(v));
 }
 
+export function toShopSeller(company: any): ShopSeller | undefined {
+    if (!company || typeof company !== "object" || !company._id) return undefined;
+    const name = typeof company.name === "string" ? company.name.trim() : "";
+    if (!name) return undefined;
+    const seller: ShopSeller = {_id: company._id.toString(), name};
+    const logo = mediaId(company.logo);
+    if (logo) seller.logo = logo;
+    if (typeof company.shopSlug === "string" && company.shopSlug.trim()) {
+        seller.shopSlug = company.shopSlug.trim();
+    }
+    if (typeof company.shopHost === "string" && company.shopHost.trim()) {
+        seller.shopHost = company.shopHost.trim();
+    }
+    return seller;
+}
+
 export function toShopProductCard(product: any): ShopProductCard {
+    const seller = toShopSeller(product.company);
     return {
         _id: product._id.toString(),
         title: product.title ?? "",
@@ -28,6 +46,7 @@ export function toShopProductCard(product: any): ShopProductCard {
         ratingAverage: product.ratingAverage,
         ratingCount: product.ratingCount,
         hasVariants: product.hasVariants || undefined,
+        ...(seller ? {seller} : {}),
     };
 }
 

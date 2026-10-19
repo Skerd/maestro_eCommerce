@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {PAYMENTS} from "@financeModule/environment";
 import Currency from "@coreModule/database/schemas/currency/currency";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import type {
     ShopCompany,
     ShopCompanyAddress,
@@ -116,26 +116,43 @@ router.get(
     asyncHandler(async (params: any): Promise<ShopConfigResponse> => {
         const {languageCode, origin} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
+        const currency: any = await Currency.findOne({}).select("symbol abbreviation decimalPlaces").sort({createdAt: 1}).lean();
+        const currencyPayload = currency
+            ? {
+                  _id: currency._id.toString(),
+                  symbol: currency.symbol,
+                  abbreviation: currency.abbreviation,
+                  decimalPlaces: currency.decimalPlaces,
+              }
+            : undefined;
+        const stripePublishableKey = PAYMENTS.STRIPE_ENABLED ? PAYMENTS.STRIPE_PUBLISHABLE_KEY || undefined : undefined;
+
+        // Apex is the multi-seller marketplace brand — not the signup/session company.
+        if (ctx.mode === "platform") {
+            return {
+                data: {
+                    mode: "platform",
+                    stripePublishableKey,
+                    currency: currencyPayload,
+                    companyName: "Arpeggio",
+                    company: {name: "Arpeggio"},
+                },
+            };
+        }
+
+        const company = ctx.company;
         await company.populate([
             {path: "addresses.city", select: "name"},
             {path: "addresses.country", select: "name"},
         ]);
-
-        const currency: any = await Currency.findOne({}).select("symbol abbreviation decimalPlaces").sort({createdAt: 1}).lean();
         const shopCompany = mapShopCompany(company);
 
         return {
             data: {
-                stripePublishableKey: PAYMENTS.STRIPE_ENABLED ? PAYMENTS.STRIPE_PUBLISHABLE_KEY || undefined : undefined,
-                currency: currency
-                    ? {
-                          _id: currency._id.toString(),
-                          symbol: currency.symbol,
-                          abbreviation: currency.abbreviation,
-                          decimalPlaces: currency.decimalPlaces,
-                      }
-                    : undefined,
+                mode: "tenant",
+                stripePublishableKey,
+                currency: currencyPayload,
                 companyName: shopCompany.name,
                 company: Object.keys(shopCompany).length > 0 ? shopCompany : undefined,
             },

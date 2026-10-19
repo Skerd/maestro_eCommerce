@@ -17,6 +17,7 @@ import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/priv
 export type PriceableLine = {
     product: unknown;
     variant?: unknown;
+    sellerCompany?: unknown;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
@@ -36,6 +37,8 @@ type PricingCtx = {
     userId?: ObjectId;
     languageCode: string;
     session?: ClientSession | null;
+    /** When true, lines may belong to different seller companies (platform cart). */
+    multiSeller?: boolean;
 };
 
 /** Catalog facts about a priced line, used by discounts, shipping and tax, and shown on the cart line. */
@@ -48,12 +51,22 @@ export type LineCatalogMeta = {
     collectionIds: string[];
     isGiftCard: boolean;
     weight: number;
+    sellerCompanyId?: string;
 };
 
 function idOf(value: unknown): string {
     if (value == null) return "";
     if (typeof value === "object" && "_id" in (value as object)) return String((value as {_id: unknown})._id);
     return String(value);
+}
+
+export function distinctSellerCompanyIds(items: PriceableLine[]): string[] {
+    const ids = new Set<string>();
+    for (const item of items) {
+        const id = idOf(item.sellerCompany);
+        if (id) ids.add(id);
+    }
+    return [...ids];
 }
 
 /**
@@ -71,15 +84,22 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     const productIds = [...new Set(doc.items.map(item => idOf(item.product)))].map(id => new ObjectId(id));
     const variantIds = doc.items.filter(item => item.variant).map(item => new ObjectId(idOf(item.variant)));
 
+    const productFilter: Record<string, unknown> = {_id: {$in: productIds}, status: "active"};
+    const variantFilter: Record<string, unknown> = {_id: {$in: variantIds}, status: "active"};
+    if (!ctx.multiSeller) {
+        productFilter.company = ctx.companyId;
+        variantFilter.company = ctx.companyId;
+    }
+
     const [products, variants] = await Promise.all([
         Product.find(
-            {_id: {$in: productIds}, company: ctx.companyId, status: "active"},
-            {title: 1, slug: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1, minOrderQty: 1, maxOrderQty: 1, stepQty: 1},
+            productFilter,
+            {title: 1, slug: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1, minOrderQty: 1, maxOrderQty: 1, stepQty: 1, company: 1},
         ).noDeleted().session(ctx.session ?? null).lean(),
         variantIds.length
             ? ProductVariant.find(
-                  {_id: {$in: variantIds}, company: ctx.companyId, status: "active"},
-                  {product: 1, sku: 1, price: 1, mainImage: 1},
+                  variantFilter,
+                  {product: 1, sku: 1, price: 1, mainImage: 1, company: 1},
               ).noDeleted().session(ctx.session ?? null).lean()
             : Promise.resolve([]),
     ]);
@@ -97,6 +117,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
             removed.push(item.snapshot?.title || product?.title || "");
             continue;
         }
+        item.sellerCompany = product.company;
         item.unitPrice = Number(variant?.price ?? product.price ?? 0);
         item.snapshot = {
             title: product.title,
@@ -108,15 +129,20 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     if (removed.length) notices.removedItems = removed.filter(Boolean);
     doc.items.splice(0, doc.items.length, ...kept);
 
-    // Collection membership comes from the collections themselves, as on the storefront
-    const collectionsByProduct = await collectionIdsByProduct(
-        [...new Set(doc.items.map(item => idOf(item.product)))].map(id => new ObjectId(id)),
-        ctx.companyId,
-        ctx.session,
-    );
-    const meta: LineCatalogMeta[] = doc.items.map(item => {
+    const sellerIds = distinctSellerCompanyIds(doc.items);
+    const multiSeller = ctx.multiSeller && sellerIds.length > 1;
+
+    // Collection membership + meta (collections are company-scoped; look up per seller)
+    const meta: LineCatalogMeta[] = [];
+    for (const item of doc.items) {
         const product: any = productMap.get(idOf(item.product));
-        return {
+        const sellerId = idOf(item.sellerCompany) || String(ctx.companyId);
+        const collectionsByProduct = await collectionIdsByProduct(
+            [new ObjectId(idOf(item.product))],
+            new ObjectId(sellerId),
+            ctx.session,
+        );
+        meta.push({
             productId: idOf(item.product),
             slug: product?.slug,
             quantityRules: {
@@ -128,70 +154,120 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
             collectionIds: collectionsByProduct.get(idOf(item.product)) ?? [],
             isGiftCard: product?.type === "gift_card",
             weight: Number(product?.weight ?? 0) * item.quantity,
-        };
-    });
-
-    // 2. Pricing rules, applied once to the base price
-    const baseSubtotal = doc.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    const customerGroupIds = ctx.userId ? await getCustomerGroupIdsForUser(ctx.userId, ctx.companyId) : [];
-    const pricing = await calculatePricing(
-        {
-            subtotal: baseSubtotal,
-            customerGroupIds,
-            items: doc.items.map((item, idx) => ({
-                productId: meta[idx].productId,
-                variantId: item.variant ? idOf(item.variant) : undefined,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                categoryId: meta[idx].categoryIds[0],
-                collectionIds: meta[idx].collectionIds,
-            })),
-        },
-        ctx.companyId,
-    );
-    pricing.adjustedLines.forEach((line, idx) => {
-        const item = doc.items[idx];
-        item.unitPrice = roundMoney(line.unitPrice);
-        item.totalPrice = roundMoney(item.unitPrice * item.quantity);
-    });
-    doc.subtotal = roundMoney(doc.items.reduce((sum, item) => sum + item.totalPrice, 0));
-
-    // 3. Re-validate the applied discount against the re-priced lines
-    const applied = doc.appliedDiscounts?.[0];
-    if (applied) {
-        const discount = await Discount.findOne({_id: idOf(applied.discount), company: ctx.companyId}).noDeleted().session(ctx.session ?? null);
-        const result = discount
-            ? await validateDiscountForCustomer(
-                  toValidationCart(doc, meta, ctx.userId),
-                  discount,
-                  ctx.companyId,
-                  ctx.session,
-              )
-            : ({valid: false, reason: "discount_not_found"} as const);
-        if (result.valid === true) {
-            applied.amount = result.discountAmount;
-            doc.discountTotal = result.discountAmount;
-        } else if (result.valid === false) {
-            notices.discountRemoved = result.reason;
-            doc.appliedDiscounts = [];
-            doc.discountTotal = 0;
-        }
-    } else {
-        doc.discountTotal = 0;
+            sellerCompanyId: sellerId,
+        });
     }
 
-    // 4. Re-cap store credit against the live balance
-    if (doc.appliedGiftCard?.code) {
-        const card = await giftCardService.findRedeemable(doc.appliedGiftCard.code, ctx.companyId, {
-            languageCode: ctx.languageCode,
-            session: ctx.session ?? undefined,
-        });
-        if (card) {
-            doc.appliedGiftCard.amount = roundMoney(Math.min(card.balance, Math.max(0, doc.subtotal - doc.discountTotal)));
-        } else {
+    // 2. Pricing rules — per seller group when multi-seller
+    if (multiSeller) {
+        for (const sellerId of sellerIds) {
+            const indexes = doc.items
+                .map((item, idx) => (idOf(item.sellerCompany) === sellerId ? idx : -1))
+                .filter(idx => idx >= 0);
+            const groupItems = indexes.map(idx => doc.items[idx]);
+            const groupMeta = indexes.map(idx => meta[idx]);
+            const baseSubtotal = groupItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+            const customerGroupIds = ctx.userId
+                ? await getCustomerGroupIdsForUser(ctx.userId, new ObjectId(sellerId))
+                : [];
+            const pricing = await calculatePricing(
+                {
+                    subtotal: baseSubtotal,
+                    customerGroupIds,
+                    items: groupItems.map((item, i) => ({
+                        productId: groupMeta[i].productId,
+                        variantId: item.variant ? idOf(item.variant) : undefined,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        categoryId: groupMeta[i].categoryIds[0],
+                        collectionIds: groupMeta[i].collectionIds,
+                    })),
+                },
+                new ObjectId(sellerId),
+            );
+            pricing.adjustedLines.forEach((line, i) => {
+                const item = doc.items[indexes[i]];
+                item.unitPrice = roundMoney(line.unitPrice);
+                item.totalPrice = roundMoney(item.unitPrice * item.quantity);
+            });
+        }
+        // Multi-seller: drop company-scoped promos
+        if (doc.appliedDiscounts?.length) {
+            notices.discountRemoved = "cart_multi_seller_promo";
+            doc.appliedDiscounts = [];
+        }
+        if (doc.appliedGiftCard) {
             notices.giftCardRemoved = true;
             doc.appliedGiftCard = undefined;
         }
+        doc.discountTotal = 0;
+    } else {
+        const pricingCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : ctx.companyId;
+        const baseSubtotal = doc.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        const customerGroupIds = ctx.userId ? await getCustomerGroupIdsForUser(ctx.userId, pricingCompanyId) : [];
+        const pricing = await calculatePricing(
+            {
+                subtotal: baseSubtotal,
+                customerGroupIds,
+                items: doc.items.map((item, idx) => ({
+                    productId: meta[idx].productId,
+                    variantId: item.variant ? idOf(item.variant) : undefined,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    categoryId: meta[idx].categoryIds[0],
+                    collectionIds: meta[idx].collectionIds,
+                })),
+            },
+            pricingCompanyId,
+        );
+        pricing.adjustedLines.forEach((line, idx) => {
+            const item = doc.items[idx];
+            item.unitPrice = roundMoney(line.unitPrice);
+            item.totalPrice = roundMoney(item.unitPrice * item.quantity);
+        });
+        doc.subtotal = roundMoney(doc.items.reduce((sum, item) => sum + item.totalPrice, 0));
+
+        // 3. Re-validate the applied discount against the re-priced lines
+        const applied = doc.appliedDiscounts?.[0];
+        if (applied) {
+            const discount = await Discount.findOne({_id: idOf(applied.discount), company: pricingCompanyId}).noDeleted().session(ctx.session ?? null);
+            const result = discount
+                ? await validateDiscountForCustomer(
+                      toValidationCart(doc, meta, ctx.userId),
+                      discount,
+                      pricingCompanyId,
+                      ctx.session,
+                  )
+                : ({valid: false, reason: "discount_not_found"} as const);
+            if (result.valid === true) {
+                applied.amount = result.discountAmount;
+                doc.discountTotal = result.discountAmount;
+            } else if (result.valid === false) {
+                notices.discountRemoved = result.reason;
+                doc.appliedDiscounts = [];
+                doc.discountTotal = 0;
+            }
+        } else {
+            doc.discountTotal = 0;
+        }
+
+        // 4. Re-cap store credit against the live balance
+        if (doc.appliedGiftCard?.code) {
+            const card = await giftCardService.findRedeemable(doc.appliedGiftCard.code, pricingCompanyId, {
+                languageCode: ctx.languageCode,
+                session: ctx.session ?? undefined,
+            });
+            if (card) {
+                doc.appliedGiftCard.amount = roundMoney(Math.min(card.balance, Math.max(0, doc.subtotal - doc.discountTotal)));
+            } else {
+                notices.giftCardRemoved = true;
+                doc.appliedGiftCard = undefined;
+            }
+        }
+    }
+
+    if (multiSeller) {
+        doc.subtotal = roundMoney(doc.items.reduce((sum, item) => sum + item.totalPrice, 0));
     }
 
     return {notices, meta};

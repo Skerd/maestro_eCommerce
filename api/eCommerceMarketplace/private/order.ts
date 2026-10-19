@@ -37,16 +37,22 @@ import {orderRevisionService} from "@eCommerceModule/database/schemas/orderRevis
 import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.dto";
 import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
+import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
 
-async function ordersWithSubmittedDelivery(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions): Promise<Set<string>> {
-    const deliveries = await orderDeliveryService.find({order: {$in: orderIds}, status: "submitted", company: companyId}, opts, null, "order");
+async function ordersWithSubmittedDelivery(orderIds: ObjectId[], companyId: ObjectId | undefined, opts: CrudOptions): Promise<Set<string>> {
+    const filter: Record<string, unknown> = {order: {$in: orderIds}, status: "submitted"};
+    if (companyId) filter.company = companyId;
+    const deliveries = await orderDeliveryService.find(filter, opts, null, "order");
     return new Set(deliveries.map((delivery) => delivery.order._id.toString()));
 }
 
-async function ordersWithActiveDispute(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions): Promise<Set<string>> {
-    const disputes = await disputeService.find({order: {$in: orderIds}, status: {$in: ACTIVE_DISPUTE_STATUSES}, company: companyId}, opts, null, "order");
+async function ordersWithActiveDispute(orderIds: ObjectId[], companyId: ObjectId | undefined, opts: CrudOptions): Promise<Set<string>> {
+    const filter: Record<string, unknown> = {order: {$in: orderIds}, status: {$in: ACTIVE_DISPUTE_STATUSES}};
+    if (companyId) filter.company = companyId;
+    const disputes = await disputeService.find(filter, opts, null, "order");
     return new Set(disputes.map((dispute) => dispute.order._id.toString()));
 }
 
@@ -173,11 +179,13 @@ const BUYER_ORDER_POPULATE = [
 ];
 
 /** Per-order flags the storefront account shows: delivery waiting, open dispute, reviewed. */
-async function buyerOrderFlags(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions) {
+async function buyerOrderFlags(orderIds: ObjectId[], companyId: ObjectId | undefined, opts: CrudOptions) {
+    const reviewFilter: Record<string, unknown> = {order: {$in: orderIds}};
+    if (companyId) reviewFilter.company = companyId;
     const [submitted, disputed, reviews] = await Promise.all([
         ordersWithSubmittedDelivery(orderIds, companyId, opts),
         ordersWithActiveDispute(orderIds, companyId, opts),
-        reviewService.find({order: {$in: orderIds}, company: companyId}, opts, null, "order"),
+        reviewService.find(reviewFilter, opts, null, "order"),
     ]);
     const reviewed = new Set(reviews.map((review) => review.order._id.toString()));
     return (order: IOrder) => {
@@ -196,17 +204,22 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(myServiceOrdersFormSchema),
     asyncHandler(async (params: AuthenticatedMWType & MyServiceOrdersFormType) => {
-        const {company, actionUserCtx, logger, languageCode, status} = params;
+        const {company, actionUserCtx, logger, languageCode, status, origin} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
         const opts = {logger, languageCode};
+        const platform = isPlatformShopOrigin(origin);
 
-        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId), ...(status && {status})};
+        const filter: Record<string, unknown> = {
+            customer: new ObjectId(actionUserCtx.userId),
+            ...(status && {status}),
+        };
+        if (!platform) filter.company = company._id;
         const [orders, total] = await Promise.all([
             orderService.find(filter, opts, BUYER_ORDER_POPULATE, undefined, {createdAt: -1}, limit, (page - 1) * limit),
             orderService.count(filter, opts),
         ]);
-        const toBuyerDTO = await buyerOrderFlags(orders.map((order) => order._id), company._id, opts);
+        const toBuyerDTO = await buyerOrderFlags(orders.map((order) => order._id), platform ? undefined : company._id, opts);
 
         return {data: orders.map(toBuyerDTO), total, page, limit};
     }),
@@ -218,28 +231,42 @@ router.post(
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
     asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
-        const {company, actionUserCtx, logger, languageCode, _id} = params;
+        const {company, actionUserCtx, logger, languageCode, _id, origin} = params;
         const opts = {logger, languageCode};
+        const platform = isPlatformShopOrigin(origin);
 
-        const order = await orderService.findOne(
-            {_id: new ObjectId(_id), company: company._id, customer: new ObjectId(actionUserCtx.userId)},
-            opts,
-            BUYER_ORDER_POPULATE,
-        );
+        const filter: Record<string, unknown> = {
+            _id: new ObjectId(_id),
+            customer: new ObjectId(actionUserCtx.userId),
+        };
+        if (!platform) filter.company = company._id;
+
+        const order = await orderService.findOne(filter, opts, BUYER_ORDER_POPULATE);
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
-        const scope = {order: order._id, company: company._id};
-        const [toBuyerDTO, deliveries, milestones, revisions, bookings] = await Promise.all([
-            buyerOrderFlags([order._id], company._id, opts),
+        const orderCompanyId = order.company._id;
+        const scope = {order: order._id, company: orderCompanyId};
+        const [toBuyerDTO, deliveries, milestones, revisions, bookings, unpaidHold] = await Promise.all([
+            buyerOrderFlags([order._id], orderCompanyId, opts),
             orderDeliveryService.find(scope, opts, ["attachments"], undefined, {createdAt: -1}),
             orderMilestoneService.find(scope, opts, ["currency"], undefined, {orderIndex: 1}),
             orderRevisionService.find(scope, opts, undefined, undefined, {createdAt: -1}),
             bookingService.find(scope, opts, undefined, undefined, {startAt: 1}),
+            EscrowTransaction.findOne({
+                order: order._id,
+                company: orderCompanyId,
+                type: "hold",
+                stripeClientSecret: {$exists: true, $ne: ""},
+                gatewayStatus: {$in: ["pending", "ledger_only"]},
+            }).select("stripeClientSecret").lean(),
         ]);
+
+        const escrowClientSecret = (unpaidHold as {stripeClientSecret?: string} | null)?.stripeClientSecret;
 
         return {
             data: {
                 ...toBuyerDTO(order),
+                ...(escrowClientSecret ? {escrowClientSecret} : {}),
                 deliveries: orderDeliveriesToDTO(deliveries),
                 milestones: orderMilestonesToDTO(milestones),
                 revisions: orderRevisionsToDTO(revisions),

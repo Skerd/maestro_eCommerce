@@ -56,9 +56,11 @@ function hasHeldStock(checkout: ICheckout): boolean {
  * Catalog facts frozen onto the order lines at placement: the product type
  * (decides what payment issues) and the chosen option values of the variant.
  */
-async function lineSnapshotFacts(checkout: ICheckout, ctx: PlacementCtx) {
-    const companyId = idOf(checkout.company);
-    const lines = checkout.items as any[];
+async function lineSnapshotFacts(checkout: ICheckout, ctx: PlacementCtx, companyId: ObjectId) {
+    const lines = (checkout.items as any[]).filter(item => {
+        const seller = item.sellerCompany ? idOf(item.sellerCompany).toString() : idOf(checkout.company).toString();
+        return seller === companyId.toString();
+    });
     const variantIds = lines.flatMap(item => (item.variant ? [idOf(item.variant)] : []));
     const [products, variants] = await Promise.all([
         Product.find({_id: {$in: lines.map(item => idOf(item.product))}, company: companyId}, {type: 1})
@@ -72,22 +74,44 @@ async function lineSnapshotFacts(checkout: ICheckout, ctx: PlacementCtx) {
     };
 }
 
-function checkoutLines(checkout: ICheckout) {
-    return (checkout.items as any[]).map(item => ({
-        product: idOf(item.product),
-        variant: item.variant ? idOf(item.variant) : undefined,
-        quantity: item.quantity,
-    }));
+function checkoutLinesForSeller(checkout: ICheckout, sellerCompanyId: ObjectId) {
+    const sellerKey = sellerCompanyId.toString();
+    return (checkout.items as any[])
+        .filter(item => {
+            const seller = item.sellerCompany ? idOf(item.sellerCompany).toString() : idOf(checkout.company).toString();
+            return seller === sellerKey;
+        })
+        .map(item => ({
+            product: idOf(item.product),
+            variant: item.variant ? idOf(item.variant) : undefined,
+            quantity: item.quantity,
+        }));
+}
+
+function sellerCompanyIdsOnCheckout(checkout: ICheckout): ObjectId[] {
+    const ids = new Set<string>();
+    for (const item of checkout.items as any[]) {
+        ids.add(item.sellerCompany ? idOf(item.sellerCompany).toString() : idOf(checkout.company).toString());
+    }
+    return [...ids].map(id => new ObjectId(id));
 }
 
 /**
  * Holds stock for every tracked line before any charge is attempted. Throws
  * `out_of_stock` (nothing held) when a line can't be covered.
+ * Reserves per seller company so platform multi-seller carts work.
  */
 export async function reserveStockForPayment(checkout: ICheckout, ctx: PlacementCtx): Promise<void> {
     if (hasHeldStock(checkout)) return;
     try {
-        checkout.reservations = await reserveCheckoutStock(checkoutLines(checkout), idOf(checkout.company), ctx);
+        const reservations: ICheckout["reservations"] = [];
+        for (const sellerId of sellerCompanyIdsOnCheckout(checkout)) {
+            const lines = checkoutLinesForSeller(checkout, sellerId);
+            if (lines.length === 0) continue;
+            const held = await reserveCheckoutStock(lines, sellerId, ctx);
+            reservations.push(...held);
+        }
+        checkout.reservations = reservations;
     } catch (e) {
         if (e instanceof OutOfStockError) {
             throw apiValidationException("out_of_stock", null, null, ctx.languageCode);
@@ -202,7 +226,8 @@ export async function assertDiscountUsable(checkout: ICheckout, ctx: PlacementCt
     if (!applied?.discount) return;
 
     const discountId = idOf(applied.discount);
-    const companyId = idOf(checkout.company);
+    const sellers = sellerCompanyIdsOnCheckout(checkout);
+    const companyId = sellers[0] ?? idOf(checkout.company);
     const now = new Date();
     const discount = await Discount.findOne({
         _id: discountId,
@@ -236,7 +261,8 @@ async function consumeDiscount(checkout: ICheckout, moneyCaptured: boolean, ctx:
     if (!applied?.discount) return;
 
     const discountId = idOf(applied.discount);
-    const companyId = idOf(checkout.company);
+    const sellers = sellerCompanyIdsOnCheckout(checkout);
+    const companyId = sellers[0] ?? idOf(checkout.company);
     const now = new Date();
 
     const counted = await Discount.findOneAndUpdate(
@@ -269,41 +295,55 @@ async function consumeDiscount(checkout: ICheckout, moneyCaptured: boolean, ctx:
 }
 
 /**
- * Turns a checkout into a ProductOrder. Single implementation behind
- * /checkout/confirm, the payment webhook and the expiry-job recovery, so a
- * paid checkout becomes an order no matter which path sees the payment first.
- * Idempotent per checkout (order idempotencyKey) — the second caller gets the
- * existing order back with `created: false`.
+ * Turns a checkout into one or more ProductOrders (one per seller on platform
+ * multi-seller carts). Single implementation behind /checkout/confirm, the
+ * payment webhook and the expiry-job recovery. Idempotent per
+ * `${idempotencyKey}` / `${idempotencyKey}:${sellerId}`.
  */
 export async function placeOrderFromCheckout(
     checkout: ICheckout,
     contact: PlacementContact,
     ctx: PlacementCtx,
-): Promise<{order: IProductOrder; created: boolean}> {
-    const companyId = idOf(checkout.company);
+): Promise<{order: IProductOrder; created: boolean; siblingOrders?: IProductOrder[]}> {
+    const sessionCompanyId = idOf(checkout.company);
     const customerId = checkout.user ? idOf(checkout.user) : undefined;
+    const sellerIds = sellerCompanyIdsOnCheckout(checkout);
+    const multiSeller = sellerIds.length > 1;
 
-    const existingOrder = await ProductOrder.findOne({idempotencyKey: checkout.idempotencyKey, company: companyId}).session(ctx.session ?? null);
-    if (existingOrder) return {order: existingOrder, created: false};
+    const primaryKey = multiSeller
+        ? `${checkout.idempotencyKey}:${sellerIds[0].toString()}`
+        : checkout.idempotencyKey;
+    const existingOrder = await ProductOrder.findOne({
+        idempotencyKey: primaryKey,
+        company: multiSeller ? sellerIds[0] : sessionCompanyId,
+    }).session(ctx.session ?? null);
+    if (existingOrder) {
+        const siblings = multiSeller
+            ? await ProductOrder.find({
+                customer: customerId,
+                stripePaymentIntentId: checkout.stripePaymentIntentId || undefined,
+                idempotencyKey: {$regex: `^${checkout.idempotencyKey}`},
+                _id: {$ne: existingOrder._id},
+            }).session(ctx.session ?? null)
+            : [];
+        return {order: existingOrder, created: false, siblingOrders: siblings.length ? siblings : undefined};
+    }
 
     const {paid, fullyCoveredByGiftCard, charge} = await resolvePayment(checkout, ctx);
     if (!checkout.shippingAddress) throw apiValidationException("shipping_address_required", null, null, ctx.languageCode);
     if (!checkout.selectedShippingRate) throw apiValidationException("shipping_rate_required", null, null, ctx.languageCode);
     if (!checkout.paymentMethod && !fullyCoveredByGiftCard) throw apiValidationException("payment_method_required", null, null, ctx.languageCode);
 
-    // Gateway money already captured: never refuse the order, record shortfalls instead
     const moneyCaptured = Boolean(charge);
     const shortfalls: {event: string; note?: string}[] = [];
 
     await consumeDiscount(checkout, moneyCaptured, ctx);
 
-    // Stock is normally held since the payment step; re-hold if expiry released it
     if (!hasHeldStock(checkout)) {
         try {
             await reserveStockForPayment(checkout, ctx);
         } catch (e: any) {
             if (!moneyCaptured) throw e;
-            // Money is captured: keep the order and let staff refund or backorder
             shortfalls.push({event: "stock_shortfall", note: "Stock unavailable when the paid order was placed"});
             ctx.logger?.err?.(`Checkout ${checkout._id}: paid but out of stock at placement`);
         }
@@ -319,123 +359,161 @@ export async function placeOrderFromCheckout(
         }
     }
 
-    const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx);
     const currency = await Currency.findById(idOf(checkout.currency), {abbreviation: 1}).session(ctx.session ?? null).lean();
-    const orderNumber = await generateOrderNumber(companyId);
     const now = new Date();
     const paymentStatus = paid ? "paid" : "unpaid";
+    const placedOrders: IProductOrder[] = [];
 
-    const order = new ProductOrder({
-        company: companyId,
-        orderNumber,
-        status: paid ? "confirmed" : "pending",
-        paymentStatus,
-        fulfillmentStatus: "unfulfilled",
-        customer: customerId,
-        email: contact.email || undefined,
-        phone: contact.phone || undefined,
-        items: (checkout.items as any[]).map(item => ({
-            product: idOf(item.product),
-            variant: item.variant ? idOf(item.variant) : undefined,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            snapshot: {
-                title: item.snapshot?.title ?? "",
-                sku: item.snapshot?.sku ?? undefined,
-                imageUrl: item.snapshot?.imageUrl ?? undefined,
-                variantLabel: item.variant ? variantLabels.get(idOf(item.variant).toString()) || undefined : undefined,
-                productType: productTypes.get(idOf(item.product).toString()),
-            },
-        })),
-        currency: idOf(checkout.currency),
-        currencyCode: currency?.abbreviation,
-        shippingAddress: checkout.shippingAddress,
-        billingAddress: checkout.billingAddress ?? checkout.shippingAddress,
-        shippingRate: checkout.selectedShippingRate,
-        appliedDiscounts: checkout.appliedDiscounts ?? [],
-        taxBreakdown: checkout.taxBreakdown ?? [],
-        subtotal: checkout.subtotal,
-        discountTotal: checkout.discountTotal,
-        shippingTotal: checkout.shippingTotal,
-        taxTotal: checkout.taxTotal,
-        grandTotal: checkout.grandTotal,
-        giftCard: checkout.giftCard
-            ? {giftCard: idOf(checkout.giftCard.giftCard), code: checkout.giftCard.code, amount: checkout.giftCard.amount}
-            : undefined,
-        stripePaymentIntentId: checkout.stripePaymentIntentId,
-        idempotencyKey: checkout.idempotencyKey,
-        // The stock held for the checkout now belongs to the order, until it ships
-        reservations: (checkout.reservations ?? [])
-            .filter(reservation => reservation.state === "reserved")
-            .map(({product, variant, warehouse, quantity, state}) => ({product, variant, warehouse, quantity, state})),
-        notes: contact.notes || undefined,
-        timeline: [
-            {event: "order_placed", timestamp: now, userId: customerId},
-            ...(paid ? [{event: "payment_received", timestamp: now}] : []),
-            ...shortfalls.map(s => ({event: s.event, timestamp: now, note: s.note})),
-        ],
-    });
-    await order.save({session: ctx.session});
+    const heldReservations = (checkout.reservations ?? [])
+        .filter(reservation => reservation.state === "reserved")
+        .map(({product, variant, warehouse, quantity, state}) => ({product, variant, warehouse, quantity, state}));
 
-    if (charge) {
-        await paymentTransactionService.attachProductOrder(charge._id as ObjectId, order._id as ObjectId, {
-            ...ctx,
-            checkoutId: checkout._id as ObjectId,
-        });
-    }
-
-    // Fully gift-card-funded orders get a wallet ledger entry instead of a gateway charge
-    if (fullyCoveredByGiftCard) {
-        await paymentTransactionService.create(
-            {
-                sourceType: "productOrder",
-                sourceId: order._id,
-                gateway: "wallet",
-                type: "charge",
-                status: "succeeded",
-                amount: checkout.giftCard!.amount,
-                currency: idOf(checkout.currency),
-                metadata: {giftCardCode: checkout.giftCard!.code, checkoutId: checkout._id.toString()},
-                company: companyId,
-            } as any,
-            ctx,
+    for (let i = 0; i < sellerIds.length; i++) {
+        const sellerCompanyId = sellerIds[i];
+        const group = (checkout.sellerGroups ?? []).find(
+            g => idOf(g.sellerCompany).toString() === sellerCompanyId.toString(),
         );
+        const lines = (checkout.items as any[]).filter(item => {
+            const seller = item.sellerCompany ? idOf(item.sellerCompany).toString() : sessionCompanyId.toString();
+            return seller === sellerCompanyId.toString();
+        });
+        const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx, sellerCompanyId);
+        const orderNumber = await generateOrderNumber(sellerCompanyId);
+        const subtotal = group?.subtotal ?? lines.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
+        const shippingTotal = multiSeller ? (group?.shippingTotal ?? 0) : checkout.shippingTotal;
+        const taxTotal = multiSeller ? (group?.taxTotal ?? 0) : checkout.taxTotal;
+        const discountTotal = multiSeller ? 0 : checkout.discountTotal;
+        const giftCardAmount = multiSeller ? 0 : (checkout.giftCard?.amount ?? 0);
+        const grandTotal = multiSeller
+            ? Math.max(0, subtotal + shippingTotal + taxTotal)
+            : checkout.grandTotal;
+        const idempotencyKey = multiSeller
+            ? `${checkout.idempotencyKey}:${sellerCompanyId.toString()}`
+            : checkout.idempotencyKey;
+
+        // Assign held reservations that belong to this seller's product ids
+        const productIdSet = new Set(lines.map(item => idOf(item.product).toString()));
+        const orderReservations = heldReservations.filter(r => productIdSet.has(idOf(r.product).toString()));
+
+        const order = new ProductOrder({
+            company: sellerCompanyId,
+            orderNumber,
+            status: paid ? "confirmed" : "pending",
+            paymentStatus,
+            fulfillmentStatus: "unfulfilled",
+            customer: customerId,
+            email: contact.email || undefined,
+            phone: contact.phone || undefined,
+            items: lines.map(item => ({
+                product: idOf(item.product),
+                variant: item.variant ? idOf(item.variant) : undefined,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+                snapshot: {
+                    title: item.snapshot?.title ?? "",
+                    sku: item.snapshot?.sku ?? undefined,
+                    imageUrl: item.snapshot?.imageUrl ?? undefined,
+                    variantLabel: item.variant ? variantLabels.get(idOf(item.variant).toString()) || undefined : undefined,
+                    productType: productTypes.get(idOf(item.product).toString()),
+                },
+            })),
+            currency: idOf(checkout.currency),
+            currencyCode: currency?.abbreviation,
+            shippingAddress: checkout.shippingAddress,
+            billingAddress: checkout.billingAddress ?? checkout.shippingAddress,
+            shippingRate: group?.selectedShippingRate ?? checkout.selectedShippingRate,
+            appliedDiscounts: multiSeller ? [] : (checkout.appliedDiscounts ?? []),
+            taxBreakdown: multiSeller ? [] : (checkout.taxBreakdown ?? []),
+            subtotal,
+            discountTotal,
+            shippingTotal,
+            taxTotal,
+            grandTotal,
+            giftCard: !multiSeller && checkout.giftCard
+                ? {giftCard: idOf(checkout.giftCard.giftCard), code: checkout.giftCard.code, amount: checkout.giftCard.amount}
+                : undefined,
+            stripePaymentIntentId: checkout.stripePaymentIntentId,
+            idempotencyKey,
+            reservations: orderReservations,
+            notes: contact.notes || undefined,
+            timeline: [
+                {event: "order_placed", timestamp: now, userId: customerId},
+                ...(paid ? [{event: "payment_received", timestamp: now}] : []),
+                ...(i === 0 ? shortfalls.map(s => ({event: s.event, timestamp: now, note: s.note})) : []),
+            ],
+        });
+        await order.save({session: ctx.session});
+        placedOrders.push(order);
+
+        if (charge && i === 0) {
+            await paymentTransactionService.attachProductOrder(charge._id as ObjectId, order._id as ObjectId, {
+                ...ctx,
+                checkoutId: checkout._id as ObjectId,
+            });
+        }
+
+        if (!multiSeller && fullyCoveredByGiftCard) {
+            await paymentTransactionService.create(
+                {
+                    sourceType: "productOrder",
+                    sourceId: order._id,
+                    gateway: "wallet",
+                    type: "charge",
+                    status: "succeeded",
+                    amount: giftCardAmount,
+                    currency: idOf(checkout.currency),
+                    metadata: {giftCardCode: checkout.giftCard!.code, checkoutId: checkout._id.toString()},
+                    company: sellerCompanyId,
+                } as any,
+                ctx,
+            );
+        }
+
+        if (paid) {
+            await fulfillOrderPaidExtras(order, ctx);
+        }
+
+        const notify = {
+            companyId: sellerCompanyId,
+            languageCode: ctx.languageCode,
+            session: ctx.session,
+            order,
+            customerId: customerId?.toString(),
+            orderEmail: contact.email,
+        };
+        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PLACED, {...notify, extra: {grandTotal: order.grandTotal}});
+        if (paid) {
+            await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {...notify, extra: {grandTotal: order.grandTotal}});
+        }
+        await notifyMerchantsNewOrder({
+            companyId: sellerCompanyId,
+            languageCode: ctx.languageCode,
+            session: ctx.session,
+            orderId: order._id.toString(),
+            orderNumber,
+            grandTotal: order.grandTotal,
+            currency: order.currency,
+        });
     }
 
     checkout.status = "confirmed";
     checkout.reservations = [];
     await checkout.save({session: ctx.session});
 
-    if (paid) {
-        await fulfillOrderPaidExtras(order, ctx);
-    }
-
     if (customerId) {
         await Cart.updateOne(
-            {user: customerId, company: companyId},
+            {user: customerId, company: sessionCompanyId},
             {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}, $unset: {appliedGiftCard: 1}},
             {session: ctx.session},
         );
     }
 
-    // Sent once the placement transaction commits
-    const notify = {companyId, languageCode: ctx.languageCode, session: ctx.session, order, customerId: customerId?.toString(), orderEmail: contact.email};
-    await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PLACED, {...notify, extra: {grandTotal: order.grandTotal}});
-    if (paid) {
-        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {...notify, extra: {grandTotal: order.grandTotal}});
-    }
-    await notifyMerchantsNewOrder({
-        companyId,
-        languageCode: ctx.languageCode,
-        session: ctx.session,
-        orderId: order._id.toString(),
-        orderNumber,
-        grandTotal: order.grandTotal,
-        currency: order.currency,
-    });
-
-    return {order, created: true};
+    return {
+        order: placedOrders[0],
+        created: true,
+        siblingOrders: placedOrders.length > 1 ? placedOrders.slice(1) : undefined,
+    };
 }
 
 /**

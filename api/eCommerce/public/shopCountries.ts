@@ -3,7 +3,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import Country from "@coreModule/database/schemas/country/country";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 
 export const basePath = "/api/eCommerce/shopCountries";
 export const router = Router();
@@ -20,7 +20,7 @@ router.get(
     asyncHandler(async (params: any) => {
         const {languageCode, origin} = params;
 
-        await resolveShopCompany(origin, languageCode);
+        await resolveShopContext(origin, languageCode);
 
         const countries = await Country.find({}).select("name code").sort({name: 1}).lean();
 

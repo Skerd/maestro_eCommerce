@@ -11,12 +11,15 @@ import type {
     ShopPlace,
     ShopProviderProfile,
     ShopProviderSummary,
+    ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.types";
+import {toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 
 /** Populate paths for a listing card; the detail route adds packages and add-ons. */
 export const SHOP_LISTING_CARD_POPULATE = [
     {path: "category", select: "name slug"},
     {path: "provider", select: "name surname"},
+    {path: "company", select: "name logo shopSlug shopHost"},
     {path: "priceCurrency", select: "symbol abbreviation decimalPlaces"},
     {path: "address.country", select: "name"},
     {path: "address.state", select: "name"},
@@ -25,7 +28,7 @@ export const SHOP_LISTING_CARD_POPULATE = [
 ];
 
 export const SHOP_LISTING_CARD_FIELDS =
-    "title mainImage category provider price priceCurrency pricingType deliveryDays address avgRating reviewCount listingPackages createdAt";
+    "title mainImage category provider company price priceCurrency pricingType deliveryDays address avgRating reviewCount listingPackages createdAt";
 
 /** Listing id → type of its currently running promotion. */
 export type ShopPromotionMap = Map<string, ShopListingPromotion>;
@@ -84,6 +87,8 @@ export function toShopListingCard(listing: any, promotions?: ShopPromotionMap): 
         ? {_id: listing.category._id.toString(), name: listing.category.name, slug: listing.category.slug ?? ""}
         : undefined;
 
+    const seller: ShopSeller | undefined = toShopSeller(listing.company);
+
     return {
         _id: listing._id.toString(),
         title: listing.title ?? "",
@@ -98,6 +103,7 @@ export function toShopListingCard(listing: any, promotions?: ShopPromotionMap): 
         location: toShopListingLocation(listing.address),
         avgRating: listing.reviewCount ? listing.avgRating : undefined,
         reviewCount: listing.reviewCount || undefined,
+        ...(seller ? {seller} : {}),
         promotion: promotions?.get(listing._id.toString()),
         packageCount: packagePrices.length || undefined,
     };

@@ -6,7 +6,7 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {buildShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {productTypes} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {shopFacetsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
@@ -95,9 +95,10 @@ router.post(
     validateFormZod(shopFacetsFormSchema),
     asyncHandler(async (params: any): Promise<ShopFacetsResponse> => {
         const {languageCode, origin, search, categorySlug, categoryIds, collectionSlug, collectionId} = params;
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
+        const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
         const filter = await buildShopCatalogFilter({
-            companyId: company._id,
+            companyId,
             search,
             categorySlug,
             categoryIds,
@@ -145,18 +146,22 @@ router.post(
             addOption(groups, row.name, row.value, row.count);
         }
 
-        const variantAttributes = await ProductAttribute.find({company: company._id, isUsedForVariants: true})
+        const attributeQuery: Record<string, unknown> = {isUsedForVariants: true};
+        if (companyId != null) attributeQuery.company = companyId;
+        const variantAttributes = await ProductAttribute.find(attributeQuery)
             .select("name")
             .noDeleted()
             .lean();
         if (variantAttributes.length > 0) {
             const productIds = await Product.find(filter).noDeleted().distinct("_id");
-            const variants = await ProductVariant.find({
-                company: company._id,
+            const variantQuery: Record<string, unknown> = {
                 status: "active",
                 product: {$in: productIds},
                 "attributeCombination.attribute": {$in: variantAttributes.map(attribute => attribute._id)},
-            }).select("product attributeCombination").noDeleted().lean();
+            };
+            if (companyId != null) variantQuery.company = companyId;
+            const variants = await ProductVariant.find(variantQuery)
+                .select("product attributeCombination").noDeleted().lean();
 
             const nameById = new Map(variantAttributes.map(attribute => [String(attribute._id), attribute.name]));
             const productsByKey = new Map<string, Set<string>>();

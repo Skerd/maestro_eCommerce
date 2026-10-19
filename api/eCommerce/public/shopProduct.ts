@@ -1,4 +1,5 @@
 import {Router} from "express";
+import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
@@ -9,8 +10,8 @@ import ProductVariant from "@eCommerceModule/database/schemas/productVariant/pro
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {toShopProductDetail, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
@@ -49,8 +50,19 @@ async function stockAvailability(product: any, variants: any[], companyId: unkno
     return stock;
 }
 
-const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants";
+const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company";
 const RELATED_LIMIT = 8;
+
+const DETAIL_POPULATE = [
+    {path: "categories", select: "name slug"},
+    {path: "company", select: "name logo shopSlug shopHost"},
+] as const;
+
+async function findActiveProduct(filter: Record<string, unknown>) {
+    return Product.findOne({...filter, status: "active"}).noDeleted()
+        .populate([...DETAIL_POPULATE])
+        .lean();
+}
 
 router.post(
     "",
@@ -58,57 +70,89 @@ router.post(
     rateLimiter({windowMs: 60000, max: 120}),
     validateFormZod(shopProductFormSchema),
     asyncHandler(async (params: any): Promise<ShopProductResponse> => {
-        const {languageCode, origin, slug} = params;
+        const {languageCode, origin, id, slug, sellerCompanyId} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
 
-        const product = await Product.findOne({
-            company: company._id,
-            slug: String(slug).toLowerCase(),
-            status: "active",
-        }).noDeleted()
-            .populate("categories", "name slug")
-            .lean();
+        let product: any;
+        if (id) {
+            const byId: Record<string, unknown> = {_id: new ObjectId(id)};
+            if (ctx.mode === "tenant") byId.company = ctx.company._id;
+            product = await findActiveProduct(byId);
+        } else if (slug) {
+            const slugKey = String(slug).toLowerCase();
+            if (ctx.mode === "tenant") {
+                product = await findActiveProduct({company: ctx.company._id, slug: slugKey});
+            } else if (sellerCompanyId) {
+                product = await findActiveProduct({company: new ObjectId(sellerCompanyId), slug: slugKey});
+            } else {
+                const matches = await Product.find({slug: slugKey, status: "active"}).noDeleted()
+                    .populate([...DETAIL_POPULATE])
+                    .lean();
+                // Ambiguous slug across sellers — require id or sellerCompanyId
+                if (matches.length > 1) {
+                    throw apiValidationException("product_not_found", null, null, languageCode);
+                }
+                product = matches[0];
+            }
+        }
 
         if (!product) {
             throw apiValidationException("product_not_found", null, null, languageCode);
         }
 
-        const variants = (product as any).hasVariants
-            ? await ProductVariant.find({product: product._id, company: company._id, status: "active"})
+        const productSellerId = product.company?._id ?? product.company;
+        // Orphan rows (company missing after populate) must not surface on the platform apex.
+        if (ctx.mode === "platform" && !toShopSeller(product.company)) {
+            throw apiValidationException("product_not_found", null, null, languageCode);
+        }
+
+        const variants = product.hasVariants
+            ? await ProductVariant.find({product: product._id, company: productSellerId, status: "active"})
                   .select("sku price compareAtPrice attributeCombination mainImage order trackInventory")
                   .populate("attributeCombination.attribute", "name")
                   .sort({order: 1})
                   .lean()
             : [];
 
-        // Related: explicit merchandising first, same-category fill after
-        const explicitRelatedIds = ((product as any).relatedProducts as any[]) ?? [];
         const relatedFilter: Record<string, unknown> = {
-            company: company._id,
+            company: productSellerId,
             status: "active",
             _id: {$ne: product._id},
         };
 
+        const explicitRelatedIds = (product.relatedProducts as any[]) ?? [];
         let related = explicitRelatedIds.length
-            ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted().select(CARD_FIELDS).limit(RELATED_LIMIT).lean()
+            ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
+                .select(CARD_FIELDS)
+                .populate("company", "name logo shopSlug shopHost")
+                .limit(RELATED_LIMIT)
+                .lean()
             : [];
 
         if (related.length < RELATED_LIMIT) {
-            const categoryIds = ((product as any).categories as any[])?.map(c => c._id ?? c) ?? [];
+            const categoryIds = (product.categories as any[])?.map((c: any) => c._id ?? c) ?? [];
             if (categoryIds.length) {
                 const fill = await Product.find({
                     ...relatedFilter,
-                    _id: {$nin: [product._id, ...related.map(r => r._id)]},
+                    _id: {$nin: [product._id, ...related.map((r: any) => r._id)]},
                     categories: {$in: categoryIds},
                 }).noDeleted()
                     .select(CARD_FIELDS)
+                    .populate("company", "name logo shopSlug shopHost")
                     .limit(RELATED_LIMIT - related.length)
                     .lean();
                 related = [...related, ...fill];
             }
         }
 
-        return {data: toShopProductDetail(product, variants, related, await stockAvailability(product, variants, company._id))};
+        return {
+            data: toShopProductDetail(
+                product,
+                variants,
+                related,
+                await stockAvailability(product, variants, productSellerId),
+            ),
+        };
     }),
 );

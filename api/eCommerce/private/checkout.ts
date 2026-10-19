@@ -15,7 +15,7 @@ import {paymentTransactionService} from "@financeModule/database/schemas/payment
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
-import {repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
+import {distinctSellerCompanyIds, repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundMoney} from "@eCommerceModule/utilities/services/money";
 import {
     assertDiscountUsable,
@@ -26,6 +26,7 @@ import {
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
 import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
+import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -79,10 +80,11 @@ function contentFingerprint(lines: any[], subtotal: number, discountTotal: numbe
 }
 
 /** Copies the (freshly priced) cart onto a pending checkout and clears anything derived from it. */
-function syncCheckoutFromCart(checkout: ICheckout, cart: ICart): void {
+function syncCheckoutFromCart(checkout: ICheckout, cart: ICart, sessionCompanyId: ObjectId): void {
     checkout.items = (cart.items as any[]).map(item => ({
         product: item.product,
         variant: item.variant,
+        sellerCompany: item.sellerCompany ?? sessionCompanyId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
@@ -94,12 +96,17 @@ function syncCheckoutFromCart(checkout: ICheckout, cart: ICart): void {
     checkout.giftCard = cart.appliedGiftCard?.code
         ? {giftCard: cart.appliedGiftCard.giftCard, code: cart.appliedGiftCard.code, amount: cart.appliedGiftCard.amount}
         : undefined;
+    checkout.sellerGroups = [];
     checkout.availableShippingRates = [];
     checkout.selectedShippingRate = undefined;
     checkout.shippingTotal = 0;
     checkout.taxTotal = 0;
     checkout.taxBreakdown = [];
     checkout.grandTotal = roundMoney(Math.max(0, checkout.subtotal - checkout.discountTotal - (checkout.giftCard?.amount ?? 0)));
+}
+
+function itemSellerId(item: any, fallback: ObjectId): string {
+    return String(item.sellerCompany?._id ?? item.sellerCompany ?? fallback);
 }
 
 /**
@@ -171,7 +178,12 @@ router.post(
         }
 
         // Live prices + discount re-validation before anything is copied to the checkout
-        await repriceCart(cart as any, {companyId: company._id, userId, languageCode});
+        await repriceCart(cart as any, {
+            companyId: company._id,
+            userId,
+            languageCode,
+            multiSeller: isPlatformShopOrigin(params.origin),
+        });
         await cart.save();
         if ((cart.items as any[]).length === 0) throw apiValidationException("cart_empty", null, null, languageCode);
 
@@ -181,7 +193,7 @@ router.post(
             if (changed) {
                 // An offline method may already hold stock for the old contents
                 await resetCheckoutPayment(existing, {logger: params.logger, languageCode, auditUserId: actionUserCtx.userId});
-                syncCheckoutFromCart(existing, cart);
+                syncCheckoutFromCart(existing, cart, company._id);
                 existing.expiresAt = new Date(Date.now() + CHECKOUT_TTL_MS);
                 await existing.save();
             }
@@ -202,7 +214,7 @@ router.post(
             taxTotal: 0,
             expiresAt: new Date(Date.now() + CHECKOUT_TTL_MS),
         });
-        syncCheckoutFromCart(checkout, cart);
+        syncCheckoutFromCart(checkout, cart, company._id);
 
         await checkout.save();
         return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
@@ -227,42 +239,92 @@ router.post(
 
         const productIds = (checkout.items as any[]).map(item => item.product?._id ?? item.product);
         const products = new Map(
-            (await Product.find({_id: {$in: productIds}, company: company._id}, {weight: 1, weightUnit: 1, type: 1, requiresShipping: 1})
+            (await Product.find({_id: {$in: productIds}}, {weight: 1, weightUnit: 1, type: 1, requiresShipping: 1, company: 1})
                 .session(session).lean())
                 .map((p: any) => [p._id.toString(), p]),
         );
         const productOf = (item: any) => products.get(String(item.product?._id ?? item.product));
-        const totalQuantity = (checkout.items as any[]).reduce((sum, item) => sum + item.quantity, 0);
-        const totalWeight = (checkout.items as any[]).reduce((sum, item) => {
-            const product = productOf(item);
-            return sum + Number(product?.weight ?? 0) * (KG_PER_UNIT[product?.weightUnit ?? "kg"] ?? 1) * item.quantity;
-        }, 0);
-        const needsShipping = (checkout.items as any[]).some(item => {
-            const product = productOf(item);
-            return !product || (SHIPPED_TYPES.has(product.type) && product.requiresShipping !== false);
-        });
 
-        // Gift cards, downloads and services travel by email: one free "rate" keeps the checkout steps the same
-        const availableRates = needsShipping
-            ? await calculateShipping(
-                {
-                    subtotal: checkout.subtotal,
-                    itemCount: totalQuantity,
-                    totalWeight,
-                    destinationCountry: shippingAddress?.country,
-                    destinationState: shippingAddress?.state,
-                    destinationPostalCode: shippingAddress?.postalCode,
-                },
-                company._id,
-            )
-            : [{rateName: "No shipping required", price: 0}];
-        // Normalize to the schema's rate shape ({name, carrier, price, estimatedDeliveryDays})
-        checkout.availableShippingRates = (availableRates as any[]).map(rate => ({
-            name: rate.rateName ?? rate.name ?? "",
-            carrier: rate.zoneName ?? rate.carrier,
-            price: roundMoney(rate.price ?? 0),
-            estimatedDeliveryDays: rate.estimatedDays ?? rate.estimatedDeliveryDays,
-        }));
+        const sellerIds = [
+            ...new Set((checkout.items as any[]).map(item => itemSellerId(item, company._id))),
+        ];
+        const multiSeller = sellerIds.length > 1;
+
+        const normalizeRates = (availableRates: any[]) =>
+            availableRates.map(rate => ({
+                name: rate.rateName ?? rate.name ?? "",
+                carrier: rate.zoneName ?? rate.carrier,
+                price: roundMoney(rate.price ?? 0),
+                estimatedDeliveryDays: rate.estimatedDays ?? rate.estimatedDeliveryDays,
+            }));
+
+        const destination = {
+            destinationCountry: shippingAddress?.country,
+            destinationState: shippingAddress?.state,
+            destinationPostalCode: shippingAddress?.postalCode,
+        };
+
+        if (!multiSeller) {
+            const sellerCompanyId = new ObjectId(sellerIds[0] ?? company._id.toString());
+            const items = checkout.items as any[];
+            const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+            const totalWeight = items.reduce((sum, item) => {
+                const product = productOf(item);
+                return sum + Number(product?.weight ?? 0) * (KG_PER_UNIT[product?.weightUnit ?? "kg"] ?? 1) * item.quantity;
+            }, 0);
+            const needsShipping = items.some(item => {
+                const product = productOf(item);
+                return !product || (SHIPPED_TYPES.has(product.type) && product.requiresShipping !== false);
+            });
+            const availableRates = needsShipping
+                ? await calculateShipping(
+                    {subtotal: checkout.subtotal, itemCount: totalQuantity, totalWeight, ...destination},
+                    sellerCompanyId,
+                )
+                : [{rateName: "No shipping required", price: 0}];
+            checkout.availableShippingRates = normalizeRates(availableRates as any[]);
+            checkout.sellerGroups = [];
+        } else {
+            // Platform multi-seller: cheapest rate per seller, summed into one synthetic combined rate
+            const groups: NonNullable<ICheckout["sellerGroups"]> = [];
+            let shippingSum = 0;
+            for (const sellerId of sellerIds) {
+                const sellerCompanyId = new ObjectId(sellerId);
+                const items = (checkout.items as any[]).filter(item => itemSellerId(item, company._id) === sellerId);
+                const subtotal = items.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
+                const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+                const totalWeight = items.reduce((sum, item) => {
+                    const product = productOf(item);
+                    return sum + Number(product?.weight ?? 0) * (KG_PER_UNIT[product?.weightUnit ?? "kg"] ?? 1) * item.quantity;
+                }, 0);
+                const needsShipping = items.some(item => {
+                    const product = productOf(item);
+                    return !product || (SHIPPED_TYPES.has(product.type) && product.requiresShipping !== false);
+                });
+                const availableRates = needsShipping
+                    ? await calculateShipping(
+                        {subtotal, itemCount: totalQuantity, totalWeight, ...destination},
+                        sellerCompanyId,
+                    )
+                    : [{rateName: "No shipping required", price: 0}];
+                const rates = normalizeRates(availableRates as any[]);
+                const cheapest = [...rates].sort((a, b) => a.price - b.price)[0] ?? {name: "No shipping required", price: 0};
+                shippingSum = roundMoney(shippingSum + cheapest.price);
+                groups.push({
+                    sellerCompany: sellerCompanyId as any,
+                    subtotal: roundMoney(subtotal),
+                    shippingTotal: cheapest.price,
+                    taxTotal: 0,
+                    selectedShippingRate: cheapest,
+                });
+            }
+            checkout.sellerGroups = groups;
+            checkout.availableShippingRates = [{
+                name: "Combined shipping",
+                carrier: `${sellerIds.length} sellers`,
+                price: shippingSum,
+            }];
+        }
 
         // A new address invalidates the previously chosen rate and the tax computed for it
         checkout.selectedShippingRate = undefined;
@@ -294,21 +356,47 @@ router.post(
         const rate = Number.isInteger(rateIndex) ? rates[rateIndex] : undefined;
         if (!rate) throw apiValidationException("invalid_rate_index", null, null, languageCode);
 
+        const sellerIds = distinctSellerCompanyIds(checkout.items as any);
+        const promoCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : company._id;
         const appliedDiscountId = checkout.appliedDiscounts?.[0]?.discount;
         const freeShipping = appliedDiscountId
-            ? Boolean(await Discount.exists({_id: appliedDiscountId, company: company._id, type: "free_shipping", deletedAt: null}).session(session))
+            ? Boolean(await Discount.exists({_id: appliedDiscountId, company: promoCompanyId, type: "free_shipping", deletedAt: null}).session(session))
             : false;
 
         checkout.selectedShippingRate = rate;
-        checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
-        const tax = await calculateLinesTax(
-            checkout.items as any[],
-            checkout.discountTotal,
-            checkout.shippingAddress as any ?? {},
-            company._id,
-        );
-        checkout.taxTotal = tax.amount;
-        checkout.taxBreakdown = tax.breakdown;
+        if ((checkout.sellerGroups?.length ?? 0) > 1) {
+            // Combined multi-seller rate already priced; honour free shipping only when a single-seller promo applied
+            checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
+            let taxSum = 0;
+            const breakdown: {name: string; rate: number; amount: number}[] = [];
+            for (const group of checkout.sellerGroups ?? []) {
+                const sellerId = String(group.sellerCompany);
+                const items = (checkout.items as any[]).filter(item => itemSellerId(item, company._id) === sellerId);
+                const tax = await calculateLinesTax(
+                    items,
+                    0,
+                    checkout.shippingAddress as any ?? {},
+                    new ObjectId(sellerId),
+                );
+                group.taxTotal = tax.amount;
+                taxSum = roundMoney(taxSum + tax.amount);
+                breakdown.push(...tax.breakdown);
+                if (freeShipping) group.shippingTotal = 0;
+            }
+            checkout.taxTotal = taxSum;
+            checkout.taxBreakdown = breakdown;
+            checkout.markModified("sellerGroups");
+        } else {
+            checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
+            const tax = await calculateLinesTax(
+                checkout.items as any[],
+                checkout.discountTotal,
+                checkout.shippingAddress as any ?? {},
+                promoCompanyId,
+            );
+            checkout.taxTotal = tax.amount;
+            checkout.taxBreakdown = tax.breakdown;
+        }
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
@@ -424,7 +512,11 @@ router.post(
         }).session(session);
         if (!checkout) throw apiValidationException("checkout_not_found", null, null, languageCode);
 
-        const {order} = await placeOrderFromCheckout(checkout, {email, phone, notes}, placementCtx(params));
-        return {data: productOrderToBuyerDTO(order)};
+        const {order, siblingOrders} = await placeOrderFromCheckout(checkout, {email, phone, notes}, placementCtx(params));
+        const siblings = (siblingOrders ?? []).map(productOrderToBuyerDTO);
+        return {
+            data: productOrderToBuyerDTO(order),
+            ...(siblings.length > 0 ? {siblingOrders: siblings, siblingOrderIds: siblings.map(s => s._id)} : {}),
+        };
     }),
 );

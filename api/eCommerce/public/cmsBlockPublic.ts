@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
 import {cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.dto";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {sanitizeCmsHtml} from "@eCommerceModule/utilities/shop/cmsHtmlSanitizer";
 
 /**
@@ -22,11 +22,15 @@ router.get(
     asyncHandler(async (params: any) => {
         const {languageCode, origin} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
+        const ctx = await resolveShopContext(origin, languageCode);
+        // Platform apex uses a static marketing home — never one seller's CMS.
+        if (ctx.mode === "platform") {
+            return {data: []};
+        }
 
         const now = new Date();
         const blocks = await CmsBlock.find({
-            company: company._id,
+            company: ctx.company._id,
             isActive: true,
             $and: [
                 {$or: [{startsAt: null}, {startsAt: {$lte: now}}]},

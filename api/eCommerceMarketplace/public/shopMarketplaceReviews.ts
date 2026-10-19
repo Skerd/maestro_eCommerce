@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
 import Order from "@eCommerceModule/database/schemas/order/order";
 import Review from "@eCommerceModule/database/schemas/review/review";
-import {resolveShopCompany} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {toShopMarketplaceReview} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import {
     shopMarketplaceReviewsFormSchema,
@@ -31,22 +31,29 @@ router.post(
     asyncHandler(async (params: any & ShopMarketplaceReviewsFormType): Promise<ShopMarketplaceReviewsResponse> => {
         const {languageCode, origin, listingId, providerId, page = 1, limit = 10} = params;
 
-        const company = await resolveShopCompany(origin, languageCode);
-        const active = {company: company._id, status: "active"};
+        const ctx = await resolveShopContext(origin, languageCode);
+        const active: Record<string, unknown> = {status: "active"};
+        if (ctx.mode === "tenant") active.company = ctx.company._id;
 
         let filter: Record<string, unknown>;
         if (listingId) {
-            if (!(await Listing.findOne({...active, _id: new ObjectId(listingId)}).noDeleted().select("_id").lean())) {
+            const listing = await Listing.findOne({...active, _id: new ObjectId(listingId)}).noDeleted()
+                .select("_id company")
+                .lean();
+            if (!listing) {
                 throw apiValidationException("listing_not_found", null, null, languageCode);
             }
-            filter = {company: company._id, listing: new ObjectId(listingId)};
+            const sellerCompanyId = (listing as any).company;
+            filter = {company: sellerCompanyId, listing: new ObjectId(listingId)};
         } else {
             const provider = new ObjectId(providerId);
-            if (!(await Listing.findOne({...active, provider}).noDeleted().select("_id").lean())) {
+            const listing = await Listing.findOne({...active, provider}).noDeleted().select("_id company").lean();
+            if (!listing) {
                 throw apiValidationException("provider_not_found", null, null, languageCode);
             }
-            const orders = await Order.find({company: company._id, provider}).noDeleted().select("_id").lean();
-            filter = {company: company._id, order: {$in: orders.map((order) => order._id)}};
+            const sellerCompanyId = (listing as any).company;
+            const orders = await Order.find({company: sellerCompanyId, provider}).noDeleted().select("_id").lean();
+            filter = {company: sellerCompanyId, order: {$in: orders.map((order) => order._id)}};
         }
 
         const [reviews, total] = await Promise.all([
