@@ -181,7 +181,7 @@ export async function createProductOrders(
     company: ICompany,
     currencyId: Types.ObjectId,
     products: CreateProductsResult,
-    pickUser: (i: number) => Types.ObjectId,
+    customerId: Types.ObjectId,
     geo: {countryId?: Types.ObjectId; stateId?: Types.ObjectId; cityId?: Types.ObjectId},
     addr: typeof defaultCompaniesValues.address,
 ): Promise<CreateProductOrdersResult> {
@@ -246,7 +246,7 @@ export async function createProductOrders(
 
             const payload = {
                 orderNumber: seed.orderNumber,
-                customer: pickUser(oi + 1),
+                customer: customerId,
                 company: company._id,
                 items,
                 subtotal,

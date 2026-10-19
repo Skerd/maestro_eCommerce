@@ -10,7 +10,7 @@ import Order, {type IOrder} from "@eCommerceModule/database/schemas/order/order"
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {reviewService} from "@eCommerceModule/database/schemas/review/review.service";
 import {orderDeliveryService} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery.service";
-import {orderToDTO, ordersToDTO} from "@eCommerceModule/utilities/mappers/order/orderMapper.dto";
+import {orderToBuyerDTO, orderToDTO, ordersToDTO} from "@eCommerceModule/utilities/mappers/order/orderMapper.dto";
 import {ordersToSelect} from "@eCommerceModule/utilities/mappers/order/orderMapper.select";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
 import {orderPartyFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
@@ -18,7 +18,16 @@ import {orderSelectFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce
 import type {SelectResponse} from "armonia/src/modules/core/types/shared.types";
 import type {BaseCrudService, CrudOptions} from "@coreModule/database/services/baseCrudService";
 import {getModelCollectedData} from "@coreModule/database/collections";
-import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
+import {bookingService} from "@eCommerceModule/database/schemas/booking/booking.service";
+import {bookingsToDTOArray} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.dto";
+import {
+    myServiceOrdersFormSchema,
+    type MyServiceOrdersFormType,
+} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/myServiceOrders.form.validator";
 import type {Document, Model} from "mongoose";
 import OrderDelivery from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
 import OrderMilestone from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone";
@@ -155,3 +164,87 @@ export const {router} = createCrudRouter<IOrder>({
     actions: OrderActions,
     rateLimits: {read: 60, write: 30, delete: 20},
 });
+
+const BUYER_ORDER_POPULATE = [
+    {path: "listing", select: "name title status mainImage"},
+    {path: "taskRequest", select: "name title"},
+    {path: "provider", select: "name surname photo"},
+    {path: "currency", select: "name symbol abbreviation"},
+];
+
+/** Per-order flags the storefront account shows: delivery waiting, open dispute, reviewed. */
+async function buyerOrderFlags(orderIds: ObjectId[], companyId: ObjectId, opts: CrudOptions) {
+    const [submitted, disputed, reviews] = await Promise.all([
+        ordersWithSubmittedDelivery(orderIds, companyId, opts),
+        ordersWithActiveDispute(orderIds, companyId, opts),
+        reviewService.find({order: {$in: orderIds}, company: companyId}, opts, null, "order"),
+    ]);
+    const reviewed = new Set(reviews.map((review) => review.order._id.toString()));
+    return (order: IOrder) => {
+        const id = order._id.toString();
+        return orderToBuyerDTO(order, submitted.has(id), disputed.has(id), reviewed.has(id));
+    };
+}
+
+/**
+ * Buyer self-service routes (storefront account pages). Scoped hard to the
+ * authenticated customer — no admin model permissions required.
+ */
+router.post(
+    "/my",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(myServiceOrdersFormSchema),
+    asyncHandler(async (params: AuthenticatedMWType & MyServiceOrdersFormType) => {
+        const {company, actionUserCtx, logger, languageCode, status} = params;
+        const page = params.page ?? 1;
+        const limit = params.limit ?? 10;
+        const opts = {logger, languageCode};
+
+        const filter = {company: company._id, customer: new ObjectId(actionUserCtx.userId), ...(status && {status})};
+        const [orders, total] = await Promise.all([
+            orderService.find(filter, opts, BUYER_ORDER_POPULATE, undefined, {createdAt: -1}, limit, (page - 1) * limit),
+            orderService.count(filter, opts),
+        ]);
+        const toBuyerDTO = await buyerOrderFlags(orders.map((order) => order._id), company._id, opts);
+
+        return {data: orders.map(toBuyerDTO), total, page, limit};
+    }),
+);
+
+router.post(
+    "/mySingle",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(validateSingleForm),
+    asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
+        const {company, actionUserCtx, logger, languageCode, _id} = params;
+        const opts = {logger, languageCode};
+
+        const order = await orderService.findOne(
+            {_id: new ObjectId(_id), company: company._id, customer: new ObjectId(actionUserCtx.userId)},
+            opts,
+            BUYER_ORDER_POPULATE,
+        );
+        if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
+
+        const scope = {order: order._id, company: company._id};
+        const [toBuyerDTO, deliveries, milestones, revisions, bookings] = await Promise.all([
+            buyerOrderFlags([order._id], company._id, opts),
+            orderDeliveryService.find(scope, opts, ["attachments"], undefined, {createdAt: -1}),
+            orderMilestoneService.find(scope, opts, ["currency"], undefined, {orderIndex: 1}),
+            orderRevisionService.find(scope, opts, undefined, undefined, {createdAt: -1}),
+            bookingService.find(scope, opts, undefined, undefined, {startAt: 1}),
+        ]);
+
+        return {
+            data: {
+                ...toBuyerDTO(order),
+                deliveries: orderDeliveriesToDTO(deliveries),
+                milestones: orderMilestonesToDTO(milestones),
+                revisions: orderRevisionsToDTO(revisions),
+                bookings: bookingsToDTOArray(bookings),
+            },
+        };
+    }),
+);

@@ -36,15 +36,6 @@ export const defaultProviderProfileSeeds: readonly ProviderProfileSeed[] = [
         ],
         availability: weekdayBusinessHours,
     },
-    {
-        seedKey: "profile-customer",
-        bio: "DEMO marketplace buyer — founder seeding sample orders, tasks, reviews, and disputes across the Pronix tenant.",
-        skills: ["Product Management", "Brand Strategy"],
-        availability: [
-            {dayOfWeek: 2, startTime: "10:00", endTime: "12:00"},
-            {dayOfWeek: 4, startTime: "14:00", endTime: "16:00"},
-        ],
-    },
 ];
 
 export type CreateProviderProfilesResult = {
@@ -56,14 +47,12 @@ export async function createProviderProfiles(
     parentLogger: serverLogger,
     company: ICompany,
     providerUser: IUser,
-    customerUser: IUser,
 ): Promise<CreateProviderProfilesResult> {
     const logger = getLogger("mongoDbInitialization-createProviderProfiles", parentLogger);
     logger.start("Creating provider profiles...");
 
     const usersBySeedKey: Record<string, IUser> = {
         "profile-provider": providerUser,
-        "profile-customer": customerUser,
     };
 
     const providerProfiles: HydratedDocument<IProviderProfile>[] = [];

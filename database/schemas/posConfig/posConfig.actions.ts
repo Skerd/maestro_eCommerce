@@ -10,14 +10,11 @@ import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.
 import {setManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/setManagerPin.form.validator";
 import {changeManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/changeManagerPin.form.validator";
 import {clearManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/clearManagerPin.form.validator";
-import {requestManagerPinResetFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/requestManagerPinReset.form.validator";
 import {openManagerPinResetLinkFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/openManagerPinResetLink.form.validator";
 import {resetManagerPinFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/resetManagerPin.form.validator";
 import {
-    companyLockStatusFormSchema,
     pauseAllPosConfigsFormSchema,
     pausePosConfigFormSchema,
-    resumeAllPosConfigsFormSchema,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/posConfig/pausePosConfig.form.validator";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
 import {dispatchManagerPinResetEmail} from "@eCommerceModule/utilities/emails/dispatchManagerPinResetEmail";
@@ -265,7 +262,6 @@ export class PosConfigActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 10},
-        schema: resumeAllPosConfigsFormSchema,
         transaction: true,
     })
     async resumeAll(params: Record<string, any>): Promise<ActionMessage & {isPaused: false}> {
@@ -286,7 +282,6 @@ export class PosConfigActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 60},
-        schema: companyLockStatusFormSchema,
         transaction: false,
     })
     async companyLockStatus(params: Record<string, any>): Promise<{
@@ -436,7 +431,7 @@ export class PosConfigActions {
         auth: "private",
         rateLimit: {windowMs: 60000, max: 5},
         transaction: true,
-        schema: requestManagerPinResetFormSchema,
+        schema: validateSingleForm,
     })
     async requestManagerPinReset(params: Record<string, any>): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, actionUserInfo, _id} = params;

@@ -58,7 +58,7 @@ export class BidActions {
         transaction: true,
         schema: validateSingleForm,
     })
-    async accept(params: Record<string, any>): Promise<ActionMessage> {
+    async accept(params: Record<string, any>): Promise<ActionMessage & {_id: string}> {
         const p = params as TransactionRequiredParams & SingleForm;
         const {logger, languageCode, session, company, actionUserCtx, _id} = p;
         const writeOpts = {session, logger, languageCode, auditUserId: actionUserCtx.userId};
@@ -85,7 +85,7 @@ export class BidActions {
         );
         await taskRequestService.updateByIdOrThrow(taskRequest._id, {$set: {status: "awarded"}}, writeOpts);
 
-        await orderService.create(
+        const order = await orderService.create(
             {
                 taskRequest: taskRequest._id,
                 bid: bid._id,
@@ -105,7 +105,7 @@ export class BidActions {
 
         logger.finish(`Successfully accepted bid: ${_id}`);
 
-        return {message: "Bid accepted successfully"};
+        return {message: "Bid accepted successfully", _id: order._id.toString()};
     }
 
     /** The requester declines a bid, or the bidder withdraws it. Only a declined bidder is notified. */

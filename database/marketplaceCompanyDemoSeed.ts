@@ -24,29 +24,21 @@ import {createDisputes} from "@eCommerceModule/database/schemas/dispute/dispute.
 import {createBookings} from "@eCommerceModule/database/schemas/booking/booking.defaults";
 import {createPromotions} from "@eCommerceModule/database/schemas/promotion/promotion.defaults";
 
-/** Invoked from {@link seedCompanyDemoData} after the product catalog seed. */
-async function resolveDemoUsers(company: any, logger: serverLogger) {
-    const companyId = company._id;
+/**
+ * The main user (echo@echo.com) is both the provider and the buyer, so every
+ * marketplace demo row is visible from one login. Invoked from
+ * {@link seedCompanyDemoData} after the product catalog seed.
+ */
+async function resolveDemoUser(company: any, logger: serverLogger) {
     const mainUsername = defaultSysUsers.find((u) => u.isMainUser)?.username;
-    const provider =
+    const user =
         (mainUsername ? await User.findOne({username: mainUsername}) : null) ||
-        (await User.findOne({"roles.company": companyId})) ||
         (await User.findById(company.createdBy));
 
-    const customer =
-        (await User.findOne({username: "almir@leka.com"})) ||
-        (await User.findOne({
-            "roles.company": companyId,
-            _id: {$ne: provider?._id},
-        })) ||
-        provider;
-
-    if (!provider || !customer) {
-        logger.err("Could not resolve provider/customer users for marketplace demo.");
-        return null;
+    if (!user) {
+        logger.err("Could not resolve the demo user for marketplace demo.");
     }
-
-    return {provider, customer};
+    return user;
 }
 
 async function resolveDemoAddress(company: any, logger: serverLogger) {
@@ -86,15 +78,16 @@ export async function seedMarketplaceCompanyDemoData(parentLogger: serverLogger 
         return;
     }
 
-    const users = await resolveDemoUsers(company, logger);
-    if (!users) {
+    const user = await resolveDemoUser(company, logger);
+    if (!user) {
         logger.fail("Marketplace demo seed failed.");
         return;
     }
-    const {provider, customer} = users;
+    const provider = user;
+    const customer = user;
 
     await createListingCategories(logger, company);
-    await createProviderProfiles(logger, company, provider, customer);
+    await createProviderProfiles(logger, company, provider);
 
     const demoAddress = await resolveDemoAddress(company, logger);
     const listingAddress =

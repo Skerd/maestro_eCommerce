@@ -66,12 +66,9 @@ export async function seedECommerceDemoData(
         return undefined;
     }
 
-    const users = await User.find({"roles.company": company._id}).select("_id").limit(6).lean();
-    const staffIds = (users.length ? users.map((u: {_id: Types.ObjectId}) => u._id) : [company.createdBy]) as Types.ObjectId[];
-    const pickUser = (i: number) => staffIds[i % staffIds.length];
-
-    const demoCustomer = await User.findOne({username: "echo@echo.com"}).select("_id").lean();
-    const demoCustomerId = demoCustomer?._id as Types.ObjectId | undefined;
+    // Every demo row (orders, carts, groups, till) belongs to echo; the role users stay empty.
+    const demoUser = await User.findOne({username: "echo@echo.com"}).select("_id").lean();
+    const demoUserId = (demoUser?._id ?? company.createdBy) as Types.ObjectId;
 
     const addr = defaultCompaniesValues.address;
     const country = await Country.findOne({code: addr.countryCode, company: company._id}).select("_id").lean();
@@ -90,18 +87,18 @@ export async function seedECommerceDemoData(
     const variants = await createProductVariants(logger, company, currency._id, products, attributes);
     const inventories = await createInventories(logger, company, products, warehouses.primaryWarehouseId, variants);
     const collections = await createCollections(logger, company, products, productMedia);
-    await createSavedSearches(logger, company, demoCustomerId, collections);
+    await createSavedSearches(logger, company, demoUserId, collections);
     const groups = await createCustomerGroups(logger, company);
-    await createCustomerGroupMembers(logger, company, groups, staffIds);
+    await createCustomerGroupMembers(logger, company, groups, demoUserId);
     await createDiscounts(logger, company, collections);
     await createTaxZones(logger, company, geo);
     await createShippingZones(logger, company, geo);
     await createPricingRules(logger, company, groups, collections);
     await createCmsBlocks(logger, company, collections);
-    await createCustomerAddresses(logger, company, demoCustomerId, geo, addr);
-    const orders = await createProductOrders(logger, company, currency._id, products, pickUser, geo, addr);
-    const carts = await createCarts(logger, company, currency._id, products, demoCustomerId);
-    await createCheckouts(logger, company, currency._id, carts, orders, demoCustomerId, geo, addr);
+    await createCustomerAddresses(logger, company, demoUserId, geo, addr);
+    const orders = await createProductOrders(logger, company, currency._id, products, demoUserId, geo, addr);
+    const carts = await createCarts(logger, company, currency._id, products, demoUserId);
+    await createCheckouts(logger, company, currency._id, carts, orders, demoUserId, geo, addr);
     await createFulfillments(logger, company, orders);
     await createReturnRequests(logger, company, orders);
     await createDigitalDeliveries(logger, company, orders, products);
@@ -117,8 +114,7 @@ export async function seedECommerceDemoData(
         warehouses.primaryWarehouseId,
         fiscalConfig?._id,
     );
-    //@ts-ignore
-    const cashierId = (company.createdBy as Types.ObjectId) ?? staffIds[0];
+    const cashierId = demoUserId;
     const posSession = await createPosSessions(logger, company, posConfig?._id, currency._id, cashierId);
     await createPosOrders(
         logger,
@@ -128,7 +124,7 @@ export async function seedECommerceDemoData(
         posMethods,
         products,
         cashierId,
-        demoCustomerId,
+        demoUserId,
     );
     const warehouseIds: Record<string, Types.ObjectId> = {};
     for (const [key, doc] of Object.entries(warehouses.bySeedKey)) {

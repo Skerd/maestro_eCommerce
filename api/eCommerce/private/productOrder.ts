@@ -4,9 +4,8 @@ import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middleware
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
-import {myProductOrdersFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/myProductOrders.form.validator";
-import type {MyProductOrdersFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/myProductOrders.form.validator";
+import {validatePagedForm, validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import type {PagedForm} from "armonia/src/modules/core/types/shared.types";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
@@ -145,8 +144,8 @@ router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    validateFormZod(myProductOrdersFormSchema),
-    asyncHandler(async (params: AuthenticatedMWType & MyProductOrdersFormType) => {
+    validateFormZod(validatePagedForm),
+    asyncHandler(async (params: AuthenticatedMWType & PagedForm) => {
         const {company, actionUserCtx, logger, languageCode} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;

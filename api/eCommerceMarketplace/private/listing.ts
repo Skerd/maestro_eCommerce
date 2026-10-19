@@ -73,20 +73,8 @@ export const {router} = createCrudRouter<IListing, CreateListingFormType, EditLi
     extraListFilter: async ({featuredOnly, company, logger, languageCode}) => {
         if (!featuredOnly) return {};
 
-        const now = new Date();
         /** Dates live on Promotion docs; Listing.promotions is ObjectId[] — cannot $elemMatch startAt/endAt on Listing. */
-        const activePromotions = await promotionService.find(
-            {
-                company: company._id,
-                lifecycleStatus: "active",
-                startAt: {$lte: now},
-                endAt: {$gte: now},
-            },
-            {logger, languageCode},
-            null,
-            "_id listing",
-            {startAt: 1},
-        );
+        const activePromotions = await promotionService.findRunning(company._id, {logger, languageCode});
 
         return {
             _id: {$in: activePromotions.map((promotion) => nestedEntityToRef(promotion.listing))},

@@ -1,5 +1,10 @@
 import {ObjectId} from "mongodb";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, type CrudCreateParams} from "@coreModule/api/crudRouterFactory";
+import authMW from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {runAfterCommit} from "@coreModule/utilities/middlewares/transactionUtils";
@@ -16,6 +21,48 @@ import {disputeToDTO, disputesToDTO} from "@eCommerceModule/utilities/mappers/di
 import {disputesToSelect} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.select";
 import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
 import {isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+
+/** A party opens one dispute per non-final order; the initiator is the caller. */
+async function buildDisputeCreate({order: orderRef, reason, actionUserCtx, company, session, logger, languageCode}: CrudCreateParams<CreateDisputeFormType>) {
+    const opts = {session, logger, languageCode};
+    const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
+
+    if (!isOrderParty(order, actionUserCtx.userId, "customer") && !isOrderParty(order, actionUserCtx.userId, "provider")) {
+        throw apiValidationException("only_order_parties_can_raise_dispute", null, null, languageCode);
+    }
+    if (order.status === "cancelled" || order.status === "completed") {
+        throw apiValidationException("cannot_dispute_final_order", null, null, languageCode);
+    }
+    if (await disputeService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
+        throw apiValidationException("dispute_already_exists_for_order", null, null, languageCode);
+    }
+
+    return {
+        order: order._id,
+        initiator: new ObjectId(actionUserCtx.userId),
+        reason: reason.trim(),
+    };
+}
+
+/** Tells the other party of the order that a dispute was opened. */
+async function notifyDisputeOpened(created: IDispute, params: CrudCreateParams<CreateDisputeFormType>) {
+    const {session, logger, languageCode, company, actionUserCtx} = params;
+    const order = await orderService.findOneOrThrow({_id: created.order._id, company: company._id}, {session, logger, languageCode});
+    const otherParty = isOrderParty(order, actionUserCtx.userId, "customer") ? order.provider : order.customer;
+
+    await runAfterCommit(session, async () => {
+        emitNotificationEvent(NotificationEventCodes.DISPUTE_OPENED, {
+            receiverIds: [otherParty._id.toString()],
+            payload: {
+                companyId: company._id.toString(),
+                languageCode,
+                disputeId: created._id.toString(),
+                orderId: order._id.toString(),
+                orderName: order.name,
+            },
+        });
+    });
+}
 
 export const basePath = "/api/eCommerceMarketplace/dispute";
 export const {router} = createCrudRouter<IDispute, CreateDisputeFormType>({
@@ -37,45 +84,8 @@ export const {router} = createCrudRouter<IDispute, CreateDisputeFormType>({
         $and: [await orderChildFilter(company._id, actionUserCtx, {logger, languageCode})],
     }),
     extraSelectFilter: ({company, actionUserCtx, logger, languageCode}) => orderChildFilter(company._id, actionUserCtx, {logger, languageCode}),
-    /** A party opens one dispute per non-final order; the initiator is the caller. */
-    buildCreateData: async ({order: orderRef, reason, actionUserCtx, company, session, logger, languageCode}) => {
-        const opts = {session, logger, languageCode};
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
-
-        if (!isOrderParty(order, actionUserCtx.userId, "customer") && !isOrderParty(order, actionUserCtx.userId, "provider")) {
-            throw apiValidationException("only_order_parties_can_raise_dispute", null, null, languageCode);
-        }
-        if (order.status === "cancelled" || order.status === "completed") {
-            throw apiValidationException("cannot_dispute_final_order", null, null, languageCode);
-        }
-        if (await disputeService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
-            throw apiValidationException("dispute_already_exists_for_order", null, null, languageCode);
-        }
-
-        return {
-            order: order._id,
-            initiator: new ObjectId(actionUserCtx.userId),
-            reason: reason.trim(),
-        };
-    },
-    afterCreate: async (created, params) => {
-        const {session, logger, languageCode, company, actionUserCtx} = params;
-        const order = await orderService.findOneOrThrow({_id: created.order._id, company: company._id}, {session, logger, languageCode});
-        const otherParty = isOrderParty(order, actionUserCtx.userId, "customer") ? order.provider : order.customer;
-
-        await runAfterCommit(session, async () => {
-            emitNotificationEvent(NotificationEventCodes.DISPUTE_OPENED, {
-                receiverIds: [otherParty._id.toString()],
-                payload: {
-                    companyId: company._id.toString(),
-                    languageCode,
-                    disputeId: created._id.toString(),
-                    orderId: order._id.toString(),
-                    orderName: order.name,
-                },
-            });
-        });
-    },
+    buildCreateData: buildDisputeCreate,
+    afterCreate: notifyDisputeOpened,
     /** Status and resolution via DisputeActions. */
     buildUpdateData: () => ({}),
     /** Only an admin removes a dispute: an open one blocks delivery acceptance and the payout. */
@@ -94,3 +104,21 @@ export const {router} = createCrudRouter<IDispute, CreateDisputeFormType>({
     },
     actions: DisputeActions,
 });
+
+/** Buyer self-service create (storefront account): the same rules as PUT, without the model permission. */
+router.put(
+    "/createMine",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 30}),
+    transactionHandler(),
+    validateFormZod(createDisputeFormSchema),
+    asyncHandler(async (params: CrudCreateParams<CreateDisputeFormType>) => {
+        const {company, actionUserCtx, session, logger, languageCode} = params;
+        const created = await disputeService.create(
+            {...await buildDisputeCreate(params), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        await notifyDisputeOpened(created, params);
+        return {data: {_id: created._id.toString()}};
+    }),
+);

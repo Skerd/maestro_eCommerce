@@ -1,5 +1,5 @@
 import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
-import type {Order} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/order.dto";
+import type {BuyerServiceOrder, Order} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/order/order.dto";
 import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
 import type {SimpleUser} from "armonia/src/modules/core/dto/user.dto";
 import type {ListingSimple} from "armonia/src/modules/eCommerce/dto/listing.dto";
@@ -10,7 +10,7 @@ import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets
 import {ListingSimpleSnippet} from "@eCommerceModule/database/schemas/listing/listing.snippets";
 import {TaskRequestSimpleSnippet} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.snippets";
 import {BidSimpleSnippet} from "@eCommerceModule/database/schemas/bid/bid.snippets";
-import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {mapSnippet, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {mapOwnershipToDTO, mapSoftDeleteToDTO, mapLifeCycleToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function orderToDTO(order: IOrder, deliverySubmitted = false, hasActiveDispute = false): Order {
@@ -47,4 +47,18 @@ export function ordersToDTO(
             activeDisputeOrderIds?.has(order._id.toString()) ?? false,
         ),
     );
+}
+
+/** Storefront account view of an order; reads the image from a `listing` populated with `mainImage`. */
+export function orderToBuyerDTO(
+    order: IOrder,
+    deliverySubmitted: boolean,
+    hasActiveDispute: boolean,
+    reviewed: boolean,
+): BuyerServiceOrder {
+    return {
+        ...orderToDTO(order, deliverySubmitted, hasActiveDispute),
+        listingImage: nestedEntityToRef(order.listing?.mainImage)?.toString(),
+        reviewed,
+    };
 }

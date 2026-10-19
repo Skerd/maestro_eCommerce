@@ -5,8 +5,7 @@ import {getModelCollectedData} from "@coreModule/database/collections";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
-import {createCustomerGroupMemberFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/createCustomerGroupMember.form.validator";
-import {removeCustomerGroupMemberFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/removeCustomerGroupMember.form.validator";
+import {customerGroupMemberFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/customerGroupMember.form.validator";
 import CustomerGroupModel from "./customerGroup";
 import {customerGroupService} from "./customerGroup.service";
 import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
@@ -60,7 +59,7 @@ export class CustomerGroupActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
-        schema: createCustomerGroupMemberFormSchema,
+        schema: customerGroupMemberFormSchema,
         transaction: true,
     })
     async addMember(params: Record<string, any>): Promise<ActionMessage> {
@@ -94,7 +93,7 @@ export class CustomerGroupActions {
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 30},
-        schema: removeCustomerGroupMemberFormSchema,
+        schema: customerGroupMemberFormSchema,
         transaction: true,
     })
     async removeMember(params: Record<string, any>): Promise<ActionMessage> {

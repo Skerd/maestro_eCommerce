@@ -81,7 +81,7 @@ export class OrderActions {
         transaction: true,
         schema: createOrderFromListingFormSchema,
     })
-    async createFromListing(params: Record<string, any>): Promise<ActionMessage> {
+    async createFromListing(params: Record<string, any>): Promise<ActionMessage & {_id: string}> {
         const p = params as TransactionRequiredParams & CreateOrderFromListingFormType;
         const {logger, languageCode, session, company, actionUserCtx, listing: listingRef, package: packageRef, addOns: addOnRefs, note} = p;
         const opts = {session, logger, languageCode};
@@ -158,7 +158,7 @@ export class OrderActions {
 
         logger.finish(`Successfully created order from listing: ${listingRef}`);
 
-        return {message: "Order created successfully"};
+        return {message: "Order created successfully", _id: order._id.toString()};
     }
 
     @action({

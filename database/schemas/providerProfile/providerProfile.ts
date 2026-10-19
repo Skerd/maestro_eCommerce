@@ -4,6 +4,7 @@ import { ICompany } from "@coreModule/database/schemas/company/company";
 import { IMedia } from "@coreModule/database/schemas/media/media";
 import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import publicMediaPlugin from "@coreModule/database/plugins/publicMediaPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -102,6 +103,7 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
 );
 
 ownershipPlugin(ProviderProfileSchema);
+publicMediaPlugin(ProviderProfileSchema, {schemaDef: ProviderProfileSchemaDef});
 auditPlugin(ProviderProfileSchema);
 softDeletePlugin(ProviderProfileSchema);
 lifeCyclePlugin(ProviderProfileSchema);

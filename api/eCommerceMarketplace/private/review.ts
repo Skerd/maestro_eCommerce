@@ -1,7 +1,12 @@
 import {ObjectId, type ClientSession} from "mongodb";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, type CrudCreateParams} from "@coreModule/api/crudRouterFactory";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import authMW from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {createReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/review/createReview.form.validator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import type {CreateReviewFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/review/review.schema-def";
@@ -22,6 +27,8 @@ async function recalculateListingRating(
 ): Promise<void> {
     if (!review.listing) return;
     const listingId = review.listing._id;
+    // Callers pass whole route params; updateById spreads its options into the query, so only these go through
+    const opts = {session: ctx.session, logger: ctx.logger, languageCode: ctx.languageCode};
 
     // An aggregate skips the soft-delete filter, and restore writes deletedAt: null
     const agg = await reviewService.aggregate(
@@ -29,11 +36,35 @@ async function recalculateListingRating(
             {$match: {listing: listingId, deletedAt: null}},
             {$group: {_id: null, avg: {$avg: "$rating"}, count: {$sum: 1}}},
         ],
-        ctx,
+        opts,
     );
     const avg = agg.length > 0 ? Math.round(agg[0].avg * 10) / 10 : 0;
     const count = agg.length > 0 ? agg[0].count : 0;
-    await listingService.updateById(listingId, {$set: {avgRating: avg, reviewCount: count}}, ctx);
+    await listingService.updateById(listingId, {$set: {avgRating: avg, reviewCount: count}}, opts);
+}
+
+/** The customer reviews a completed order once; listing and reviewer are derived server-side. */
+async function buildReviewCreate({order: orderRef, rating, comment, actionUserCtx, company, session, logger, languageCode}: CrudCreateParams<CreateReviewFormType>) {
+    const opts = {session, logger, languageCode};
+    const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
+
+    if (order.status !== "completed") {
+        throw apiValidationException("order_must_be_completed_to_review", null, null, languageCode);
+    }
+    if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
+        throw apiValidationException("only_customer_can_review", null, null, languageCode);
+    }
+    if (await reviewService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
+        throw apiValidationException("order_already_reviewed", null, null, languageCode);
+    }
+
+    return {
+        order: order._id,
+        ...(order.listing && {listing: order.listing._id}),
+        rating,
+        comment: comment ?? "",
+        reviewer: new ObjectId(actionUserCtx.userId),
+    };
 }
 
 export const basePath = "/api/eCommerceMarketplace/review";
@@ -51,29 +82,7 @@ export const {router} = createCrudRouter<IReview, CreateReviewFormType>({
     toDTO: reviewToDTO,
     toDTOArray: reviewsToDTO,
     toSelect: reviewsToSelect,
-    /** The customer reviews a completed order once; listing and reviewer are derived server-side. */
-    buildCreateData: async ({order: orderRef, rating, comment, actionUserCtx, company, session, logger, languageCode}) => {
-        const opts = {session, logger, languageCode};
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
-
-        if (order.status !== "completed") {
-            throw apiValidationException("order_must_be_completed_to_review", null, null, languageCode);
-        }
-        if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
-            throw apiValidationException("only_customer_can_review", null, null, languageCode);
-        }
-        if (await reviewService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
-            throw apiValidationException("order_already_reviewed", null, null, languageCode);
-        }
-
-        return {
-            order: order._id,
-            ...(order.listing && {listing: order.listing._id}),
-            rating,
-            comment: comment ?? "",
-            reviewer: new ObjectId(actionUserCtx.userId),
-        };
-    },
+    buildCreateData: buildReviewCreate,
     buildUpdateData: () => ({}),
     afterCreate: async (created, params) => {
         await recalculateListingRating(created, params);
@@ -96,3 +105,21 @@ export const {router} = createCrudRouter<IReview, CreateReviewFormType>({
         afterRestore: (deleted, params) => recalculateListingRating(deleted, params),
     }),
 });
+
+/** Buyer self-service create (storefront account): the same rules as PUT, without the model permission. */
+router.put(
+    "/createMine",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 30}),
+    transactionHandler(),
+    validateFormZod(createReviewFormSchema),
+    asyncHandler(async (params: CrudCreateParams<CreateReviewFormType>) => {
+        const {company, actionUserCtx, session, logger, languageCode} = params;
+        const created = await reviewService.create(
+            {...await buildReviewCreate(params), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        await recalculateListingRating(created, params);
+        return {data: {_id: created._id.toString()}};
+    }),
+);

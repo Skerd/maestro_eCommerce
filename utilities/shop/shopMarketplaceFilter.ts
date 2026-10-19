@@ -1,0 +1,77 @@
+import {ObjectId} from "mongodb";
+import {escapeRegex} from "@coreModule/utilities/helpers";
+import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
+import {promotionService} from "@eCommerceModule/database/schemas/promotion/promotion.service";
+import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
+import type {ShopPromotionMap} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
+import type {ShopListingsFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.form.validator";
+
+/** A category slug and every category below it; null when the slug matches nothing. */
+async function listingCategoryScope(companyId: ObjectId, slug: string): Promise<ObjectId[] | null> {
+    const categories: any[] = await ListingCategory.find({company: companyId}).noDeleted()
+        .select("slug parentListingCategory")
+        .lean();
+    const root = categories.find((category) => category.slug === slug);
+    if (!root) return null;
+
+    const scope: ObjectId[] = [root._id];
+    for (let i = 0; i < scope.length; i++) {
+        const parentId = scope[i].toString();
+        for (const category of categories) {
+            if (category.parentListingCategory?.toString() === parentId) scope.push(category._id);
+        }
+    }
+    return scope;
+}
+
+/**
+ * Storefront listing filter: active listings of the shop company narrowed by
+ * the browse form. Null when the category slug is unknown (an empty page).
+ */
+export async function buildShopListingFilter(
+    companyId: ObjectId,
+    form: ShopListingsFormType,
+): Promise<Record<string, unknown> | null> {
+    const filter: Record<string, unknown> = {company: companyId, status: "active"};
+
+    if (form.search?.trim()) {
+        const term = escapeRegex(form.search.trim());
+        filter.$or = [
+            {title: {$regex: term, $options: "i"}},
+            {tags: {$regex: term, $options: "i"}},
+            {description: {$regex: term, $options: "i"}},
+        ];
+    }
+    if (form.categorySlug) {
+        const scope = await listingCategoryScope(companyId, form.categorySlug);
+        if (!scope) return null;
+        filter.category = {$in: scope};
+    }
+    if (form.countryId) filter["address.country"] = new ObjectId(form.countryId);
+    if (form.stateId) filter["address.state"] = new ObjectId(form.stateId);
+    if (form.cityId) filter["address.city"] = new ObjectId(form.cityId);
+    if (form.pricingType) filter.pricingType = form.pricingType;
+    if (form.priceMin != null || form.priceMax != null) {
+        filter.price = {
+            ...(form.priceMin != null && {$gte: form.priceMin}),
+            ...(form.priceMax != null && {$lte: form.priceMax}),
+        };
+    }
+    if (form.minRating) {
+        filter.avgRating = {$gte: form.minRating};
+        filter.reviewCount = {$gt: 0};
+    }
+    return filter;
+}
+
+/** Listings with a promotion running now, keyed by listing id. */
+export async function shopPromotionMap(companyId: ObjectId, opts: CrudOptions): Promise<ShopPromotionMap> {
+    const promotions = await promotionService.findRunning(companyId, opts);
+    const map: ShopPromotionMap = new Map();
+    for (const promotion of promotions) {
+        const listingId = (promotion.listing?._id ?? promotion.listing)?.toString();
+        // A sponsored slot outranks a featured one on the same listing
+        if (listingId && map.get(listingId) !== "sponsored") map.set(listingId, promotion.type ?? "featured");
+    }
+    return map;
+}

@@ -1,6 +1,15 @@
 import {ObjectId} from "mongodb";
 import {mediaUploadMW} from "@coreModule/utilities/middlewares/mediaUploadMW";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, type CrudCreateParams} from "@coreModule/api/crudRouterFactory";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {validatePagedForm, validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
+import type {PagedForm} from "armonia/src/modules/core/types/shared.types";
+import {bidsToDTOArray} from "@eCommerceModule/utilities/mappers/bid/bidMapper.dto";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {
@@ -49,6 +58,16 @@ async function liveBidCounts(taskRequestIds: ObjectId[], companyId: ObjectId, op
         opts,
     );
     return new Map(counts.map((row: {_id: ObjectId; count: number}) => [row._id.toString(), row.count]));
+}
+
+/** The caller posts the request; it opens now and expires on the standard window. */
+function buildTaskRequestCreate(params: CrudCreateParams<CreateTaskRequestFormType>) {
+    return {
+        ...buildCreate(params),
+        requester: new ObjectId(params.actionUserCtx.userId),
+        status: "open" as const,
+        expiresAt: taskRequestExpiry(),
+    };
 }
 
 export const basePath = "/api/eCommerceMarketplace/taskRequest";
@@ -111,12 +130,7 @@ export const {router} = createCrudRouter<ITaskRequest, CreateTaskRequestFormType
         const {logger, languageCode, company} = params;
         return taskRequestToDTO(doc, await bidService.count({taskRequest: doc._id, company: company._id}, {logger, languageCode}));
     },
-    buildCreateData: (params) => ({
-        ...buildCreate(params),
-        requester: new ObjectId(params.actionUserCtx.userId),
-        status: "open",
-        expiresAt: taskRequestExpiry(),
-    }),
+    buildCreateData: buildTaskRequestCreate,
     buildUpdateData: (params, writeFields) => {
         assertOwnerOrAdmin(params.existing.requester, params.actionUserCtx, params.languageCode);
         return buildUpdate(params, writeFields);
@@ -128,3 +142,78 @@ export const {router} = createCrudRouter<ITaskRequest, CreateTaskRequestFormType
     rateLimits: {read: 60, write: 30, delete: 20},
     actions: TaskRequestActions,
 });
+
+const BUYER_TASK_POPULATE = ["category", "currency", "address.country", "address.state", "address.city"];
+
+/**
+ * Buyer self-service routes (storefront account pages). Scoped hard to the
+ * authenticated requester — no admin model permissions required.
+ */
+router.post(
+    "/my",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(validatePagedForm),
+    asyncHandler(async (params: AuthenticatedMWType & PagedForm) => {
+        const {company, actionUserCtx, logger, languageCode} = params;
+        const page = params.page ?? 1;
+        const limit = params.limit ?? 10;
+        const opts = {logger, languageCode};
+
+        const filter = {company: company._id, requester: new ObjectId(actionUserCtx.userId)};
+        const [taskRequests, total] = await Promise.all([
+            taskRequestService.find(filter, opts, BUYER_TASK_POPULATE, undefined, {createdAt: -1}, limit, (page - 1) * limit),
+            taskRequestService.count(filter, opts),
+        ]);
+        const counts = await liveBidCounts(taskRequests.map((doc) => doc._id), company._id, opts);
+
+        return {data: taskRequestsToDTO(taskRequests, counts), total, page, limit};
+    }),
+);
+
+router.post(
+    "/mySingle",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 60}),
+    validateFormZod(validateSingleForm),
+    asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
+        const {company, actionUserCtx, logger, languageCode, _id} = params;
+        const opts = {logger, languageCode};
+
+        const taskRequest = await taskRequestService.findOne(
+            {_id: new ObjectId(_id), company: company._id, requester: new ObjectId(actionUserCtx.userId)},
+            opts,
+            BUYER_TASK_POPULATE,
+        );
+        if (!taskRequest) throw apiValidationException("task_request_not_found", "", null, languageCode);
+
+        const bids = await bidService.find(
+            {taskRequest: taskRequest._id, company: company._id},
+            opts,
+            [{path: "bidder", select: "name surname photo"}, "currency"],
+            undefined,
+            {createdAt: -1},
+        );
+
+        return {data: {...taskRequestToDTO(taskRequest, bids.length), bids: bidsToDTOArray(bids)}};
+    }),
+);
+
+/** Buyer self-service create (storefront account): the same rules as PUT, without the model permission. */
+router.put(
+    "/createMine",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 30}),
+    transactionHandler(),
+    mediaUpload,
+    validateFormZod(createTaskRequestFormSchema),
+    asyncHandler(async (params: CrudCreateParams<CreateTaskRequestFormType>) => {
+        const {company, actionUserCtx, session, logger, languageCode} = params;
+        const created = await taskRequestService.create(
+            {...buildTaskRequestCreate(params), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        await notifyMatchingProviders(created, params);
+        return {data: {_id: created._id.toString()}};
+    }),
+);

@@ -9,10 +9,7 @@ import {EncryptString, DecryptString} from "@coreModule/utilities/security/encry
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {SaveOdooConnectionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/odooConnection/odooConnection.schema-def";
 import type {OdooConnection, OdooConnectionTestResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/odooConnection/odooConnection.dto";
-import {
-    odooConnectionReadFormSchema,
-    saveOdooConnectionFormSchema,
-} from "armonia/src/modules/eCommerce/api/eCommerce/private/odooConnection/saveOdooConnection.form.validator";
+import {saveOdooConnectionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/odooConnection/saveOdooConnection.form.validator";
 import OdooConnectionModel from "@eCommerceModule/database/schemas/odooConnection/odooConnection";
 import {odooConnectionService} from "@eCommerceModule/database/schemas/odooConnection/odooConnection.service";
 import {odooConnectionToDTO} from "@eCommerceModule/utilities/mappers/odooConnection/odooConnectionMapper.dto";
@@ -42,7 +39,6 @@ router.get(
     "",
     authMW("private"),
     readLimiter,
-    validateFormZod(odooConnectionReadFormSchema),
     schemaSanitizer({model: "odooconnections", requiredModes: ["read"]}),
     asyncHandler(async (params: AuthenticatedMWType): Promise<{data: OdooConnection | null}> => {
         const doc = await loadConnection(params);
