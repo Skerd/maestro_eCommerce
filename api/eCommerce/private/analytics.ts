@@ -12,7 +12,6 @@ import Cart from "@eCommerceModule/database/schemas/cart/cart";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
-import Product from "@eCommerceModule/database/schemas/product/product";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import {ObjectId} from "mongodb";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -24,6 +23,8 @@ const readLimiter = rateLimiter({windowMs: 60000, max: 60});
 
 /** Orders whose money counts as revenue (refunds are netted out separately). */
 const REVENUE_PAYMENT_STATUSES = ["paid", "partially_refunded"];
+
+type SeriesBucket = "day" | "week" | "month";
 
 /**
  * Store analytics expose company-wide money and stock figures, so they require
@@ -85,6 +86,83 @@ function dateRange(period: string): {start: Date; end: Date} {
     return {start, end};
 }
 
+/** Window of equal length immediately before the current period. */
+function previousDateRange(period: string): {start: Date; end: Date} {
+    const {start, end} = dateRange(period);
+    const durationMs = end.getTime() - start.getTime();
+    return {
+        start: new Date(start.getTime() - durationMs),
+        end: new Date(start.getTime()),
+    };
+}
+
+function seriesBucket(period: string): SeriesBucket {
+    if (period === "90d") return "week";
+    if (period === "1y") return "month";
+    return "day";
+}
+
+/** Matches Mongo `$dateToString` formats used in the series `$group`. */
+function mongoDateFormat(bucket: SeriesBucket): string {
+    if (bucket === "week") return "%G-W%V";
+    if (bucket === "month") return "%Y-%m";
+    return "%Y-%m-%d";
+}
+
+/** ISO week key aligned with Mongo `%G-W%V`. */
+function isoWeekKey(date: Date): string {
+    const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = utc.getUTCDay() || 7;
+    utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((utc.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${utc.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+function bucketKey(date: Date, bucket: SeriesBucket): string {
+    if (bucket === "week") return isoWeekKey(date);
+    if (bucket === "month") {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function fillSeries(
+    rows: {_id?: unknown; revenue?: unknown; orders?: unknown}[],
+    start: Date,
+    end: Date,
+    bucket: SeriesBucket,
+): {_id: string; revenue: number; orders: number}[] {
+    const byKey = new Map(
+        rows.map((row) => [
+            String(row._id),
+            {revenue: Number(row.revenue ?? 0), orders: Number(row.orders ?? 0)},
+        ]),
+    );
+    const keys: string[] = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    while (cursor <= endDay) {
+        const key = bucketKey(cursor, bucket);
+        if (keys[keys.length - 1] !== key) keys.push(key);
+        if (bucket === "month") {
+            cursor.setMonth(cursor.getMonth() + 1);
+            cursor.setDate(1);
+        } else if (bucket === "week") {
+            cursor.setDate(cursor.getDate() + 7);
+        } else {
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    }
+
+    return keys.map((key) => ({
+        _id: key,
+        revenue: byKey.get(key)?.revenue ?? 0,
+        orders: byKey.get(key)?.orders ?? 0,
+    }));
+}
+
 /**
  * Money is never summed across currencies: revenue figures are for one
  * currency — `?currency=<id>`, or else the one with the most paid orders in
@@ -116,6 +194,43 @@ async function revenueCurrency(req: Request, companyId: ObjectId, start: Date, e
     };
 }
 
+async function revenueTotals(
+    companyId: ObjectId,
+    currencyId: ObjectId | null,
+    start: Date,
+    end: Date,
+) {
+    const [result] = await productOrderService.aggregate([
+        {
+            $match: {
+                company: companyId,
+                createdAt: {$gte: start, $lte: end},
+                paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
+                currency: currencyId,
+                "deletedAt": null,
+            },
+        },
+        ...netOfRefundsStages(),
+        {
+            $group: {
+                _id: null,
+                totalRevenue: {$sum: "$netTotal"},
+                orderCount: {$sum: 1},
+                averageOrderValue: {$avg: "$netTotal"},
+                totalTax: {$sum: "$taxTotal"},
+                totalShipping: {$sum: "$shippingTotal"},
+            },
+        },
+    ]);
+    return {
+        totalRevenue: result?.totalRevenue ?? 0,
+        orderCount: result?.orderCount ?? 0,
+        averageOrderValue: result?.averageOrderValue ?? 0,
+        totalTax: result?.totalTax ?? 0,
+        totalShipping: result?.totalShipping ?? 0,
+    };
+}
+
 // Revenue analytics
 router.get(
     "/revenue",
@@ -126,60 +241,46 @@ router.get(
         assertCanRead(params, ProductOrder, "grandTotal");
         const period = queryString(req, "period", "30d");
         const {start, end} = dateRange(period);
+        const previous = previousDateRange(period);
         const {currencyId, currency, currencies} = await revenueCurrency(req, company._id, start, end);
+        const bucket = seriesBucket(period);
 
-        const [result] = await productOrderService.aggregate([
-            {
-                $match: {
-                    company: company._id,
-                    createdAt: {$gte: start, $lte: end},
-                    paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
-                    currency: currencyId,
-                    "deletedAt": null,
+        const [current, prior, seriesRows] = await Promise.all([
+            revenueTotals(company._id, currencyId, start, end),
+            revenueTotals(company._id, currencyId, previous.start, previous.end),
+            productOrderService.aggregate([
+                {
+                    $match: {
+                        company: company._id,
+                        createdAt: {$gte: start, $lte: end},
+                        paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
+                        currency: currencyId,
+                        "deletedAt": null,
+                    },
                 },
-            },
-            ...netOfRefundsStages(),
-            {
-                $group: {
-                    _id: null,
-                    totalRevenue: {$sum: "$netTotal"},
-                    orderCount: {$sum: 1},
-                    averageOrderValue: {$avg: "$netTotal"},
-                    totalTax: {$sum: "$taxTotal"},
-                    totalShipping: {$sum: "$shippingTotal"},
+                ...netOfRefundsStages(),
+                {
+                    $group: {
+                        _id: {$dateToString: {format: mongoDateFormat(bucket), date: "$createdAt"}},
+                        revenue: {$sum: "$netTotal"},
+                        orders: {$sum: 1},
+                    },
                 },
-            },
-        ]);
-
-        const dailyRevenue = await productOrderService.aggregate([
-            {
-                $match: {
-                    company: company._id,
-                    createdAt: {$gte: start, $lte: end},
-                    paymentStatus: {$in: REVENUE_PAYMENT_STATUSES},
-                    currency: currencyId,
-                    "deletedAt": null,
-                },
-            },
-            ...netOfRefundsStages(),
-            {
-                $group: {
-                    _id: {$dateToString: {format: "%Y-%m-%d", date: "$createdAt"}},
-                    revenue: {$sum: "$netTotal"},
-                    orders: {$sum: 1},
-                },
-            },
-            {$sort: {"_id": 1}},
+                {$sort: {"_id": 1}},
+            ]),
         ]);
 
         return {
             data: {
-                totalRevenue: result?.totalRevenue ?? 0,
-                orderCount: result?.orderCount ?? 0,
-                averageOrderValue: result?.averageOrderValue ?? 0,
-                totalTax: result?.totalTax ?? 0,
-                totalShipping: result?.totalShipping ?? 0,
-                daily: dailyRevenue,
+                totalRevenue: current.totalRevenue,
+                orderCount: current.orderCount,
+                averageOrderValue: current.averageOrderValue,
+                totalTax: current.totalTax,
+                totalShipping: current.totalShipping,
+                previousTotalRevenue: prior.totalRevenue,
+                previousOrderCount: prior.orderCount,
+                previousAverageOrderValue: prior.averageOrderValue,
+                daily: fillSeries(seriesRows, start, end, bucket),
                 currency,
                 currencies,
             },
@@ -281,7 +382,12 @@ router.get(
 
         return {
             data: {
-                topProducts,
+                topProducts: topProducts.map((row) => ({
+                    _id: String(row._id),
+                    title: row.title,
+                    totalSold: Number(row.totalSold ?? 0),
+                    totalRevenue: Number(row.totalRevenue ?? 0),
+                })),
                 byStatus: countsByKey(statusCounts),
                 currency,
             },
