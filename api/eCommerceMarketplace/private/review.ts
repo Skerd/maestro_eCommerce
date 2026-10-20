@@ -17,7 +17,7 @@ import {reviewService} from "@eCommerceModule/database/schemas/review/review.ser
 import {reviewToDTO, reviewsToDTO} from "@eCommerceModule/utilities/mappers/review/reviewMapper.dto";
 import {reviewsToSelect} from "@eCommerceModule/utilities/mappers/review/reviewMapper.select";
 import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import type {serverLogger} from "@coreModule/loggers/serverLog";
 
 /** Recomputes a listing's average rating and review count from its live reviews. */

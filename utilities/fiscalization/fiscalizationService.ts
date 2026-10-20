@@ -24,7 +24,7 @@ import {
     type OrderedDict,
 } from "./fiscalSoap";
 import {buildUblInvoiceXml} from "./ublInvoice";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 
 

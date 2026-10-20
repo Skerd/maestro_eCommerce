@@ -19,7 +19,7 @@ import {orderService} from "@eCommerceModule/database/schemas/order/order.servic
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {disputeToDTO, disputesToDTO} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.dto";
 import {disputesToSelect} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.select";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 /** A party opens one dispute per non-final order; the initiator is the caller. */

@@ -18,7 +18,7 @@ import {
     repriceCart,
     toValidationCart,
 } from "@eCommerceModule/utilities/services/cartPricingService";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
 import {
     addCartItemFormSchema,

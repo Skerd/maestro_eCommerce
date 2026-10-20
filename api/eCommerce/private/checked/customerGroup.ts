@@ -17,7 +17,7 @@ import {CustomerGroupSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerc
 import {createCustomerGroupFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/createCustomerGroup.form.validator";
 import {editCustomerGroupFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroup/editCustomerGroup.form.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerce/customerGroup";
 export const {router} = createCrudRouter({

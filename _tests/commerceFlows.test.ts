@@ -46,7 +46,7 @@ import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import Collection from "@eCommerceModule/database/schemas/collection/collection";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import {assertValidBundle} from "@eCommerceModule/database/schemas/product/product.actions";
 import ReturnRequest from "@eCommerceModule/database/schemas/returnRequest/returnRequest";

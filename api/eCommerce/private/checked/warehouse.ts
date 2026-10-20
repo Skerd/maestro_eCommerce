@@ -11,7 +11,7 @@ import {warehousesToSelect} from "@eCommerceModule/utilities/mappers/warehouse/w
 import {detachWarehouseFromPosConfigsOrThrow} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerce/warehouse";
 export const {router} = createCrudRouter({

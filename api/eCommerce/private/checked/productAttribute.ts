@@ -9,7 +9,7 @@ import ProductVariant from "@eCommerceModule/database/schemas/productVariant/pro
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
 import {productAttributeToDTO, productAttributesToDTO} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.dto";
 import {productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.select";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerce/productAttribute";
 export const {router} = createCrudRouter({

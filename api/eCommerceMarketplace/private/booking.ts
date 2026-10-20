@@ -13,7 +13,7 @@ import {bookingService} from "@eCommerceModule/database/schemas/booking/booking.
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {bookingToDTO, bookingsToDTOArray} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.dto";
 import {bookingsToSelect} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.select";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {assertOwnerOrAdmin, isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 function assertValidBookingRange(startAt: Date, endAt: Date, languageCode: string): void {

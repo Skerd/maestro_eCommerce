@@ -20,7 +20,7 @@ import {
 } from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMapper.dto";
 import {providerProfilesToSelect} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMapper.select";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 const buildCreate = buildCreateDataFromSchemaDef(ProviderProfileSchemaDef);
 const buildUpdate = buildUpdateDataFromSchemaDef(ProviderProfileSchemaDef);

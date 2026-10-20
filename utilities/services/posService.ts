@@ -39,7 +39,7 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";

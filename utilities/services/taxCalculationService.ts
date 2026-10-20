@@ -4,7 +4,7 @@ import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 
 export type ShippingAddress = {

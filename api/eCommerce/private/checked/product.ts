@@ -13,7 +13,7 @@ import {productOrderService} from "@eCommerceModule/database/schemas/productOrde
 import {assertPricedWhenActive, assertValidBundle, ProductActions} from "@eCommerceModule/database/schemas/product/product.actions";
 import {productsToDTO, productToDTO} from "@eCommerceModule/utilities/mappers/product/productMapper.dto";
 import {productsToSelect} from "@eCommerceModule/utilities/mappers/product/productMapper.select";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 const mediaUpload = mediaUploadMW({
     fields: {mainImage: 1, gallery: 20, documents: 20},

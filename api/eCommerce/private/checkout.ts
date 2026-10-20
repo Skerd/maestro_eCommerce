@@ -16,7 +16,7 @@ import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard
 import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
 import {distinctSellerCompanyIds, repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {
     assertDiscountUsable,
     placeOrderFromCheckout,

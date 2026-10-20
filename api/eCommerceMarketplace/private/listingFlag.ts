@@ -14,7 +14,7 @@ import type {
 import {listingFlagToDTO, listingFlagsToDTO} from "@eCommerceModule/utilities/mappers/listingFlag/listingFlagMapper.dto";
 import {listingFlagsToSelect} from "@eCommerceModule/utilities/mappers/listingFlag/listingFlagMapper.select";
 import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 export const basePath = "/api/eCommerceMarketplace/listingFlag";
 export const {router} = createCrudRouter<IListingFlag, CreateListingFlagFormType, EditListingFlagFormType>({

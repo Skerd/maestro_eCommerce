@@ -1,7 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 
 export type CartForValidation = {
     subtotal: number;

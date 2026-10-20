@@ -9,7 +9,7 @@ import {
     validateDiscountForCustomer,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 

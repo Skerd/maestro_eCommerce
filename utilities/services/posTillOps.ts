@@ -16,7 +16,7 @@ import {
     managerPinMatchesForUser,
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
-import {roundMoney} from "@eCommerceModule/utilities/services/money";
+import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {assertPosSellable, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
 type Ctx = {

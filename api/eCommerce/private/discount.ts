@@ -28,7 +28,7 @@ import {
     validateDiscount,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
-import {restoreUnlessKeyTaken} from "@eCommerceModule/utilities/services/restoreUnlessKeyTaken";
+import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
