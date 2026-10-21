@@ -9,7 +9,7 @@ import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
 import {resolveListingPhotoIds} from "@eCommerceModule/database/demo/marketplace.demo.media";
-import {resolveDemoImagesFromUnsplash} from "@eCommerceModule/database/demo/demoMedia";
+import {resolveDemoImagesFromUnsplash} from "@coreModule/database/demo/demoMedia";
 
 /** Address a seeded listing advertises; omitted when the geo seeds did not resolve. */
 export type DemoListingAddress = {

@@ -12,7 +12,7 @@ import {
     type BlogCategorySeed,
 } from "@coreModule/database/schemas/blogCategory/blogCategory.defaults";
 import {createBlogPosts, type BlogPostSeed} from "@coreModule/database/schemas/blogPost/blogPost.defaults";
-import {resolveDemoImagesFromUnsplash} from "@eCommerceModule/database/demo/demoMedia";
+import {resolveDemoImagesFromUnsplash} from "@coreModule/database/demo/demoMedia";
 
 const BLOG_CATEGORY_SEEDS: readonly BlogCategorySeed[] = [
     {

@@ -10,7 +10,7 @@ import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {demoName} from "@coreModule/utilities/helpers";
 import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
 import {resolveTaskRequestPhotoIds} from "@eCommerceModule/database/demo/marketplace.demo.media";
-import {resolveDemoImagesFromUnsplash} from "@eCommerceModule/database/demo/demoMedia";
+import {resolveDemoImagesFromUnsplash} from "@coreModule/database/demo/demoMedia";
 
 export type DemoTaskAddress = {
     street: string;
