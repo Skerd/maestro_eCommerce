@@ -198,7 +198,7 @@ describe("order auto-complete", {timeout: 30000}, () => {
         // Raw write: the model's update middleware keeps createdAt fixed
         await OrderDelivery.collection.updateOne({order: orderId}, {$set: {createdAt: new Date(Date.now() - 4 * DAY_MS)}});
 
-        await runOrderAutoComplete(logger);
+        await runOrderAutoComplete(companyId, logger);
 
         expect((await Order.findById(orderId))!.status).toBe("completed");
         expect(await escrowBalance(orderId, companyId, {})).toBe(0);
@@ -209,7 +209,7 @@ describe("order auto-complete", {timeout: 30000}, () => {
         await Order.updateOne({_id: orderId}, {$set: {deliveryDueDate: new Date(Date.now() - 30 * DAY_MS)}});
         await new OrderActions().submitDelivery({...as(providerId), _id: orderId.toString(), message: "Late but done"});
 
-        await runOrderAutoComplete(logger);
+        await runOrderAutoComplete(companyId, logger);
 
         expect((await Order.findById(orderId))!.status).toBe("in_progress");
     });

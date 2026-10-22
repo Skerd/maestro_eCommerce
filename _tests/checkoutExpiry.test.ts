@@ -60,7 +60,7 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
     it("expires an overdue checkout and releases its hold", async () => {
         const {inventory, checkout} = await seedOverdueCodCheckout();
 
-        await runCheckoutExpiry();
+        await runCheckoutExpiry(companyId);
 
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(0);
         const expired = await Checkout.findById(checkout._id);
@@ -75,7 +75,7 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
         await Checkout.updateOne({_id: checkout._id}, {$set: {status: "confirmed"}});
         const find = vi.spyOn(Checkout, "find").mockReturnValueOnce({limit: async () => [stale]} as any);
 
-        await runCheckoutExpiry();
+        await runCheckoutExpiry(companyId);
 
         expect(find).toHaveBeenCalledTimes(1);
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(2);
@@ -96,7 +96,7 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
             .mockImplementationOnce(release)
             .mockRejectedValueOnce(new Error("connection lost"));
 
-        await runCheckoutExpiry();
+        await runCheckoutExpiry(companyId);
 
         expect(spy).toHaveBeenCalledTimes(2);
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(2);
@@ -105,7 +105,7 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
         expect([untouched!.status, ...untouched!.reservations!.map(r => r.state)]).toEqual(["pending", "reserved", "reserved"]);
 
         spy.mockRestore();
-        await runCheckoutExpiry();
+        await runCheckoutExpiry(companyId);
 
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(0);
         expect((await Inventory.findById(second._id))!.quantityReserved).toBe(0);

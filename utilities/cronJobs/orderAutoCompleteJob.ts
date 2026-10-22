@@ -59,7 +59,7 @@ async function autoAcceptDelivery(deliveryId: ObjectId, ctx: {logger: serverLogg
     return completed;
 }
 
-export async function runOrderAutoComplete(parentLogger?: serverLogger): Promise<void> {
+export async function runOrderAutoComplete(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("order_auto_complete", parentLogger);
     const languageCode = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
     const {autoAcceptDays} = getECommerceMarketplaceConfig();
@@ -75,7 +75,7 @@ export async function runOrderAutoComplete(parentLogger?: serverLogger): Promise
     try {
         for (;;) {
             const batch = await orderDeliveryService.find(
-                {status: "submitted", createdAt: {$lte: cutoff}, ...(lastId && {_id: {$gt: lastId}})},
+                {company, status: "submitted", createdAt: {$lte: cutoff}, ...(lastId && {_id: {$gt: lastId}})},
                 {logger, languageCode},
                 null,
                 "_id",

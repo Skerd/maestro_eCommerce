@@ -9,7 +9,7 @@ import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posCo
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
-import {pushWebsocketMessage} from "@coreModule/domain/websocket/pushWebsocketMessage";
+import {pushWebsocketMessage} from "@coreModule/connections/connectToWebSocketServer";
 import {ECommerceWebSocketMessageCodes} from "armonia/src/modules/eCommerce/websocket/types";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
 

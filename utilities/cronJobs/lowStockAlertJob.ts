@@ -1,12 +1,10 @@
-import {CronJob} from "cron";
+import type {ObjectId} from "mongodb";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {CONSTANTS} from "@coreModule/environment";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {notifyMerchantsLowStock} from "@eCommerceModule/utilities/services/productOrderNotify";
 
-let lowStockJob: CronJob | null = null;
-
-export async function runLowStockAlert(parentLogger?: serverLogger): Promise<void> {
+export async function runLowStockAlert(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("low_stock_alert", parentLogger);
     const lang = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
 
@@ -16,6 +14,7 @@ export async function runLowStockAlert(parentLogger?: serverLogger): Promise<voi
         // Clear alert flag when stock recovered above reorder point
         await Inventory.updateMany(
             {
+                company,
                 lowStockAlertSent: true,
                 $expr: {
                     $and: [
@@ -28,6 +27,7 @@ export async function runLowStockAlert(parentLogger?: serverLogger): Promise<voi
         );
 
         const lowStockItems = await Inventory.find({
+            company,
             lowStockAlertSent: {$ne: true},
             $expr: {
                 $and: [
@@ -73,27 +73,5 @@ export async function runLowStockAlert(parentLogger?: serverLogger): Promise<voi
         const msg = e instanceof Error ? e.message : String(e);
         logger.err(`Low stock alert job error: ${msg}`);
         logger.finish("Finished low stock alert job with errors.");
-    }
-}
-
-export function startLowStockAlertJob(parentLogger?: serverLogger): void {
-    const log = getLogger("low_stock_alert_cron", parentLogger);
-    if (lowStockJob !== null) return;
-    lowStockJob = new CronJob(
-        "0 0 8 * * *",
-        () => {
-            void runLowStockAlert(parentLogger);
-        },
-        null,
-        true,
-        "UTC",
-    );
-    log.debug("Low stock alert job scheduled (daily at 08:00 UTC)");
-}
-
-export function stopLowStockAlertJob(): void {
-    if (lowStockJob) {
-        lowStockJob.stop();
-        lowStockJob = null;
     }
 }

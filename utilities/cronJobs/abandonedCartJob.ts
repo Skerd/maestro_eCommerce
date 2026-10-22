@@ -6,6 +6,7 @@
  * being unnecessary — one nudge per abandonment cycle is intentional).
  */
 
+import type { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
@@ -16,7 +17,7 @@ import {notifyAbandonedCartEmail} from "@eCommerceModule/utilities/services/prod
 const ABANDON_AFTER_HOURS = 24;
 const BATCH_SIZE = 200;
 
-export async function runAbandonedCart(parentLogger?: serverLogger): Promise<void> {
+export async function runAbandonedCart(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("abandoned_cart", parentLogger);
     const lang = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
 
@@ -26,6 +27,7 @@ export async function runAbandonedCart(parentLogger?: serverLogger): Promise<voi
         const cutoff = new Date(Date.now() - ABANDON_AFTER_HOURS * 3600000);
 
         const carts = await Cart.find({
+            company,
             user: {$ne: null},
             "items.0": {$exists: true},
             updatedAt: {$lte: cutoff},

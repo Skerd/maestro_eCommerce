@@ -3,6 +3,7 @@
  * users still waiting on a bid, as a manual close does.
  */
 
+import type { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import { emitNotificationEvent } from "@coreModule/domain/notifications/notificationEventBus";
@@ -10,7 +11,7 @@ import { taskRequestService } from "@eCommerceModule/database/schemas/taskReques
 import { pendingBidderIds } from "@eCommerceModule/database/schemas/taskRequest/taskRequest.actions";
 import { NotificationEventCodes } from "@eCommerceModule/domain/notifications/notificationEventCodes";
 
-export async function runTaskRequestExpiry(parentLogger?: serverLogger): Promise<void> {
+export async function runTaskRequestExpiry(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("task_request_expiry", parentLogger);
     const lang = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
 
@@ -20,7 +21,7 @@ export async function runTaskRequestExpiry(parentLogger?: serverLogger): Promise
         const now = new Date();
 
         const expiredRequests = await taskRequestService.find(
-            { status: "open", expiresAt: { $lte: now } },
+            { company, status: "open", expiresAt: { $lte: now } },
             { logger, languageCode: lang },
             null,
             "_id title company",

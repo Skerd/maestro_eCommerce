@@ -75,10 +75,6 @@ async function probeShopConfig(shopHost: string, expectedVat: string): Promise<S
 }
 
 export async function runShopHostProbe(ctx: CronHandlerContext): Promise<void> {
-    if (!ctx.company) {
-        return;
-    }
-
     const company = await companyService.findById(ctx.company, {logger: ctx.logger});
     if (!company?.shopSlug) {
         return;

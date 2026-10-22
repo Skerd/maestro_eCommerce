@@ -11,9 +11,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerce.lowStockAlert",
         handler: async ctx => {
-            await runLowStockAlert(ctx.logger);
+            await runLowStockAlert(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Low stock alert",
             cronExpression: "0 0 * * * *",
@@ -24,9 +23,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerce.scheduledPublish",
         handler: async ctx => {
-            await runScheduledPublish(ctx.logger);
+            await runScheduledPublish(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Scheduled publish",
             cronExpression: "0 */5 * * * *",
@@ -37,9 +35,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerce.checkoutExpiry",
         handler: async ctx => {
-            await runCheckoutExpiry(ctx.logger);
+            await runCheckoutExpiry(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Checkout expiry",
             cronExpression: "0 15 * * * *",
@@ -50,9 +47,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerce.abandonedCart",
         handler: async ctx => {
-            await runAbandonedCart(ctx.logger);
+            await runAbandonedCart(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Abandoned cart reminders",
             cronExpression: "0 45 * * * *",
@@ -65,7 +61,6 @@ export function registerECommerceCronHandlers(): void {
         handler: async ctx => {
             await runShopHostProbe(ctx);
         },
-        version: "1",
         defaultJob: {
             name: "Shop host probe",
             cronExpression: "0 */1 * * * *",
@@ -76,9 +71,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerceMarketplace.orderAutoComplete",
         handler: async ctx => {
-            await runOrderAutoComplete(ctx.logger);
+            await runOrderAutoComplete(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Order auto-complete",
             cronExpression: "0 0 * * * *",
@@ -89,9 +83,8 @@ export function registerECommerceCronHandlers(): void {
     registerCronHandler({
         code: "eCommerceMarketplace.taskRequestExpiry",
         handler: async ctx => {
-            await runTaskRequestExpiry(ctx.logger);
+            await runTaskRequestExpiry(ctx.company, ctx.logger);
         },
-        version: "1",
         defaultJob: {
             name: "Task request expiry",
             cronExpression: "0 0 * * * *",

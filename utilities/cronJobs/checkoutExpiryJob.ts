@@ -65,7 +65,7 @@ async function expireCheckout(checkoutId: ObjectId, ctx: { logger: serverLogger;
     return expired;
 }
 
-export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<void> {
+export async function runCheckoutExpiry(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("checkout_expiry", parentLogger);
     const lang = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
 
@@ -73,6 +73,7 @@ export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<vo
 
     try {
         const due = await Checkout.find({
+            company,
             status: { $in: ["pending", "payment_processing"] },
             expiresAt: { $lte: new Date() },
         }).limit(BATCH_SIZE);
@@ -102,6 +103,7 @@ export async function runCheckoutExpiry(parentLogger?: serverLogger): Promise<vo
 
         const purgeBefore = new Date(Date.now() - PURGE_AFTER_DAYS * 86400000);
         const purged = await Checkout.deleteMany({
+            company,
             status: { $in: ["expired", "failed"] },
             updatedAt: { $lte: purgeBefore },
         });
