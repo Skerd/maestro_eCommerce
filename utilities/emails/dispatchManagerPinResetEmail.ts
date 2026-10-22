@@ -1,4 +1,3 @@
-import {isKafkaConnected} from "@coreModule/connections/connectToKafka";
 import type {ManagerPinResetEmailEvent} from "@eCommerceModule/kafka/types";
 import {publishManagerPinResetEmailEvent} from "@eCommerceModule/kafka/kafkaProducer";
 import {sendManagerPinResetMail} from "@eCommerceModule/utilities/emails/sendManagerPinResetMail";
@@ -9,7 +8,7 @@ export type DispatchManagerPinResetEmailInput = Omit<
 >;
 
 /**
- * Publishes to Kafka when connected, otherwise sends via SMTP (same split as forgot-password).
+ * Publishes to Kafka, or sends via SMTP when Kafka is unavailable or the publish fails.
  */
 export async function dispatchManagerPinResetEmail(
     input: DispatchManagerPinResetEmailInput,
@@ -20,9 +19,7 @@ export async function dispatchManagerPinResetEmail(
         ...input,
     };
 
-    if (isKafkaConnected()) {
-        await publishManagerPinResetEmailEvent(event);
-    } else {
+    if (!(await publishManagerPinResetEmailEvent(event))) {
         await sendManagerPinResetMail(event);
     }
 }

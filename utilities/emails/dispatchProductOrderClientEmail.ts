@@ -1,5 +1,3 @@
-import {getProducerInstance, isKafkaConnected} from "@coreModule/connections/connectToKafka";
-import {ECOMMERCE_KAFKA} from "@eCommerceModule/environment";
 import type {ProductOrderClientEmailEvent} from "@eCommerceModule/kafka/types";
 import {publishProductOrderClientEmailEvent} from "@eCommerceModule/kafka/kafkaProducer";
 import {sendProductOrderClientMail} from "@eCommerceModule/utilities/emails/sendProductOrderClientMail";
@@ -10,7 +8,7 @@ export type DispatchProductOrderClientEmailInput = Omit<
 >;
 
 /**
- * Publishes to Kafka when connected and topic is configured, otherwise sends via SMTP.
+ * Publishes to Kafka, or sends via SMTP when Kafka or the topic is unavailable or the publish fails.
  */
 export async function dispatchProductOrderClientEmail(
     input: DispatchProductOrderClientEmailInput,
@@ -26,14 +24,7 @@ export async function dispatchProductOrderClientEmail(
         email: input.email.trim(),
     };
 
-    const canUseKafka =
-        isKafkaConnected()
-        && !!getProducerInstance()
-        && !!ECOMMERCE_KAFKA.TOPICS.PRODUCT_ORDER_CLIENT_EMAIL;
-
-    if (canUseKafka) {
-        await publishProductOrderClientEmailEvent(event);
-    } else {
+    if (!(await publishProductOrderClientEmailEvent(event))) {
         await sendProductOrderClientMail(event);
     }
     return true;
