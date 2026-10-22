@@ -11,6 +11,7 @@ import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {cartToDTO} from "@eCommerceModule/utilities/mappers/cart/cartMapper.dto";
+import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {validateDiscountForCustomer} from "@eCommerceModule/utilities/services/discountValidationService";
 import {
     distinctSellerCompanyIds,
@@ -65,12 +66,12 @@ async function repriceAndSave(cart: ICart, params: any): Promise<{data: ReturnTy
     cart.abandonedNotifiedAt = undefined;
     await cart.save();
     await cart.populate("items.sellerCompany", "name shopSlug shopHost");
-    return {data: toCartResponse(cart, notices, meta)};
+    return {data: await toCartResponse(cart, notices, meta)};
 }
 
 /** The cart DTO plus what the storefront needs per line (product link, quantity rules) and any re-pricing notices. */
-function toCartResponse(cart: ICart, notices: CartNotices, meta: LineCatalogMeta[]) {
-    const dto = cartToDTO(cart.toObject() as ICart);
+async function toCartResponse(cart: ICart, notices: CartNotices, meta: LineCatalogMeta[]) {
+    const dto = {...cartToDTO(cart.toObject() as ICart), currency: await cartCurrency(cart)};
     // meta is built from the re-priced lines, in the same order as cart.items
     dto.items = dto.items.map((item, index) => ({
         ...item,
@@ -78,6 +79,16 @@ function toCartResponse(cart: ICart, notices: CartNotices, meta: LineCatalogMeta
         quantityRules: meta[index]?.quantityRules,
     }));
     return Object.keys(notices).length ? {...dto, notices} : dto;
+}
+
+/** One cart, one currency: the first product's (adding a product in another currency is refused). */
+async function cartCurrency(cart: ICart) {
+    const first: any = (cart.items as any[] | undefined)?.[0];
+    if (!first) return undefined;
+    const product: any = await Product.findById(first.product?._id ?? first.product, {currency: 1})
+        .populate("currency", SHOP_CURRENCY_SELECT)
+        .lean();
+    return toShopCurrency(product?.currency);
 }
 
 function assertSingleSellerPromo(cart: ICart, languageCode: string): void {
@@ -103,7 +114,7 @@ router.get(
             await cart.save();
         }
         await cart.populate("items.sellerCompany", "name shopSlug shopHost");
-        return {data: toCartResponse(cart, notices, meta)};
+        return {data: await toCartResponse(cart, notices, meta)};
     }),
 );
 

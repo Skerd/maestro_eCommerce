@@ -1,4 +1,5 @@
 import type {
+    ShopCurrency,
     ShopProductCard,
     ShopProductDetail,
     ShopProductVariant,
@@ -13,6 +14,19 @@ function mediaId(value: any): string | undefined {
 function mediaIds(values: unknown): string[] | undefined {
     if (!Array.isArray(values) || values.length === 0) return undefined;
     return values.map(mediaId).filter((v): v is string => Boolean(v));
+}
+
+/** Currency fields the shop needs to format a price. */
+export const SHOP_CURRENCY_SELECT = "symbol abbreviation decimalPlaces";
+
+export function toShopCurrency(value: any): ShopCurrency | undefined {
+    if (!value || typeof value !== "object" || !value._id) return undefined;
+    return {
+        _id: value._id.toString(),
+        symbol: value.symbol,
+        abbreviation: value.abbreviation,
+        decimalPlaces: value.decimalPlaces,
+    };
 }
 
 export function toShopSeller(company: any): ShopSeller | undefined {
@@ -40,6 +54,7 @@ export function toShopProductCard(product: any): ShopProductCard {
         type: product.type ?? "physical",
         price: product.price,
         compareAtPrice: product.compareAtPrice,
+        currency: toShopCurrency(product.currency),
         mainImage: mediaId(product.mainImage),
         badges: product.badges?.length ? product.badges : undefined,
         featured: product.featured || undefined,

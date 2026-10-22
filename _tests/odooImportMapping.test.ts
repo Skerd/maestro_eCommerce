@@ -4,6 +4,7 @@ import {
     mapMoveReason,
     mapOdooProductType,
     movementQuantities,
+    parseCurrencyRow,
     signedMoveQuantity,
     sortCategoriesParentsFirst,
     sortMovesChronologically,
@@ -46,6 +47,17 @@ describe("odoo import mapping", () => {
         expect(mapOdooProductType({type: "service"})).toMatchObject({type: "service", hasVariants: false});
         expect(mapOdooProductType({type: "product", product_variant_count: 3})).toMatchObject({type: "variable", hasVariants: true});
         expect(mapOdooProductType({type: "consu", is_storable: false})).toMatchObject({type: "physical"});
+    });
+
+    it("parses Odoo currencies by ISO code", () => {
+        const limits = {nameMax: 128, symbolMax: 16};
+        expect(parseCurrencyRow({id: 1, name: "usd", full_name: "United States dollar", symbol: "$", decimal_places: 2}, limits))
+            .toEqual({id: 1, code: "USD", name: "United States dollar", symbol: "$", decimalPlaces: 2});
+        expect(parseCurrencyRow({id: 2, name: "JPY", symbol: false, decimal_places: 0}, limits))
+            .toEqual({id: 2, code: "JPY", name: "Yen", symbol: "JPY", decimalPlaces: 0});
+        expect(parseCurrencyRow({id: 4, name: "XQZ", symbol: "q"}, limits)?.name).toBe("XQZ");
+        expect(parseCurrencyRow({id: 3, name: "EURO", symbol: "€"}, limits)).toBeNull();
+        expect(parseCurrencyRow({id: 0, name: "EUR"}, limits)).toBeNull();
     });
 
     it("updates the same Odoo id on a second run", () => {

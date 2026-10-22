@@ -5,7 +5,7 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {SHOP_CURRENCY_SELECT, toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {buildShopCatalogFilter, refineShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {
     shopProductsFormSchema,
@@ -24,7 +24,7 @@ const SORTS: Record<ShopProductSort, Record<string, 1 | -1>> = {
     featured: {featured: -1, createdAt: -1},
 };
 
-const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company";
+const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company currency";
 
 router.post(
     "",
@@ -74,6 +74,7 @@ router.post(
             Product.find(filter).noDeleted()
                 .select(CARD_FIELDS)
                 .populate("company", "name logo shopSlug shopHost")
+                .populate("currency", SHOP_CURRENCY_SELECT)
                 .sort(sortSpec)
                 .skip((page - 1) * limit)
                 .limit(limit)

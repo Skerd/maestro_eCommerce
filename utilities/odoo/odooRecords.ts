@@ -1,5 +1,7 @@
 import type {InventoryMovementReason} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventoryMovement/inventoryMovement.schema-def";
 
+const currencyCodes = require("currency-codes");
+
 export type OdooCategoryRow = {
     id: number;
     name: string;
@@ -179,6 +181,34 @@ export function warehouseIdForLocationPath(
     }
     if (warehouses.length === 1) return warehouses[0].id;
     return null;
+}
+
+export type OdooCurrencyRow = {
+    id: number;
+    code: string;
+    name: string;
+    symbol: string;
+    decimalPlaces: number;
+};
+
+/** res.currency → local currency fields; Odoo's `name` is the ISO 4217 code. Older Odoo has no `full_name`, so the ISO name stands in. */
+export function parseCurrencyRow(
+    row: Record<string, unknown>,
+    limits: {nameMax: number; symbolMax: number},
+): OdooCurrencyRow | null {
+    const id = odooIntegerId(row.id);
+    const code = typeof row.name === "string" ? row.name.trim().toUpperCase() : "";
+    if (id == null || !/^[A-Z]{3}$/.test(code)) return null;
+    const fullName = typeof row.full_name === "string" ? row.full_name.trim() : "";
+    const symbol = typeof row.symbol === "string" ? row.symbol.trim() : "";
+    const decimals = typeof row.decimal_places === "number" && Number.isInteger(row.decimal_places) ? row.decimal_places : 2;
+    return {
+        id,
+        code,
+        name: truncateOdooText(fullName || currencyCodes.code(code)?.currency || code, limits.nameMax),
+        symbol: truncateOdooText(symbol || code, limits.symbolMax),
+        decimalPlaces: Math.min(8, Math.max(0, decimals)),
+    };
 }
 
 export type ProductTypeMapping = {

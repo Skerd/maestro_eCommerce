@@ -6,14 +6,13 @@ import type {
     ShopListingLocation,
     ShopListingPackage,
     ShopListingPromotion,
-    ShopMarketplaceCurrency,
     ShopMarketplaceReview,
     ShopPlace,
     ShopProviderProfile,
     ShopProviderSummary,
     ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.types";
-import {toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {toShopCurrency, toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 
 /** Populate paths for a listing card; the detail route adds packages and add-ons. */
 export const SHOP_LISTING_CARD_POPULATE = [
@@ -56,16 +55,6 @@ export function toShopListingLocation(address: any): ShopListingLocation | undef
         city: toShopPlace(address.city),
     };
     return location.country || location.state || location.city ? location : undefined;
-}
-
-function toShopCurrency(value: any): ShopMarketplaceCurrency | undefined {
-    if (!value || typeof value !== "object") return undefined;
-    return {
-        _id: value._id.toString(),
-        symbol: value.symbol,
-        abbreviation: value.abbreviation,
-        decimalPlaces: value.decimalPlaces,
-    };
 }
 
 export function toShopProviderSummary(user: any): ShopProviderSummary | undefined {

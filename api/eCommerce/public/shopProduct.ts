@@ -11,7 +11,7 @@ import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {SHOP_CURRENCY_SELECT, toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
@@ -50,12 +50,13 @@ async function stockAvailability(product: any, variants: any[], companyId: unkno
     return stock;
 }
 
-const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company";
+const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company currency";
 const RELATED_LIMIT = 8;
 
 const DETAIL_POPULATE = [
     {path: "categories", select: "name slug"},
     {path: "company", select: "name logo shopSlug shopHost"},
+    {path: "currency", select: SHOP_CURRENCY_SELECT},
 ] as const;
 
 async function findActiveProduct(filter: Record<string, unknown>) {
@@ -126,6 +127,7 @@ router.post(
             ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
                 .select(CARD_FIELDS)
                 .populate("company", "name logo shopSlug shopHost")
+                .populate("currency", SHOP_CURRENCY_SELECT)
                 .limit(RELATED_LIMIT)
                 .lean()
             : [];
@@ -140,6 +142,7 @@ router.post(
                 }).noDeleted()
                     .select(CARD_FIELDS)
                     .populate("company", "name logo shopSlug shopHost")
+                    .populate("currency", SHOP_CURRENCY_SELECT)
                     .limit(RELATED_LIMIT - related.length)
                     .lean();
                 related = [...related, ...fill];

@@ -22,6 +22,7 @@ import {
 import {PRODUCT_VARIANT_SKU_MAX, PRODUCT_VARIANT_BARCODE_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
 import {WAREHOUSE_CODE_MAX, WAREHOUSE_NAME_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/warehouse/warehouse.schema-def";
 import {STOCK_TRANSFER_NOTE_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/stockTransfer/stockTransfer.schema-def";
+import {CURRENCY_NAME_MAX, CURRENCY_SYMBOL_MAX} from "armonia/src/modules/core/api/finance/private/currency/currency.schema-def";
 import {DecryptString} from "@coreModule/utilities/security/encryption";
 import {generateRandomString} from "@coreModule/utilities/helpers";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
@@ -29,6 +30,8 @@ import {roleService} from "@coreModule/database/schemas/role/role.service";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import User from "@coreModule/database/schemas/user/user";
 import {ensureAiChannel} from "@coreModule/database/schemas/channel/channel.helper";
+import Currency from "@coreModule/database/schemas/currency/currency";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
 import Product from "@eCommerceModule/database/schemas/product/product";
@@ -60,12 +63,14 @@ import {
     odooNumber,
     odooUserEmail,
     parseCategoryRow,
+    parseCurrencyRow,
     sortCategoriesParentsFirst,
     sortMovesChronologically,
     splitOdooUserName,
     sumQuantQuantities,
     truncateOdooText,
     warehouseIdForLocationPath,
+    type OdooCurrencyRow,
     type OdooWarehouseLocation,
 } from "./odooRecords";
 
@@ -74,6 +79,8 @@ const DONE_MOVES: OdooDomain = [["state", "=", "done"]];
 const INTERNAL_QUANTS: OdooDomain = [["location_id.usage", "=", "internal"]];
 const INTERNAL_USERS: OdooDomain = [["share", "=", false], ["active", "=", true]];
 const INTERNAL_PICKINGS: OdooDomain = [["state", "=", "done"], ["picking_type_code", "=", "internal"]];
+const CURRENCY_FIELDS = ["id", "name", "full_name", "symbol", "decimal_places"];
+const CURRENCY_LIMITS = {nameMax: CURRENCY_NAME_MAX, symbolMax: CURRENCY_SYMBOL_MAX};
 
 type StockRef = {product: ObjectId; variant?: ObjectId};
 
@@ -143,6 +150,49 @@ async function resolveStockRef(ctx: ImportCtx, productOdooId: number): Promise<S
     return null;
 }
 
+/**
+ * Matches an Odoo currency to the local currency with the same ISO code, creating
+ * it when missing. A match is never rewritten: the code is unique across all
+ * companies, so the matched record may belong to another company.
+ */
+async function linkCurrency(ctx: ImportCtx, row: OdooCurrencyRow): Promise<"created" | "updated" | null> {
+    const existing = await Currency.findOne({abbreviation: row.code}).withDeleted().select("_id deletedAt").lean();
+    // A deleted currency still holds the unique code, so no new one can be created for it
+    if (existing?.deletedAt) return null;
+    const localId = existing?._id ?? (await currencyService.create({
+        name: row.name,
+        symbol: row.symbol,
+        decimalPlaces: row.decimalPlaces,
+        abbreviation: row.code,
+        company: ctx.companyId,
+    }, ctx.opts))._id;
+    await writeLink(ctx, "res.currency", row.id, "Currency", localId);
+    return existing ? "updated" : "created";
+}
+
+async function importCurrencies(ctx: ImportCtx): Promise<OdooImportCounts> {
+    const counts = emptyImportCounts();
+    const rows = await ctx.client.searchReadAll("res.currency", [], CURRENCY_FIELDS);
+    for (const raw of rows) {
+        const row = parseCurrencyRow(raw, CURRENCY_LIMITS);
+        const outcome = row ? await linkCurrency(ctx, row) : null;
+        if (outcome) countRow(counts, outcome);
+        else counts.skipped += 1;
+    }
+    return counts;
+}
+
+/** Links the given Odoo currencies (inactive ones too) that this run has not linked yet. */
+async function ensureCurrencies(ctx: ImportCtx, odooIds: number[]): Promise<void> {
+    const missing = [...new Set(odooIds)].filter((id) => !ctx.links.has(linkKey("res.currency", id)));
+    if (missing.length === 0) return;
+    const rows = await ctx.client.searchReadAll("res.currency", [["id", "in", missing], ["active", "in", [true, false]]], CURRENCY_FIELDS);
+    for (const raw of rows) {
+        const row = parseCurrencyRow(raw, CURRENCY_LIMITS);
+        if (row) await linkCurrency(ctx, row);
+    }
+}
+
 async function importCategories(ctx: ImportCtx): Promise<OdooImportCounts> {
     const counts = emptyImportCounts();
     const rows = sortCategoriesParentsFirst(
@@ -208,8 +258,9 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
     const templates = await ctx.client.searchReadAll(
         "product.template",
         [],
-        ["id", "name", "default_code", "barcode", "list_price", "standard_price", "categ_id", "type", "is_storable", "sale_ok", "active", "description_sale", "attribute_line_ids", "product_variant_count", "weight"],
+        ["id", "name", "default_code", "barcode", "list_price", "standard_price", "categ_id", "type", "is_storable", "sale_ok", "active", "description_sale", "attribute_line_ids", "product_variant_count", "weight", "currency_id"],
     );
+    await ensureCurrencies(ctx, templates.map((row) => odooMany2oneId(row.currency_id)).filter((id): id is number => id != null));
     const templateIds = templates.map((row) => odooIntegerId(row.id)).filter((id): id is number => id != null);
     const variants = templateIds.length
         ? await ctx.client.searchReadAll(
@@ -244,6 +295,7 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
         const categoryLink = categoryOdooId != null
             ? await cachedLink(ctx, "product.category", categoryOdooId)
             : null;
+        const currencyOdooId = odooMany2oneId(row.currency_id);
         const description = typeof row.description_sale === "string"
             ? truncateOdooText(row.description_sale, PRODUCT_DESCRIPTION_MAX)
             : undefined;
@@ -255,6 +307,7 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
             barcode: typeof row.barcode === "string" ? truncateOdooText(row.barcode, PRODUCT_SKU_MAX) : undefined,
             price: odooNumber(row.list_price),
             costPrice: odooNumber(row.standard_price),
+            currency: currencyOdooId != null ? ctx.links.get(linkKey("res.currency", currencyOdooId))?.localId : undefined,
             weight: odooNumber(row.weight),
             status: row.active === false ? "archived" as const : "active" as const,
             trackInventory: mapped.trackInventory,
@@ -812,6 +865,7 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
     }
 
     const permissionChecks: Record<OdooImportDataset, Model<Document>> = {
+        currencies: Currency,
         categories: ProductCategory,
         products: Product,
         warehouses: Warehouse,
@@ -825,7 +879,10 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
     }
     if (params.dryRun !== true) {
         assertCanCreate(OdooLink, params);
-        if (selected.includes("products")) assertCanCreate(ProductAttribute, params);
+        if (selected.includes("products")) {
+            assertCanCreate(ProductAttribute, params);
+            assertCanCreate(Currency, params);
+        }
     }
 
     const client = createOdooJsonRpcClient({
@@ -840,6 +897,7 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
     const response: OdooImportResponse = {dryRun: params.dryRun === true};
     if (response.dryRun) {
         const countFor: Record<OdooImportDataset, () => Promise<number>> = {
+            currencies: () => client.searchCount("res.currency"),
             categories: () => client.searchCount("product.category"),
             products: () => client.searchCount("product.template"),
             warehouses: () => client.searchCount("stock.warehouse"),
@@ -863,6 +921,7 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
         links: new Map(),
     };
     const writers: Record<OdooImportDataset, (ctx: ImportCtx) => Promise<OdooImportCounts>> = {
+        currencies: importCurrencies,
         categories: importCategories,
         products: importProducts,
         warehouses: importWarehouses,

@@ -25,6 +25,7 @@ import {
 } from "@eCommerceModule/utilities/services/checkoutPlacementService";
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
+import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
@@ -44,6 +45,13 @@ const SHIPPED_TYPES = new Set(["physical", "variable", "bundle"]);
 
 /** How long a checkout (and the stock it holds) stays open without activity. */
 const CHECKOUT_TTL_MS = 30 * 60 * 1000;
+
+/** The checkout DTO with its currency, so the storefront shows totals in the currency that is charged. */
+async function checkoutResponse(checkout: ICheckout) {
+    const currencyId = (checkout.currency as any)?._id ?? checkout.currency;
+    const currency = currencyId ? await Currency.findById(currencyId).select(SHOP_CURRENCY_SELECT).lean() : null;
+    return {data: {...checkoutToDTO(checkout.toObject() as ICheckout), currency: toShopCurrency(currency)}};
+}
 
 /**
  * Currency for a checkout: the cart's currency, else the first line's product
@@ -166,7 +174,7 @@ router.post(
                 && contentFingerprint(cart.items as any[], cart.subtotal, cart.discountTotal ?? 0, cart.appliedGiftCard?.amount ?? 0)
                     !== contentFingerprint(existing.items as any[], existing.subtotal, existing.discountTotal, (existing.giftCard?.amount ?? 0));
             if (cartChanged) throw apiValidationException("checkout_cart_changed", null, null, languageCode);
-            return {data: checkoutToDTO(existing.toObject() as ICheckout)};
+            return checkoutResponse(existing);
         }
         if (existing && existing.status !== "pending") {
             throw apiValidationException("checkout_expired", null, null, languageCode);
@@ -197,7 +205,7 @@ router.post(
                 existing.expiresAt = new Date(Date.now() + CHECKOUT_TTL_MS);
                 await existing.save();
             }
-            return {data: checkoutToDTO(existing.toObject() as ICheckout)};
+            return checkoutResponse(existing);
         }
 
         const currencyId = await resolveCurrencyId(cart, company._id);
@@ -217,7 +225,7 @@ router.post(
         syncCheckoutFromCart(checkout, cart, company._id);
 
         await checkout.save();
-        return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+        return checkoutResponse(checkout);
     }),
 );
 
@@ -334,7 +342,7 @@ router.post(
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
-        return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+        return checkoutResponse(checkout);
     }),
 );
 
@@ -400,7 +408,7 @@ router.post(
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
-        return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+        return checkoutResponse(checkout);
     }),
 );
 
@@ -425,7 +433,7 @@ router.post(
 
         // Re-entering with the same online method and a live intent: return it as-is
         if (paymentMethod === "stripe" && checkout.paymentMethod === "stripe" && checkout.stripePaymentIntentId && checkout.stripeClientSecret) {
-            return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+            return checkoutResponse(checkout);
         }
         if (checkout.paymentMethod && checkout.paymentMethod !== paymentMethod) {
             await resetCheckoutPayment(checkout, ctx);
@@ -446,7 +454,7 @@ router.post(
 
         if (!adapter) {
             await checkout.save({session});
-            return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+            return checkoutResponse(checkout);
         }
 
         const currencyId = (checkout.currency as any)?._id ?? (checkout.currency as any);
@@ -485,7 +493,7 @@ router.post(
             {logger, languageCode, session, auditUserId: actionUserCtx.userId},
         );
 
-        return {data: checkoutToDTO(checkout.toObject() as ICheckout)};
+        return checkoutResponse(checkout);
     }),
 );
 
