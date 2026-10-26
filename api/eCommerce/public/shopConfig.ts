@@ -117,7 +117,7 @@ router.get(
         const {languageCode, origin} = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const currency: any = await Currency.findOne({}).select("symbol abbreviation decimalPlaces").sort({createdAt: 1}).lean();
+        const currency: any = await Currency.findOne(ctx.mode === "tenant" ? {company: ctx.company._id} : {}).select("symbol abbreviation decimalPlaces").sort({createdAt: 1}).lean();
         const currencyPayload = currency
             ? {
                   _id: currency._id.toString(),

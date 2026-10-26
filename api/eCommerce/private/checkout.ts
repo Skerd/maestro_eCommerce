@@ -68,7 +68,7 @@ async function resolveCurrencyId(cart: any, companyId: ObjectId): Promise<Object
         if (productCurrency) return productCurrency;
     }
 
-    const fallback = await Currency.findOne({}, {_id: 1}).sort({createdAt: 1});
+    const fallback = await Currency.findOne({company: companyId}, {_id: 1}).sort({createdAt: 1});
     return fallback?._id ?? null;
 }
 

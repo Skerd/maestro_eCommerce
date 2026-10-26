@@ -21,6 +21,7 @@ import {
 } from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {
     addCartItemFormSchema,
     applyCartCodeFormSchema,
@@ -133,6 +134,7 @@ router.put(
             status: "active",
         };
         if (!platform) productQuery.company = company._id;
+        else Object.assign(productQuery, await liveSellerCompanyClause());
 
         const product: any = await Product.findOne(productQuery).noDeleted().lean();
         if (!product) throw apiValidationException("product_not_found", "", null, languageCode);

@@ -16,6 +16,7 @@ import type {
     ShopFacets,
     ShopFacetsResponse,
 } from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
+import {liveSellerScope} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 
 export const basePath = "/api/eCommerce/shopFacets";
 export const router = Router();
@@ -96,7 +97,7 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopFacetsResponse> => {
         const {languageCode, origin, search, categorySlug, categoryIds, collectionSlug, collectionId} = params;
         const ctx = await resolveShopContext(origin, languageCode);
-        const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
+        const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
         const filter = await buildShopCatalogFilter({
             companyId,
             search,

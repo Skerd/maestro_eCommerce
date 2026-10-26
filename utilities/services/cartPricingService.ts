@@ -12,6 +12,7 @@ import {
 import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
+import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 
 /** The priced fields shared by Cart and Checkout documents. */
 export type PriceableLine = {
@@ -86,7 +87,12 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
 
     const productFilter: Record<string, unknown> = {_id: {$in: productIds}, status: "active"};
     const variantFilter: Record<string, unknown> = {_id: {$in: variantIds}, status: "active"};
-    if (!ctx.multiSeller) {
+    if (ctx.multiSeller) {
+        // Sellers taken off the apex/portal since the item was added drop out like unavailable products.
+        const {company} = await liveSellerCompanyClause();
+        productFilter.company = company;
+        variantFilter.company = company;
+    } else {
         productFilter.company = ctx.companyId;
         variantFilter.company = ctx.companyId;
     }

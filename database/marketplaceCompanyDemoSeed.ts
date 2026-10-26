@@ -70,8 +70,8 @@ export async function seedMarketplaceCompanyDemoData(parentLogger: serverLogger 
     logger.start("Seeding eCommerce marketplace demo data...");
 
     const currency =
-        (await Currency.findOne({abbreviation: "EUR"})) ||
-        (await Currency.findOne({}));
+        (await Currency.findOne({abbreviation: "EUR", company: company._id})) ||
+        (await Currency.findOne({company: company._id}));
     if (!currency) {
         logger.err("No currency found; skipping marketplace demo.");
         logger.fail("Marketplace demo seed failed.");

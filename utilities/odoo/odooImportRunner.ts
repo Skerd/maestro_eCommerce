@@ -151,12 +151,11 @@ async function resolveStockRef(ctx: ImportCtx, productOdooId: number): Promise<S
 }
 
 /**
- * Matches an Odoo currency to the local currency with the same ISO code, creating
- * it when missing. A match is never rewritten: the code is unique across all
- * companies, so the matched record may belong to another company.
+ * Matches an Odoo currency to the company's currency with the same ISO code, creating
+ * it when missing. A match is never rewritten.
  */
 async function linkCurrency(ctx: ImportCtx, row: OdooCurrencyRow): Promise<"created" | "updated" | null> {
-    const existing = await Currency.findOne({abbreviation: row.code}).withDeleted().select("_id deletedAt").lean();
+    const existing = await Currency.findOne({abbreviation: row.code, company: ctx.companyId}).withDeleted().select("_id deletedAt").lean();
     // A deleted currency still holds the unique code, so no new one can be created for it
     if (existing?.deletedAt) return null;
     const localId = existing?._id ?? (await currencyService.create({

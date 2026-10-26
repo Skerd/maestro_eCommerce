@@ -13,6 +13,7 @@ import {
     type ShopProductsFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
+import {liveSellerScope} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 
 export const basePath = "/api/eCommerce/shopProducts";
 export const router = Router();
@@ -46,7 +47,7 @@ router.post(
         } = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
+        const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
         const filter = await buildShopCatalogFilter({
             companyId,
             search,

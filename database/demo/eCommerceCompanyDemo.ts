@@ -58,8 +58,8 @@ export async function seedECommerceDemoData(
     logger.start("Seeding eCommerce catalog demo data...");
 
     const currency =
-        (await Currency.findOne({abbreviation: "EUR"}).lean()) ||
-        (await Currency.findOne({}).lean());
+        (await Currency.findOne({abbreviation: "EUR", company: company._id}).lean()) ||
+        (await Currency.findOne({company: company._id}).lean());
     if (!currency) {
         logger.err("No currency found; cannot seed eCommerce catalog demo.");
         logger.fail("eCommerce demo seed failed.");
