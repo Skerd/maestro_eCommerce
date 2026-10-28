@@ -27,7 +27,7 @@ import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/util
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
 import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -190,7 +190,7 @@ router.post(
             companyId: company._id,
             userId,
             languageCode,
-            multiSeller: isPlatformShopOrigin(params.origin),
+            multiSeller: isPortalZoneOrigin(params.origin),
         });
         await cart.save();
         if ((cart.items as any[]).length === 0) throw apiValidationException("cart_empty", null, null, languageCode);

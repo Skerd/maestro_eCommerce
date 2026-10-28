@@ -12,7 +12,6 @@ vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
 vi.mock("@eCommerceModule/utilities/shop/shopCompany.util", () => ({
     resolveShopCompany: async () => ({_id: companyId}),
     resolveShopContext: async () => ({mode: "tenant", company: {_id: companyId}}),
-    isPlatformShopRequest: () => false,
 }));
 
 import {appFor, callerHeader, type TestCaller} from "@coreModule/_tests/httpHarness";

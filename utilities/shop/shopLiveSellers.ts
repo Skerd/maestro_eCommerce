@@ -3,13 +3,25 @@ import Company from "@coreModule/database/schemas/company/company";
 import {portalCompanyClause} from "@coreModule/utilities/marketing/portalCompanies";
 
 /**
- * Mongo clause limiting platform queries (shop apex and portal) to live seller companies:
- * listable on the portal for eCommerce (active, not deleted, with the module, not hidden
+ * Mongo clause limiting platform browsing (the portal apex) to live seller companies:
+ * eligible for eCommerce on the portal (active, not deleted, with the module, not hidden
  * by the platform owner) and opted in with `shopListedOnPortal`. Orphan docs whose
- * `company` was deleted stay out of apex catalog/marketplace.
+ * `company` was deleted stay out of the apex catalog/marketplace.
  */
 export async function liveSellerCompanyClause(): Promise<{company: {$in: unknown[]}}> {
-    const rows = await Company.find(liveSellerFilter(), {_id: 1}).noDeleted().lean();
+    return companyClause(liveSellerFilter());
+}
+
+/**
+ * Mongo clause for what a portal session may buy: any eligible seller. The opt-in only
+ * decides who is listed on the apex; a company's own site sells without it.
+ */
+export async function sellerCompanyClause(): Promise<{company: {$in: unknown[]}}> {
+    return companyClause(portalCompanyClause("eCommerce"));
+}
+
+async function companyClause(filter: Record<string, unknown>): Promise<{company: {$in: unknown[]}}> {
+    const rows = await Company.find(filter, {_id: 1}).noDeleted().lean();
     return {company: {$in: rows.map((row) => row._id)}};
 }
 

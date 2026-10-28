@@ -1,43 +1,85 @@
+import type {ObjectId} from "mongodb";
 import {registerPortalProvider} from "@coreModule/domain/portal/portalProviderRegistry";
-import {
-    companyAddressCities,
-    portalCompanyRefs,
-    portalListedCompanyIds,
-} from "@coreModule/utilities/marketing/portalCompanies";
+import type {PortalBrowseParams} from "@coreModule/domain/portal/portalProvider.types";
+import {catalogItems, filterValue, filterValues} from "@coreModule/domain/portal/portalCatalog";
+import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import {buildShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
+import Listing from "@eCommerceModule/database/schemas/listing/listing";
+import {SHOP_CURRENCY_SELECT} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
+import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 
-/** Sellers on the portal and the shop apex: same rule as `liveSellerCompanyClause`. */
-export function shopPortalCompanyIds() {
-    return portalListedCompanyIds("eCommerce", {companyFilter: {shopListedOnPortal: true}});
+/** Sellers in `scope`: on the apex the same rule as `liveSellerCompanyClause`. */
+export function shopPortalCompanyIds(scope: PortalScope) {
+    return portalListedCompanyIds("eCommerce", {companyListedOn: {shopListedOnPortal: true}}, scope);
 }
 
-/** The shop section of the portal: the all-sellers shop, with products matched by title. */
+type CurrencyRef = {abbreviation?: string};
+
+/** Active products, with the shop's own category (`f.category`) and brand (`f.brand`) filters. */
+async function browseProducts({scope, companyIds, query, priceMin, priceMax, sort, skip, limit, filters}: PortalBrowseParams) {
+    const filter = await buildShopCatalogFilter({companyId: scope.companyId, search: query, categorySlug: filterValue(filters, "category")});
+    if (!filter) return {items: [], total: 0};
+    filter.company = {$in: companyIds};
+    await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
+    const [products, total] = await Promise.all([
+        Product.find(filter).noDeleted()
+            .select("company title slug mainImage price currency")
+            .populate("currency", SHOP_CURRENCY_SELECT)
+            .sort(SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"])
+            .skip(skip).limit(limit)
+            .lean<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef}[]>(),
+        Product.countDocuments(filter).noDeleted(),
+    ]);
+    const items = await catalogItems(products, (product) => ({
+        kind: "product",
+        id: product._id.toString(),
+        title: product.title,
+        image: publicMediaUrl(product.mainImage),
+        ...(product.price != null && product.currency?.abbreviation ? {price: {amount: product.price, currency: product.currency.abbreviation}} : {}),
+        section: "shop",
+        path: `/product?${new URLSearchParams({id: product._id.toString(), slug: product.slug, seller: product.company.toString()})}`,
+    }));
+    return {items, total};
+}
+
+/** Active service listings, with the marketplace's own category filter (`f.category`). */
+async function browseServices({scope, companyIds, query, priceMin, priceMax, sort, skip, limit, filters}: PortalBrowseParams) {
+    const filter = await buildShopListingFilter(scope.companyId, {search: query, categorySlug: filterValue(filters, "category"), priceMin, priceMax});
+    if (!filter) return {items: [], total: 0};
+    filter.company = {$in: companyIds};
+    const [listings, total] = await Promise.all([
+        Listing.find(filter).noDeleted()
+            .select("company title mainImage price priceCurrency address.city")
+            .populate("priceCurrency", SHOP_CURRENCY_SELECT)
+            .populate("address.city", "name")
+            .sort(SHOP_LISTING_SORT_SPECS[sort ?? "newest"])
+            .skip(skip).limit(limit)
+            .lean<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}}[]>(),
+        Listing.countDocuments(filter).noDeleted(),
+    ]);
+    const items = await catalogItems(listings, (listing) => ({
+        kind: "service",
+        id: listing._id.toString(),
+        title: listing.title,
+        image: publicMediaUrl(listing.mainImage),
+        ...(listing.price != null && listing.priceCurrency?.abbreviation ? {price: {amount: listing.price, currency: listing.priceCurrency.abbreviation}} : {}),
+        city: listing.address?.city?.name,
+        section: "shop",
+        path: `/service?${new URLSearchParams({id: listing._id.toString()})}`,
+    }));
+    return {items, total};
+}
+
+/** The shop section of the portal: products and service listings of every seller in scope. */
 export function registerShopPortalProvider(): void {
     registerPortalProvider({
         key: "shop",
         order: 10,
-        companyPath: (company) => `/shop/products?seller=${company._id}`,
-        listedCompanyIds: shopPortalCompanyIds,
+        kinds: ["product", "service"],
+        companyIds: shopPortalCompanyIds,
         citiesByCompany: companyAddressCities,
-        async search({query, companyIds, limit}) {
-            const filter = await buildShopCatalogFilter({search: query});
-            if (!filter) return [];
-            const products = await Product.find({...filter, company: {$in: companyIds}}).noDeleted()
-                .select("company title slug mainImage").sort({title: 1}).limit(limit).lean();
-            const companies = await portalCompanyRefs(products.map((product) => product.company as any));
-            return products.flatMap((product: any) => {
-                const company = companies.get(String(product.company));
-                return company ? [{
-                    kind: "product",
-                    title: product.title,
-                    subtitle: company.name,
-                    image: publicMediaUrl(product.mainImage),
-                    path: `/shop/product?slug=${encodeURIComponent(product.slug)}&seller=${product.company}`,
-                    company,
-                }] : [];
-            });
-        },
+        browse: (params) => params.kind === "product" ? browseProducts(params) : browseServices(params),
     });
 }

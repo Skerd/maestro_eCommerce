@@ -26,7 +26,7 @@ import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/
 import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {z} from "zod";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
@@ -152,7 +152,7 @@ router.post(
         const limit = params.limit ?? 10;
 
         const filter: Record<string, unknown> = {customer: new ObjectId(actionUserCtx.userId)};
-        if (!isPlatformShopOrigin(origin)) filter.company = company._id;
+        if (!isPortalZoneOrigin(origin)) filter.company = company._id;
         const ctx = {logger, languageCode};
         const itemPopulate = ["items.product", "items.variant"];
 
@@ -185,7 +185,7 @@ router.post(
             _id: new ObjectId(_id),
             customer: new ObjectId(actionUserCtx.userId),
         };
-        if (!isPlatformShopOrigin(origin)) filter.company = company._id;
+        if (!isPortalZoneOrigin(origin)) filter.company = company._id;
 
         const order = await productOrderService.findOne(
             filter,

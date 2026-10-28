@@ -2,36 +2,47 @@ import * as fs from "fs";
 import * as path from "path";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {CLIENT_SIDE, CONSTANTS, EMAIL, clientHostFor} from "@coreModule/environment";
-import {applyPlaceholders, loadEmailStrings} from "@coreModule/utilities/emails/emailLocale";
+import {applyPlaceholders, loadEmailStrings, type EmailStrings} from "@coreModule/utilities/emails/emailLocale";
+import {
+    ctaButtonHtml,
+    currentYear,
+    EMAIL_FONT,
+    escapeHtml,
+    layoutStrings,
+    localized,
+    pushRow,
+    summaryCardHtml,
+    type SummaryRow,
+} from "@coreModule/utilities/emails/emailLayout";
 import {sendMail} from "@coreModule/utilities/emails/mailDeliveryService";
 import type {ProductOrderClientEmailEvent, ProductOrderClientEmailKind} from "@eCommerceModule/kafka/types";
 
-const imagePath = path.join(__dirname, "./static/images/image-1.png");
-const imageCID = "imageCID@example.com";
 const fallbackLanguageCode = "en-US";
 const LOCALES_ROOT = path.join(__dirname, "static", "locales");
 const TEMPLATE_DIR = path.join(__dirname, "templates", "productOrderClient");
 
 const KIND_META: Record<
     ProductOrderClientEmailKind,
-    {bodyFile: string; subjectKey: string; headingKey: string; introKey: string; closingKey: string}
+    {subjectKey: string; headingKey: string; introKey: string; closingKey: string}
 > = {
-    placed: {bodyFile: "body-placed.html", subjectKey: "subjectPlaced", headingKey: "headingPlaced", introKey: "introPlaced", closingKey: "closingPlaced"},
-    paid: {bodyFile: "body-paid.html", subjectKey: "subjectPaid", headingKey: "headingPaid", introKey: "introPaid", closingKey: "closingPaid"},
-    payment_failed: {bodyFile: "body-payment-failed.html", subjectKey: "subjectPaymentFailed", headingKey: "headingPaymentFailed", introKey: "introPaymentFailed", closingKey: "closingPaymentFailed"},
-    confirmed: {bodyFile: "body-confirmed.html", subjectKey: "subjectConfirmed", headingKey: "headingConfirmed", introKey: "introConfirmed", closingKey: "closingConfirmed"},
-    shipped: {bodyFile: "body-shipped.html", subjectKey: "subjectShipped", headingKey: "headingShipped", introKey: "introShipped", closingKey: "closingShipped"},
-    delivered: {bodyFile: "body-delivered.html", subjectKey: "subjectDelivered", headingKey: "headingDelivered", introKey: "introDelivered", closingKey: "closingDelivered"},
-    cancelled: {bodyFile: "body-cancelled.html", subjectKey: "subjectCancelled", headingKey: "headingCancelled", introKey: "introCancelled", closingKey: "closingCancelled"},
-    refunded: {bodyFile: "body-refunded.html", subjectKey: "subjectRefunded", headingKey: "headingRefunded", introKey: "introRefunded", closingKey: "closingRefunded"},
-    abandoned_cart: {bodyFile: "body-abandoned-cart.html", subjectKey: "subjectAbandonedCart", headingKey: "headingAbandonedCart", introKey: "introAbandonedCart", closingKey: "closingAbandonedCart"},
-    gift_card_issued: {bodyFile: "body-gift-card.html", subjectKey: "subjectGiftCard", headingKey: "headingGiftCard", introKey: "introGiftCard", closingKey: "closingGiftCard"},
-    digital_delivery_ready: {bodyFile: "body-digital.html", subjectKey: "subjectDigital", headingKey: "headingDigital", introKey: "introDigital", closingKey: "closingDigital"},
-    return_approved: {bodyFile: "body-return-approved.html", subjectKey: "subjectReturnApproved", headingKey: "headingReturnApproved", introKey: "introReturnApproved", closingKey: "closingReturnApproved"},
-    return_rejected: {bodyFile: "body-return-rejected.html", subjectKey: "subjectReturnRejected", headingKey: "headingReturnRejected", introKey: "introReturnRejected", closingKey: "closingReturnRejected"},
-    new_order_merchant: {bodyFile: "body-new-order-merchant.html", subjectKey: "subjectNewOrderMerchant", headingKey: "headingNewOrderMerchant", introKey: "introNewOrderMerchant", closingKey: "closingNewOrderMerchant"},
-    low_stock: {bodyFile: "body-low-stock.html", subjectKey: "subjectLowStock", headingKey: "headingLowStock", introKey: "introLowStock", closingKey: "closingLowStock"},
+    placed: {subjectKey: "subjectPlaced", headingKey: "headingPlaced", introKey: "introPlaced", closingKey: "closingPlaced"},
+    paid: {subjectKey: "subjectPaid", headingKey: "headingPaid", introKey: "introPaid", closingKey: "closingPaid"},
+    payment_failed: {subjectKey: "subjectPaymentFailed", headingKey: "headingPaymentFailed", introKey: "introPaymentFailed", closingKey: "closingPaymentFailed"},
+    confirmed: {subjectKey: "subjectConfirmed", headingKey: "headingConfirmed", introKey: "introConfirmed", closingKey: "closingConfirmed"},
+    shipped: {subjectKey: "subjectShipped", headingKey: "headingShipped", introKey: "introShipped", closingKey: "closingShipped"},
+    delivered: {subjectKey: "subjectDelivered", headingKey: "headingDelivered", introKey: "introDelivered", closingKey: "closingDelivered"},
+    cancelled: {subjectKey: "subjectCancelled", headingKey: "headingCancelled", introKey: "introCancelled", closingKey: "closingCancelled"},
+    refunded: {subjectKey: "subjectRefunded", headingKey: "headingRefunded", introKey: "introRefunded", closingKey: "closingRefunded"},
+    abandoned_cart: {subjectKey: "subjectAbandonedCart", headingKey: "headingAbandonedCart", introKey: "introAbandonedCart", closingKey: "closingAbandonedCart"},
+    gift_card_issued: {subjectKey: "subjectGiftCard", headingKey: "headingGiftCard", introKey: "introGiftCard", closingKey: "closingGiftCard"},
+    digital_delivery_ready: {subjectKey: "subjectDigital", headingKey: "headingDigital", introKey: "introDigital", closingKey: "closingDigital"},
+    return_approved: {subjectKey: "subjectReturnApproved", headingKey: "headingReturnApproved", introKey: "introReturnApproved", closingKey: "closingReturnApproved"},
+    return_rejected: {subjectKey: "subjectReturnRejected", headingKey: "headingReturnRejected", introKey: "introReturnRejected", closingKey: "closingReturnRejected"},
+    new_order_merchant: {subjectKey: "subjectNewOrderMerchant", headingKey: "headingNewOrderMerchant", introKey: "introNewOrderMerchant", closingKey: "closingNewOrderMerchant"},
+    low_stock: {subjectKey: "subjectLowStock", headingKey: "headingLowStock", introKey: "introLowStock", closingKey: "closingLowStock"},
 };
+
+const STAFF_KINDS = new Set<ProductOrderClientEmailKind>(["new_order_merchant", "low_stock"]);
 
 function canSendEmails(): boolean {
     return EMAIL.ENABLED;
@@ -41,16 +52,110 @@ function readTemplateHtml(filename: string): string {
     return fs.readFileSync(path.join(TEMPLATE_DIR, filename), "utf8");
 }
 
-function buildGiftCardList(codes: string[] | undefined): string {
-    if (!codes?.length) return "";
-    return `<ul style="margin:0 0 14px 0;padding-left:20px;">${codes.map(c => `<li><strong>${c}</strong></li>`).join("")}</ul>`;
+function codeListHtml(title: string, codes: string[]): string {
+    if (!codes.length) return "";
+    const items = codes
+        .map(
+            code =>
+                `<li style="margin:0 0 6px;font-family:${EMAIL_FONT};font-size:14px;font-weight:600;line-height:170%;color:#111114;">${escapeHtml(code)}</li>`
+        )
+        .join("");
+    return `<p style="margin:22px 0 8px;font-family:${EMAIL_FONT};font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;line-height:150%;color:#9aa0a8;">${escapeHtml(title)}</p>
+<ul style="margin:0;padding-left:18px;">${items}</ul>`;
 }
 
-function buildDownloadList(links: {productTitle: string; url: string}[] | undefined): string {
-    if (!links?.length) return "";
-    return `<ul style="margin:0 0 14px 0;padding-left:20px;">${links
-        .map(l => `<li>${l.productTitle}: <a href="${l.url}">${l.url}</a></li>`)
-        .join("")}</ul>`;
+function downloadListHtml(title: string, links: {productTitle: string; url: string}[]): string {
+    if (!links.length) return "";
+    const items = links
+        .map(
+            link =>
+                `<li style="margin:0 0 6px;font-family:${EMAIL_FONT};font-size:14px;line-height:170%;"><a href="${escapeHtml(link.url)}" target="_blank" rel="noopener" style="color:#b8873a;text-decoration:underline;">${escapeHtml(link.productTitle)}</a></li>`
+        )
+        .join("");
+    return `<p style="margin:22px 0 8px;font-family:${EMAIL_FONT};font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;line-height:150%;color:#9aa0a8;">${escapeHtml(title)}</p>
+<ul style="margin:0;padding-left:18px;">${items}</ul>`;
+}
+
+function orderBodyParts(
+    strings: EmailStrings,
+    data: ProductOrderClientEmailEvent,
+    links: {ordersUrl: string; cartUrl: string; checkoutUrl: string}
+): {detailsSummary: string; extra: string; cta: string} {
+    const rows: SummaryRow[] = [];
+    let summaryTitle = strings.summaryTitle ?? "";
+    let extra = "";
+    let ctaLabel = "";
+    let ctaUrl = "";
+
+    switch (data.kind) {
+        case "placed":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelTotal, data.orderTotalDisplay);
+            ctaLabel = strings.ctaOrders ?? "";
+            ctaUrl = links.ordersUrl;
+            break;
+        case "paid":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelTotal, data.orderTotalDisplay);
+            break;
+        case "payment_failed":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelReason, data.failureReason);
+            ctaLabel = strings.ctaCheckout ?? "";
+            ctaUrl = links.checkoutUrl;
+            break;
+        case "shipped":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelCarrier, data.carrier);
+            pushRow(rows, strings.labelTracking, data.trackingNumber);
+            if (data.trackingUrl) {
+                ctaLabel = strings.ctaTrack ?? "";
+                ctaUrl = data.trackingUrl;
+            }
+            break;
+        case "refunded":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelRefund, data.refundAmountDisplay);
+            break;
+        case "abandoned_cart":
+            pushRow(rows, strings.labelItems, data.itemCount != null ? String(data.itemCount) : undefined);
+            pushRow(rows, strings.labelSubtotal, data.orderTotalDisplay);
+            ctaLabel = strings.ctaCart ?? "";
+            ctaUrl = links.cartUrl;
+            break;
+        case "gift_card_issued":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            extra = codeListHtml(strings.giftCardsLabel ?? "", data.giftCardCodes ?? []);
+            break;
+        case "digital_delivery_ready":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            extra = downloadListHtml(strings.downloadsLabel ?? "", data.downloadLinks ?? []);
+            break;
+        case "new_order_merchant":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            pushRow(rows, strings.labelTotal, data.orderTotalDisplay);
+            break;
+        case "low_stock":
+            summaryTitle = strings.summaryStock ?? summaryTitle;
+            pushRow(rows, strings.labelProduct, data.productTitle);
+            pushRow(rows, strings.labelWarehouse, data.warehouseName);
+            pushRow(rows, strings.labelAvailable, data.availableQuantity != null ? String(data.availableQuantity) : undefined);
+            pushRow(rows, strings.labelReorder, data.reorderPoint != null ? String(data.reorderPoint) : undefined);
+            break;
+        case "confirmed":
+        case "delivered":
+        case "cancelled":
+        case "return_approved":
+        case "return_rejected":
+            pushRow(rows, strings.labelOrder, data.orderNumber);
+            break;
+    }
+
+    return {
+        detailsSummary: summaryCardHtml(summaryTitle, rows),
+        extra,
+        cta: ctaLabel && ctaUrl ? ctaButtonHtml(ctaLabel, ctaUrl, strings.fallbackLabel ?? "") : "",
+    };
 }
 
 export async function sendProductOrderClientMail(data: ProductOrderClientEmailEvent): Promise<void> {
@@ -60,61 +165,35 @@ export async function sendProductOrderClientMail(data: ProductOrderClientEmailEv
 
     const languageCode = data.languageCode || CONSTANTS.DEFAULT_LANGUAGE || fallbackLanguageCode;
     const pageName = CLIENT_SIDE.NAME ?? "";
-    const strings = loadEmailStrings(["productOrderClient"], languageCode, LOCALES_ROOT) as Record<string, string>;
+    const strings = loadEmailStrings(["productOrderClient"], languageCode, LOCALES_ROOT);
     const meta = KIND_META[data.kind];
-    let emailTemplate = readTemplateHtml("productOrderClient.html");
-    let bodyInner = readTemplateHtml(meta.bodyFile);
 
-    const ordersUrl = `${clientHostFor("shop")}/account/orders`;
-    const cartUrl = `${clientHostFor("shop")}/cart`;
-    const checkoutUrl = `${clientHostFor("shop")}/checkout`;
+    const ordersUrl = `${clientHostFor("portal")}/shop/account/orders`;
+    const cartUrl = `${clientHostFor("portal")}/shop/cart`;
+    const checkoutUrl = `${clientHostFor("portal")}/shop/checkout`;
+    const parts = orderBodyParts(strings, data, {ordersUrl, cartUrl, checkoutUrl});
 
-    const trackingLine = data.trackingNumber
-        ? applyPlaceholders(strings.trackingLine ?? "Tracking: {trackingNumber}", {
-            trackingNumber: data.trackingNumber,
-            carrier: data.carrier ?? "",
-            trackingUrl: data.trackingUrl ?? "",
-        })
-        : "";
-
-    const trackingLink = data.trackingUrl
-        ? applyPlaceholders(strings.trackingLink ?? '<a href="{trackingUrl}">Track shipment</a>', {
-            trackingUrl: data.trackingUrl,
-        })
-        : "";
-
-    bodyInner = applyPlaceholders(bodyInner, {
-        greeting: applyPlaceholders(strings.greeting ?? "Hello {fullName},", {fullName: data.fullName}),
-        companyName: data.companyName,
-        orderNumber: data.orderNumber ?? "",
-        orderTotalDisplay: data.orderTotalDisplay ?? "",
-        failureReason: data.failureReason ?? "",
-        trackingLine,
-        trackingLink,
-        refundAmountDisplay: data.refundAmountDisplay ?? "",
-        itemCount: String(data.itemCount ?? 0),
-        giftCardList: buildGiftCardList(data.giftCardCodes),
-        downloadList: buildDownloadList(data.downloadLinks),
-        productTitle: data.productTitle ?? "",
-        warehouseName: data.warehouseName ?? "",
-        availableQuantity: String(data.availableQuantity ?? ""),
-        reorderPoint: String(data.reorderPoint ?? ""),
-        ordersUrl,
-        cartUrl,
-        checkoutUrl,
+    const bodyInner = applyPlaceholders(readTemplateHtml("body.html"), {
         intro: strings[meta.introKey] ?? strings.introGeneric ?? "",
         closing: strings[meta.closingKey] ?? strings.closingGeneric ?? "",
+        detailsSummary: parts.detailsSummary,
+        extra: parts.extra,
+        cta: parts.cta,
     });
 
-    const heading = strings[meta.headingKey] ?? strings.heading ?? "Order update";
+    const layout = layoutStrings(strings, meta.headingKey, meta.introKey);
+    if (STAFF_KINDS.has(data.kind)) {
+        layout.ignore = strings.ignoreStaff ?? "";
+        layout.footerNote = strings.footerNoteStaff ?? "";
+    }
 
+    let emailTemplate = applyPlaceholders(readTemplateHtml("productOrderClient.html"), layout);
     emailTemplate = applyPlaceholders(emailTemplate, {
-        heading,
-        imageAlt: strings.imageAlt ?? "",
-        copyright: applyPlaceholders(strings.copyright ?? "© {pageName}", {pageName}),
-        username: data.fullName,
+        greeting: localized(strings, "greeting", {fullName: escapeHtml(data.fullName)}),
         bodyInner,
+        companyName: escapeHtml(data.companyName),
         pageName,
+        year: currentYear(),
     });
 
     const subject = applyPlaceholders(strings[meta.subjectKey] ?? strings.subjectGeneric ?? "Order update", {
@@ -129,13 +208,6 @@ export async function sendProductOrderClientMail(data: ProductOrderClientEmailEv
             to: data.email,
             subject,
             html: emailTemplate,
-            attachments: [
-                {
-                    filename: "companyTick.png",
-                    path: imagePath,
-                    cid: imageCID,
-                },
-            ],
         });
     } catch {
         throw apiValidationException("could_not_send_email", "product_order_client_email", null, languageCode);

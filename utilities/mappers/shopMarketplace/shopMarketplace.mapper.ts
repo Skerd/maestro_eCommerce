@@ -18,7 +18,7 @@ import {toShopCurrency, toShopSeller} from "@eCommerceModule/utilities/mappers/s
 export const SHOP_LISTING_CARD_POPULATE = [
     {path: "category", select: "name slug"},
     {path: "provider", select: "name surname"},
-    {path: "company", select: "name logo shopSlug shopHost"},
+    {path: "company", select: "name logo siteSlug siteHost"},
     {path: "priceCurrency", select: "symbol abbreviation decimalPlaces"},
     {path: "address.country", select: "name"},
     {path: "address.state", select: "name"},

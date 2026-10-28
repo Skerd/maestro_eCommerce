@@ -6,6 +6,15 @@ import {escapeRegex} from "@coreModule/utilities/helpers";
 import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import {applyShopCatalogRefinement, type ShopCatalogRefinement} from "./shopCatalogRefinement";
 import {liveSellerCompanyClause} from "./shopLiveSellers";
+import type {ShopProductSort} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
+
+/** Mongo sort of each storefront product order. */
+export const SHOP_PRODUCT_SORT_SPECS: Record<ShopProductSort, Record<string, 1 | -1>> = {
+    newest: {createdAt: -1},
+    priceAsc: {price: 1},
+    priceDesc: {price: -1},
+    featured: {featured: -1, createdAt: -1},
+};
 
 export type ShopCatalogScope = {
     /** When omitted, platform catalog — all active companies. */

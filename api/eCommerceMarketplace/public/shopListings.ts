@@ -6,7 +6,7 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {buildShopListingFilter, shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
+import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS, shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {
     SHOP_LISTING_CARD_FIELDS,
     SHOP_LISTING_CARD_POPULATE,
@@ -14,7 +14,6 @@ import {
 } from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import {
     shopListingsFormSchema,
-    type ShopListingSort,
     type ShopListingsFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.form.validator";
 import type {ShopListingsResponse} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.types";
@@ -22,14 +21,6 @@ import type {ShopListingsResponse} from "armonia/src/modules/eCommerce/api/eComm
 export const basePath = "/api/eCommerceMarketplace/shopListings";
 export const router = Router();
 
-const NEWEST: Record<string, 1 | -1> = {createdAt: -1};
-
-const SORTS: Record<Exclude<ShopListingSort, "recommended">, Record<string, 1 | -1>> = {
-    newest: NEWEST,
-    priceAsc: {price: 1, createdAt: -1},
-    priceDesc: {price: -1, createdAt: -1},
-    rating: {avgRating: -1, reviewCount: -1, createdAt: -1},
-};
 
 function findCards(filter: Record<string, unknown>, sort: Record<string, 1 | -1>, skip: number, limit: number) {
     return Listing.find(filter).noDeleted()
@@ -59,7 +50,7 @@ router.post(
 
         if (sort !== "recommended" || promotions.size === 0) {
             const [listings, total] = await Promise.all([
-                findCards(filter, sort === "recommended" ? NEWEST : SORTS[sort as keyof typeof SORTS], skip, limit),
+                findCards(filter, SHOP_LISTING_SORT_SPECS[sort === "recommended" ? "newest" : sort], skip, limit),
                 Listing.countDocuments(filter).noDeleted(),
             ]);
             return {data: listings.map((listing) => toShopListingCard(listing, promotions)), total, page, limit};
@@ -74,10 +65,10 @@ router.post(
             Listing.countDocuments(otherFilter).noDeleted(),
         ]);
 
-        const promoted = skip < promotedTotal ? await findCards(promotedFilter, NEWEST, skip, limit) : [];
+        const promoted = skip < promotedTotal ? await findCards(promotedFilter, SHOP_LISTING_SORT_SPECS.newest, skip, limit) : [];
         const remaining = limit - promoted.length;
         const others = remaining > 0
-            ? await findCards(otherFilter, NEWEST, Math.max(0, skip - promotedTotal), remaining)
+            ? await findCards(otherFilter, SHOP_LISTING_SORT_SPECS.newest, Math.max(0, skip - promotedTotal), remaining)
             : [];
 
         return {

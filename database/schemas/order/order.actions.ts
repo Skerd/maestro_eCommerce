@@ -35,7 +35,7 @@ import {
     refundRemainingEscrow,
 } from "@eCommerceModule/database/schemas/order/orderEscrow";
 import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
 import {createOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/createOrderMilestone.form.validator";
 import {releaseOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/releaseOrderMilestone.form.validator";
@@ -89,7 +89,7 @@ export class OrderActions {
 
         logger.start(`Creating order from listing: ${listingRef}...`);
 
-        const platform = isPlatformShopOrigin(origin ?? "");
+        const platform = isPortalZoneOrigin(origin ?? "");
         const listingFilter: Record<string, unknown> = {_id: new ObjectId(listingRef), status: "active"};
         if (!platform) listingFilter.company = company._id;
 

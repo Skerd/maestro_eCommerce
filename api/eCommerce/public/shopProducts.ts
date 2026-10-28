@@ -6,10 +6,9 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {SHOP_CURRENCY_SELECT, toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
-import {buildShopCatalogFilter, refineShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
+import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {
     shopProductsFormSchema,
-    type ShopProductSort,
     type ShopProductsFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
@@ -17,13 +16,6 @@ import {liveSellerScope} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 
 export const basePath = "/api/eCommerce/shopProducts";
 export const router = Router();
-
-const SORTS: Record<ShopProductSort, Record<string, 1 | -1>> = {
-    newest: {createdAt: -1},
-    priceAsc: {price: 1},
-    priceDesc: {price: -1},
-    featured: {featured: -1, createdAt: -1},
-};
 
 const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featured ratingAverage ratingCount hasVariants company currency";
 
@@ -69,12 +61,12 @@ router.post(
             minRating: params.minRating,
         });
 
-        const sortSpec = (sort && SORTS[sort]) || SORTS.newest;
+        const sortSpec = (sort && SHOP_PRODUCT_SORT_SPECS[sort]) || SHOP_PRODUCT_SORT_SPECS.newest;
 
         const [products, total] = await Promise.all([
             Product.find(filter).noDeleted()
                 .select(CARD_FIELDS)
-                .populate("company", "name logo shopSlug shopHost")
+                .populate("company", "name logo siteSlug siteHost")
                 .populate("currency", SHOP_CURRENCY_SELECT)
                 .sort(sortSpec)
                 .skip((page - 1) * limit)

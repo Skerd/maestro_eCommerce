@@ -1,6 +1,6 @@
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {resolveCompanyByOrigin, resolveSignupCompany} from "@coreModule/utilities/marketing/resolveCompanyByOrigin";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {isPortalApexOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 
 /**
  * Resolves the storefront tenant company from the request origin (public shop
@@ -23,18 +23,14 @@ export type ShopPlatformContext = {
 export type ShopContext = ShopTenantContext | ShopPlatformContext;
 
 /**
- * Public shop tenancy: apex `SHOP_ROOT_DOMAIN` is platform (all sellers);
- * every other host resolves to one company.
+ * Public shop tenancy: the portal apex is platform (all listed sellers); a company's
+ * site in the portal zone, or any other host, resolves to one company.
  */
 export async function resolveShopContext(origin: string, languageCode: string): Promise<ShopContext> {
-    if (isPlatformShopOrigin(origin)) {
+    if (isPortalApexOrigin(origin)) {
         const sessionCompany = await resolveSignupCompany(origin, languageCode);
         return {mode: "platform", sessionCompany};
     }
     const company = await resolveCompanyByOrigin(origin, languageCode);
     return {mode: "tenant", company};
-}
-
-export function isPlatformShopRequest(origin: string): boolean {
-    return isPlatformShopOrigin(origin);
 }

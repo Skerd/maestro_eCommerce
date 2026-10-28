@@ -36,11 +36,11 @@ export function toShopSeller(company: any): ShopSeller | undefined {
     const seller: ShopSeller = {_id: company._id.toString(), name};
     const logo = mediaId(company.logo);
     if (logo) seller.logo = logo;
-    if (typeof company.shopSlug === "string" && company.shopSlug.trim()) {
-        seller.shopSlug = company.shopSlug.trim();
+    if (typeof company.siteSlug === "string" && company.siteSlug.trim()) {
+        seller.siteSlug = company.siteSlug.trim();
     }
-    if (typeof company.shopHost === "string" && company.shopHost.trim()) {
-        seller.shopHost = company.shopHost.trim();
+    if (typeof company.siteHost === "string" && company.siteHost.trim()) {
+        seller.siteHost = company.siteHost.trim();
     }
     return seller;
 }

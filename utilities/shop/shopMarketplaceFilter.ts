@@ -6,6 +6,15 @@ import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {ShopPromotionMap} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import type {ShopListingsFormType} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.form.validator";
 import {liveSellerCompanyClause} from "./shopLiveSellers";
+import type {ShopListingSort} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.form.validator";
+
+/** Mongo sort of each storefront listing order ("recommended" is newest after the promoted listings). */
+export const SHOP_LISTING_SORT_SPECS: Record<Exclude<ShopListingSort, "recommended">, Record<string, 1 | -1>> = {
+    newest: {createdAt: -1},
+    priceAsc: {price: 1, createdAt: -1},
+    priceDesc: {price: -1, createdAt: -1},
+    rating: {avgRating: -1, reviewCount: -1, createdAt: -1},
+};
 
 /** A category slug and every category below it; null when the slug matches nothing or is ambiguous on platform. */
 async function listingCategoryScope(

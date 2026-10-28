@@ -1,10 +1,14 @@
 {
+  "htmlLang": "sq",
   "subject": "Rivendos PIN-in e menaxherit — {configName}",
+  "preheader": "Zgjidhni një PIN të ri menaxheri për {configName}.",
   "heading": "Rivendos PIN-in e menaxherit",
-  "introBefore": "Keni kërkuar rivendosjen e PIN-it të menaxherit për arkën ",
-  "introLink": "Rivendos PIN-in",
-  "introAfter": " ({configName}).",
-  "securityReasons": "Nëse nuk e keni kërkuar ju, injoroni këtë email. Për arsye sigurie, lidhja e rivendosjes do të jetë e vlefshme për 24 orët e ardhshme.",
-  "imageAlt": "Sukses",
-  "copyright": "© 2024 Të gjitha të drejtat e rezervuara"
+  "greeting": "Përshëndetje {username},",
+  "body": "Keni kërkuar rivendosjen e PIN-it të menaxherit për arkën {configName}. Klikoni butonin më poshtë për të zgjedhur një të ri.",
+  "ctaLabel": "Rivendos PIN-in",
+  "fallbackLabel": "Nuk funksionon butoni? Kopjoni dhe ngjisni këtë link në shfletuesin tuaj:",
+  "note": "Për arsye sigurie, lidhja e rivendosjes do të jetë e vlefshme për 24 orët e ardhshme.",
+  "ignore": "Nëse nuk e keni kërkuar ju rivendosjen e PIN-it, mund ta shpërfillni këtë email — PIN-i mbetet i pandryshuar.",
+  "footerNote": "E keni marrë këtë email sepse u kërkua rivendosja e PIN-it të menaxherit për {configName}.",
+  "copyright": "© {year} {pageName}. Të gjitha të drejtat e rezervuara."
 }

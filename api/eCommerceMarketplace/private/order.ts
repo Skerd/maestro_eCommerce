@@ -37,7 +37,7 @@ import {orderRevisionService} from "@eCommerceModule/database/schemas/orderRevis
 import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDelivery/orderDeliveryMapper.dto";
 import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
+import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
@@ -208,7 +208,7 @@ router.post(
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
         const opts = {logger, languageCode};
-        const platform = isPlatformShopOrigin(origin);
+        const platform = isPortalZoneOrigin(origin);
 
         const filter: Record<string, unknown> = {
             customer: new ObjectId(actionUserCtx.userId),
@@ -233,7 +233,7 @@ router.post(
     asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
         const {company, actionUserCtx, logger, languageCode, _id, origin} = params;
         const opts = {logger, languageCode};
-        const platform = isPlatformShopOrigin(origin);
+        const platform = isPortalZoneOrigin(origin);
 
         const filter: Record<string, unknown> = {
             _id: new ObjectId(_id),

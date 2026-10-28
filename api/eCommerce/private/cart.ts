@@ -20,8 +20,8 @@ import {
     toValidationCart,
 } from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundMoney} from "@coreModule/utilities/helpers/money";
-import {isPlatformShopOrigin} from "@coreModule/utilities/marketing/platformShopOrigin";
-import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
+import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {
     addCartItemFormSchema,
     applyCartCodeFormSchema,
@@ -57,7 +57,7 @@ function pricingOptions(params: any) {
         companyId: params.company._id as ObjectId,
         userId: new ObjectId(params.actionUserCtx.userId),
         languageCode: params.languageCode as string,
-        multiSeller: isPlatformShopOrigin(params.origin),
+        multiSeller: isPortalZoneOrigin(params.origin),
     };
 }
 
@@ -66,7 +66,7 @@ async function repriceAndSave(cart: ICart, params: any): Promise<{data: ReturnTy
     const {notices, meta} = await repriceCart(cart as any, pricingOptions(params));
     cart.abandonedNotifiedAt = undefined;
     await cart.save();
-    await cart.populate("items.sellerCompany", "name shopSlug shopHost");
+    await cart.populate("items.sellerCompany", "name siteSlug siteHost");
     return {data: await toCartResponse(cart, notices, meta)};
 }
 
@@ -114,7 +114,7 @@ router.get(
         if (JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]) !== before) {
             await cart.save();
         }
-        await cart.populate("items.sellerCompany", "name shopSlug shopHost");
+        await cart.populate("items.sellerCompany", "name siteSlug siteHost");
         return {data: await toCartResponse(cart, notices, meta)};
     }),
 );
@@ -127,14 +127,14 @@ router.put(
     validateFormZod(addCartItemFormSchema),
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, productId, variantId, quantity, origin} = params;
-        const platform = isPlatformShopOrigin(origin);
+        const platform = isPortalZoneOrigin(origin);
 
         const productQuery: Record<string, unknown> = {
             _id: new ObjectId(productId),
             status: "active",
         };
         if (!platform) productQuery.company = company._id;
-        else Object.assign(productQuery, await liveSellerCompanyClause());
+        else Object.assign(productQuery, await sellerCompanyClause());
 
         const product: any = await Product.findOne(productQuery).noDeleted().lean();
         if (!product) throw apiValidationException("product_not_found", "", null, languageCode);

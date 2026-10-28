@@ -55,7 +55,7 @@ const RELATED_LIMIT = 8;
 
 const DETAIL_POPULATE = [
     {path: "categories", select: "name slug"},
-    {path: "company", select: "name logo shopSlug shopHost"},
+    {path: "company", select: "name logo siteSlug siteHost"},
     {path: "currency", select: SHOP_CURRENCY_SELECT},
 ] as const;
 
@@ -126,7 +126,7 @@ router.post(
         let related = explicitRelatedIds.length
             ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
                 .select(CARD_FIELDS)
-                .populate("company", "name logo shopSlug shopHost")
+                .populate("company", "name logo siteSlug siteHost")
                 .populate("currency", SHOP_CURRENCY_SELECT)
                 .limit(RELATED_LIMIT)
                 .lean()
@@ -141,7 +141,7 @@ router.post(
                     categories: {$in: categoryIds},
                 }).noDeleted()
                     .select(CARD_FIELDS)
-                    .populate("company", "name logo shopSlug shopHost")
+                    .populate("company", "name logo siteSlug siteHost")
                     .populate("currency", SHOP_CURRENCY_SELECT)
                     .limit(RELATED_LIMIT - related.length)
                     .lean();

@@ -127,13 +127,13 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
                     if (!mediaId) continue;
                     downloadLinks.push({
                         productTitle,
-                        url: `${clientHostFor("shop")}/api/eCommerce/digitalDownload/${delivery.token}/${mediaId.toString()}`,
+                        url: `${clientHostFor("portal")}/api/eCommerce/digitalDownload/${delivery.token}/${mediaId.toString()}`,
                     });
                 }
             } else {
                 downloadLinks.push({
                     productTitle,
-                    url: `${clientHostFor("shop")}/account/orders`,
+                    url: `${clientHostFor("portal")}/shop/account/orders`,
                 });
             }
         }

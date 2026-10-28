@@ -155,7 +155,6 @@ router.get(
                 currency: currencyPayload,
                 companyName: shopCompany.name,
                 company: Object.keys(shopCompany).length > 0 ? shopCompany : undefined,
-                chatEnabled: company.publicAiChat?.enabled === true,
             },
         };
     }),

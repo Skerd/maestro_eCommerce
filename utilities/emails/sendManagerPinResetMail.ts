@@ -3,11 +3,10 @@ import * as path from "path";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {CLIENT_SIDE, CONSTANTS, EMAIL, clientHostFor} from "@coreModule/environment";
 import {applyPlaceholders, loadEmailStrings} from "@coreModule/utilities/emails/emailLocale";
+import {currentYear, escapeHtml} from "@coreModule/utilities/emails/emailLayout";
 import {sendMail} from "@coreModule/utilities/emails/mailDeliveryService";
 import type {ManagerPinResetEmailEvent} from "@eCommerceModule/kafka/types";
 
-const imagePath = path.join(__dirname, "./static/images/image-1.png");
-const imageCID = "imageCID@example.com";
 const fallbackLanguageCode = "en-US";
 const LOCALES_ROOT = path.join(__dirname, "static", "locales");
 const TEMPLATE_DIR = path.join(__dirname, "templates", "managerPinReset");
@@ -33,7 +32,8 @@ async function deliverOrThrow(
 }
 
 /**
- * Renders and sends the manager-PIN reset email (same template/locale pattern as forgot-password).
+ * Renders and sends the manager-PIN reset email in the same shell as the
+ * password-reset mail.
  */
 export async function sendManagerPinResetMail(
     event: ManagerPinResetEmailEvent,
@@ -48,20 +48,26 @@ export async function sendManagerPinResetMail(
     let emailTemplate = readTemplateHtml("managerPinReset.html");
 
     emailTemplate = applyPlaceholders(emailTemplate, {
+        htmlLang: strings.htmlLang ?? "en",
+        preheader: strings.preheader ?? "",
         heading: strings.heading ?? "",
-        introBefore: strings.introBefore ?? "",
-        introLink: strings.introLink ?? "",
-        introAfter: applyPlaceholders(strings.introAfter ?? "", {configName: event.configName}),
-        imageAlt: strings.imageAlt ?? "",
+        greeting: strings.greeting ?? "",
+        body: strings.body ?? "",
+        ctaLabel: strings.ctaLabel ?? "",
+        fallbackLabel: strings.fallbackLabel ?? "",
+        note: strings.note ?? "",
+        ignore: strings.ignore ?? "",
+        footerNote: strings.footerNote ?? "",
         copyright: strings.copyright ?? "",
-        securityReasons: strings.securityReasons ?? "",
     });
 
     const resetUrl = `${clientHostFor("core")}/authenticate/resetPosManagerPin/${event.resetCode}`;
     emailTemplate = emailTemplate.replace(/http:\/\/1234\.html/g, resetUrl);
     emailTemplate = applyPlaceholders(emailTemplate, {
-        username: event.fullName,
+        username: escapeHtml(event.fullName),
+        configName: escapeHtml(event.configName),
         pageName,
+        year: currentYear(),
     });
 
     const subject = applyPlaceholders(strings.subject ?? "", {configName: event.configName});
@@ -72,13 +78,6 @@ export async function sendManagerPinResetMail(
             to: event.email,
             subject,
             html: emailTemplate,
-            attachments: [
-                {
-                    filename: "companyTick.png",
-                    path: imagePath,
-                    cid: imageCID,
-                },
-            ],
         },
         languageCode,
     );
