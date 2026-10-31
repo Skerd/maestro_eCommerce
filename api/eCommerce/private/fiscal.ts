@@ -7,11 +7,13 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import {isObjectIdZod, notEmptyZod} from "armonia/src/modules/core/helpers/zodBuilder";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {
+    financeInvoiceFiscalData,
     fiscalizePosOrder,
     getTaxpayer,
     fiscalConfigIdForPosConfig,
     loadFiscalConfigWithCert,
     registerEinvoiceForPosOrder,
+    registerFiscalInvoice,
     registerTcr,
 } from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
@@ -21,9 +23,31 @@ import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalC
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
+import Company from "@coreModule/database/schemas/company/company";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import Invoice from "@financeModule/database/schemas/invoice/invoice";
+import {registerInvoiceFiscalizer} from "@financeModule/database/schemas/invoice/invoice.service";
 
 export const basePath = "/api/eCommerce/fiscal";
 export const router = Router();
+
+/**
+ * Fiscalizes finance invoices (rental invoices and the like) with the company's
+ * active fiscal config, through the same CIS registration as POS orders. A company
+ * without one gets `null`: its invoices need no registration here.
+ */
+registerInvoiceFiscalizer(async (invoice) => {
+    const config = await loadFiscalConfigWithCert(nestedEntityToRef(invoice.company));
+    if (!config) return null;
+    const company = await Company.findById(nestedEntityToRef(invoice.company)).select("name vat");
+    const credited = invoice.creditedInvoice ? await Invoice.findById(invoice.creditedInvoice).select("fiscal") : null;
+    const result = await registerFiscalInvoice(financeInvoiceFiscalData(invoice, credited?.fiscal?.iic), config, {
+        companyVat: company?.vat,
+        companyName: company?.name,
+        ...(invoice.customer.vatNumber ? {buyer: {name: invoice.customer.name, nipt: invoice.customer.vatNumber, address: invoice.customer.address}} : {}),
+    });
+    return result.fault ? {error: result.fault} : {iic: result.nslf, fic: result.nivf, qrUrl: result.qrVerifyUrl};
+});
 
 function fiscalizeFormSchema(languageCode: string, form: any = null) {
     return z.object({

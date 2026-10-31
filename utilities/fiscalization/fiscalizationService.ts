@@ -26,6 +26,7 @@ import {
 import {buildUblInvoiceXml} from "./ublInvoice";
 import {roundMoney} from "@coreModule/utilities/helpers/money";
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
+import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
 
 
 function money(n: number): string {
@@ -131,8 +132,22 @@ export type RegisterInvoiceResult = {
     typeOfInv: string;
 };
 
-export async function registerPosInvoice(
-    order: IPosOrder,
+/**
+ * What a fiscal invoice registers: its order number, totals (negative for a refund),
+ * payment methods and item rows, already in the CIS request shape.
+ */
+export type FiscalInvoiceData = {
+    invOrdNum: string;
+    totPrice: number;
+    totTax: number;
+    payments: OrderedDict[];
+    items: OrderedDict[];
+    corrective?: {iic: string; issueDateTime?: string};
+};
+
+/** Signs and registers one invoice with the CIS (fiskalizo_fature), for any document that sold something. */
+export async function registerFiscalInvoice(
+    data: FiscalInvoiceData,
     config: IFiscalConfig & FiscalCert,
     opts?: {
         companyVat?: string;
@@ -140,17 +155,12 @@ export async function registerPosInvoice(
         buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
     },
 ): Promise<RegisterInvoiceResult> {
-    if (order.nivf) {
-        throw new Error("Order already fiscalized (has NIVF/FIC)");
-    }
     const nipt = assertReady(config, opts?.companyVat);
     const issueDateTime = tiraneIsoNow();
     const uuid = randomUUID();
-    const invOrdNum = invOrdFromOrderName(order.name);
+    const {invOrdNum, totPrice, totTax, items} = data;
     const year = new Date().getFullYear();
     const invNum = `${invOrdNum}/${year}/${config.tcrCode}`;
-    const totPrice = roundMoney(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
-    const totTax = roundMoney(Number(order.isRefund ? -order.amountTax : order.amountTax));
     const totWoVat = roundMoney(totPrice - totTax);
 
     const iicInput = buildIicInput({
@@ -164,49 +174,8 @@ export async function registerPosInvoice(
     });
     const {iic, iicSignature} = getIIC(iicInput, config.certificateBase64, config.certificatePassword);
 
-    const payments = ((order.payments as any[]) || []).map(p => ({
-        "1__Type": payMethodType(p.paymentMethodType),
-        "2__Amt": money(Number(p.amount) * (order.isRefund ? -1 : 1)),
-    }));
-    if (!payments.length) {
-        payments.push({"1__Type": "OTHER", "2__Amt": money(totPrice)});
-    }
+    const payments = data.payments.length ? data.payments : [{"1__Type": "OTHER", "2__Amt": money(totPrice)}];
     const typeOfInv = payments.some(p => p["1__Type"] === "BANKNOTE") ? "CASH" : "NONCASH";
-
-    const items: OrderedDict[] = ((order.lines as any[]) || []).map(line => {
-        const qty = Number(line.quantity) * (order.isRefund ? -1 : 1);
-        const pb = roundMoney(Number(line.priceSubtotal) - Number(line.discountAmount || 0));
-        // priceTotal is after discount; treat as gross when taxAmount present
-        const tax = roundMoney(Number(line.taxAmount || 0));
-        const pa = roundMoney(Number(line.priceTotal));
-        const net = roundMoney(pa - tax);
-        const unitNet = qty !== 0 ? roundMoney(net / Math.abs(qty)) : 0;
-        const unitGross = qty !== 0 ? roundMoney(pa / Math.abs(qty)) : 0;
-        const row: OrderedDict = {
-            "1__N": line.productName || "Item",
-            "2__C": line.productSku || line.productName || "Item",
-            "3__U": "cope",
-            "4__Q": money(qty),
-            "5__UPB": money(unitNet),
-            "6__UPA": money(unitGross),
-            "7__R": money(Number(line.discountPercent || 0)),
-            "8__PB": money(net * (order.isRefund ? -1 : 1) === net ? net : (order.isRefund ? -Math.abs(net) : net)),
-            "9__PA": money(order.isRefund ? -Math.abs(pa) : pa),
-        };
-        if (tax) {
-            const rate = net !== 0 ? roundMoney((tax / Math.abs(net)) * 100) : 0;
-            row["10__VR"] = money(rate);
-            row["11__VA"] = money(order.isRefund ? -Math.abs(tax) : tax);
-        }
-        return row;
-    });
-    // Fix PB signs for refunds
-    for (const row of items) {
-        if (order.isRefund) {
-            row["8__PB"] = money(-Math.abs(Number(row["8__PB"])));
-            row["9__PA"] = money(-Math.abs(Number(row["9__PA"])));
-        }
-    }
 
     const sameTaxes: OrderedDict[] = [];
     if (config.isVatRegistered && totTax !== 0 && totWoVat !== 0) {
@@ -266,10 +235,10 @@ export async function registerPosInvoice(
         };
     }
 
-    if ((order as any).refundOf && (order as any).correctiveIic) {
+    if (data.corrective) {
         invoiceData["24__CorrectiveInv"] = {
-            "1__IICRef": (order as any).correctiveIic,
-            "2__IssueDateTime": (order as any).correctiveIssueDateTime || issueDateTime,
+            "1__IICRef": data.corrective.iic,
+            "2__IssueDateTime": data.corrective.issueDateTime || issueDateTime,
             "3__Type": "CORRECTIVE",
         };
     }
@@ -319,6 +288,106 @@ export async function registerPosInvoice(
         businessUnitCode: config.businessUnitCode,
         typeOfInv,
     };
+}
+
+/**
+ * A finance invoice (or credit note, whose lines are negative) as CIS invoice data.
+ * Each line's VAT is its share of the invoice VAT, at the invoice's rate.
+ */
+export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lines" | "vatRate" | "pricesIncludeVat" | "total" | "vatAmount">, correctiveIic?: string): FiscalInvoiceData {
+    const rate = invoice.vatRate / 100;
+    const items: OrderedDict[] = invoice.lines.map((line) => {
+        const gross = invoice.pricesIncludeVat ? line.total : roundMoney(line.total * (1 + rate));
+        const tax = roundMoney(gross - gross / (1 + rate));
+        const net = roundMoney(gross - tax);
+        const qty = Math.sign(line.total || 1) * Math.abs(line.quantity || 1);
+        const row: OrderedDict = {
+            "1__N": line.description,
+            "2__C": line.description,
+            "3__U": "cope",
+            "4__Q": money(qty),
+            "5__UPB": money(Math.abs(net / qty)),
+            "6__UPA": money(Math.abs(gross / qty)),
+            "7__R": money(0),
+            "8__PB": money(net),
+            "9__PA": money(gross),
+        };
+        if (tax) {
+            row["10__VR"] = money(invoice.vatRate);
+            row["11__VA"] = money(tax);
+        }
+        return row;
+    });
+    const parts = invoice.number.split("-");
+    return {
+        invOrdNum: String(parseInt(parts[parts.length - 1], 10) || 1),
+        totPrice: roundMoney(invoice.total),
+        totTax: roundMoney(invoice.vatAmount),
+        payments: [],
+        items,
+        ...(correctiveIic ? {corrective: {iic: correctiveIic}} : {}),
+    };
+}
+
+export async function registerPosInvoice(
+    order: IPosOrder,
+    config: IFiscalConfig & FiscalCert,
+    opts?: {
+        companyVat?: string;
+        companyName?: string;
+        buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
+    },
+): Promise<RegisterInvoiceResult> {
+    if (order.nivf) {
+        throw new Error("Order already fiscalized (has NIVF/FIC)");
+    }
+    const invOrdNum = invOrdFromOrderName(order.name);
+    const totPrice = roundMoney(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
+    const totTax = roundMoney(Number(order.isRefund ? -order.amountTax : order.amountTax));
+
+    const payments = ((order.payments as any[]) || []).map(p => ({
+        "1__Type": payMethodType(p.paymentMethodType),
+        "2__Amt": money(Number(p.amount) * (order.isRefund ? -1 : 1)),
+    }));
+    const items: OrderedDict[] = ((order.lines as any[]) || []).map(line => {
+        const qty = Number(line.quantity) * (order.isRefund ? -1 : 1);
+        const pb = roundMoney(Number(line.priceSubtotal) - Number(line.discountAmount || 0));
+        // priceTotal is after discount; treat as gross when taxAmount present
+        const tax = roundMoney(Number(line.taxAmount || 0));
+        const pa = roundMoney(Number(line.priceTotal));
+        const net = roundMoney(pa - tax);
+        const unitNet = qty !== 0 ? roundMoney(net / Math.abs(qty)) : 0;
+        const unitGross = qty !== 0 ? roundMoney(pa / Math.abs(qty)) : 0;
+        const row: OrderedDict = {
+            "1__N": line.productName || "Item",
+            "2__C": line.productSku || line.productName || "Item",
+            "3__U": "cope",
+            "4__Q": money(qty),
+            "5__UPB": money(unitNet),
+            "6__UPA": money(unitGross),
+            "7__R": money(Number(line.discountPercent || 0)),
+            "8__PB": money(net * (order.isRefund ? -1 : 1) === net ? net : (order.isRefund ? -Math.abs(net) : net)),
+            "9__PA": money(order.isRefund ? -Math.abs(pa) : pa),
+        };
+        if (tax) {
+            const rate = net !== 0 ? roundMoney((tax / Math.abs(net)) * 100) : 0;
+            row["10__VR"] = money(rate);
+            row["11__VA"] = money(order.isRefund ? -Math.abs(tax) : tax);
+        }
+        return row;
+    });
+    // Fix PB signs for refunds
+    for (const row of items) {
+        if (order.isRefund) {
+            row["8__PB"] = money(-Math.abs(Number(row["8__PB"])));
+            row["9__PA"] = money(-Math.abs(Number(row["9__PA"])));
+        }
+    }
+
+    const corrective = (order as any).refundOf && (order as any).correctiveIic
+        ? {iic: (order as any).correctiveIic, issueDateTime: (order as any).correctiveIssueDateTime}
+        : undefined;
+    return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items, corrective}, config, opts);
 }
 
 export async function registerTcr(
