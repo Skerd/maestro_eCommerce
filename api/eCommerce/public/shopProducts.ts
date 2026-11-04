@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {SHOP_CURRENCY_SELECT, toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {
@@ -39,42 +39,45 @@ router.post(
         } = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
-        const filter = await buildShopCatalogFilter({
-            companyId,
-            search,
-            categorySlug,
-            categoryIds,
-            collectionSlug,
-            collectionId,
+        return inShopCatalog(ctx, async () => {
+            const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
+            const filter = await buildShopCatalogFilter({
+                companyId,
+                search,
+                categorySlug,
+                categoryIds,
+                collectionSlug,
+                collectionId,
+            });
+            if (!filter) return {data: [], total: 0, page, limit};
+
+            await refineShopCatalogFilter(filter, {
+                priceMin: params.priceMin,
+                priceMax: params.priceMax,
+                inStock: params.inStock,
+                onSale: params.onSale,
+                brands: params.brands,
+                types: params.types,
+                attributes: params.attributes,
+                minRating: params.minRating,
+            });
+
+            const sortSpec = (sort && SHOP_PRODUCT_SORT_SPECS[sort]) || SHOP_PRODUCT_SORT_SPECS.newest;
+
+            const [products, total] = await Promise.all([
+                Product.find(filter).noDeleted()
+                    .select(CARD_FIELDS)
+                    .populate("company", "name logo siteSlug siteHost")
+                    .populate("currency", SHOP_CURRENCY_SELECT)
+                    .sort(sortSpec)
+                    .skip((page - 1) * limit)
+                    .limit(limit)
+                    .lean(),
+                Product.countDocuments(filter).noDeleted(),
+            ]);
+
+            return {data: products.map(toShopProductCard), total, page, limit};
+
         });
-        if (!filter) return {data: [], total: 0, page, limit};
-
-        await refineShopCatalogFilter(filter, {
-            priceMin: params.priceMin,
-            priceMax: params.priceMax,
-            inStock: params.inStock,
-            onSale: params.onSale,
-            brands: params.brands,
-            types: params.types,
-            attributes: params.attributes,
-            minRating: params.minRating,
-        });
-
-        const sortSpec = (sort && SHOP_PRODUCT_SORT_SPECS[sort]) || SHOP_PRODUCT_SORT_SPECS.newest;
-
-        const [products, total] = await Promise.all([
-            Product.find(filter).noDeleted()
-                .select(CARD_FIELDS)
-                .populate("company", "name logo siteSlug siteHost")
-                .populate("currency", SHOP_CURRENCY_SELECT)
-                .sort(sortSpec)
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
-            Product.countDocuments(filter).noDeleted(),
-        ]);
-
-        return {data: products.map(toShopProductCard), total, page, limit};
     }),
 );

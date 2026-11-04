@@ -1,4 +1,8 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+
+vi.hoisted(() => {
+    process.env.TENANT_SCOPE_ENFORCE = "eCommerce,finance";
+});
 import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
@@ -39,7 +43,8 @@ import PaymentTransaction from "@financeModule/database/schemas/paymentTransacti
 let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
 const userId = new ObjectId();
-const app = appFor([inventoryRoute, warehouseRoute, productRoute, productOrderRoute, posRoute, fiscalRoute, customerGroupRoute]);
+// eCommerce routes run with tenant scoping enforced (D16), as in the dev profiles.
+const app = appFor([inventoryRoute, warehouseRoute, productRoute, productOrderRoute, posRoute, fiscalRoute, customerGroupRoute].map((route) => ({...route, module: "eCommerce"})));
 
 let admin: TestCaller;
 const webClient: TestCaller = {userId: userId.toString(), companyId: companyId.toString(), permissions: []};
@@ -47,7 +52,8 @@ const webClient: TestCaller = {userId: userId.toString(), companyId: companyId.t
 beforeAll(async () => {
     replSet = await MongoMemoryReplSet.create({replSet: {count: 1, storageEngine: "wiredTiger"}});
     await mongoose.connect(replSet.getUri());
-    await Promise.all([Inventory.init(), Warehouse.init(), Product.init()]);
+    // Every registered model (audit log, …): a collection or index built inside a transaction aborts it.
+    await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
     admin = {
         userId: userId.toString(),
         companyId: companyId.toString(),

@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import User from "@coreModule/database/schemas/user/user";
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
 import ProviderProfile from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 import {
@@ -39,41 +39,44 @@ router.post(
         const opts = {logger, languageCode};
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const providerId = new ObjectId(id);
-        const listingFilter: Record<string, unknown> = {status: "active", provider: providerId};
-        if (ctx.mode === "tenant") listingFilter.company = ctx.company._id;
+        return inShopCatalog(ctx, async () => {
+            const providerId = new ObjectId(id);
+            const listingFilter: Record<string, unknown> = {status: "active", provider: providerId};
+            if (ctx.mode === "tenant") listingFilter.company = ctx.company._id;
 
-        const listings = await Listing.find(listingFilter).noDeleted()
-            .select(SHOP_LISTING_CARD_FIELDS)
-            .populate(SHOP_LISTING_CARD_POPULATE)
-            .sort({createdAt: -1})
-            .limit(LISTINGS_LIMIT)
-            .lean();
-        if (listings.length === 0) {
-            throw apiValidationException("provider_not_found", null, null, languageCode);
-        }
+            const listings = await Listing.find(listingFilter).noDeleted()
+                .select(SHOP_LISTING_CARD_FIELDS)
+                .populate(SHOP_LISTING_CARD_POPULATE)
+                .sort({createdAt: -1})
+                .limit(LISTINGS_LIMIT)
+                .lean();
+            if (listings.length === 0) {
+                throw apiValidationException("provider_not_found", null, null, languageCode);
+            }
 
-        const sellerCompanyId = (listings[0] as any).company?._id ?? (listings[0] as any).company;
-        const userFilter: Record<string, unknown> = {_id: providerId};
-        if (ctx.mode === "tenant") userFilter.companies = ctx.company._id;
-        const user = await User.findOne(userFilter).select("name surname createdAt").lean();
-        if (!user) {
-            throw apiValidationException("provider_not_found", null, null, languageCode);
-        }
+            const sellerCompanyId = (listings[0] as any).company?._id ?? (listings[0] as any).company;
+            const userFilter: Record<string, unknown> = {_id: providerId};
+            if (ctx.mode === "tenant") userFilter.companies = ctx.company._id;
+            const user = await User.findOne(userFilter).select("name surname createdAt").lean();
+            if (!user) {
+                throw apiValidationException("provider_not_found", null, null, languageCode);
+            }
 
-        const [profile, metrics, promotions] = await Promise.all([
-            ProviderProfile.findOne({user: providerId, company: sellerCompanyId}).noDeleted()
-                .select("bio skills availability portfolio")
-                .lean(),
-            loadProviderProfileMetrics(providerId, sellerCompanyId, opts),
-            shopPromotionMap(ctx.mode === "tenant" ? ctx.company._id : sellerCompanyId, opts),
-        ]);
+            const [profile, metrics, promotions] = await Promise.all([
+                ProviderProfile.findOne({user: providerId, company: sellerCompanyId}).noDeleted()
+                    .select("bio skills availability portfolio")
+                    .lean(),
+                loadProviderProfileMetrics(providerId, sellerCompanyId, opts),
+                shopPromotionMap(ctx.mode === "tenant" ? ctx.company._id : sellerCompanyId, opts),
+            ]);
 
-        return {
-            data: {
-                provider: toShopProviderProfile(user, profile, metrics),
-                listings: listings.map((listing) => toShopListingCard(listing, promotions)),
-            },
-        };
+            return {
+                data: {
+                    provider: toShopProviderProfile(user, profile, metrics),
+                    listings: listings.map((listing) => toShopListingCard(listing, promotions)),
+                },
+            };
+
+        });
     }),
 );

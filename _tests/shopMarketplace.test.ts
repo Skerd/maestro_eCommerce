@@ -1,4 +1,8 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+
+vi.hoisted(() => {
+    process.env.TENANT_SCOPE_ENFORCE = "eCommerce,finance";
+});
 import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
@@ -9,10 +13,21 @@ const companyId = new ObjectId();
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
 // Public routes find the tenant from the request origin; the tests run as one shop
-vi.mock("@eCommerceModule/utilities/shop/shopCompany.util", () => ({
-    resolveShopCompany: async () => ({_id: companyId}),
-    resolveShopContext: async () => ({mode: "tenant", company: {_id: companyId}}),
-}));
+vi.mock("@eCommerceModule/utilities/shop/shopCompany.util", async (importOriginal) => {
+    // Resolves like the real one, including the request's tenant (D16).
+    const {setRequestTenant} = await import("@coreModule/utilities/endpoints/tenantScope");
+    return {
+        ...(await importOriginal<typeof import("@eCommerceModule/utilities/shop/shopCompany.util")>()),
+        resolveShopCompany: async () => {
+            setRequestTenant(companyId);
+            return {_id: companyId};
+        },
+        resolveShopContext: async () => {
+            setRequestTenant(companyId);
+            return {mode: "tenant", company: {_id: companyId}};
+        },
+    };
+});
 
 import {appFor, callerHeader, type TestCaller} from "@coreModule/_tests/httpHarness";
 import User from "@coreModule/database/schemas/user/user";
@@ -45,10 +60,10 @@ const currencyId = new ObjectId();
 const providerId = new ObjectId();
 const customerId = new ObjectId();
 const strangerId = new ObjectId();
+// eCommerce routes run with tenant scoping enforced (D16), as in the dev profiles.
 const app = appFor([
     shopListingsRoute, shopListingRoute, shopListingTaxonomyRoute, shopProviderRoute, shopReviewsRoute,
-    orderRoute, reviewRoute, disputeRoute, taskRequestRoute,
-]);
+    orderRoute, reviewRoute, disputeRoute, taskRequestRoute].map((route) => ({...route, module: "eCommerce"})));
 
 // Shop sign-ups hold the Web Client role, which has no model permissions
 const customer: TestCaller = {userId: customerId.toString(), companyId: companyId.toString(), permissions: []};
@@ -74,7 +89,8 @@ beforeEach(async () => {
         {_id: providerId, username: "pat", name: "Pat", surname: "Painter", email: "pat@provider.test", phoneNumber: "+100", companies: [companyId], createdAt: new Date("2025-01-01")},
         {_id: customerId, username: "cam", name: "Cam", surname: "Customer", email: "cam@customer.test", companies: [companyId]},
     ]);
-    await Currency.collection.insertOne({_id: currencyId, name: "Euro", symbol: "€", abbreviation: "EUR", decimalPlaces: 2});
+    // Reference data belongs to each company, as seeded (D16 scopes it like any tenant data).
+    await Currency.collection.insertOne({_id: currencyId, name: "Euro", symbol: "€", abbreviation: "EUR", decimalPlaces: 2, company: companyId});
 });
 
 async function seedCategory(name: string, parent?: ObjectId): Promise<{_id: ObjectId; slug: string}> {
@@ -170,7 +186,7 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         const child = await seedCategory("Painting", parent._id);
         const other = await seedCategory("Design");
         const cityId = new ObjectId();
-        await City.collection.insertOne({_id: cityId, name: "Tirana"});
+        await City.collection.insertOne({_id: cityId, name: "Tirana", company: companyId});
         const inChild = await seedListing({category: child._id, address: {city: cityId}});
         await seedListing({category: other._id});
 

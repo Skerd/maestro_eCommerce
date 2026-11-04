@@ -1,6 +1,7 @@
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {resolveCompanyByOrigin, resolveSignupCompany} from "@coreModule/utilities/marketing/resolveCompanyByOrigin";
 import {isPortalApexOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {asCrossTenant, setRequestTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 /**
  * Resolves the storefront tenant company from the request origin (public shop
@@ -29,8 +30,19 @@ export type ShopContext = ShopTenantContext | ShopPlatformContext;
 export async function resolveShopContext(origin: string, languageCode: string): Promise<ShopContext> {
     if (isPortalApexOrigin(origin)) {
         const sessionCompany = await resolveSignupCompany(origin, languageCode);
+        // The apex works on the platform's own data (config, reference lists, accounts); catalog
+        // views that span sellers say so through `inShopCatalog` (D16).
+        setRequestTenant(sessionCompany._id, languageCode);
         return {mode: "platform", sessionCompany};
     }
     const company = await resolveCompanyByOrigin(origin, languageCode);
     return {mode: "tenant", company};
+}
+
+/**
+ * Runs a read-only catalog view (D16): across every listed seller on the portal apex, and inside the
+ * one company on its own site, whose tenant `resolveCompanyByOrigin` already set.
+ */
+export function inShopCatalog<T>(ctx: ShopContext, view: () => Promise<T>): Promise<T> {
+    return ctx.mode === "platform" ? asCrossTenant("the apex marketplace lists every seller's catalog", view) : view();
 }

@@ -10,7 +10,7 @@ import ProductVariant from "@eCommerceModule/database/schemas/productVariant/pro
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {SHOP_CURRENCY_SELECT, toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
@@ -74,88 +74,90 @@ router.post(
         const {languageCode, origin, id, slug, sellerCompanyId} = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-
-        let product: any;
-        if (id) {
-            const byId: Record<string, unknown> = {_id: new ObjectId(id)};
-            if (ctx.mode === "tenant") byId.company = ctx.company._id;
-            product = await findActiveProduct(byId);
-        } else if (slug) {
-            const slugKey = String(slug).toLowerCase();
-            if (ctx.mode === "tenant") {
-                product = await findActiveProduct({company: ctx.company._id, slug: slugKey});
-            } else if (sellerCompanyId) {
-                product = await findActiveProduct({company: new ObjectId(sellerCompanyId), slug: slugKey});
-            } else {
-                const matches = await Product.find({slug: slugKey, status: "active"}).noDeleted()
-                    .populate([...DETAIL_POPULATE])
-                    .lean();
-                // Ambiguous slug across sellers — require id or sellerCompanyId
-                if (matches.length > 1) {
-                    throw apiValidationException("product_not_found", null, null, languageCode);
+        return inShopCatalog(ctx, async () => {
+            let product: any;
+            if (id) {
+                const byId: Record<string, unknown> = {_id: new ObjectId(id)};
+                if (ctx.mode === "tenant") byId.company = ctx.company._id;
+                product = await findActiveProduct(byId);
+            } else if (slug) {
+                const slugKey = String(slug).toLowerCase();
+                if (ctx.mode === "tenant") {
+                    product = await findActiveProduct({company: ctx.company._id, slug: slugKey});
+                } else if (sellerCompanyId) {
+                    product = await findActiveProduct({company: new ObjectId(sellerCompanyId), slug: slugKey});
+                } else {
+                    const matches = await Product.find({slug: slugKey, status: "active"}).noDeleted()
+                        .populate([...DETAIL_POPULATE])
+                        .lean();
+                    // Ambiguous slug across sellers — require id or sellerCompanyId
+                    if (matches.length > 1) {
+                        throw apiValidationException("product_not_found", null, null, languageCode);
+                    }
+                    product = matches[0];
                 }
-                product = matches[0];
             }
-        }
 
-        if (!product) {
-            throw apiValidationException("product_not_found", null, null, languageCode);
-        }
+            if (!product) {
+                throw apiValidationException("product_not_found", null, null, languageCode);
+            }
 
-        const productSellerId = product.company?._id ?? product.company;
-        // Orphan rows (company missing after populate) must not surface on the platform apex.
-        if (ctx.mode === "platform" && !toShopSeller(product.company)) {
-            throw apiValidationException("product_not_found", null, null, languageCode);
-        }
+            const productSellerId = product.company?._id ?? product.company;
+            // Orphan rows (company missing after populate) must not surface on the platform apex.
+            if (ctx.mode === "platform" && !toShopSeller(product.company)) {
+                throw apiValidationException("product_not_found", null, null, languageCode);
+            }
 
-        const variants = product.hasVariants
-            ? await ProductVariant.find({product: product._id, company: productSellerId, status: "active"})
-                  .select("sku price compareAtPrice attributeCombination mainImage order trackInventory")
-                  .populate("attributeCombination.attribute", "name")
-                  .sort({order: 1})
-                  .lean()
-            : [];
+            const variants = product.hasVariants
+                ? await ProductVariant.find({product: product._id, company: productSellerId, status: "active"})
+                      .select("sku price compareAtPrice attributeCombination mainImage order trackInventory")
+                      .populate("attributeCombination.attribute", "name")
+                      .sort({order: 1})
+                      .lean()
+                : [];
 
-        const relatedFilter: Record<string, unknown> = {
-            company: productSellerId,
-            status: "active",
-            _id: {$ne: product._id},
-        };
+            const relatedFilter: Record<string, unknown> = {
+                company: productSellerId,
+                status: "active",
+                _id: {$ne: product._id},
+            };
 
-        const explicitRelatedIds = (product.relatedProducts as any[]) ?? [];
-        let related = explicitRelatedIds.length
-            ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
-                .select(CARD_FIELDS)
-                .populate("company", "name logo siteSlug siteHost")
-                .populate("currency", SHOP_CURRENCY_SELECT)
-                .limit(RELATED_LIMIT)
-                .lean()
-            : [];
-
-        if (related.length < RELATED_LIMIT) {
-            const categoryIds = (product.categories as any[])?.map((c: any) => c._id ?? c) ?? [];
-            if (categoryIds.length) {
-                const fill = await Product.find({
-                    ...relatedFilter,
-                    _id: {$nin: [product._id, ...related.map((r: any) => r._id)]},
-                    categories: {$in: categoryIds},
-                }).noDeleted()
+            const explicitRelatedIds = (product.relatedProducts as any[]) ?? [];
+            let related = explicitRelatedIds.length
+                ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
                     .select(CARD_FIELDS)
                     .populate("company", "name logo siteSlug siteHost")
                     .populate("currency", SHOP_CURRENCY_SELECT)
-                    .limit(RELATED_LIMIT - related.length)
-                    .lean();
-                related = [...related, ...fill];
-            }
-        }
+                    .limit(RELATED_LIMIT)
+                    .lean()
+                : [];
 
-        return {
-            data: toShopProductDetail(
-                product,
-                variants,
-                related,
-                await stockAvailability(product, variants, productSellerId),
-            ),
-        };
+            if (related.length < RELATED_LIMIT) {
+                const categoryIds = (product.categories as any[])?.map((c: any) => c._id ?? c) ?? [];
+                if (categoryIds.length) {
+                    const fill = await Product.find({
+                        ...relatedFilter,
+                        _id: {$nin: [product._id, ...related.map((r: any) => r._id)]},
+                        categories: {$in: categoryIds},
+                    }).noDeleted()
+                        .select(CARD_FIELDS)
+                        .populate("company", "name logo siteSlug siteHost")
+                        .populate("currency", SHOP_CURRENCY_SELECT)
+                        .limit(RELATED_LIMIT - related.length)
+                        .lean();
+                    related = [...related, ...fill];
+                }
+            }
+
+            return {
+                data: toShopProductDetail(
+                    product,
+                    variants,
+                    related,
+                    await stockAvailability(product, variants, productSellerId),
+                ),
+            };
+
+        });
     }),
 );

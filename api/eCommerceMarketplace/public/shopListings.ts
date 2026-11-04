@@ -5,7 +5,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS, shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {
     SHOP_LISTING_CARD_FIELDS,
@@ -41,41 +41,44 @@ router.post(
         const {languageCode, origin, logger, sort = "recommended", page = 1, limit = 24} = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
-        const filter = await buildShopListingFilter(companyId, params);
-        if (!filter) return {data: [], total: 0, page, limit};
+        return inShopCatalog(ctx, async () => {
+            const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
+            const filter = await buildShopListingFilter(companyId, params);
+            if (!filter) return {data: [], total: 0, page, limit};
 
-        const promotions = await shopPromotionMap(companyId, {logger, languageCode});
-        const skip = (page - 1) * limit;
+            const promotions = await shopPromotionMap(companyId, {logger, languageCode});
+            const skip = (page - 1) * limit;
 
-        if (sort !== "recommended" || promotions.size === 0) {
-            const [listings, total] = await Promise.all([
-                findCards(filter, SHOP_LISTING_SORT_SPECS[sort === "recommended" ? "newest" : sort], skip, limit),
-                Listing.countDocuments(filter).noDeleted(),
+            if (sort !== "recommended" || promotions.size === 0) {
+                const [listings, total] = await Promise.all([
+                    findCards(filter, SHOP_LISTING_SORT_SPECS[sort === "recommended" ? "newest" : sort], skip, limit),
+                    Listing.countDocuments(filter).noDeleted(),
+                ]);
+                return {data: listings.map((listing) => toShopListingCard(listing, promotions)), total, page, limit};
+            }
+
+            // Recommended: listings with a running promotion first, then the rest, newest first in each band
+            const promotedIds = [...promotions.keys()].map((id) => new ObjectId(id));
+            const promotedFilter = {...filter, _id: {$in: promotedIds}};
+            const otherFilter = {...filter, _id: {$nin: promotedIds}};
+            const [promotedTotal, otherTotal] = await Promise.all([
+                Listing.countDocuments(promotedFilter).noDeleted(),
+                Listing.countDocuments(otherFilter).noDeleted(),
             ]);
-            return {data: listings.map((listing) => toShopListingCard(listing, promotions)), total, page, limit};
-        }
 
-        // Recommended: listings with a running promotion first, then the rest, newest first in each band
-        const promotedIds = [...promotions.keys()].map((id) => new ObjectId(id));
-        const promotedFilter = {...filter, _id: {$in: promotedIds}};
-        const otherFilter = {...filter, _id: {$nin: promotedIds}};
-        const [promotedTotal, otherTotal] = await Promise.all([
-            Listing.countDocuments(promotedFilter).noDeleted(),
-            Listing.countDocuments(otherFilter).noDeleted(),
-        ]);
+            const promoted = skip < promotedTotal ? await findCards(promotedFilter, SHOP_LISTING_SORT_SPECS.newest, skip, limit) : [];
+            const remaining = limit - promoted.length;
+            const others = remaining > 0
+                ? await findCards(otherFilter, SHOP_LISTING_SORT_SPECS.newest, Math.max(0, skip - promotedTotal), remaining)
+                : [];
 
-        const promoted = skip < promotedTotal ? await findCards(promotedFilter, SHOP_LISTING_SORT_SPECS.newest, skip, limit) : [];
-        const remaining = limit - promoted.length;
-        const others = remaining > 0
-            ? await findCards(otherFilter, SHOP_LISTING_SORT_SPECS.newest, Math.max(0, skip - promotedTotal), remaining)
-            : [];
+            return {
+                data: [...promoted, ...others].map((listing) => toShopListingCard(listing, promotions)),
+                total: promotedTotal + otherTotal,
+                page,
+                limit,
+            };
 
-        return {
-            data: [...promoted, ...others].map((listing) => toShopListingCard(listing, promotions)),
-            total: promotedTotal + otherTotal,
-            page,
-            limit,
-        };
+        });
     }),
 );

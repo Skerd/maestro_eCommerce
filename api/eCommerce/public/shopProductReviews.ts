@@ -9,7 +9,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {isObjectIdZod} from "armonia/src/modules/core/helpers/zodBuilder";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
 import type {ShopProductReviewsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.dto";
@@ -39,65 +39,67 @@ router.post(
         const {languageCode, origin, id, slug, sellerCompanyId, page = 1, limit = 10} = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-
-        let product: any;
-        if (id) {
-            const byId: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
-            if (ctx.mode === "tenant") byId.company = ctx.company._id;
-            product = await Product.findOne(byId, {ratingAverage: 1, ratingCount: 1, company: 1}).noDeleted().lean();
-        } else if (slug) {
-            const slugKey = String(slug).toLowerCase();
-            if (ctx.mode === "tenant") {
-                product = await Product.findOne(
-                    {company: ctx.company._id, slug: slugKey, status: "active"},
-                    {ratingAverage: 1, ratingCount: 1, company: 1},
-                ).noDeleted().lean();
-            } else if (sellerCompanyId) {
-                product = await Product.findOne(
-                    {company: new ObjectId(sellerCompanyId), slug: slugKey, status: "active"},
-                    {ratingAverage: 1, ratingCount: 1, company: 1},
-                ).noDeleted().lean();
-            } else {
-                const matches = await Product.find(
-                    {slug: slugKey, status: "active"},
-                    {ratingAverage: 1, ratingCount: 1, company: 1},
-                ).noDeleted().lean();
-                if (matches.length > 1) {
-                    throw apiValidationException("product_not_found", null, null, languageCode);
+        return inShopCatalog(ctx, async () => {
+            let product: any;
+            if (id) {
+                const byId: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
+                if (ctx.mode === "tenant") byId.company = ctx.company._id;
+                product = await Product.findOne(byId, {ratingAverage: 1, ratingCount: 1, company: 1}).noDeleted().lean();
+            } else if (slug) {
+                const slugKey = String(slug).toLowerCase();
+                if (ctx.mode === "tenant") {
+                    product = await Product.findOne(
+                        {company: ctx.company._id, slug: slugKey, status: "active"},
+                        {ratingAverage: 1, ratingCount: 1, company: 1},
+                    ).noDeleted().lean();
+                } else if (sellerCompanyId) {
+                    product = await Product.findOne(
+                        {company: new ObjectId(sellerCompanyId), slug: slugKey, status: "active"},
+                        {ratingAverage: 1, ratingCount: 1, company: 1},
+                    ).noDeleted().lean();
+                } else {
+                    const matches = await Product.find(
+                        {slug: slugKey, status: "active"},
+                        {ratingAverage: 1, ratingCount: 1, company: 1},
+                    ).noDeleted().lean();
+                    if (matches.length > 1) {
+                        throw apiValidationException("product_not_found", null, null, languageCode);
+                    }
+                    product = matches[0];
                 }
-                product = matches[0];
             }
-        }
-        if (!product) {
-            throw apiValidationException("product_not_found", null, null, languageCode);
-        }
-
-        const productSellerId = product.company?._id ?? product.company;
-        if (ctx.mode === "platform") {
-            const {company: liveCompanies} = await liveSellerCompanyClause();
-            const sellerId = String(productSellerId ?? "");
-            if (!liveCompanies.$in.some((id) => String(id) === sellerId)) {
+            if (!product) {
                 throw apiValidationException("product_not_found", null, null, languageCode);
             }
-        }
-        const filter = {product: product._id, company: productSellerId};
 
-        const [reviews, total] = await Promise.all([
-            ProductReview.find(filter).noDeleted()
-                .select("rating title comment reviewer createdAt")
-                .populate("reviewer", "name surname")
-                .sort({createdAt: -1})
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
-            ProductReview.countDocuments(filter).noDeleted(),
-        ]);
+            const productSellerId = product.company?._id ?? product.company;
+            if (ctx.mode === "platform") {
+                const {company: liveCompanies} = await liveSellerCompanyClause();
+                const sellerId = String(productSellerId ?? "");
+                if (!liveCompanies.$in.some((id) => String(id) === sellerId)) {
+                    throw apiValidationException("product_not_found", null, null, languageCode);
+                }
+            }
+            const filter = {product: product._id, company: productSellerId};
 
-        return {
-            data: reviews.map(productReviewToShopDTO),
-            total,
-            ratingAverage: product.ratingAverage,
-            ratingCount: product.ratingCount,
-        };
+            const [reviews, total] = await Promise.all([
+                ProductReview.find(filter).noDeleted()
+                    .select("rating title comment reviewer createdAt")
+                    .populate("reviewer", "name surname")
+                    .sort({createdAt: -1})
+                    .skip((page - 1) * limit)
+                    .limit(limit)
+                    .lean(),
+                ProductReview.countDocuments(filter).noDeleted(),
+            ]);
+
+            return {
+                data: reviews.map(productReviewToShopDTO),
+                total,
+                ratingAverage: product.ratingAverage,
+                ratingCount: product.ratingCount,
+            };
+
+        });
     }),
 );
