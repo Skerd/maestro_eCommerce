@@ -16,9 +16,12 @@ import {InventoryActions} from "@eCommerceModule/database/schemas/inventory/inve
 import {assertStockDocumentLines} from "@eCommerceModule/utilities/services/stockDocumentLines";
 import {productOrderLinesToSelect} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.select";
 import {attachOrderLineProductCopy} from "@eCommerceModule/utilities/mappers/productOrder/orderLineDisplay";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 const userId = new ObjectId();
 const lang = "en-US";
 const logger = getLogger("stock_documents_test");
@@ -40,11 +43,11 @@ afterAll(async () => {
     await mongod.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     for (const collection of await mongoose.connection.db!.collections()) {
         await collection.deleteMany({});
     }
-});
+}));
 
 let seq = 0;
 async function seedProduct(overrides: Record<string, unknown> = {}) {
@@ -70,11 +73,12 @@ const stockOf = async (product: any, warehouse: any) => {
 };
 
 describe("stock document lines", () => {
-    it("accept distinct tracked items of the company and refuse duplicates, bundles and foreign warehouses", async () => {
+    it("accept distinct tracked items of the company and refuse duplicates, bundles and foreign warehouses", () => asCompany(async () => {
         const product = await seedProduct();
         const bundle = await seedProduct({type: "bundle", bundleComponents: [{product: product._id, quantity: 1}]});
         const warehouse = await seedWarehouse();
-        const foreign = await Warehouse.create({name: "X", code: "XFOREIGN", company: new ObjectId(), isActive: true} as any);
+        const foreignCompany = new ObjectId();
+        const foreign = await withTenant(foreignCompany, () => Warehouse.create({name: "X", code: "XFOREIGN", company: foreignCompany, isActive: true} as any));
 
         await expect(assertStockDocumentLines([{product: product._id}], [warehouse._id], base as any)).resolves.toBeUndefined();
         await expect(assertStockDocumentLines([{product: product._id}, {product: product._id}], [warehouse._id], base as any))
@@ -83,7 +87,7 @@ describe("stock document lines", () => {
             .rejects.toMatchObject({error_code: "stock_line_not_tracked"});
         await expect(assertStockDocumentLines([{product: product._id}], [foreign._id], base as any))
             .rejects.toMatchObject({error_code: "inventory_reference_invalid"});
-    });
+    }));
 });
 
 describe("stock transfers", () => {
@@ -93,7 +97,7 @@ describe("stock transfers", () => {
         return StockTransfer.create({fromWarehouse: from._id, toWarehouse: to._id, lines: [{product: product._id, quantity}], company: companyId} as any);
     }
 
-    it("moves free stock with paired movements, creating the destination row", async () => {
+    it("moves free stock with paired movements, creating the destination row", () => asCompany(async () => {
         const product = await seedProduct();
         const from = await seedWarehouse();
         const to = await seedWarehouse();
@@ -112,9 +116,9 @@ describe("stock transfers", () => {
 
         await expect(new StockTransferActions().complete({...mover, _id: transfer._id.toString()}))
             .rejects.toMatchObject({error_code: "stock_document_not_draft"});
-    });
+    }));
 
-    it("never moves stock held for orders, and needs the status permission", async () => {
+    it("never moves stock held for orders, and needs the status permission", () => asCompany(async () => {
         const product = await seedProduct();
         const from = await seedWarehouse();
         const to = await seedWarehouse();
@@ -129,11 +133,11 @@ describe("stock transfers", () => {
 
         await new StockTransferActions().cancel({...mover, _id: transfer._id.toString()});
         expect((await StockTransfer.findById(transfer._id))!.status).toBe("cancelled");
-    });
+    }));
 });
 
 describe("stock counts", () => {
-    it("snapshots the warehouse and sets on-hand to the count against on-hand now", async () => {
+    it("snapshots the warehouse and sets on-hand to the count against on-hand now", () => asCompany(async () => {
         const counted = await seedProduct();
         const untouched = await seedProduct();
         const found = await seedProduct();
@@ -164,11 +168,11 @@ describe("stock counts", () => {
         const moves = await InventoryMovement.find({referenceId: count._id}).sort({quantity: 1});
         expect(moves.map(move => [move.reason, move.quantity, move.quantityAfter])).toEqual([["adjustment", -2, 7], ["adjustment", 2, 2]]);
         expect((await StockCount.findById(count._id))!.status).toBe("applied");
-    });
+    }));
 });
 
 describe("operator UI support", () => {
-    it("records the reason chosen for a deduction", async () => {
+    it("records the reason chosen for a deduction", () => asCompany(async () => {
         const product = await seedProduct();
         const warehouse = await seedWarehouse();
         const row = await seedRow(product, warehouse, 5);
@@ -179,7 +183,7 @@ describe("operator UI support", () => {
 
         expect((await InventoryMovement.findOne({inventory: row._id}))!.reason).toBe("damage");
         expect(await stockOf(product, warehouse)).toEqual([3, 0]);
-    });
+    }));
 
     it("labels order lines for the item pickers", () => {
         const lineId = new ObjectId();

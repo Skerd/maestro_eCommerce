@@ -27,9 +27,12 @@ import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {openPosSession, payPosOrder} from "@eCommerceModule/utilities/services/posService";
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 const ctx = {logger: getLogger("pos_flows_test"), languageCode: "en-US", company: {_id: companyId, name: "Shop"}, userId: new ObjectId()};
 
 beforeAll(async () => {
@@ -42,12 +45,12 @@ afterAll(async () => {
     await mongod.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     sentRequests.length = 0;
     for (const collection of await mongoose.connection.db!.collections()) {
         await collection.deleteMany({});
     }
-});
+}));
 
 /** A till selling from one warehouse in a country with 20 % VAT, paid in cash. */
 async function seedTill() {
@@ -73,7 +76,7 @@ async function seedProduct(overrides: Record<string, unknown>) {
 }
 
 describe("till sales (#19)", () => {
-    it("sells a bundle as its components and a fractional quantity, with the VAT inside the prices", async () => {
+    it("sells a bundle as its components and a fractional quantity, with the VAT inside the prices", () => asCompany(async () => {
         const {warehouse, cash, sessionId} = await seedTill();
         const strap = await seedProduct({price: 20});
         const bundle = await seedProduct({type: "bundle", price: 50, bundleComponents: [{product: strap._id, quantity: 2}]});
@@ -95,9 +98,9 @@ describe("till sales (#19)", () => {
         expect(order.amountTax).toBe(9.16);
         const sale = await ProductOrder.findOne({idempotencyKey: `pos:${order._id}`});
         expect(sale!.items.map(item => item.quantity)).toEqual([1, 0.5]);
-    });
+    }));
 
-    it("refuses gift-card products at the till", async () => {
+    it("refuses gift-card products at the till", () => asCompany(async () => {
         const {cash, sessionId} = await seedTill();
         const card = await seedProduct({type: "gift_card", price: 25});
 
@@ -106,9 +109,9 @@ describe("till sales (#19)", () => {
             lines: [{productId: card._id.toString(), quantity: 1}],
             payments: [{paymentMethodId: cash._id.toString(), amount: 25}],
         } as any, ctx)).rejects.toMatchObject({error_code: "pos_product_not_sellable"});
-    });
+    }));
 
-    it("reports the VAT of each line to the tax authority", async () => {
+    it("reports the VAT of each line to the tax authority", () => asCompany(async () => {
         const {warehouse, cash, sessionId} = await seedTill();
         const mug = await seedProduct({price: 12});
         await Inventory.create({product: mug._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
@@ -129,5 +132,5 @@ describe("till sales (#19)", () => {
         expect(invoice["8__TotPriceWoVAT"]).toBe("20.00");
         expect(invoice["30__Items"]["1__I"][0]).toMatchObject({"10__VR": "20.00", "11__VA": "4.00"});
         expect(invoice["31__SameTaxes"]["1__SameTax"][0]).toMatchObject({"3__VATRate": "20.00", "4__VATAmt": "4.00"});
-    });
+    }));
 });

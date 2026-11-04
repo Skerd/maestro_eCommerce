@@ -7,10 +7,13 @@ import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 // Expiry runs in transactions, which need a replica set
 let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 
 beforeAll(async () => {
     replSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
@@ -23,13 +26,13 @@ afterAll(async () => {
     await replSet.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     await Promise.all([
-        Checkout.deleteMany({}),
+        Checkout.collection.deleteMany({}),
         Inventory.deleteMany({}, {hard: true}),
         Warehouse.deleteMany({}, {hard: true}),
     ]);
-});
+}));
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -57,7 +60,7 @@ async function seedOverdueCodCheckout() {
 
 // A fresh replica set can make the first transactions wait for a primary
 describe("runCheckoutExpiry", {timeout: 30000}, () => {
-    it("expires an overdue checkout and releases its hold", async () => {
+    it("expires an overdue checkout and releases its hold", () => asCompany(async () => {
         const {inventory, checkout} = await seedOverdueCodCheckout();
 
         await runCheckoutExpiry(companyId);
@@ -66,9 +69,9 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
         const expired = await Checkout.findById(checkout._id);
         expect(expired!.status).toBe("expired");
         expect(expired!.reservations![0].state).toBe("released");
-    });
+    }));
 
-    it("leaves a checkout alone when it was confirmed after the batch was loaded", async () => {
+    it("leaves a checkout alone when it was confirmed after the batch was loaded", () => asCompany(async () => {
         const {inventory, checkout} = await seedOverdueCodCheckout();
         const stale = await Checkout.findById(checkout._id);
         // The buyer confirms (order placed, stock still held) while the job works on its stale copy
@@ -82,9 +85,9 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
         const confirmed = await Checkout.findById(checkout._id);
         expect(confirmed!.status).toBe("confirmed");
         expect(confirmed!.reservations![0].state).toBe("reserved");
-    });
+    }));
 
-    it("rolls a checkout back whole when a release fails halfway, and releases each hold once on the next run (#11)", async () => {
+    it("rolls a checkout back whole when a release fails halfway, and releases each hold once on the next run (#11)", () => asCompany(async () => {
         const {inventory, checkout} = await seedOverdueCodCheckout();
         const secondProduct = new ObjectId();
         const warehouseId = checkout.reservations![0].warehouse;
@@ -110,5 +113,5 @@ describe("runCheckoutExpiry", {timeout: 30000}, () => {
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(0);
         expect((await Inventory.findById(second._id))!.quantityReserved).toBe(0);
         expect((await Checkout.findById(checkout._id))!.status).toBe("expired");
-    });
+    }));
 });

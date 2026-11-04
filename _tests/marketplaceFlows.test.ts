@@ -18,10 +18,13 @@ import {ListingActions} from "@eCommerceModule/database/schemas/listing/listing.
 import {BidActions} from "@eCommerceModule/database/schemas/bid/bid.actions";
 import {runOrderAutoComplete} from "@eCommerceModule/utilities/cronJobs/orderAutoCompleteJob";
 import {orderChildFilter, orderPartyFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 // The auto-complete cron runs its own transactions, which need a replica set
 let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 const currencyId = new ObjectId();
 const otherCurrencyId = new ObjectId();
 const customerId = new ObjectId();
@@ -41,12 +44,12 @@ afterAll(async () => {
     await replSet.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     const db = mongoose.connection.db!;
     for (const collection of await db.collections()) {
         await collection.deleteMany({});
     }
-});
+}));
 
 function as(userId: ObjectId, permissions: string[] = [], isAdmin = false) {
     return {
@@ -94,7 +97,7 @@ async function ledgerTotals(orderId: ObjectId): Promise<Record<string, number>> 
 }
 
 describe("marketplace order escrow", {timeout: 30000}, () => {
-    it("never pays out more than the hold across milestones and final acceptance", async () => {
+    it("never pays out more than the hold across milestones and final acceptance", () => asCompany(async () => {
         const orderId = await seedOrderInProgress(100);
         const actions = new OrderActions();
 
@@ -114,9 +117,9 @@ describe("marketplace order escrow", {timeout: 30000}, () => {
         expect(totals.release + totals.fee).toBe(100);
         expect(await escrowBalance(orderId, companyId, {})).toBe(0);
         expect((await Order.findById(orderId))!.status).toBe("completed");
-    });
+    }));
 
-    it("refunds only what is still held when the provider cancels", async () => {
+    it("refunds only what is still held when the provider cancels", () => asCompany(async () => {
         const orderId = await seedOrderInProgress(100);
         const actions = new OrderActions();
         await actions.createMilestone({...as(customerId), order: orderId.toString(), name: "Draft", amount: 40});
@@ -128,23 +131,23 @@ describe("marketplace order escrow", {timeout: 30000}, () => {
         const totals = await ledgerTotals(orderId);
         expect(totals.refund).toBe(60);
         expect(await escrowBalance(orderId, companyId, {})).toBe(0);
-    });
+    }));
 
-    it("refuses a customer cancel once work has started", async () => {
+    it("refuses a customer cancel once work has started", () => asCompany(async () => {
         const orderId = await seedOrderInProgress();
         await expect(new OrderActions().cancel({...as(customerId), _id: orderId.toString()}))
             .rejects.toMatchObject({error_code: "customer_cannot_cancel_started_order"});
-    });
+    }));
 
-    it("refuses a milestone larger than what is left of the order", async () => {
+    it("refuses a milestone larger than what is left of the order", () => asCompany(async () => {
         const orderId = await seedOrderInProgress(100);
         const actions = new OrderActions();
         await actions.createMilestone({...as(customerId), order: orderId.toString(), name: "First", amount: 80});
         await expect(actions.createMilestone({...as(customerId), order: orderId.toString(), name: "Second", amount: 30}))
             .rejects.toMatchObject({error_code: "milestone_total_exceeds_order_amount"});
-    });
+    }));
 
-    it("prices add-ons in cents and stores the customer's note", async () => {
+    it("prices add-ons in cents and stores the customer's note", () => asCompany(async () => {
         const listing = await seedListing({price: 10.1});
         const {insertedId: addOn} = await ListingAddOn.collection.insertOne({
             listing, provider: providerId, name: "Rush", price: {amount: 0.2, currency: currencyId}, deliveryDays: 1, company: companyId,
@@ -155,44 +158,44 @@ describe("marketplace order escrow", {timeout: 30000}, () => {
         const order = await Order.findOne({listing});
         expect(order!.amount).toBe(10.3);
         expect(order!.note).toBe("Blue tones");
-    });
+    }));
 
-    it("refuses an add-on priced in another currency", async () => {
+    it("refuses an add-on priced in another currency", () => asCompany(async () => {
         const listing = await seedListing();
         const {insertedId: addOn} = await ListingAddOn.collection.insertOne({
             listing, provider: providerId, name: "Rush", price: {amount: 5, currency: otherCurrencyId}, company: companyId,
         });
         await expect(new OrderActions().createFromListing({...as(customerId), listing: listing.toString(), addOns: [addOn.toString()]}))
             .rejects.toMatchObject({error_code: "add_on_currency_mismatch"});
-    });
+    }));
 });
 
 describe("listing activation", () => {
     const writer = ["listings[write:title]"];
 
-    it("lets the provider activate a priced listing", async () => {
+    it("lets the provider activate a priced listing", () => asCompany(async () => {
         const listing = await seedListing({status: "draft"});
         await new ListingActions().activate({...as(providerId, writer), _id: listing.toString()});
         expect((await Listing.findById(listing))!.status).toBe("active");
-    });
+    }));
 
-    it("refuses a listing without a price", async () => {
+    it("refuses a listing without a price", () => asCompany(async () => {
         const listing = await seedListing({status: "draft", price: undefined});
         await expect(new ListingActions().activate({...as(providerId, writer), _id: listing.toString()}))
             .rejects.toMatchObject({error_code: "listing_price_required"});
-    });
+    }));
 
-    it("refuses someone else's listing", async () => {
+    it("refuses someone else's listing", () => asCompany(async () => {
         const listing = await seedListing({status: "draft"});
         await expect(new ListingActions().activate({...as(strangerId, writer), _id: listing.toString()}))
             .rejects.toMatchObject({error_code: "user_permissions_not_sufficient"});
-    });
+    }));
 });
 
 describe("order auto-complete", {timeout: 30000}, () => {
     const DAY_MS = 24 * 60 * 60 * 1000;
 
-    it("accepts a delivery left unanswered past the window, counted from submission", async () => {
+    it("accepts a delivery left unanswered past the window, counted from submission", () => asCompany(async () => {
         const orderId = await seedOrderInProgress(100);
         await new OrderActions().submitDelivery({...as(providerId), _id: orderId.toString(), message: "Done"});
         // Raw write: the model's update middleware keeps createdAt fixed
@@ -202,9 +205,9 @@ describe("order auto-complete", {timeout: 30000}, () => {
 
         expect((await Order.findById(orderId))!.status).toBe("completed");
         expect(await escrowBalance(orderId, companyId, {})).toBe(0);
-    });
+    }));
 
-    it("leaves a fresh delivery alone even when the due date is long past", async () => {
+    it("leaves a fresh delivery alone even when the due date is long past", () => asCompany(async () => {
         const orderId = await seedOrderInProgress(100);
         await Order.updateOne({_id: orderId}, {$set: {deliveryDueDate: new Date(Date.now() - 30 * DAY_MS)}});
         await new OrderActions().submitDelivery({...as(providerId), _id: orderId.toString(), message: "Late but done"});
@@ -212,7 +215,7 @@ describe("order auto-complete", {timeout: 30000}, () => {
         await runOrderAutoComplete(companyId, logger);
 
         expect((await Order.findById(orderId))!.status).toBe("in_progress");
-    });
+    }));
 });
 
 describe("bids and reviews", () => {
@@ -225,7 +228,7 @@ describe("bids and reviews", () => {
         return insertedId;
     }
 
-    it("opens an order for the accepted bid and rejects the others", async () => {
+    it("opens an order for the accepted bid and rejects the others", () => asCompany(async () => {
         const taskRequest = await seedTaskRequest();
         const [winning, losing] = await Bid.insertMany([
             {taskRequest, bidder: providerId, amount: 120, currency: currencyId, proposal: "A", deliveryDays: 5, company: companyId},
@@ -238,32 +241,32 @@ describe("bids and reviews", () => {
         const order = await Order.findOne({bid: winning._id});
         expect(order!.provider.toString()).toBe(providerId.toString());
         expect(order!.customer.toString()).toBe(customerId.toString());
-    });
+    }));
 
-    it("lets a bidder withdraw their own pending bid", async () => {
+    it("lets a bidder withdraw their own pending bid", () => asCompany(async () => {
         const taskRequest = await seedTaskRequest();
         const bid = await Bid.create({taskRequest, bidder: providerId, amount: 100, currency: currencyId, proposal: "A", deliveryDays: 2, company: companyId});
         await new BidActions().reject({...as(providerId), _id: bid._id.toString()});
         expect((await Bid.findById(bid._id))!.status).toBe("rejected");
-    });
+    }));
 
-    it("stores a review of a task-request order without inventing a listing", async () => {
+    it("stores a review of a task-request order without inventing a listing", () => asCompany(async () => {
         const {insertedId: orderId} = await Order.collection.insertOne({
             name: "ORDER-1", taskRequest: new ObjectId(), customer: customerId, provider: providerId,
             amount: 50, currency: currencyId, status: "completed", company: companyId,
         });
         const review = await Review.create({order: orderId, rating: 5, reviewer: customerId, company: companyId});
         expect(review.listing).toBeUndefined();
-    });
+    }));
 });
 
 describe("marketplace access", () => {
-    it("limits non-admins to the orders they are a party to", async () => {
+    it("limits non-admins to the orders they are a party to", () => asCompany(async () => {
         await seedOrderInProgress();
         const caller = {userId: strangerId.toString(), isAdmin: false};
 
         expect(await Order.countDocuments({company: companyId, ...orderPartyFilter(caller)})).toBe(0);
         expect(await Order.countDocuments({company: companyId, ...orderPartyFilter({userId: customerId.toString(), isAdmin: false})})).toBe(1);
         expect(await orderChildFilter(companyId, {userId: providerId.toString(), isAdmin: true}, {})).toEqual({});
-    });
+    }));
 });

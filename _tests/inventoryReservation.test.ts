@@ -16,10 +16,13 @@ import {
     reserveCheckoutStock,
     trackedStockLines,
 } from "@eCommerceModule/utilities/services/inventoryReservationService";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 let mongod: MongoMemoryServer;
 
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 
 beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -32,16 +35,16 @@ afterAll(async () => {
     await mongod.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     await Promise.all([
         Inventory.deleteMany({}, {hard: true}),
         Warehouse.deleteMany({}, {hard: true}),
-        Checkout.deleteMany({}),
+        Checkout.collection.deleteMany({}),
         InventoryMovement.deleteMany({}, {hard: true}),
         Product.deleteMany({}, {hard: true}),
         ProductVariant.deleteMany({}, {hard: true}),
     ]);
-});
+}));
 
 async function seedWarehouse(overrides: Record<string, unknown> = {}) {
     const suffix = new ObjectId().toString().slice(-6);
@@ -107,7 +110,7 @@ describe("isStockTracked", () => {
 });
 
 describe("inventoryService.reserveStock", () => {
-    it("does not oversell under concurrent reservations", async () => {
+    it("does not oversell under concurrent reservations", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         await seedInventory(warehouse._id, productId, 5);
@@ -124,20 +127,20 @@ describe("inventoryService.reserveStock", () => {
         const row = await Inventory.findOne({product: productId, warehouse: warehouse._id});
         expect(row!.quantityReserved).toBe(3);
         expect(row!.quantityOnHand).toBe(5);
-    });
+    }));
 
-    it("fails when available (onHand - reserved) is insufficient", async () => {
+    it("fails when available (onHand - reserved) is insufficient", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         await seedInventory(warehouse._id, productId, 10, 8);
 
         const result = await inventoryService.reserveStock(productId, undefined, warehouse._id, 3, {});
         expect(result).toBeNull();
-    });
+    }));
 });
 
 describe("inventoryService direct stock moves and sale reversal", () => {
-    it("takeStock takes only free stock unless overselling, which creates a missing row", async () => {
+    it("takeStock takes only free stock unless overselling, which creates a missing row", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         const row = await seedInventory(warehouse._id, productId, 5, 3);
@@ -150,9 +153,9 @@ describe("inventoryService direct stock moves and sale reversal", () => {
         const oversold = await inventoryService.takeStock({...key, warehouse: elsewhere._id}, 2, true, {});
         expect(oversold!.quantityOnHand).toBe(-2);
         expect((await Inventory.findById(row._id))!.quantityReserved).toBe(3);
-    });
+    }));
 
-    it("addStock puts units back, creating the row and linking it to the product", async () => {
+    it("addStock puts units back, creating the row and linking it to the product", () => asCompany(async () => {
         const productId = await seedProduct();
         const warehouse = await seedWarehouse();
 
@@ -160,9 +163,9 @@ describe("inventoryService direct stock moves and sale reversal", () => {
 
         expect([row.quantityOnHand, row.quantityReserved]).toEqual([2, 0]);
         expect((await Product.findById(productId))!.inventories!.map(String)).toEqual([row._id.toString()]);
-    });
+    }));
 
-    it("reverseSale returns sold units on hand and holds them again", async () => {
+    it("reverseSale returns sold units on hand and holds them again", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         await seedInventory(warehouse._id, productId, 4, 0);
@@ -170,11 +173,11 @@ describe("inventoryService direct stock moves and sale reversal", () => {
         const row = await inventoryService.reverseSale(productId, undefined, warehouse._id, 2, {});
 
         expect([row!.quantityOnHand, row!.quantityReserved]).toEqual([6, 2]);
-    });
+    }));
 });
 
 describe("unique stock key", () => {
-    it("allows one live row per product / variant / warehouse, but a replacement for a deleted one", async () => {
+    it("allows one live row per product / variant / warehouse, but a replacement for a deleted one", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         const first = await seedInventory(warehouse._id, productId, 1);
@@ -183,11 +186,11 @@ describe("unique stock key", () => {
 
         await Inventory.updateOne({_id: first._id}, {$set: {deletedAt: new Date()}});
         await expect(seedInventory(warehouse._id, productId, 1)).resolves.toBeTruthy();
-    });
+    }));
 });
 
 describe("reserveCheckoutStock", () => {
-    it("prefers the default warehouse when it has stock", async () => {
+    it("prefers the default warehouse when it has stock", () => asCompany(async () => {
         const productId = await seedProduct();
         const otherWarehouse = await seedWarehouse();
         const defaultWarehouse = await seedWarehouse({isDefault: true});
@@ -203,9 +206,9 @@ describe("reserveCheckoutStock", () => {
         expect(reservations).toHaveLength(1);
         expect(reservations[0].warehouse.toString()).toBe(defaultWarehouse._id.toString());
         expect(reservations[0].state).toBe("reserved");
-    });
+    }));
 
-    it("falls back to another warehouse when the default lacks stock", async () => {
+    it("falls back to another warehouse when the default lacks stock", () => asCompany(async () => {
         const productId = await seedProduct();
         const defaultWarehouse = await seedWarehouse({isDefault: true});
         const otherWarehouse = await seedWarehouse();
@@ -219,9 +222,9 @@ describe("reserveCheckoutStock", () => {
         );
 
         expect(reservations[0].warehouse.toString()).toBe(otherWarehouse._id.toString());
-    });
+    }));
 
-    it("skips untracked lines: digital products and products that opt out", async () => {
+    it("skips untracked lines: digital products and products that opt out", () => asCompany(async () => {
         const digital = await seedProduct({type: "digital"});
         const optedOut = await seedProduct({trackInventory: false});
         const warehouse = await seedWarehouse();
@@ -235,17 +238,17 @@ describe("reserveCheckoutStock", () => {
 
         expect(reservations).toHaveLength(0);
         expect((await Inventory.findOne({product: optedOut}))!.quantityReserved).toBe(0);
-    });
+    }));
 
-    it("treats a tracked product without any stock row as out of stock", async () => {
+    it("treats a tracked product without any stock row as out of stock", () => asCompany(async () => {
         const productId = await seedProduct();
 
         await expect(
             reserveCheckoutStock([{product: productId, quantity: 1}], companyId, {}),
         ).rejects.toBeInstanceOf(OutOfStockError);
-    });
+    }));
 
-    it("ignores stock in inactive or deleted warehouses", async () => {
+    it("ignores stock in inactive or deleted warehouses", () => asCompany(async () => {
         const productId = await seedProduct();
         const inactive = await seedWarehouse({isActive: false});
         const deleted = await seedWarehouse({deletedAt: new Date()});
@@ -255,9 +258,9 @@ describe("reserveCheckoutStock", () => {
         await expect(
             reserveCheckoutStock([{product: productId, quantity: 1}], companyId, {}),
         ).rejects.toBeInstanceOf(OutOfStockError);
-    });
+    }));
 
-    it("splits a line across warehouses when none covers it alone, default first", async () => {
+    it("splits a line across warehouses when none covers it alone, default first", () => asCompany(async () => {
         const productId = await seedProduct();
         const other = await seedWarehouse();
         const defaultWarehouse = await seedWarehouse({isDefault: true});
@@ -272,9 +275,9 @@ describe("reserveCheckoutStock", () => {
         ]);
         expect((await Inventory.findOne({warehouse: defaultWarehouse._id}))!.quantityReserved).toBe(3);
         expect((await Inventory.findOne({warehouse: other._id}))!.quantityReserved).toBe(3);
-    });
+    }));
 
-    it("throws OutOfStockError when all warehouses together can't cover a line, holding nothing", async () => {
+    it("throws OutOfStockError when all warehouses together can't cover a line, holding nothing", () => asCompany(async () => {
         const productId = await seedProduct();
         const first = await seedWarehouse();
         const second = await seedWarehouse();
@@ -286,11 +289,11 @@ describe("reserveCheckoutStock", () => {
         ).rejects.toBeInstanceOf(OutOfStockError);
         const rows = await Inventory.find({product: productId});
         expect(rows.map(row => row.quantityReserved)).toEqual([0, 0]);
-    });
+    }));
 });
 
 describe("trackedStockLines", () => {
-    it("explodes bundles into their tracked components", async () => {
+    it("explodes bundles into their tracked components", () => asCompany(async () => {
         const tracked = await seedProduct();
         const untracked = await seedProduct({type: "service"});
         const bundle = await seedProduct({
@@ -301,9 +304,9 @@ describe("trackedStockLines", () => {
         const lines = await trackedStockLines([{product: bundle, quantity: 3}], companyId, {});
 
         expect(lines).toEqual([{product: tracked, quantity: 6}]);
-    });
+    }));
 
-    it("respects a variant that opts out of tracking", async () => {
+    it("respects a variant that opts out of tracking", () => asCompany(async () => {
         const productId = await seedProduct({type: "variable", hasVariants: true});
         const variant = await ProductVariant.create({
             product: productId, sku: "V-1", price: 5, status: "active", trackInventory: false, company: companyId,
@@ -312,11 +315,11 @@ describe("trackedStockLines", () => {
         const lines = await trackedStockLines([{product: productId, variant: variant._id as ObjectId, quantity: 1}], companyId, {});
 
         expect(lines).toHaveLength(0);
-    });
+    }));
 });
 
 describe("releaseReservations", () => {
-    it("returns held stock, idempotently, and leaves consumed holds alone", async () => {
+    it("returns held stock, idempotently, and leaves consumed holds alone", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         await seedInventory(warehouse._id, productId, 10, 4);
@@ -335,9 +338,9 @@ describe("releaseReservations", () => {
 
         const reloaded = await Checkout.findById(checkout._id);
         expect(reloaded!.reservations!.map(r => r.state)).toEqual(["released", "consumed"]);
-    });
+    }));
 
-    it("never takes reserved stock below zero", async () => {
+    it("never takes reserved stock below zero", () => asCompany(async () => {
         const productId = new ObjectId();
         const warehouse = await seedWarehouse();
         const row = await seedInventory(warehouse._id, productId, 10, 1);
@@ -345,5 +348,5 @@ describe("releaseReservations", () => {
         expect(await inventoryService.releaseReservation(productId, undefined, warehouse._id, 4, {})).toBe(true);
 
         expect((await Inventory.findById(row._id))!.quantityReserved).toBe(0);
-    });
+    }));
 });

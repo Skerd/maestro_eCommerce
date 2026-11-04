@@ -54,9 +54,12 @@ import {ReturnRequestActions} from "@eCommerceModule/database/schemas/returnRequ
 import {returnedItemsValue, returnRequestService} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.service";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {GiftCardActions} from "@financeModule/database/schemas/giftCard/giftCard.actions";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 const userId = new ObjectId();
 const currencyId = new ObjectId();
 const lang = "en-US";
@@ -74,12 +77,12 @@ afterAll(async () => {
     await mongod.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     const db = mongoose.connection.db!;
     for (const collection of await db.collections()) {
         await collection.deleteMany({});
     }
-});
+}));
 
 let slugSeq = 0;
 async function seedProduct(overrides: Record<string, unknown> = {}) {
@@ -132,7 +135,7 @@ const ctx = {companyId, userId, languageCode: lang};
 const address = {firstName: "A", lastName: "B", street: "S", city: "C"};
 
 describe("repriceCart", () => {
-    it("applies pricing rules once to the base price, however often the cart is re-priced", async () => {
+    it("applies pricing rules once to the base price, however often the cart is re-priced", () => asCompany(async () => {
         const product = await seedProduct({price: 100});
         await PricingRule.create({
             name: "10% off", type: "percentage_discount", value: 10, appliesTo: "all",
@@ -145,9 +148,9 @@ describe("repriceCart", () => {
         }
         expect(cart.items[0].unitPrice).toBe(90);
         expect(cart.subtotal).toBe(90);
-    });
+    }));
 
-    it("picks up catalog price changes and drops products that are no longer sold", async () => {
+    it("picks up catalog price changes and drops products that are no longer sold", () => asCompany(async () => {
         const kept = await seedProduct({price: 40});
         const retired = await seedProduct({price: 25, title: "Retired"});
         const cart = cartOf([{product: kept, quantity: 2}, {product: retired, quantity: 1}]);
@@ -161,16 +164,16 @@ describe("repriceCart", () => {
         expect(cart.items).toHaveLength(1);
         expect(cart.subtotal).toBe(90);
         expect(notices.removedItems).toEqual(["Retired"]);
-    });
+    }));
 
-    it("drops a variant product line that has no variant chosen", async () => {
+    it("drops a variant product line that has no variant chosen", () => asCompany(async () => {
         const product = await seedProduct({hasVariants: true});
         const cart = cartOf([{product, quantity: 1}]);
         await repriceCart(cart, ctx);
         expect(cart.items).toHaveLength(0);
-    });
+    }));
 
-    it("re-validates the applied discount and removes it when the cart no longer qualifies", async () => {
+    it("re-validates the applied discount and removes it when the cart no longer qualifies", () => asCompany(async () => {
         const product = await seedProduct({price: 100});
         const discount = await seedDiscount({value: 10, minimumOrderAmount: 150});
         const cart = cartOf([{product, quantity: 2}], {
@@ -185,34 +188,34 @@ describe("repriceCart", () => {
         expect(cart.discountTotal).toBe(0);
         expect(cart.appliedDiscounts).toEqual([]);
         expect(notices.discountRemoved).toBe("minimum_order_amount_not_met");
-    });
+    }));
 });
 
 describe("validateDiscount", () => {
     const line = (productId: ObjectId, unitPrice: number, extra: Record<string, unknown> = {}) =>
         ({productId, quantity: 1, unitPrice, ...extra});
 
-    it("limits a product-targeted discount to the targeted lines", async () => {
+    it("limits a product-targeted discount to the targeted lines", () => asCompany(async () => {
         const a = new ObjectId();
         const b = new ObjectId();
         const discount = await seedDiscount({value: 10, appliesTo: "product", targetIds: [a]});
         const result = validateDiscount({subtotal: 150, items: [line(a, 100), line(b, 50)]}, discount);
         expect(result).toMatchObject({valid: true, discountAmount: 10});
-    });
+    }));
 
-    it("never discounts gift-card lines", async () => {
+    it("never discounts gift-card lines", () => asCompany(async () => {
         const discount = await seedDiscount({value: 20});
         const result = validateDiscount({subtotal: 100, items: [line(new ObjectId(), 100, {isGiftCard: true})]}, discount);
         expect(result.valid).toBe(false);
-    });
+    }));
 
-    it("caps percentages at 100", async () => {
+    it("caps percentages at 100", () => asCompany(async () => {
         const discount = await seedDiscount({value: 150});
         const result = validateDiscount({subtotal: 80, items: [line(new ObjectId(), 80)]}, discount);
         expect(result).toMatchObject({valid: true, discountAmount: 80});
-    });
+    }));
 
-    it("enforces the per-customer usage limit", async () => {
+    it("enforces the per-customer usage limit", () => asCompany(async () => {
         const discount = await seedDiscount({usageLimitPerCustomer: 1});
         await ProductOrder.collection.insertOne({
             company: companyId, customer: userId, status: "confirmed", deletedAt: null,
@@ -224,11 +227,11 @@ describe("validateDiscount", () => {
             companyId,
         );
         expect(result).toEqual({valid: false, reason: "discount_customer_limit_reached"});
-    });
+    }));
 });
 
 describe("generateOrderNumber", () => {
-    it("hands out unique numbers under concurrency and continues after existing orders", async () => {
+    it("hands out unique numbers under concurrency and continues after existing orders", () => asCompany(async () => {
         const year = new Date().getFullYear();
         await ProductOrder.collection.insertOne({company: companyId, orderNumber: `ORD-${year}-000041`});
 
@@ -236,7 +239,7 @@ describe("generateOrderNumber", () => {
 
         expect(new Set(numbers).size).toBe(25);
         expect(numbers.sort()[0]).toBe(`ORD-${year}-000042`);
-    });
+    }));
 });
 
 describe("checkout placement", () => {
@@ -271,7 +274,7 @@ describe("checkout placement", () => {
 
     const placement = {logger, languageCode: lang};
 
-    it("holds stock at the payment step and keeps it held on an unpaid (COD) order", async () => {
+    it("holds stock at the payment step and keeps it held on an unpaid (COD) order", () => asCompany(async () => {
         const product = await seedProduct();
         const inventory = await seedStock(product, 5);
         const checkout = await seedCheckout(product);
@@ -286,9 +289,9 @@ describe("checkout placement", () => {
         expect(order.status).toBe("pending");
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(2);
         expect((await Checkout.findById(checkout._id))!.status).toBe("confirmed");
-    });
+    }));
 
-    it("freezes the product type and the chosen options onto the order lines", async () => {
+    it("freezes the product type and the chosen options onto the order lines", () => asCompany(async () => {
         const product = await seedProduct({type: "variable", hasVariants: true});
         const variant = await ProductVariant.create({
             product: product._id, sku: "TEE-RED-XL", price: 50, status: "active", company: companyId,
@@ -305,9 +308,9 @@ describe("checkout placement", () => {
         const {order} = await placeOrderFromCheckout(checkout, {}, placement);
 
         expect(order.items[0].snapshot).toMatchObject({productType: "variable", variantLabel: "Red / XL"});
-    });
+    }));
 
-    it("is idempotent — a second caller gets the existing order back", async () => {
+    it("is idempotent — a second caller gets the existing order back", () => asCompany(async () => {
         const product = await seedProduct();
         await seedStock(product, 5);
         const checkout = await seedCheckout(product);
@@ -318,9 +321,9 @@ describe("checkout placement", () => {
         expect(again.created).toBe(false);
         expect(again.order._id.toString()).toBe(first.order._id.toString());
         expect(await ProductOrder.countDocuments({})).toBe(1);
-    });
+    }));
 
-    it("refuses an out-of-stock unpaid order without leaving partial holds", async () => {
+    it("refuses an out-of-stock unpaid order without leaving partial holds", () => asCompany(async () => {
         const inStock = await seedProduct();
         const soldOut = await seedProduct();
         const inStockInventory = await seedStock(inStock, 5);
@@ -334,9 +337,9 @@ describe("checkout placement", () => {
 
         await expect(reserveStockForPayment(checkout, placement)).rejects.toThrow();
         expect((await Inventory.findById(inStockInventory._id))!.quantityReserved).toBe(0);
-    });
+    }));
 
-    it("counts the discount use and refuses it once the limit is reached", async () => {
+    it("counts the discount use and refuses it once the limit is reached", () => asCompany(async () => {
         const product = await seedProduct();
         await seedStock(product, 10);
         const discount = await seedDiscount({usageLimit: 1});
@@ -346,9 +349,9 @@ describe("checkout placement", () => {
         expect((await Discount.findById(discount._id))!.usageCount).toBe(1);
 
         await expect(placeOrderFromCheckout(await seedCheckout(product, applied), {}, placement)).rejects.toThrow();
-    });
+    }));
 
-    it("resetCheckoutPayment releases held stock and clears the payment choice", async () => {
+    it("resetCheckoutPayment releases held stock and clears the payment choice", () => asCompany(async () => {
         const product = await seedProduct();
         const inventory = await seedStock(product, 5);
         const checkout = await seedCheckout(product);
@@ -360,9 +363,9 @@ describe("checkout placement", () => {
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(0);
         expect(checkout.paymentMethod).toBeUndefined();
         expect(checkout.reservations).toHaveLength(0);
-    });
+    }));
 
-    it("moves the held stock onto the order; payment leaves it on the shelf", async () => {
+    it("moves the held stock onto the order; payment leaves it on the shelf", () => asCompany(async () => {
         const product = await seedProduct();
         const inventory = await seedStock(product, 5);
         const checkout = await seedCheckout(product);
@@ -381,9 +384,9 @@ describe("checkout placement", () => {
         const row = await Inventory.findById(inventory._id);
         expect([row!.quantityOnHand, row!.quantityReserved]).toEqual([5, 2]);
         expect(await InventoryMovement.countDocuments({})).toBe(0);
-    });
+    }));
 
-    it("keeps the order as sold when the catalog and tax rates change afterwards (#1, #7)", async () => {
+    it("keeps the order as sold when the catalog and tax rates change afterwards (#1, #7)", () => asCompany(async () => {
         const product = await seedProduct({sku: "MUG-1"});
         await seedStock(product, 5);
         const zone = await TaxZone.create({
@@ -404,9 +407,9 @@ describe("checkout placement", () => {
         expect([line.unitPrice, line.totalPrice]).toEqual([50, 100]);
         const stored = await ProductOrder.findById(order._id);
         expect([stored!.taxTotal, stored!.grandTotal]).toEqual([20, 125]);
-    });
+    }));
 
-    it("lets only one of two buyers hold the last units (#8)", async () => {
+    it("lets only one of two buyers hold the last units (#8)", () => asCompany(async () => {
         const product = await seedProduct();
         const inventory = await seedStock(product, 2);
         const [first, second] = [await seedCheckout(product), await seedCheckout(product)];
@@ -416,11 +419,11 @@ describe("checkout placement", () => {
         expect(results.map(result => result.status).sort()).toEqual(["fulfilled", "rejected"]);
         expect((results.find(result => result.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({error_code: "out_of_stock"});
         expect((await Inventory.findById(inventory._id))!.quantityReserved).toBe(2);
-    });
+    }));
 });
 
 describe("fulfillOrderPaidExtras", () => {
-    it("issues cards for every gift-card line, idempotently", async () => {
+    it("issues cards for every gift-card line, idempotently", () => asCompany(async () => {
         const card25 = await seedProduct({type: "gift_card", price: 25});
         const card50 = await seedProduct({type: "gift_card", price: 50});
         const order = await ProductOrder.create({
@@ -442,25 +445,25 @@ describe("fulfillOrderPaidExtras", () => {
 
         const balances = (await GiftCard.find({order: order._id})).map(card => card.balance).sort();
         expect(balances).toEqual([25, 50, 50]);
-    });
+    }));
 });
 
 describe("resolvePosLineUnitPrice", () => {
     const posCtx = {company: {_id: companyId}, languageCode: lang};
 
-    it("uses the variant price, ignoring anything the client sent", async () => {
+    it("uses the variant price, ignoring anything the client sent", () => asCompany(async () => {
         const product = await seedProduct({price: 30, hasVariants: true});
         const variant = await ProductVariant.create({product: product._id, sku: "V1", price: 35, status: "active", company: companyId} as any);
         expect(await resolvePosLineUnitPrice(product as any, variant._id.toString(), posCtx)).toBe(35);
         expect(await resolvePosLineUnitPrice(product as any, undefined, posCtx)).toBe(30);
-    });
+    }));
 
-    it("rejects a variant that belongs to another product", async () => {
+    it("rejects a variant that belongs to another product", () => asCompany(async () => {
         const product = await seedProduct();
         const other = await seedProduct();
         const variant = await ProductVariant.create({product: other._id, sku: "V2", price: 1, status: "active", company: companyId} as any);
         await expect(resolvePosLineUnitPrice(product as any, variant._id.toString(), posCtx)).rejects.toThrow();
-    });
+    }));
 });
 
 describe("order action permissions", () => {
@@ -478,28 +481,28 @@ describe("order action permissions", () => {
         actionUserCtx: {userId: userId.toString(), isAdmin: false, permissions, isSelf: true},
     }) as any;
 
-    it("rejects a user without the status write permission", async () => {
+    it("rejects a user without the status write permission", () => asCompany(async () => {
         const order = await seedOrder("confirmed");
         await expect(new ProductOrderActions().markProcessing(params(order._id, []))).rejects.toThrow();
         expect((await ProductOrder.findById(order._id))!.status).toBe("confirmed");
-    });
+    }));
 
-    it("allows a user holding productorders[write:status]", async () => {
+    it("allows a user holding productorders[write:status]", () => asCompany(async () => {
         const order = await seedOrder("confirmed");
         await new ProductOrderActions().markProcessing(params(order._id, ["productorders[write:status]"]));
         expect((await ProductOrder.findById(order._id))!.status).toBe("processing");
-    });
+    }));
 
-    it("requires the paymentStatus permission for refunds even with status rights", async () => {
+    it("requires the paymentStatus permission for refunds even with status rights", () => asCompany(async () => {
         const order = await seedOrder("confirmed");
         await expect(
             new ProductOrderActions().refund(params(order._id, ["productorders[write:status]"])),
         ).rejects.toThrow();
-    });
+    }));
 });
 
 describe("calculateShipping", () => {
-    it("only offers a free rate inside its order-amount window", async () => {
+    it("only offers a free rate inside its order-amount window", () => asCompany(async () => {
         const {calculateShipping} = await import("@eCommerceModule/utilities/services/shippingCalculationService");
         const ShippingZone = (await import("@eCommerceModule/database/schemas/shippingZone/shippingZone")).default;
         const country = new ObjectId();
@@ -516,16 +519,17 @@ describe("calculateShipping", () => {
 
         expect(small.map(rate => rate.rateName)).toEqual(["Standard"]);
         expect(large.map(rate => rate.rateName)).toEqual(["Standard", "Free over 60"]);
-    });
+    }));
 
-    it("matches a state-limited zone from the state name a storefront address carries", async () => {
+    it("matches a state-limited zone from the state name a storefront address carries", () => asCompany(async () => {
         const {calculateShipping} = await import("@eCommerceModule/utilities/services/shippingCalculationService");
         const ShippingZone = (await import("@eCommerceModule/database/schemas/shippingZone/shippingZone")).default;
         const country = new ObjectId();
         const tirana = new ObjectId();
         await mongoose.connection.db!.collection("states").insertMany([
-            {_id: tirana, name: "Tirana District", country},
-            {_id: new ObjectId(), name: "Tirana District", country: new ObjectId()},
+            // States are company reference data, like every company's copy of the country list.
+            {_id: tirana, name: "Tirana District", country, company: companyId},
+            {_id: new ObjectId(), name: "Tirana District", country: new ObjectId(), company: companyId},
         ]);
         await ShippingZone.create({
             name: "Tirana", countries: [country], states: [tirana], isActive: true, company: companyId,
@@ -538,7 +542,7 @@ describe("calculateShipping", () => {
         expect((await rates(tirana.toString())).map(rate => rate.rateName)).toEqual(["Courier"]);
         expect(await rates("Durrës District")).toEqual([]);
         expect(await rates(undefined)).toEqual([]);
-    });
+    }));
 });
 
 describe("order ship action", () => {
@@ -550,7 +554,7 @@ describe("order ship action", () => {
         },
     });
 
-    it("ships only what earlier fulfillments haven't covered, then refuses a second full ship", async () => {
+    it("ships only what earlier fulfillments haven't covered, then refuses a second full ship", () => asCompany(async () => {
         const order = await ProductOrder.create({
             company: companyId, orderNumber: "ORD-S-1", customer: userId, currency: currencyId,
             idempotencyKey: `k-${new ObjectId().toString()}`, status: "confirmed", paymentStatus: "paid",
@@ -576,7 +580,7 @@ describe("order ship action", () => {
         await ProductOrder.updateOne({_id: order._id}, {$set: {status: "processing"}});
         await expect(new ProductOrderActions().ship(shipParams(order._id as ObjectId) as any))
             .rejects.toMatchObject({error_code: "order_already_fulfilled"});
-    });
+    }));
 });
 
 describe("stock leaves at shipment", () => {
@@ -611,7 +615,7 @@ describe("stock leaves at shipment", () => {
         return [row!.quantityOnHand, row!.quantityReserved];
     };
 
-    it("consumes held units per shipment, splitting a hold when part of it ships", async () => {
+    it("consumes held units per shipment, splitting a hold when part of it ships", () => asCompany(async () => {
         const {order, inventory} = await seedOrder(3, 3, 10);
 
         const first = await pendingShipment(order, 1);
@@ -631,9 +635,9 @@ describe("stock leaves at shipment", () => {
         expect(reloaded!.timeline.map(entry => entry.event)).toEqual(["order_partially_shipped", "order_shipped"]);
         const sales = await InventoryMovement.find({reason: "sale", referenceType: "Fulfillment"});
         expect(sales.map(sale => sale.quantity).sort()).toEqual([-1, -2]);
-    });
+    }));
 
-    it("takes units nobody held from free stock at shipment, or refuses when there are none", async () => {
+    it("takes units nobody held from free stock at shipment, or refuses when there are none", () => asCompany(async () => {
         const {order, inventory} = await seedOrder(2, 0, 5);
         await new ProductOrderActions().ship({...shipper, _id: order._id.toString()} as any);
         expect(await stockOf(inventory)).toEqual([3, 0]);
@@ -643,9 +647,9 @@ describe("stock leaves at shipment", () => {
         await expect(new ProductOrderActions().ship({...shipper, _id: short.order._id.toString()} as any))
             .rejects.toMatchObject({error_code: "out_of_stock"});
         expect(await stockOf(short.inventory)).toEqual([1, 0]);
-    });
+    }));
 
-    it("is delivered once every shipment arrived; a failed one comes back to stock, held again", async () => {
+    it("is delivered once every shipment arrived; a failed one comes back to stock, held again", () => asCompany(async () => {
         const {order, inventory} = await seedOrder(2, 2, 10);
         const first = await pendingShipment(order, 1);
         const second = await pendingShipment(order, 1);
@@ -666,17 +670,17 @@ describe("stock leaves at shipment", () => {
         await new FulfillmentActions().markDelivered({...shipper, _id: shipments[0]._id.toString()} as any);
         expect(await stockOf(inventory)).toEqual([8, 0]);
         expect((await ProductOrder.findById(order._id))!.status).toBe("delivered");
-    });
+    }));
 
-    it("refuses to ship from a stock row that is gone (#4)", async () => {
+    it("refuses to ship from a stock row that is gone (#4)", () => asCompany(async () => {
         const {order, inventory} = await seedOrder(1, 1, 5);
         await Inventory.updateOne({_id: inventory._id}, {$set: {deletedAt: new Date()}});
 
         await expect(new ProductOrderActions().ship({...shipper, _id: order._id.toString()} as any))
             .rejects.toMatchObject({error_code: "inventory_not_found"});
-    });
+    }));
 
-    it("gives back what is still held when the order is cancelled or fully refunded", async () => {
+    it("gives back what is still held when the order is cancelled or fully refunded", () => asCompany(async () => {
         const cod = await seedOrder(2, 2, 10, {status: "pending", paymentStatus: "unpaid"});
         await new ProductOrderActions().cancel({...staff(["productorders[write:status]"]), _id: cod.order._id.toString()} as any);
         expect(await stockOf(cod.inventory)).toEqual([10, 0]);
@@ -689,11 +693,11 @@ describe("stock leaves at shipment", () => {
         await new ProductOrderActions().refund({...staff(["productorders[write:paymentStatus]"]), _id: paid.order._id.toString()} as any);
         expect(await stockOf(paid.inventory)).toEqual([10, 0]);
         expect((await ProductOrder.findById(paid.order._id))!.reservations!.map(r => r.state)).toEqual(["released"]);
-    });
+    }));
 });
 
 describe("refund guard for till sales", () => {
-    it("sends POS-originated orders to the till refund", async () => {
+    it("sends POS-originated orders to the till refund", () => asCompany(async () => {
         const order = await ProductOrder.create({
             company: companyId, orderNumber: "ORD-POS-1", customer: userId, currency: currencyId,
             idempotencyKey: `pos:${new ObjectId().toString()}`, status: "delivered", paymentStatus: "paid",
@@ -705,11 +709,11 @@ describe("refund guard for till sales", () => {
             logger, languageCode: lang, company: {_id: companyId}, _id: order._id.toString(),
             actionUserCtx: {userId: userId.toString(), isAdmin: false, isSelf: true, permissions: ["productorders[write:paymentStatus]"]},
         } as any)).rejects.toMatchObject({error_code: "refund_via_pos"});
-    });
+    }));
 });
 
 describe("calculateLinesTax", () => {
-    it("applies type-scoped rates per line group and keeps the per-rate breakdown", async () => {
+    it("applies type-scoped rates per line group and keeps the per-rate breakdown", () => asCompany(async () => {
         const country = new ObjectId();
         await TaxZone.create({
             name: "Home", country, isActive: true, priority: 1, company: companyId,
@@ -733,7 +737,7 @@ describe("calculateLinesTax", () => {
             {name: "VAT", rate: 10, amount: 20},
             {name: "Goods levy", rate: 5, amount: 5},
         ]));
-    });
+    }));
 });
 
 describe("assertPricedWhenActive", () => {
@@ -758,7 +762,7 @@ describe("POS and customer-group gates", () => {
         expect(() => assertPosOrderWrite(ctxWith(["posorders[write:state]"]) as any, "state")).not.toThrow();
     });
 
-    it("refuses customer-group self-enrolment without the member create permission", async () => {
+    it("refuses customer-group self-enrolment without the member create permission", () => asCompany(async () => {
         const group = await CustomerGroup.create({name: "Wholesale", company: companyId} as any);
         const params = (permissions: string[]) => ({
             ...ctxWith(permissions), logger, company: {_id: companyId},
@@ -770,11 +774,11 @@ describe("POS and customer-group gates", () => {
 
         await new CustomerGroupActions().addMember(params(["customergroupmembers[create:customergroupmembers]"]));
         expect(await CustomerGroupMember.countDocuments({customerGroup: group._id})).toBe(1);
-    });
+    }));
 });
 
 describe("POS VAT (tax-inclusive till prices)", () => {
-    it("extracts the VAT contained in a gross amount at the warehouse's rates", async () => {
+    it("extracts the VAT contained in a gross amount at the warehouse's rates", () => asCompany(async () => {
         const country = new ObjectId();
         await TaxZone.create({
             name: "Home", country, isActive: true, priority: 1, company: companyId,
@@ -783,11 +787,11 @@ describe("POS VAT (tax-inclusive till prices)", () => {
 
         expect(await calculateInclusiveTax(120, "physical", {country: country.toString()}, companyId)).toBe(20);
         expect(await calculateInclusiveTax(120, "physical", {country: new ObjectId().toString()}, companyId)).toBe(0);
-    });
+    }));
 });
 
 describe("collection membership for pricing", () => {
-    it("resolves manual and rule-based collections from the collections themselves", async () => {
+    it("resolves manual and rule-based collections from the collections themselves", () => asCompany(async () => {
         const listed = await seedProduct({brand: "Other"});
         const branded = await seedProduct({brand: "Acme"});
         const manual = await Collection.create({name: "Picks", type: "manual", products: [listed._id], company: companyId} as any);
@@ -800,11 +804,11 @@ describe("collection membership for pricing", () => {
 
         expect(byProduct.get(listed._id.toString())).toEqual([manual._id.toString()]);
         expect(byProduct.get(branded._id.toString())).toEqual([dynamic._id.toString()]);
-    });
+    }));
 });
 
 describe("restore of live-unique keys", () => {
-    it("refuses to restore a warehouse whose code a live warehouse took meanwhile", async () => {
+    it("refuses to restore a warehouse whose code a live warehouse took meanwhile", () => asCompany(async () => {
         await Warehouse.init();
         const original = await Warehouse.create({name: "Main", code: "MAIN", company: companyId, isActive: true} as any);
         await Warehouse.updateOne({_id: original._id}, {$set: {deletedAt: new Date()}});
@@ -817,13 +821,13 @@ describe("restore of live-unique keys", () => {
             logger, languageCode: lang, company: {_id: companyId}, _id: original._id.toString(),
             actionUserCtx: {userId: userId.toString(), isAdmin: true, isSelf: true, permissions: ["warehouses[restore:warehouses]"]},
         } as any)).rejects.toMatchObject({error_code: "warehouse_already_exists"});
-    });
+    }));
 });
 
 describe("assertValidBundle", () => {
     const params = {company: {_id: companyId}, logger, languageCode: lang} as any;
 
-    it("accepts live non-bundle components and rejects bundles, itself or foreign products", async () => {
+    it("accepts live non-bundle components and rejects bundles, itself or foreign products", () => asCompany(async () => {
         const component = await seedProduct();
         const otherBundle = await seedProduct({type: "bundle"});
         const self = new ObjectId();
@@ -832,7 +836,7 @@ describe("assertValidBundle", () => {
         await expect(assertValidBundle({type: "bundle", bundleComponents: [{product: otherBundle._id}]}, params)).rejects.toThrow();
         await expect(assertValidBundle({_id: self, type: "bundle", bundleComponents: [{product: self}]}, params)).rejects.toThrow();
         await expect(assertValidBundle({type: "bundle", bundleComponents: [{product: new ObjectId()}]}, params)).rejects.toThrow();
-    });
+    }));
 });
 
 describe("returns", () => {
@@ -861,7 +865,7 @@ describe("returns", () => {
         return {order, inventory};
     }
 
-    it("limits returns to shipped quantities and refunds to what the items cost", async () => {
+    it("limits returns to shipped quantities and refunds to what the items cost", () => asCompany(async () => {
         const {order} = await seedShippedOrder();
         await ReturnRequest.create({order: order._id, type: "return", status: "pending", company: companyId,
             items: [{orderItemId: order.items[0]._id, quantity: 2, reason: "broken"}]} as any);
@@ -869,9 +873,9 @@ describe("returns", () => {
         const returnable = await returnRequestService.returnableQuantities(order, {});
         expect(returnable.get(order.items[0]._id.toString())).toBe(1);
         expect(returnedItemsValue(order, [{orderItemId: order.items[0]._id, quantity: 2}])).toBe(100);
-    });
+    }));
 
-    it("restocks into the selling warehouse on receive and refunds through the order on complete", async () => {
+    it("restocks into the selling warehouse on receive and refunds through the order on complete", () => asCompany(async () => {
         const {order, inventory} = await seedShippedOrder();
         const request = await ReturnRequest.create({order: order._id, type: "return", status: "approved", refundAmount: 50, company: companyId,
             items: [{orderItemId: order.items[0]._id, quantity: 1, reason: "broken"}]} as any);
@@ -889,16 +893,16 @@ describe("returns", () => {
         expect((await ProductOrder.findById(order._id))!.paymentStatus).toBe("partially_refunded");
         expect((await PaymentTransaction.findOne({sourceId: order._id, type: "charge"}))!.refundedAmount).toBe(50);
         expect((await ReturnRequest.findById(request._id))!.status).toBe("completed");
-    });
+    }));
 });
 
 describe("gift cards revoked by a refund", () => {
-    it("can't be re-enabled", async () => {
+    it("can't be re-enabled", () => asCompany(async () => {
         const card = await GiftCard.create({code: "GC-REVO-KEDX-CARD", initialBalance: 50, balance: 50, status: "disabled", revokedByRefund: true, company: companyId} as any);
 
         await expect(new GiftCardActions().enable({
             logger, languageCode: lang, company: {_id: companyId}, _id: card._id.toString(),
             actionUserCtx: {userId: userId.toString(), isAdmin: false, isSelf: true, permissions: ["giftcards[write:status]"]},
         })).rejects.toMatchObject({error_code: "gift_card_revoked_by_refund"});
-    });
+    }));
 });

@@ -1,14 +1,13 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
 
-vi.hoisted(() => {
-    process.env.TENANT_SCOPE_ENFORCE = "eCommerce,finance";
-});
 import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import request from "supertest";
 
 const companyId = new ObjectId();
+/** The tests act on this company's data, as its requests and jobs do (D16). */
+const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
@@ -53,6 +52,7 @@ import Review from "@eCommerceModule/database/schemas/review/review";
 import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
 import TaskRequest from "@eCommerceModule/database/schemas/taskRequest/taskRequest";
 import Bid from "@eCommerceModule/database/schemas/bid/bid";
+import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 let replSet: MongoMemoryReplSet;
 const otherCompanyId = new ObjectId();
@@ -81,7 +81,7 @@ afterAll(async () => {
     await replSet.stop();
 });
 
-beforeEach(async () => {
+beforeEach(() => asCompany(async () => {
     for (const collection of await mongoose.connection.db!.collections()) {
         await collection.deleteMany({});
     }
@@ -91,7 +91,7 @@ beforeEach(async () => {
     ]);
     // Reference data belongs to each company, as seeded (D16 scopes it like any tenant data).
     await Currency.collection.insertOne({_id: currencyId, name: "Euro", symbol: "€", abbreviation: "EUR", decimalPlaces: 2, company: companyId});
-});
+}));
 
 async function seedCategory(name: string, parent?: ObjectId): Promise<{_id: ObjectId; slug: string}> {
     const slug = `lcat-${name.toLowerCase()}`;
@@ -148,7 +148,7 @@ const put = (path: string, body: object, caller: TestCaller = customer) =>
     request(app).put(path).set(callerHeader(caller)).send(body);
 
 describe("public marketplace catalog", {timeout: 30000}, () => {
-    it("lists only the shop's active listings, with their lowest price and no private fields", async () => {
+    it("lists only the shop's active listings, with their lowest price and no private fields", () => asCompany(async () => {
         const visible = await seedListing({price: 100});
         await seedPackage(visible, 60);
         await seedPackage(visible, 250);
@@ -162,9 +162,9 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         expect(card).toMatchObject({_id: visible.toString(), price: 100, fromPrice: 60, packageCount: 2, provider: {name: "Pat Painter"}});
         expect(card.currency).toMatchObject({abbreviation: "EUR", decimalPlaces: 2});
         expect(JSON.stringify(res.body)).not.toContain("pat@provider.test");
-    });
+    }));
 
-    it("puts listings with a running promotion first in the recommended order", async () => {
+    it("puts listings with a running promotion first in the recommended order", () => asCompany(async () => {
         const older = await seedListing({title: "Older", createdAt: new Date("2025-01-01")});
         const newer = await seedListing({title: "Newer", createdAt: new Date("2026-01-01")});
         const day = 24 * 60 * 60 * 1000;
@@ -179,9 +179,9 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
 
         const newest = await post("/api/eCommerceMarketplace/shopListings", {sort: "newest"});
         expect(newest.body.data.map((card: {_id: string}) => card._id)).toEqual([newer.toString(), older.toString()]);
-    });
+    }));
 
-    it("filters by a parent category (children included) and by city", async () => {
+    it("filters by a parent category (children included) and by city", () => asCompany(async () => {
         const parent = await seedCategory("Home");
         const child = await seedCategory("Painting", parent._id);
         const other = await seedCategory("Design");
@@ -205,9 +205,9 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         expect(taxonomy.body.data.locations).toContainEqual({city: {_id: cityId.toString(), name: "Tirana"}});
         expect(taxonomy.body.data.categories.find((category: {slug: string}) => category.slug === child.slug))
             .toMatchObject({parent: parent._id.toString(), listingCount: 1});
-    });
+    }));
 
-    it("shows a listing's packages, add-ons and provider showcase, never payout state", async () => {
+    it("shows a listing's packages, add-ons and provider showcase, never payout state", () => asCompany(async () => {
         const listing = await seedListing();
         await seedPackage(listing, 180);
         await ListingAddOn.collection.insertOne({listing, provider: providerId, name: "Express", price: {amount: 20, currency: currencyId}, deliveryDays: 0, company: companyId});
@@ -227,9 +227,9 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         await Listing.collection.updateOne({_id: listing}, {$set: {status: "inactive"}});
         const hidden = await post("/api/eCommerceMarketplace/shopListing", {id: listing.toString()});
         expect(hidden.body.error_code).toBe("listing_not_found");
-    });
+    }));
 
-    it("gives a provider page only to users with an active listing", async () => {
+    it("gives a provider page only to users with an active listing", () => asCompany(async () => {
         const none = await post("/api/eCommerceMarketplace/shopProvider", {id: customerId.toString()});
         expect(none.body.error_code).toBe("provider_not_found");
 
@@ -241,11 +241,11 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
 
         const reviews = await post("/api/eCommerceMarketplace/shopMarketplaceReviews", {providerId: customerId.toString()});
         expect(reviews.body.error_code).toBe("provider_not_found");
-    });
+    }));
 });
 
 describe("buyer self-service routes", {timeout: 30000}, () => {
-    it("lists and opens only the caller's own orders", async () => {
+    it("lists and opens only the caller's own orders", () => asCompany(async () => {
         const mine = await seedOrder(customerId, "in_progress");
         await seedOrder(strangerId, "in_progress");
 
@@ -259,9 +259,9 @@ describe("buyer self-service routes", {timeout: 30000}, () => {
 
         const notMine = await post("/api/eCommerceMarketplace/order/mySingle", {_id: mine.toString()}, stranger);
         expect(notMine.body.error_code).toBe("order_not_found");
-    });
+    }));
 
-    it("lets a customer without permissions review a completed order once, updating the listing rating", async () => {
+    it("lets a customer without permissions review a completed order once, updating the listing rating", () => asCompany(async () => {
         const listing = await seedListing();
         const order = await seedOrder(customerId, "completed", listing);
 
@@ -281,9 +281,9 @@ describe("buyer self-service routes", {timeout: 30000}, () => {
 
         const listed = await post("/api/eCommerceMarketplace/order/my", {status: "completed"}, customer);
         expect(listed.body.data.find((item: {_id: string}) => item._id === order.toString()).reviewed).toBe(true);
-    });
+    }));
 
-    it("lets a customer open one dispute on an active order", async () => {
+    it("lets a customer open one dispute on an active order", () => asCompany(async () => {
         const order = await seedOrder(customerId, "in_progress");
 
         const opened = await put("/api/eCommerceMarketplace/dispute/createMine", {order: order.toString(), reason: "Wrong colour"});
@@ -295,9 +295,9 @@ describe("buyer self-service routes", {timeout: 30000}, () => {
 
         const second = await put("/api/eCommerceMarketplace/dispute/createMine", {order: order.toString(), reason: "Again"});
         expect(second.body.error_code).toBe("dispute_already_exists_for_order");
-    });
+    }));
 
-    it("lists the caller's task requests and shows the bids on their own only", async () => {
+    it("lists the caller's task requests and shows the bids on their own only", () => asCompany(async () => {
         const base = {
             title: "Paint my flat", description: "", category: new ObjectId(), budgetMin: 100, budgetMax: 300, currency: currencyId,
             address: {street: "S", postalCode: "1000", country: new ObjectId(), city: new ObjectId(), latitude: 41, longitude: 19},
@@ -319,9 +319,9 @@ describe("buyer self-service routes", {timeout: 30000}, () => {
 
         const notMine = await post("/api/eCommerceMarketplace/taskRequest/mySingle", {_id: mine.toString()}, stranger);
         expect(notMine.body.error_code).toBe("task_request_not_found");
-    });
+    }));
 
-    it("returns the new order id when a customer orders a listing with a package", async () => {
+    it("returns the new order id when a customer orders a listing with a package", () => asCompany(async () => {
         const listing = await seedListing();
         const pkg = await seedPackage(listing, 180);
 
@@ -330,5 +330,5 @@ describe("buyer self-service routes", {timeout: 30000}, () => {
         const order = await Order.findById(res.body._id);
         expect(order).toMatchObject({amount: 180, status: "pending"});
         expect(order!.customer.toString()).toBe(customerId.toString());
-    });
+    }));
 });
