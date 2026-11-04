@@ -91,6 +91,14 @@ export const eCommerceRoleUserSeeds: ECommerceRoleUserSeed[] = [
         phoneNumber: "+355691110009",
         birthday: "1992-02-14",
     },
+    {
+        slug: "ecom_marketplace_operator",
+        name: "Reese",
+        surname: "Hayes",
+        username: "marketplace.operator@ecommerce.demo",
+        phoneNumber: "+355691110010",
+        birthday: "1990-09-21",
+    },
 ];
 
 function refId(value: unknown): string | undefined {
@@ -159,7 +167,7 @@ export async function createECommerceRoleUsers(
                 existing.companies.push(company._id as never);
             }
             if (membership) {
-                membership.roles.push(dbRole._id as unknown as IEmbeddedCompanyRole["roles"][number]);
+                membership.roles.push(dbRole._id);
                 membership.rolesCount = membership.roles.length;
             } else {
                 existing.roles.push(embeddedRole(company._id, dbRole._id));
@@ -208,7 +216,7 @@ function embeddedRole(companyId: ObjectId, roleId: ObjectId): IEmbeddedCompanyRo
         lockedOutUntil: null,
         lastLogin: null,
         rolesCount: 1,
-        roles: [roleId] as unknown as IEmbeddedCompanyRole["roles"],
-        company: companyId as unknown as IEmbeddedCompanyRole["company"],
+        roles: [roleId],
+        company: companyId,
     };
 }

@@ -774,7 +774,9 @@ async function importUsers(ctx: ImportCtx): Promise<OdooImportCounts> {
     if (!signupRole) {
         throw apiValidationException("odoo_signup_role_missing", "", null, ctx.languageCode);
     }
-    const companyRoleData = {
+    // A factory, not a shared object: each user gets its own embedded role with its own `_id`.
+    const companyRoleData = () => ({
+        _id: new ObjectId(),
         active: "invited" as const,
         unsuccessfulLogins: 0,
         lockedOutUntil: null,
@@ -782,7 +784,7 @@ async function importUsers(ctx: ImportCtx): Promise<OdooImportCounts> {
         rolesCount: 1,
         roles: [signupRole._id],
         company: ctx.companyId,
-    };
+    });
     const rows = await ctx.client.searchReadAll("res.users", INTERNAL_USERS, ["id", "name", "login", "email", "share", "active"]);
     for (const row of rows) {
         const id = odooIntegerId(row.id);
@@ -809,7 +811,7 @@ async function importUsers(ctx: ImportCtx): Promise<OdooImportCounts> {
         if (existingUser) {
             await userService.updateByIdOrThrow(existingUser._id, {
                 $addToSet: {companies: ctx.companyId},
-                $push: {roles: companyRoleData},
+                $push: {roles: companyRoleData()},
                 $set: {name: names.name, surname: names.surname, fullName: `${names.name} ${names.surname}`},
             }, ctx.opts);
             await ensureAiChannel({
@@ -837,7 +839,7 @@ async function importUsers(ctx: ImportCtx): Promise<OdooImportCounts> {
             birthday: new Date(),
             phoneNumber: "",
             companies: [ctx.companyId],
-            roles: [companyRoleData],
+            roles: [companyRoleData()],
             isEmailVerified: false,
             "requests.invitation": {
                 invitedBy: ctx.params.userInfo._id,

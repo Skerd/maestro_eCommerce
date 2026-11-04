@@ -1,4 +1,5 @@
 import {describe, expect, it, vi} from "vitest";
+import {buildShopCatalogFilter} from "../shopCatalogFilter";
 
 vi.mock("@eCommerceModule/database/schemas/category/category", () => ({
     default: {
@@ -20,17 +21,17 @@ vi.mock("@eCommerceModule/database/schemas/productVariant/productVariant", () =>
 vi.mock("@eCommerceModule/utilities/services/collection/collectionMembership", () => ({
     applyCollectionMembershipToProductFilter: vi.fn(),
 }));
+vi.mock("../shopLiveSellers", () => ({
+    liveSellerCompanyClause: vi.fn().mockResolvedValue({company: {$in: ["live-seller"]}}),
+}));
 
 describe("buildShopCatalogFilter platform", () => {
-    it("omits company when companyId is undefined", async () => {
-        const {buildShopCatalogFilter} = await import("../shopCatalogFilter");
+    it("limits platform browsing to live seller companies when companyId is undefined", async () => {
         const filter = await buildShopCatalogFilter({});
-        expect(filter).toEqual({status: "active"});
-        expect(filter).not.toHaveProperty("company");
+        expect(filter).toEqual({status: "active", company: {$in: ["live-seller"]}});
     });
 
     it("includes company when companyId is set", async () => {
-        const {buildShopCatalogFilter} = await import("../shopCatalogFilter");
         const filter = await buildShopCatalogFilter({companyId: "abc"});
         expect(filter).toEqual({status: "active", company: "abc"});
     });

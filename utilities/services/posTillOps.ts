@@ -180,8 +180,6 @@ type QrCodeModule = {
 
 async function qrCodeDataUrl(payload: string): Promise<string | undefined> {
     try {
-        // qrcode has no bundled types in this package.
-        // @ts-expect-error
         const QRCodeMod = (await import("qrcode")) as QrCodeModule;
         const toDataURL = QRCodeMod.toDataURL ?? QRCodeMod.default?.toDataURL;
         if (typeof toDataURL !== "function") return undefined;

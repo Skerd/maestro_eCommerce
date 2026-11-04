@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
@@ -17,11 +17,11 @@ import {applyDigitalDeliveryIndexes} from "./digitalDelivery.indexes";
  * what was bought. System-internal: no CRUD router, no panel.
  */
 export interface IDigitalDelivery extends Document, IOwnershipPluginFields {
-    order: Schema.Types.ObjectId;
-    product: Schema.Types.ObjectId;
+    order: Types.ObjectId;
+    product: Types.ObjectId;
     customer: IUser;
     token: string;
-    media: Schema.Types.ObjectId[];
+    media: Types.ObjectId[];
     downloadLimit: number;
     downloadCount: number;
     expiresAt?: Date;

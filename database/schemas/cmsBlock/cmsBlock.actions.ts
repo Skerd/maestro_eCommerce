@@ -1,3 +1,4 @@
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
@@ -37,7 +38,7 @@ export class CmsBlockActions {
         schema: reorderCmsBlocksFormSchema,
         transaction: true,
     })
-    async reorder(params: AuthenticatedMWType & {orderedIds: string[]}): Promise<ActionMessage> {
+    async reorder(params: TransactionRequiredParams & {orderedIds: string[]}): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, orderedIds} = params;
 
         const writeFields = SchemaGuard.sanitizeFields(
