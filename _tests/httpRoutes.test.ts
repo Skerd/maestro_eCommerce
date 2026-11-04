@@ -1,5 +1,10 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
 
+// eCommerce and finance enforce action permissions (D14 rollout, D54), as in the dev profiles.
+vi.hoisted(() => {
+    process.env.ACTION_PERMISSION_ENFORCE = "eCommerce,finance";
+});
+
 import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
@@ -207,6 +212,11 @@ describe("concurrent requests (#8)", {timeout: 60000}, () => {
             shippingAddress: {firstName: "A", lastName: "B", street: "S", city: "C"},
         } as any);
         const markPaid = () => request(app).post("/api/eCommerce/productOrder/markPaid").set(callerHeader(admin)).send({_id: order._id.toString()});
+
+        // A role without the markPaid permission is stopped before the action (D14).
+        const viewer: TestCaller = {...admin, isAdmin: false, permissions: admin.permissions!.filter((tag) => !tag.includes("[action:"))};
+        const refused = await request(app).post("/api/eCommerce/productOrder/markPaid").set(callerHeader(viewer)).send({_id: order._id.toString()});
+        expect(refused.body.error_code).toBe("user_permissions_not_sufficient");
 
         const responses = await Promise.all([markPaid(), markPaid()]);
 

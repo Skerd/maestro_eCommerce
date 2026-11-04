@@ -14,6 +14,8 @@ export class CustomerAddressActions {
         rateLimit: {windowMs: 60000, max: 30},
         schema: validateSingleForm,
         transaction: true,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async setDefault(params: Record<string, any>): Promise<ActionMessage> {
         const {logger, languageCode, session, company, actionUserCtx, _id} = params;

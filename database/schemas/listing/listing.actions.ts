@@ -2,9 +2,8 @@ import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
-import Listing, {type IListing, type ListingStatus} from "@eCommerceModule/database/schemas/listing/listing";
+import type {IListing, ListingStatus} from "@eCommerceModule/database/schemas/listing/listing";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/shared.types";
@@ -16,8 +15,6 @@ import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/sha
  */
 async function loadOwnListing(params: TransactionRequiredParams & SingleForm): Promise<IListing> {
     const {logger, languageCode, company, actionUserCtx, session, _id} = params;
-
-    SchemaGuard.sanitizeFields(Listing, {title: {}}, "write", actionUserCtx, languageCode);
 
     const listing = await listingService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, {logger, languageCode, session});
     assertOwnerOrAdmin(listing.provider, actionUserCtx, languageCode);

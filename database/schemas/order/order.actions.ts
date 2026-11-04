@@ -81,6 +81,8 @@ export class OrderActions {
         rateLimit: {windowMs: 60000, max: 20},
         transaction: true,
         schema: createOrderFromListingFormSchema,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async createFromListing(params: Record<string, any>): Promise<ActionMessage & {_id: string}> {
         const p = params as TransactionRequiredParams & CreateOrderFromListingFormType;
@@ -245,6 +247,8 @@ export class OrderActions {
         rateLimit: {windowMs: 60000, max: 30},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async cancel(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
@@ -399,6 +403,8 @@ export class OrderActions {
         rateLimit: {windowMs: 60000, max: 20},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async acceptDelivery(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
@@ -445,6 +451,8 @@ export class OrderActions {
         rateLimit: {windowMs: 60000, max: 10},
         transaction: true,
         schema: requestRevisionFormSchema,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async requestRevision(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & RequestRevisionFormType;
@@ -563,6 +571,8 @@ export class OrderActions {
         rateLimit: {windowMs: 60000, max: 20},
         transaction: true,
         schema: releaseOrderMilestoneFormSchema,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async releaseMilestone(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & ReleaseOrderMilestoneFormType;

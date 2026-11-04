@@ -88,6 +88,8 @@ export class TaskRequestActions {
         rateLimit: {windowMs: 60000, max: 30},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async close(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
@@ -125,6 +127,8 @@ export class TaskRequestActions {
         rateLimit: {windowMs: 60000, max: 30},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async reopen(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;

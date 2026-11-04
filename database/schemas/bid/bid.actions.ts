@@ -57,6 +57,8 @@ export class BidActions {
         rateLimit: {windowMs: 60000, max: 20},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async accept(params: Record<string, any>): Promise<ActionMessage & {_id: string}> {
         const p = params as TransactionRequiredParams & SingleForm;
@@ -114,6 +116,8 @@ export class BidActions {
         rateLimit: {windowMs: 60000, max: 20},
         transaction: true,
         schema: validateSingleForm,
+        // The caller's own record, or one they are a party to: the party check below decides (D14).
+        selfService: true,
     })
     async reject(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
