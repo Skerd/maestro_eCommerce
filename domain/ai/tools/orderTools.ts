@@ -143,8 +143,6 @@ const orderParameters = {
 
 /**
  * Sum order value across the FULL filtered set, grouped by currency.
- * `aggregate` bypasses the soft-delete query plugin, so `deletedAt: null` is
- * added by hand.
  */
 async function rollUpRevenue(
     query: Record<string, unknown>,

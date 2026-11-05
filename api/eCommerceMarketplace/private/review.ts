@@ -30,7 +30,6 @@ async function recalculateListingRating(
     // Callers pass whole route params; updateById spreads its options into the query, so only these go through
     const opts = {session: ctx.session, logger: ctx.logger, languageCode: ctx.languageCode};
 
-    // An aggregate skips the soft-delete filter, and restore writes deletedAt: null
     const agg = await reviewService.aggregate(
         [
             {$match: {listing: listingId, deletedAt: null}},

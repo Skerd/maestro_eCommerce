@@ -37,7 +37,6 @@ router.post(
 
         const ctx = await resolveShopContext(origin, languageCode);
         return inShopCatalog(ctx, async () => {
-            // Aggregates skip the soft-delete filter, so live rows are matched explicitly
             const activeMatch: Record<string, unknown> = {status: "active", deletedAt: null};
             const companyFilter = ctx.mode === "tenant"
                 ? {company: ctx.company._id}

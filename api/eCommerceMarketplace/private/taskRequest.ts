@@ -48,7 +48,7 @@ const mediaUpload = mediaUploadMW({
 const buildCreate = buildCreateDataFromSchemaDef(TaskRequestSchemaDef);
 const buildUpdate = buildUpdateDataFromSchemaDef(TaskRequestSchemaDef);
 
-/** Live bid counts per task request (an aggregate skips the soft-delete filter, so it is explicit). */
+/** Live bid counts per task request. */
 async function liveBidCounts(taskRequestIds: ObjectId[], companyId: ObjectId, opts: CrudOptions): Promise<Map<string, number>> {
     const counts = await bidService.aggregate(
         [
