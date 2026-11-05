@@ -7,6 +7,7 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import type {CreateCartsResult} from "@eCommerceModule/database/schemas/cart/cart.defaults";
 import type {CreateProductOrdersResult} from "@eCommerceModule/database/schemas/productOrder/productOrder.defaults";
+import {addMoney, percentOfMoney} from "armonia/src/modules/core/helpers/money";
 
 export const PENDING_CHECKOUT_KEY = `ecom-demo-seed:checkout-pending`;
 export const CONFIRMED_CHECKOUT_KEY = `ecom-demo-seed:checkout-confirmed`;
@@ -72,12 +73,12 @@ export async function createCheckouts(
                     {name: "Standard", carrier: "Posta Shqiptare", price: 4.5, estimatedDeliveryDays: 3},
                 ],
                 selectedShippingRate: {name: "Standard", carrier: "Posta Shqiptare", price: 4.5, estimatedDeliveryDays: 3},
-                taxBreakdown: [{name: "VAT", rate: 20, amount: Math.round(subtotal * 0.2 * 100) / 100}],
+                taxBreakdown: [{name: "VAT", rate: 20, amount: percentOfMoney(subtotal, 20)}],
                 subtotal,
                 discountTotal: 0,
                 shippingTotal: 4.5,
-                taxTotal: Math.round(subtotal * 0.2 * 100) / 100,
-                grandTotal: Math.round((subtotal + 4.5 + subtotal * 0.2) * 100) / 100,
+                taxTotal: percentOfMoney(subtotal, 20),
+                grandTotal: addMoney(subtotal, 4.5, percentOfMoney(subtotal, 20)),
                 currency: currencyId,
                 paymentMethod: "cod" as const,
                 status: "pending" as const,

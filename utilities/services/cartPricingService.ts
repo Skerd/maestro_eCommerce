@@ -9,7 +9,7 @@ import {
     validateDiscountForCustomer,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, multiplyMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
@@ -172,7 +172,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
                 .filter(idx => idx >= 0);
             const groupItems = indexes.map(idx => doc.items[idx]);
             const groupMeta = indexes.map(idx => meta[idx]);
-            const baseSubtotal = groupItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+            const baseSubtotal = addMoney(...groupItems.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
             const customerGroupIds = ctx.userId
                 ? await getCustomerGroupIdsForUser(ctx.userId, new ObjectId(sellerId))
                 : [];
@@ -193,8 +193,8 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
             );
             pricing.adjustedLines.forEach((line, i) => {
                 const item = doc.items[indexes[i]];
-                item.unitPrice = roundMoney(line.unitPrice);
-                item.totalPrice = roundMoney(item.unitPrice * item.quantity);
+                item.unitPrice = roundToCurrency(line.unitPrice);
+                item.totalPrice = multiplyMoney(item.unitPrice, item.quantity);
             });
         }
         // Multi-seller: drop company-scoped promos
@@ -209,7 +209,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
         doc.discountTotal = 0;
     } else {
         const pricingCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : ctx.companyId;
-        const baseSubtotal = doc.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        const baseSubtotal = addMoney(...doc.items.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
         const customerGroupIds = ctx.userId ? await getCustomerGroupIdsForUser(ctx.userId, pricingCompanyId) : [];
         const pricing = await calculatePricing(
             {
@@ -228,10 +228,10 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
         );
         pricing.adjustedLines.forEach((line, idx) => {
             const item = doc.items[idx];
-            item.unitPrice = roundMoney(line.unitPrice);
-            item.totalPrice = roundMoney(item.unitPrice * item.quantity);
+            item.unitPrice = roundToCurrency(line.unitPrice);
+            item.totalPrice = multiplyMoney(item.unitPrice, item.quantity);
         });
-        doc.subtotal = roundMoney(doc.items.reduce((sum, item) => sum + item.totalPrice, 0));
+        doc.subtotal = addMoney(...doc.items.map((item) => item.totalPrice));
 
         // 3. Re-validate the applied discount against the re-priced lines
         const applied = doc.appliedDiscounts?.[0];
@@ -264,7 +264,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
                 session: ctx.session ?? undefined,
             });
             if (card) {
-                doc.appliedGiftCard.amount = roundMoney(Math.min(card.balance, Math.max(0, doc.subtotal - doc.discountTotal)));
+                doc.appliedGiftCard.amount = Math.min(roundToCurrency(card.balance), Math.max(0, subtractMoney(doc.subtotal, doc.discountTotal)));
             } else {
                 notices.giftCardRemoved = true;
                 doc.appliedGiftCard = undefined;
@@ -273,7 +273,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     }
 
     if (multiSeller) {
-        doc.subtotal = roundMoney(doc.items.reduce((sum, item) => sum + item.totalPrice, 0));
+        doc.subtotal = addMoney(...doc.items.map((item) => item.totalPrice));
     }
 
     return {notices, meta};

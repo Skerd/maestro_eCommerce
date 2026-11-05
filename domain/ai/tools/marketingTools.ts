@@ -33,13 +33,13 @@ import {
     limitParameter,
     listResult,
     regexClause,
-    roundMoney,
     shortText,
     toAmount,
     toNumber,
     userDisplayName
 } from "@coreModule/domain/ai/tools/assistantToolKit";
 import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
+import {roundToCurrency} from "armonia/src/modules/core/helpers/money";
 
 const DISCOUNT_TYPE_VALUES = enumValues<DiscountType>({
     percentage: true,
@@ -382,7 +382,7 @@ async function executeCarts(rawArgs: unknown, ctx: AssistantToolContext): Promis
         idleHours,
         abandonedValue: rows.map((row) => ({
             currency: row.currency?.[0]?.abbreviation ?? row.currency?.[0]?.symbol ?? null,
-            value: roundMoney(toAmount(row.value)),
+            value: roundToCurrency(toAmount(row.value)),
             carts: row.carts ?? 0
         }))
     };

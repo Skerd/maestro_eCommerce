@@ -24,7 +24,8 @@ import {bidService} from "@eCommerceModule/database/schemas/bid/bid.service";
 import {bookingService} from "@eCommerceModule/database/schemas/booking/booking.service";
 import {disputeService} from "@eCommerceModule/database/schemas/dispute/dispute.service";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
-import {companyObjectId, companyScope, roundMoney, toAmount} from "@coreModule/domain/ai/tools/assistantToolKit";
+import {companyObjectId, companyScope, toAmount} from "@coreModule/domain/ai/tools/assistantToolKit";
+import {roundToCurrency} from "armonia/src/modules/core/helpers/money";
 
 /** Default reporting window for the "recent activity" figures. */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -95,7 +96,7 @@ async function completedValue(
         jobs: rows.reduce((sum, row) => sum + (row.jobs ?? 0), 0),
         value: rows.map((row) => ({
             currency: row.currency?.[0]?.abbreviation ?? row.currency?.[0]?.symbol ?? null,
-            amount: roundMoney(toAmount(row.amount))
+            amount: roundToCurrency(toAmount(row.amount))
         }))
     };
 }

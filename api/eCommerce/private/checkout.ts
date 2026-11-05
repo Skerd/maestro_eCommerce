@@ -16,7 +16,7 @@ import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard
 import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
 import {distinctSellerCompanyIds, repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
 import {
     assertDiscountUsable,
     placeOrderFromCheckout,
@@ -110,7 +110,7 @@ function syncCheckoutFromCart(checkout: ICheckout, cart: ICart, sessionCompanyId
     checkout.shippingTotal = 0;
     checkout.taxTotal = 0;
     checkout.taxBreakdown = [];
-    checkout.grandTotal = roundMoney(Math.max(0, checkout.subtotal - checkout.discountTotal - (checkout.giftCard?.amount ?? 0)));
+    checkout.grandTotal = Math.max(0, subtractMoney(subtractMoney(checkout.subtotal, checkout.discountTotal), checkout.giftCard?.amount ?? 0));
 }
 
 function itemSellerId(item: any, fallback: ObjectId): string {
@@ -122,17 +122,17 @@ function itemSellerId(item: any, fallback: ObjectId): string {
  * order total and the card's live balance.
  */
 async function recomputeTotals(checkout: ICheckout, companyId: ObjectId, languageCode: string, session?: any): Promise<void> {
-    const totalBeforeGiftCard = roundMoney(
-        Math.max(0, checkout.subtotal - checkout.discountTotal) + (checkout.shippingTotal ?? 0) + (checkout.taxTotal ?? 0),
+    const totalBeforeGiftCard = addMoney(
+        Math.max(0, subtractMoney(checkout.subtotal, checkout.discountTotal)), checkout.shippingTotal ?? 0, checkout.taxTotal ?? 0,
     );
 
     if (checkout.giftCard?.code) {
         const card = await giftCardService.findRedeemable(checkout.giftCard.code, companyId, {languageCode, session});
-        const amount = card ? roundMoney(Math.min(card.balance, totalBeforeGiftCard)) : 0;
+        const amount = card ? Math.min(roundToCurrency(card.balance), totalBeforeGiftCard) : 0;
         checkout.giftCard = amount > 0 && card ? {giftCard: card._id as any, code: card.code, amount} : undefined;
     }
 
-    checkout.grandTotal = roundMoney(Math.max(0, totalBeforeGiftCard - (checkout.giftCard?.amount ?? 0)));
+    checkout.grandTotal = Math.max(0, subtractMoney(totalBeforeGiftCard, checkout.giftCard?.amount ?? 0));
 }
 
 /** Loads the buyer's open checkout (pending or mid-payment). */
@@ -262,7 +262,7 @@ router.post(
             availableRates.map(rate => ({
                 name: rate.rateName ?? rate.name ?? "",
                 carrier: rate.zoneName ?? rate.carrier,
-                price: roundMoney(rate.price ?? 0),
+                price: roundToCurrency(rate.price ?? 0),
                 estimatedDeliveryDays: rate.estimatedDays ?? rate.estimatedDeliveryDays,
             }));
 
@@ -299,7 +299,7 @@ router.post(
             for (const sellerId of sellerIds) {
                 const sellerCompanyId = new ObjectId(sellerId);
                 const items = (checkout.items as any[]).filter(item => itemSellerId(item, company._id) === sellerId);
-                const subtotal = items.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
+                const subtotal = addMoney(...items.map((item) => item.totalPrice ?? 0));
                 const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
                 const totalWeight = items.reduce((sum, item) => {
                     const product = productOf(item);
@@ -317,10 +317,10 @@ router.post(
                     : [{rateName: "No shipping required", price: 0}];
                 const rates = normalizeRates(availableRates as any[]);
                 const cheapest = [...rates].sort((a, b) => a.price - b.price)[0] ?? {name: "No shipping required", price: 0};
-                shippingSum = roundMoney(shippingSum + cheapest.price);
+                shippingSum = addMoney(shippingSum, cheapest.price);
                 groups.push({
                     sellerCompany: sellerCompanyId as any,
-                    subtotal: roundMoney(subtotal),
+                    subtotal,
                     shippingTotal: cheapest.price,
                     taxTotal: 0,
                     selectedShippingRate: cheapest,
@@ -374,7 +374,7 @@ router.post(
         checkout.selectedShippingRate = rate;
         if ((checkout.sellerGroups?.length ?? 0) > 1) {
             // Combined multi-seller rate already priced; honour free shipping only when a single-seller promo applied
-            checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
+            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0);
             let taxSum = 0;
             const breakdown: {name: string; rate: number; amount: number}[] = [];
             for (const group of checkout.sellerGroups ?? []) {
@@ -387,7 +387,7 @@ router.post(
                     new ObjectId(sellerId),
                 );
                 group.taxTotal = tax.amount;
-                taxSum = roundMoney(taxSum + tax.amount);
+                taxSum = addMoney(taxSum, tax.amount);
                 breakdown.push(...tax.breakdown);
                 if (freeShipping) group.shippingTotal = 0;
             }
@@ -395,7 +395,7 @@ router.post(
             checkout.taxBreakdown = breakdown;
             checkout.markModified("sellerGroups");
         } else {
-            checkout.shippingTotal = freeShipping ? 0 : roundMoney(rate.price ?? 0);
+            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0);
             const tax = await calculateLinesTax(
                 checkout.items as any[],
                 checkout.discountTotal,

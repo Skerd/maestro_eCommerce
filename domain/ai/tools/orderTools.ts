@@ -44,13 +44,13 @@ import {
     listResult,
     numberRange,
     regexClause,
-    roundMoney,
     shortText,
     toAmount,
     toNumber,
     userDisplayName
 } from "@coreModule/domain/ai/tools/assistantToolKit";
 import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
+import {roundToCurrency} from "armonia/src/modules/core/helpers/money";
 
 const ORDER_STATUS_VALUES = enumValues<ProductOrderStatus>({
     pending: true,
@@ -159,7 +159,7 @@ async function rollUpRevenue(
 
     return rows.map((row) => ({
         currency: row.currency?.[0]?.abbreviation ?? row.currency?.[0]?.symbol ?? null,
-        amount: roundMoney(toAmount(row.amount)),
+        amount: roundToCurrency(toAmount(row.amount)),
         orders: row.orders ?? 0
     }));
 }

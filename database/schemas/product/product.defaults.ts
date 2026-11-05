@@ -15,6 +15,7 @@ import {
 } from "@eCommerceModule/database/schemas/product/product.catalog.seeds";
 import {resolveProductVideoUrls} from "@eCommerceModule/database/schemas/product/product.catalog.media";
 import type {CreateProductMediaResult} from "@eCommerceModule/database/seeds/catalog/productMedia";
+import {multiplyMoney} from "armonia/src/modules/core/helpers/money";
 
 export type ProductSeed = {
     seedKey: string;
@@ -145,8 +146,8 @@ function expandCatalogSeed(seed: CatalogProductSeed): ProductSeed {
     const compareAt = seed.compareAtPrice;
     const cost =
         seed.costPrice ??
-        (isGiftCard ? 0 : Math.round(seed.price * 0.4 * 100) / 100);
-    const msrp = compareAt ? Math.round(compareAt * 1.1 * 100) / 100 : Math.round(seed.price * 1.15 * 100) / 100;
+        (isGiftCard ? 0 : multiplyMoney(seed.price, "0.4"));
+    const msrp = compareAt ? multiplyMoney(compareAt, "1.1") : multiplyMoney(seed.price, "1.15");
 
     const fulfillmentHint = isGiftCard
         ? "Issued as store credit after payment"

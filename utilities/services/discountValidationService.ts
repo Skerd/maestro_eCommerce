@@ -1,7 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, multiplyMoney, percentOfMoney, roundToCurrency} from "armonia/src/modules/core/helpers/money";
 
 export type CartForValidation = {
     subtotal: number;
@@ -75,13 +75,10 @@ function computeBuyXGetYAmount(cart: CartForValidation, discount: IDiscount): Di
 
     unitPrices.sort((a, b) => a - b);
     const freeCount = Math.floor(eligibleQty / group) * bx.getQuantity;
-    let discountAmount = 0;
-    for (let i = 0; i < freeCount && i < unitPrices.length; i++) {
-        discountAmount += unitPrices[i];
-    }
-    discountAmount = Math.min(discountAmount, cart.subtotal);
+    const free = addMoney(...unitPrices.slice(0, freeCount));
+    const discountAmount = Math.min(free, roundToCurrency(cart.subtotal));
 
-    return {valid: true, discountAmount: roundMoney(discountAmount), discount};
+    return {valid: true, discountAmount, discount};
 }
 
 /**
@@ -110,7 +107,7 @@ export function validateDiscount(cart: CartForValidation, discount: IDiscount): 
     }
 
     const merchandise = cart.items.filter(item => !item.isGiftCard);
-    const merchandiseSubtotal = merchandise.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const merchandiseSubtotal = addMoney(...merchandise.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
 
     if (discount.minimumOrderAmount != null && merchandiseSubtotal < discount.minimumOrderAmount) {
         return {valid: false, reason: "minimum_order_amount_not_met"};
@@ -130,17 +127,17 @@ export function validateDiscount(cart: CartForValidation, discount: IDiscount): 
 
     const eligibleSubtotal = cart.items
         .filter(item => lineIsEligible(discount, item))
-        .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        .reduce((sum, item) => addMoney(sum, multiplyMoney(item.unitPrice, item.quantity)), 0);
     if (eligibleSubtotal <= 0) {
         return {valid: false, reason: "discount_not_applicable_to_cart"};
     }
 
     if (discount.type === "percentage") {
         const percent = Math.min(100, Math.max(0, discount.value));
-        return {valid: true, discountAmount: roundMoney((eligibleSubtotal * percent) / 100), discount};
+        return {valid: true, discountAmount: percentOfMoney(eligibleSubtotal, percent), discount};
     }
     if (discount.type === "fixed") {
-        return {valid: true, discountAmount: roundMoney(Math.min(discount.value, eligibleSubtotal)), discount};
+        return {valid: true, discountAmount: Math.min(roundToCurrency(discount.value), eligibleSubtotal), discount};
     }
 
     return {valid: true, discountAmount: 0, discount};

@@ -41,13 +41,10 @@ import {createOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/
 import {releaseOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/releaseOrderMilestone.form.validator";
 import type {ActionMessage, SingleForm} from "armonia/src/modules/core/types/shared.types";
 import {getECommerceMarketplaceConfig} from "@eCommerceModule/utilities/config";
+import {minorToNumber, sumMinor, toMinor} from "armonia/src/modules/core/helpers/money";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Money is summed in cents so package, add-on and milestone totals do not drift. */
-function toCents(amount: number): number {
-    return Math.round(amount * 100);
-}
 
 /** Queues a marketplace notification to one user for after the transaction commits. */
 async function notifyAfterCommit(
@@ -103,7 +100,8 @@ export class OrderActions {
             throw apiValidationException("provider_cannot_order_own_listing", null, null, languageCode);
         }
 
-        let amountCents = toCents(listing.price ?? 0);
+        // Summed in exact minor units so package, add-on and milestone totals do not drift (D35).
+        let amountCents = toMinor(listing.price ?? 0);
         let currencyId = listing.priceCurrency?._id;
         let deliveryDays = listing.deliveryDays ?? 1;
 
@@ -112,7 +110,7 @@ export class OrderActions {
                 {_id: new ObjectId(packageRef), listing: listing._id, company: orderCompanyId},
                 opts,
             );
-            amountCents = toCents(pkg.price.amount);
+            amountCents = toMinor(pkg.price.amount);
             currencyId = pkg.price.currency._id;
             deliveryDays = pkg.deliveryDays;
         }
@@ -135,7 +133,7 @@ export class OrderActions {
                 if (!addOn.price.currency._id.equals(currencyId)) {
                     throw apiValidationException("add_on_currency_mismatch", null, null, languageCode);
                 }
-                amountCents += toCents(addOn.price.amount);
+                amountCents += toMinor(addOn.price.amount);
                 deliveryDays += addOn.deliveryDays ?? 0;
             }
         }
@@ -145,7 +143,7 @@ export class OrderActions {
                 listing: listing._id,
                 customer: new ObjectId(actionUserCtx.userId),
                 provider: providerId,
-                amount: amountCents / 100,
+                amount: minorToNumber(amountCents),
                 currency: currencyId,
                 status: "pending",
                 company: orderCompanyId,
@@ -538,8 +536,8 @@ export class OrderActions {
         }
 
         const existingMilestones = await orderMilestoneService.find({order: order._id, company: company._id}, opts, null, "amount");
-        const existingCents = existingMilestones.reduce((sum, milestone) => sum + toCents(milestone.amount), 0);
-        if (existingCents + toCents(amount) > toCents(order.amount)) {
+        const existingCents = sumMinor(existingMilestones.map((milestone) => toMinor(milestone.amount)));
+        if (existingCents + toMinor(amount) > toMinor(order.amount)) {
             throw apiValidationException("milestone_total_exceeds_order_amount", null, null, languageCode);
         }
 
@@ -600,7 +598,7 @@ export class OrderActions {
         }
 
         const balance = await escrowBalance(order._id, company._id, opts);
-        if (toCents(milestone.amount) > toCents(balance)) {
+        if (toMinor(milestone.amount) > toMinor(balance)) {
             throw apiValidationException("milestone_exceeds_escrow_balance", null, null, languageCode);
         }
 

@@ -4,7 +4,7 @@ import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import ReturnRequest, {IReturnRequest} from "@eCommerceModule/database/schemas/returnRequest/returnRequest";
 import Fulfillment from "@eCommerceModule/database/schemas/fulfillment/fulfillment";
 import type {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {minorToNumber, prorateMinor, sumMinor, toMinor} from "armonia/src/modules/core/helpers/money";
 
 type ReturnItem = {orderItemId: unknown; quantity: number};
 
@@ -42,10 +42,11 @@ export class ReturnRequestService extends BaseCrudService<IReturnRequest, typeof
 
 /** What the returned items were sold for — the most a return can refund. */
 export function returnedItemsValue(order: IProductOrder, items: ReturnItem[]): number {
-    return roundMoney(items.reduce((sum, item) => {
+    // Each line's share is prorated exactly and rounded once (D35).
+    return minorToNumber(sumMinor(items.map((item) => {
         const line = order.items.find(orderLine => orderLine._id.toString() === String(nestedEntityToRef(item.orderItemId)));
-        return line && line.quantity > 0 ? sum + (line.totalPrice / line.quantity) * item.quantity : sum;
-    }, 0));
+        return line && line.quantity > 0 ? prorateMinor(toMinor(line.totalPrice), [item.quantity], line.quantity) : 0n;
+    })));
 }
 
 export const returnRequestService = new ReturnRequestService();

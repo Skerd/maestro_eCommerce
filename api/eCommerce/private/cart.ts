@@ -19,7 +19,7 @@ import {
     repriceCart,
     toValidationCart,
 } from "@eCommerceModule/utilities/services/cartPricingService";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {
@@ -339,7 +339,7 @@ router.post(
         cart.appliedGiftCard = {
             giftCard: giftCard._id as any,
             code: giftCard.code,
-            amount: roundMoney(Math.min(giftCard.balance, Math.max(0, cart.subtotal - (cart.discountTotal ?? 0)))),
+            amount: Math.min(roundToCurrency(giftCard.balance), Math.max(0, subtractMoney(cart.subtotal, cart.discountTotal ?? 0))),
         };
         const saved = await repriceAndSave(cart, params);
         return {valid: true, data: saved.data, giftCardAmount: cart.appliedGiftCard?.amount ?? 0, balance: giftCard.balance};

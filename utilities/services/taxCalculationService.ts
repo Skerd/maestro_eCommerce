@@ -4,7 +4,7 @@ import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 import Product from "@eCommerceModule/database/schemas/product/product";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {allocateMinor, includedPercentOfMinor, minorToNumber, percentOfMinor, sumMinor, toMinor} from "armonia/src/modules/core/helpers/money";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 
 export type ShippingAddress = {
@@ -87,8 +87,9 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
 
         if (zones.length === 0) return {amount: 0, breakdown: []};
 
-        let taxAmount = 0;
-        let runningBase = subtotal;
+        // Each rate is rounded once, on its own line, so the total is the sum of the lines shown (D35).
+        let taxAmount = 0n;
+        let runningBase = toMinor(subtotal);
         const breakdown: TaxBreakdownLine[] = [];
         const state = await resolveZoneState(countryId, shippingAddress.state);
 
@@ -99,14 +100,14 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
             for (const rate of rates) {
                 if (!rateApplies(rate.appliesTo ?? "all", context.productType)) continue;
 
-                const rateAmount = (runningBase * rate.rate) / 100;
+                const rateAmount = percentOfMinor(runningBase, rate.rate);
                 taxAmount += rateAmount;
-                breakdown.push({name: rate.name, rate: rate.rate, amount: rateAmount});
+                breakdown.push({name: rate.name, rate: rate.rate, amount: minorToNumber(rateAmount)});
                 if (rate.isCompound) runningBase += rateAmount;
             }
         }
 
-        return {amount: roundMoney(taxAmount), breakdown};
+        return {amount: minorToNumber(taxAmount), breakdown};
     },
 };
 
@@ -156,31 +157,35 @@ export async function calculateLinesTax(
     const products = await Product.find({_id: {$in: productIds.filter(Boolean)}, company: companyId}, {type: 1}).lean();
     const typeOf = new Map(products.map(product => [product._id.toString(), product.type]));
 
-    const groups = new Map<TaxLineContext["productType"], number>();
+    const groups = new Map<TaxLineContext["productType"], bigint>();
     lines.forEach((line, idx) => {
         const scope = TAX_PRODUCT_TYPE[typeOf.get(productIds[idx]) ?? ""];
-        groups.set(scope, (groups.get(scope) ?? 0) + line.totalPrice);
+        groups.set(scope, (groups.get(scope) ?? 0n) + toMinor(line.totalPrice));
     });
-    const subtotal = [...groups.values()].reduce((sum, value) => sum + value, 0);
+    // The order discount is shared over the groups by value, in parts that add up to it exactly (D35).
+    const values = [...groups.values()];
+    const subtotal = sumMinor(values);
+    const discount = toMinor(discountTotal);
+    const discountShares = subtotal > 0n && discount > 0n ? allocateMinor(discount, values) : values.map(() => 0n);
 
-    let amount = 0;
-    const merged = new Map<string, TaxBreakdownLine>();
+    let amount = 0n;
+    const merged = new Map<string, {line: TaxBreakdownLine; minor: bigint}>();
+    let index = 0;
     for (const [productType, value] of groups) {
-        const share = subtotal > 0 ? value / subtotal : 0;
-        const base = Math.max(0, value - discountTotal * share);
-        const result = await calculateTax(base, shippingAddress, companyId, {productType});
-        amount += result.amount;
+        const base = value - discountShares[index++];
+        const result = await calculateTax(minorToNumber(base > 0n ? base : 0n), shippingAddress, companyId, {productType});
+        amount += toMinor(result.amount);
         for (const line of result.breakdown) {
             const key = `${line.name}|${line.rate}`;
             const existing = merged.get(key);
-            if (existing) existing.amount += line.amount;
-            else merged.set(key, {...line});
+            if (existing) existing.minor += toMinor(line.amount);
+            else merged.set(key, {line: {...line}, minor: toMinor(line.amount)});
         }
     }
 
     return {
-        amount: roundMoney(amount),
-        breakdown: [...merged.values()].map(line => ({...line, amount: roundMoney(line.amount)})),
+        amount: minorToNumber(amount),
+        breakdown: [...merged.values()].map(({line, minor}) => ({...line, amount: minorToNumber(minor)})),
     };
 }
 
@@ -196,6 +201,6 @@ export async function calculateInclusiveTax(
     companyId: ObjectId,
 ): Promise<number> {
     const {amount} = await calculateTax(100, address, companyId, {productType: TAX_PRODUCT_TYPE[productType ?? ""]});
-    const rate = amount / 100;
-    return rate > 0 ? roundMoney(gross - gross / (1 + rate)) : 0;
+    // The tax on 100 is the effective percentage, compound rates included.
+    return amount > 0 ? minorToNumber(includedPercentOfMinor(toMinor(gross), amount)) : 0;
 }

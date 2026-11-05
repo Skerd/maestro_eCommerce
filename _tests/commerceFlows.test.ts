@@ -738,6 +738,24 @@ describe("calculateLinesTax", () => {
             {name: "Goods levy", rate: 5, amount: 5},
         ]));
     }));
+
+    it("rounds each rate once, so the total is the sum of the breakdown on the receipt (D35)", () => asCompany(async () => {
+        const country = new ObjectId();
+        await TaxZone.create({
+            name: "Split", country, isActive: true, priority: 1, company: companyId,
+            rates: [
+                {name: "State", rate: 10, isCompound: false, appliesTo: "all"},
+                {name: "City", rate: 5, isCompound: false, appliesTo: "all"},
+            ],
+        } as any);
+        const product = await seedProduct({type: "physical"});
+
+        // 0.004 + 0.002 print as 0.00 + 0.00; the float total charged 0.01 that no line shows
+        const tax = await calculateLinesTax([{product: product._id, totalPrice: 0.04}], 0, {country: country.toString()}, companyId);
+        expect(tax.breakdown.map((line) => line.amount)).toEqual([0, 0]);
+        expect(tax.amount).toBe(0);
+    }));
+
 });
 
 describe("assertPricedWhenActive", () => {

@@ -23,8 +23,9 @@ import {returnRequestService} from "@eCommerceModule/database/schemas/returnRequ
 import {fulfillmentService} from "@eCommerceModule/database/schemas/fulfillment/fulfillment.service";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
-import {companyObjectId, companyScope, roundMoney, toAmount} from "@coreModule/domain/ai/tools/assistantToolKit";
+import {companyObjectId, companyScope, toAmount} from "@coreModule/domain/ai/tools/assistantToolKit";
 import {accessDenied, requirePermission} from "@coreModule/domain/ai/tools/assistantToolAccess";
+import {roundToCurrency} from "armonia/src/modules/core/helpers/money";
 
 /** Default reporting window for the "recent activity" figures. */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -99,7 +100,7 @@ async function revenueInWindow(
         orders: rows.reduce((sum, row) => sum + (row.orders ?? 0), 0),
         revenue: rows.map((row) => ({
             currency: row.currency?.[0]?.abbreviation ?? row.currency?.[0]?.symbol ?? null,
-            amount: roundMoney(toAmount(row.amount))
+            amount: roundToCurrency(toAmount(row.amount))
         }))
     };
 }
