@@ -173,7 +173,7 @@ const promotionFormFields: ViewConfig["nodes"] = [
                     label: "form.startAtLabel",
                     placeholder: "form.startAtPlaceholder",
                     required: true,
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                    widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                 },
             },
             {
@@ -184,7 +184,7 @@ const promotionFormFields: ViewConfig["nodes"] = [
                     label: "form.endAtLabel",
                     placeholder: "form.endAtPlaceholder",
                     required: true,
-                    widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                    widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                 },
             },
         ],

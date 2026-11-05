@@ -529,7 +529,7 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.startsAtLabel",
                             placeholder: "form.startsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -539,7 +539,7 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.endsAtLabel",
                             placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                 ]
@@ -1115,7 +1115,7 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.startsAtLabel",
                             placeholder: "form.startsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         }, permissions: {read: "startsAt", write: "startsAt"},
                     },
                     {
@@ -1125,7 +1125,7 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.endsAtLabel",
                             placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         }, permissions: {read: "endsAt", write: "endsAt"},
                     },
                 ]

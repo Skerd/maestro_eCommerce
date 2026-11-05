@@ -1873,7 +1873,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.publishedAtLabel",
                             placeholder: "form.publishedAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -2151,7 +2151,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.saleStartsAtLabel",
                             placeholder: "form.saleStartsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -2161,7 +2161,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.saleEndsAtLabel",
                             placeholder: "form.saleEndsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -2323,7 +2323,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.preorderAvailableAtLabel",
                             placeholder: "form.preorderAvailableAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                 ],
@@ -3160,7 +3160,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.publishedAtLabel",
                             placeholder: "form.publishedAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -3462,7 +3462,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.saleStartsAtLabel",
                             placeholder: "form.saleStartsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -3473,7 +3473,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.saleEndsAtLabel",
                             placeholder: "form.saleEndsAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -3648,7 +3648,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.preorderAvailableAtLabel",
                             placeholder: "form.preorderAvailableAtPlaceholder",
-                            widgetProps: {valueFormat: "yyyy-MM-dd HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                 ],
