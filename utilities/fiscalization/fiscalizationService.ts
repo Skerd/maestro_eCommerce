@@ -24,13 +24,19 @@ import {
     type OrderedDict,
 } from "./fiscalSoap";
 import {buildUblInvoiceXml} from "./ublInvoice";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, includedPercentOfMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
 
 
 function money(n: number): string {
-    return roundMoney(n).toFixed(2);
+    return Number.isFinite(n) ? roundToCurrency(n).toFixed(2) : n.toFixed(2);
+}
+
+
+/** A VAT rate in percent, not money: plain rounding to two places. */
+export function roundRate(percent: number): number {
+    return Math.round(percent * 100) / 100;
 }
 
 export type FiscalCert = {certificateBase64: string; certificatePassword: string};
@@ -161,7 +167,7 @@ export async function registerFiscalInvoice(
     const {invOrdNum, totPrice, totTax, items} = data;
     const year = new Date().getFullYear();
     const invNum = `${invOrdNum}/${year}/${config.tcrCode}`;
-    const totWoVat = roundMoney(totPrice - totTax);
+    const totWoVat = subtractMoney(totPrice, totTax);
 
     const iicInput = buildIicInput({
         nipt,
@@ -179,7 +185,7 @@ export async function registerFiscalInvoice(
 
     const sameTaxes: OrderedDict[] = [];
     if (config.isVatRegistered && totTax !== 0 && totWoVat !== 0) {
-        const rate = roundMoney((Math.abs(totTax) / Math.abs(totWoVat)) * 100);
+        const rate = roundRate((Math.abs(totTax) / Math.abs(totWoVat)) * 100);
         sameTaxes.push({
             "1__NumOfItems": String(items.length),
             "2__PriceBefVAT": money(totWoVat),
@@ -295,11 +301,10 @@ export async function registerFiscalInvoice(
  * Each line's VAT is its share of the invoice VAT, at the invoice's rate.
  */
 export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lines" | "vatRate" | "pricesIncludeVat" | "total" | "vatAmount">, correctiveIic?: string): FiscalInvoiceData {
-    const rate = invoice.vatRate / 100;
     const items: OrderedDict[] = invoice.lines.map((line) => {
-        const gross = invoice.pricesIncludeVat ? line.total : roundMoney(line.total * (1 + rate));
-        const tax = roundMoney(gross - gross / (1 + rate));
-        const net = roundMoney(gross - tax);
+        const gross = invoice.pricesIncludeVat ? roundToCurrency(line.total) : addMoney(line.total, percentOfMoney(line.total, invoice.vatRate));
+        const tax = minorToNumber(includedPercentOfMinor(toMinor(gross), invoice.vatRate));
+        const net = subtractMoney(gross, tax);
         const qty = Math.sign(line.total || 1) * Math.abs(line.quantity || 1);
         const row: OrderedDict = {
             "1__N": line.description,
@@ -321,8 +326,8 @@ export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lin
     const parts = invoice.number.split("-");
     return {
         invOrdNum: String(parseInt(parts[parts.length - 1], 10) || 1),
-        totPrice: roundMoney(invoice.total),
-        totTax: roundMoney(invoice.vatAmount),
+        totPrice: roundToCurrency(invoice.total),
+        totTax: roundToCurrency(invoice.vatAmount),
         payments: [],
         items,
         ...(correctiveIic ? {corrective: {iic: correctiveIic}} : {}),
@@ -342,8 +347,8 @@ export async function registerPosInvoice(
         throw new Error("Order already fiscalized (has NIVF/FIC)");
     }
     const invOrdNum = invOrdFromOrderName(order.name);
-    const totPrice = roundMoney(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
-    const totTax = roundMoney(Number(order.isRefund ? -order.amountTax : order.amountTax));
+    const totPrice = roundToCurrency(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
+    const totTax = roundToCurrency(Number(order.isRefund ? -order.amountTax : order.amountTax));
 
     const payments = ((order.payments as any[]) || []).map(p => ({
         "1__Type": payMethodType(p.paymentMethodType),
@@ -351,13 +356,13 @@ export async function registerPosInvoice(
     }));
     const items: OrderedDict[] = ((order.lines as any[]) || []).map(line => {
         const qty = Number(line.quantity) * (order.isRefund ? -1 : 1);
-        const pb = roundMoney(Number(line.priceSubtotal) - Number(line.discountAmount || 0));
+        const pb = subtractMoney(Number(line.priceSubtotal), Number(line.discountAmount || 0));
         // priceTotal is after discount; treat as gross when taxAmount present
-        const tax = roundMoney(Number(line.taxAmount || 0));
-        const pa = roundMoney(Number(line.priceTotal));
-        const net = roundMoney(pa - tax);
-        const unitNet = qty !== 0 ? roundMoney(net / Math.abs(qty)) : 0;
-        const unitGross = qty !== 0 ? roundMoney(pa / Math.abs(qty)) : 0;
+        const tax = roundToCurrency(Number(line.taxAmount || 0));
+        const pa = roundToCurrency(Number(line.priceTotal));
+        const net = subtractMoney(pa, tax);
+        const unitNet = qty !== 0 ? prorateMoney(net, 1, Math.abs(qty)) : 0;
+        const unitGross = qty !== 0 ? prorateMoney(pa, 1, Math.abs(qty)) : 0;
         const row: OrderedDict = {
             "1__N": line.productName || "Item",
             "2__C": line.productSku || line.productName || "Item",
@@ -370,7 +375,7 @@ export async function registerPosInvoice(
             "9__PA": money(order.isRefund ? -Math.abs(pa) : pa),
         };
         if (tax) {
-            const rate = net !== 0 ? roundMoney((tax / Math.abs(net)) * 100) : 0;
+            const rate = net !== 0 ? roundRate((tax / Math.abs(net)) * 100) : 0;
             row["10__VR"] = money(rate);
             row["11__VA"] = money(order.isRefund ? -Math.abs(tax) : tax);
         }
@@ -513,21 +518,21 @@ export async function registerEinvoiceForPosOrder(
     if ((order as any).eic) throw new Error("Order already has EIC");
 
     const nipt = resolveNipt(config, opts?.companyVat);
-    const totGross = roundMoney(Number(order.amountTotal));
-    const totVat = roundMoney(Number(order.amountTax));
-    const totNet = roundMoney(totGross - totVat);
+    const totGross = roundToCurrency(Number(order.amountTotal));
+    const totVat = roundToCurrency(Number(order.amountTax));
+    const totNet = subtractMoney(totGross, totVat);
     const lines = ((order.lines as any[]) || []).map(line => {
         const qty = Number(line.quantity);
-        const pa = roundMoney(Number(line.priceTotal));
-        const tax = roundMoney(Number(line.taxAmount || 0));
-        const net = roundMoney(pa - tax);
+        const pa = roundToCurrency(Number(line.priceTotal));
+        const tax = roundToCurrency(Number(line.taxAmount || 0));
+        const net = subtractMoney(pa, tax);
         return {
             name: line.productName || "Item",
             quantity: qty,
-            unitPriceNet: qty ? roundMoney(net / qty) : 0,
+            unitPriceNet: qty ? prorateMoney(net, Math.sign(qty), Math.abs(qty)) : 0,
             lineNet: net,
             lineGross: pa,
-            vatRate: net ? roundMoney((tax / net) * 100) : 0,
+            vatRate: net ? roundRate((tax / net) * 100) : 0,
             vatAmount: tax,
         };
     });

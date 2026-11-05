@@ -39,7 +39,7 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
 import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
@@ -182,7 +182,7 @@ async function consumePosStockAcrossWarehouses(params: {
             allowOversell: !!(allowOversell && isLast),
             ctx,
         });
-        remaining = roundMoney(remaining - take);
+        remaining = roundQuantity(remaining - take);
     }
 
     if (remaining > 0.0001) {
@@ -271,10 +271,16 @@ async function returnableByWarehouse(posOrderId: ObjectId, ctx: Ctx): Promise<Ma
         const warehouse = String(nestedEntityToRef(movement.warehouse));
         const perWarehouse = returnable.get(key) ?? new Map<string, number>();
         // Sales are negative movements (adds to what can come back), returns positive
-        perWarehouse.set(warehouse, roundMoney((perWarehouse.get(warehouse) ?? 0) - movement.quantity));
+        perWarehouse.set(warehouse, roundQuantity((perWarehouse.get(warehouse) ?? 0) - movement.quantity));
         returnable.set(key, perWarehouse);
     }
     return returnable;
+}
+
+
+/** Stock quantities are not money: plain rounding to two places, as before. */
+function roundQuantity(value: number): number {
+    return Math.round(value * 100) / 100;
 }
 
 export async function openPosSession(
@@ -419,8 +425,8 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
         at: new Date(),
         by: ctx.userId,
     } as any);
-    sessionDoc.cashRegisterBalance = roundMoney(sessionDoc.cashRegisterBalance + delta);
-    sessionDoc.expectedCash = roundMoney(sessionDoc.expectedCash + delta);
+    sessionDoc.cashRegisterBalance = addMoney(sessionDoc.cashRegisterBalance, delta);
+    sessionDoc.expectedCash = addMoney(sessionDoc.expectedCash, delta);
     sessionDoc.markModified("cashMoves");
     await sessionDoc.save({session: ctx.session});
 
@@ -440,7 +446,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
 
     const countedCash = Number(body.closingBalance);
     const expectedCash = Number(sessionDoc.expectedCash ?? 0);
-    const difference = roundMoney(countedCash - expectedCash);
+    const difference = subtractMoney(countedCash, expectedCash);
     if (Math.abs(difference) >= 0.01 && !(body.differenceReason?.trim() || body.notes?.trim())) {
         throw apiValidationException("pos_close_difference_reason_required", "differenceReason", null, ctx.languageCode);
     }
@@ -712,9 +718,9 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = roundMoney(unitPrice * qty);
-        const discountAmount = roundMoney((gross * discPct) / 100);
-        const priceTotal = roundMoney(gross - discountAmount);
+        const gross = multiplyMoney(unitPrice, qty);
+        const discountAmount = percentOfMoney(gross, discPct);
+        const priceTotal = subtractMoney(gross, discountAmount);
 
         lines.push({
             product: product._id,
@@ -731,27 +737,30 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             barcode: product.barcode ?? product.ean,
             productType: product.type,
         });
-        subtotal = roundMoney(subtotal + gross);
-        lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
+        subtotal = addMoney(subtotal, gross);
+        lineDiscountTotal = addMoney(lineDiscountTotal, discountAmount);
     }
 
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
-    const afterLineDisc = roundMoney(subtotal - lineDiscountTotal);
-    const orderDiscount = roundMoney((afterLineDisc * orderDiscPct) / 100);
-    const discountTotal = roundMoney(lineDiscountTotal + orderDiscount);
-    const amountTotal = roundMoney(Math.max(0, subtotal - discountTotal));
+    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal);
+    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct);
+    const discountTotal = addMoney(lineDiscountTotal, orderDiscount);
+    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal));
 
     // Till prices include VAT: extract each line's share at the selling warehouse's rates,
     // after its part of the order discount
     const taxAddress = posTaxAddress(config);
-    for (const line of lines) {
-        const share = afterLineDisc > 0 ? line.priceTotal / afterLineDisc : 0;
-        const taxedAmount = roundMoney(line.priceTotal - orderDiscount * share);
+    // The order discount is shared over the lines by value, in parts that add up to it exactly (D35).
+    const discountShares = orderDiscount > 0 && afterLineDisc > 0
+        ? allocateMinor(toMinor(orderDiscount), lines.map(line => toMinor(line.priceTotal)))
+        : lines.map(() => 0n);
+    for (const [index, line] of lines.entries()) {
+        const taxedAmount = subtractMoney(line.priceTotal, minorToNumber(discountShares[index]));
         line.taxAmount = taxAddress
             ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id)
             : 0;
     }
-    const amountTax = roundMoney(lines.reduce((sum, line) => sum + line.taxAmount, 0));
+    const amountTax = addMoney(...lines.map(line => line.taxAmount));
 
     if (discountTotal > 0.001 && config.pinForDiscount) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
@@ -778,11 +787,11 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     }
     const methodById = new Map(methods.map(m => [m._id.toString(), m]));
 
-    const amountPaid = roundMoney(body.payments.reduce((s, p) => s + Number(p.amount), 0));
+    const amountPaid = addMoney(...body.payments.map(p => Number(p.amount)));
     if (amountPaid + 0.001 < amountTotal) {
         throw apiValidationException("pos_payment_insufficient", "payments", null, ctx.languageCode);
     }
-    const amountReturn = roundMoney(Math.max(0, amountPaid - amountTotal));
+    const amountReturn = Math.max(0, subtractMoney(amountPaid, amountTotal));
 
     if (!currencyId) {
         throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
@@ -958,19 +967,19 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     for (const payment of body.payments) {
         const method = methodById.get(payment.paymentMethodId);
         const amt = Number(payment.amount);
-        if (method?.type === "cash") cashPaid = roundMoney(cashPaid + amt);
-        else cardPaid = roundMoney(cardPaid + amt);
+        if (method?.type === "cash") cashPaid = addMoney(cashPaid, amt);
+        else cardPaid = addMoney(cardPaid, amt);
     }
     // Change returned from cash drawer
-    const netCash = roundMoney(cashPaid - amountReturn);
+    const netCash = subtractMoney(cashPaid, amountReturn);
 
     sessionDoc.orderCount += 1;
-    sessionDoc.totalSales = roundMoney(sessionDoc.totalSales + amountTotal);
-    sessionDoc.totalCash = roundMoney(sessionDoc.totalCash + Math.max(0, netCash));
-    sessionDoc.totalCard = roundMoney(sessionDoc.totalCard + cardPaid);
+    sessionDoc.totalSales = addMoney(sessionDoc.totalSales, amountTotal);
+    sessionDoc.totalCash = addMoney(sessionDoc.totalCash, Math.max(0, netCash));
+    sessionDoc.totalCard = addMoney(sessionDoc.totalCard, cardPaid);
     if (netCash !== 0) {
-        sessionDoc.cashRegisterBalance = roundMoney(sessionDoc.cashRegisterBalance + netCash);
-        sessionDoc.expectedCash = roundMoney(sessionDoc.expectedCash + netCash);
+        sessionDoc.cashRegisterBalance = addMoney(sessionDoc.cashRegisterBalance, netCash);
+        sessionDoc.expectedCash = addMoney(sessionDoc.expectedCash, netCash);
     }
     await sessionDoc.save({session: ctx.session});
 
@@ -1093,7 +1102,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         Math.max(0, Number(line.quantity) - Number(line.quantityRefunded ?? 0));
     const alreadyPartial = originalLines.some((l: any) => Number(l.quantityRefunded ?? 0) > 0.0001);
     const priorAmountRefunded = Number(original.amountRefunded ?? 0);
-    const remainingOrderAmount = roundMoney(Math.max(0, Number(original.amountTotal) - priorAmountRefunded));
+    const remainingOrderAmount = Math.max(0, subtractMoney(Number(original.amountTotal), priorAmountRefunded));
 
     let refundLines: any[];
     let refundAmount: number;
@@ -1109,7 +1118,6 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             if (!(qty > 0) || qty > remaining + 0.0001) {
                 throw apiValidationException("pos_refund_qty_invalid", "lines", null, ctx.languageCode);
             }
-            const ratio = line.quantity > 0 ? qty / line.quantity : 0;
             refundLines.push({
                 product: line.product,
                 variant: line.variant,
@@ -1117,23 +1125,22 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 quantityRefunded: 0,
                 unitPrice: line.unitPrice,
                 discountPercent: line.discountPercent,
-                discountAmount: roundMoney((line.discountAmount ?? 0) * ratio),
-                priceSubtotal: roundMoney((line.priceSubtotal ?? 0) * ratio),
-                priceTotal: roundMoney((line.priceTotal ?? 0) * ratio),
-                taxAmount: roundMoney((line.taxAmount ?? 0) * ratio),
+                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, qty, line.quantity) : 0,
+                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, qty, line.quantity) : 0,
+                priceTotal: line.quantity > 0 ? prorateMoney(line.priceTotal ?? 0, qty, line.quantity) : 0,
+                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, qty, line.quantity) : 0,
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
             });
             restockPlan.push({line, quantity: qty});
         }
-        refundAmount = roundMoney(refundLines.reduce((s, l) => s + l.priceTotal, 0));
+        refundAmount = addMoney(...refundLines.map(l => l.priceTotal));
         // Apply order-level discount proportionally to selected lines' share of original subtotal
-        const originalLineSum = originalLines.reduce((s: number, l: any) => s + (l.priceTotal ?? 0), 0);
+        const originalLineSum = addMoney(...originalLines.map((l: any) => l.priceTotal ?? 0));
         if (original.discountTotal > 0 && originalLineSum > 0) {
-            const share = refundAmount / originalLineSum;
-            const orderDiscShare = roundMoney(original.discountTotal * share);
-            refundAmount = roundMoney(Math.max(0, refundAmount - orderDiscShare));
+            const orderDiscShare = prorateMoney(original.discountTotal, refundAmount, originalLineSum);
+            refundAmount = Math.max(0, subtractMoney(refundAmount, orderDiscShare));
         }
         if (refundAmount > remainingOrderAmount + 0.011) {
             throw apiValidationException("pos_refund_amount_invalid", "amount", null, ctx.languageCode);
@@ -1155,7 +1162,6 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
         refundLines = originalLines.map(line => {
             const remaining = remainingOf(line);
-            const lineRatio = line.quantity > 0 ? remaining / line.quantity : 0;
             return {
                 product: line.product,
                 variant: line.variant,
@@ -1163,10 +1169,10 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 quantityRefunded: 0,
                 unitPrice: line.unitPrice,
                 discountPercent: line.discountPercent,
-                discountAmount: roundMoney((line.discountAmount ?? 0) * lineRatio),
-                priceSubtotal: roundMoney((line.priceSubtotal ?? 0) * lineRatio),
-                priceTotal: roundMoney((line.priceTotal ?? 0) * lineRatio),
-                taxAmount: roundMoney((line.taxAmount ?? 0) * lineRatio),
+                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, remaining, line.quantity) : 0,
+                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, remaining, line.quantity) : 0,
+                priceTotal: line.quantity > 0 ? prorateMoney(line.priceTotal ?? 0, remaining, line.quantity) : 0,
+                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, remaining, line.quantity) : 0,
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
@@ -1176,12 +1182,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             .map(line => ({line, quantity: remainingOf(line)}))
             .filter(p => p.quantity > 0);
         // Recompute amount from remaining lines when doing full remaining refund
-        refundAmount = roundMoney(refundLines.reduce((s, l) => s + l.priceTotal, 0));
-        const originalLineSum = originalLines.reduce((s: number, l: any) => s + (l.priceTotal ?? 0), 0);
+        refundAmount = addMoney(...refundLines.map(l => l.priceTotal));
+        const originalLineSum = addMoney(...originalLines.map((l: any) => l.priceTotal ?? 0));
         if (original.discountTotal > 0 && originalLineSum > 0) {
-            const share = refundAmount / originalLineSum;
-            const orderDiscShare = roundMoney(original.discountTotal * share);
-            refundAmount = roundMoney(Math.max(0, refundAmount - orderDiscShare));
+            const orderDiscShare = prorateMoney(original.discountTotal, refundAmount, originalLineSum);
+            refundAmount = Math.max(0, subtractMoney(refundAmount, orderDiscShare));
         }
     }
 
@@ -1191,7 +1196,6 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
 
     const name = await generatePosOrderName(ctx.company._id, ctx.session);
     const now = new Date();
-    const payRatio = original.amountTotal > 0 ? refundAmount / original.amountTotal : 1;
 
     const refundOrder = new PosOrder({
         name,
@@ -1206,17 +1210,17 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             paymentMethod: p.paymentMethod,
             paymentMethodName: p.paymentMethodName,
             paymentMethodType: p.paymentMethodType,
-            amount: roundMoney(Number(p.amount) * payRatio),
+            amount: original.amountTotal > 0 ? prorateMoney(Number(p.amount), refundAmount, original.amountTotal) : roundToCurrency(Number(p.amount)),
             paymentDate: now,
             terminalAuthCode: p.terminalAuthCode,
             terminalReference: p.terminalReference,
             terminalId: p.terminalId,
         })),
-        amountTax: roundMoney(refundLines.reduce((sum, line) => sum + line.taxAmount, 0)),
+        amountTax: addMoney(...refundLines.map(line => line.taxAmount)),
         amountTotal: refundAmount,
         amountPaid: refundAmount,
         amountReturn: 0,
-        discountTotal: roundMoney(Math.max(0, (original.discountTotal ?? 0) * payRatio)),
+        discountTotal: Math.max(0, original.amountTotal > 0 ? prorateMoney(original.discountTotal ?? 0, refundAmount, original.amountTotal) : roundToCurrency(original.discountTotal ?? 0)),
         note: body.reason ? `Refund: ${body.reason}` : `Refund of ${original.name}`,
         refundOf: original._id,
         isRefund: true,
@@ -1251,7 +1255,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             const take = Math.min(remaining, open);
             if (take <= 0.0001) continue;
             await restock(new ObjectId(sourceWarehouse), take);
-            remaining = roundMoney(remaining - take);
+            remaining = roundQuantity(remaining - take);
         }
         if (remaining > 0.0001) await restock(warehouseId, remaining);
     }
@@ -1261,7 +1265,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         for (const req of body.lines) {
             const line = originalLines.find((l) => l._id.toString() === req.lineId);
             if (!line) continue;
-            line.quantityRefunded = roundMoney(Number(line.quantityRefunded ?? 0) + Number(req.quantity));
+            line.quantityRefunded = roundQuantity(Number(line.quantityRefunded ?? 0) + Number(req.quantity));
         }
     } else {
         for (const line of originalLines) {
@@ -1269,7 +1273,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
     }
     original.markModified("lines");
-    original.amountRefunded = roundMoney(priorAmountRefunded + refundAmount);
+    original.amountRefunded = addMoney(priorAmountRefunded, refundAmount);
 
     const allLinesFullyRefunded = originalLines.every((l: any) => remainingOf(l) <= 0.0001);
     const fullyRefunded =
@@ -1303,14 +1307,17 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     let cashRefund = 0;
     for (const p of original.payments ?? []) {
         const mid = nestedEntityToRef(p.paymentMethod)?.toString();
-        if (mid && cashMethodIds.has(mid)) cashRefund = roundMoney(cashRefund + Number(p.amount) * payRatio);
+        if (mid && cashMethodIds.has(mid)) {
+            const share = original.amountTotal > 0 ? prorateMoney(Number(p.amount), refundAmount, original.amountTotal) : roundToCurrency(Number(p.amount));
+            cashRefund = addMoney(cashRefund, share);
+        }
     }
     if (cashRefund > 0) {
-        sessionDoc.cashRegisterBalance = roundMoney(sessionDoc.cashRegisterBalance - cashRefund);
-        sessionDoc.expectedCash = roundMoney(sessionDoc.expectedCash - cashRefund);
-        sessionDoc.totalCash = roundMoney(Math.max(0, sessionDoc.totalCash - cashRefund));
+        sessionDoc.cashRegisterBalance = subtractMoney(sessionDoc.cashRegisterBalance, cashRefund);
+        sessionDoc.expectedCash = subtractMoney(sessionDoc.expectedCash, cashRefund);
+        sessionDoc.totalCash = Math.max(0, subtractMoney(sessionDoc.totalCash, cashRefund));
     }
-    sessionDoc.totalSales = roundMoney(Math.max(0, sessionDoc.totalSales - refundAmount));
+    sessionDoc.totalSales = Math.max(0, subtractMoney(sessionDoc.totalSales, refundAmount));
     await sessionDoc.save({session: ctx.session});
 
     const populated = await PosOrder.findById(refundOrder._id)
@@ -1376,7 +1383,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
         throw apiValidationException("pos_terminal_disabled", "paymentMethodId", null, ctx.languageCode);
     }
 
-    const amount = roundMoney(Number(body.amount));
+    const amount = roundToCurrency(Number(body.amount));
     if (!(amount > 0)) throw apiValidationException("pos_terminal_amount_invalid", "amount", null, ctx.languageCode);
 
     const reference = (body.reference || `POS-${Date.now()}`).slice(0, 120);

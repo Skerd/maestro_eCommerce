@@ -16,7 +16,8 @@ import {
     managerPinMatchesForUser,
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
-import {roundMoney} from "@coreModule/utilities/helpers/money";
+import {addMoney, multiplyMoney, percentOfMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
+import {roundRate} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {assertPosSellable, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
 type Ctx = {
@@ -92,9 +93,9 @@ async function buildDraftLines(
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = roundMoney(unitPrice * qty);
-        const discountAmount = roundMoney((gross * discPct) / 100);
-        const priceTotal = roundMoney(gross - discountAmount);
+        const gross = multiplyMoney(unitPrice, qty);
+        const discountAmount = percentOfMoney(gross, discPct);
+        const priceTotal = subtractMoney(gross, discountAmount);
 
         lines.push({
             product: product._id,
@@ -110,8 +111,8 @@ async function buildDraftLines(
             productSku: product.sku,
             barcode: product.barcode ?? product.ean,
         });
-        subtotal = roundMoney(subtotal + gross);
-        lineDiscountTotal = roundMoney(lineDiscountTotal + discountAmount);
+        subtotal = addMoney(subtotal, gross);
+        lineDiscountTotal = addMoney(lineDiscountTotal, discountAmount);
     }
 
     return {lines, subtotal, lineDiscountTotal};
@@ -197,11 +198,11 @@ async function qrCodeDataUrl(payload: string): Promise<string | undefined> {
 function vatRowsFromOrder(order: IPosOrder): PosReceiptVatRow[] {
     const byRate = new Map<number, number>();
     for (const line of order.lines ?? []) {
-        const tax = roundMoney(Number(line.taxAmount || 0));
-        const gross = roundMoney(Number(line.priceTotal || 0));
-        const net = roundMoney(gross - tax);
-        const rate = net !== 0 && tax !== 0 ? roundMoney((Math.abs(tax) / Math.abs(net)) * 100) : 0;
-        byRate.set(rate, roundMoney((byRate.get(rate) ?? 0) + tax));
+        const tax = roundToCurrency(Number(line.taxAmount || 0));
+        const gross = roundToCurrency(Number(line.priceTotal || 0));
+        const net = subtractMoney(gross, tax);
+        const rate = net !== 0 && tax !== 0 ? roundRate((Math.abs(tax) / Math.abs(net)) * 100) : 0;
+        byRate.set(rate, addMoney((byRate.get(rate) ?? 0), tax));
     }
     if (byRate.size === 0) return [{rate: 0, amount: 0}];
     return [...byRate.entries()]
@@ -296,7 +297,7 @@ export async function buildReceiptFromPosOrder(
         amountPaid: order.amountPaid ?? 0,
         amountReturn: order.amountReturn ?? 0,
         amountTax,
-        amountWithoutVat: roundMoney(amountTotal - amountTax),
+        amountWithoutVat: subtractMoney(amountTotal, amountTax),
         vatRows: vatRowsFromOrder(order),
         payments: (order.payments ?? []).map((payment) => ({
             method: payment.paymentMethodName ?? "Payment",
@@ -330,10 +331,10 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
 
     const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx);
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
-    const afterLineDisc = roundMoney(subtotal - lineDiscountTotal);
-    const orderDiscount = roundMoney((afterLineDisc * orderDiscPct) / 100);
-    const discountTotal = roundMoney(lineDiscountTotal + orderDiscount);
-    const amountTotal = roundMoney(Math.max(0, subtotal - discountTotal));
+    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal);
+    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct);
+    const discountTotal = addMoney(lineDiscountTotal, orderDiscount);
+    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal));
 
     let draft: IPosOrder | null = null;
     if (body._id) {
@@ -500,7 +501,7 @@ export async function getPosSessionReconciliation(
     for (const order of paidOrders) {
         for (const payment of order.payments ?? []) {
             const key = payment.paymentMethodType || "other";
-            salesByTender[key] = roundMoney((salesByTender[key] ?? 0) + Number(payment.amount || 0));
+            salesByTender[key] = addMoney((salesByTender[key] ?? 0), Number(payment.amount || 0));
         }
     }
 
@@ -526,8 +527,8 @@ export async function getPosSessionReconciliation(
     };
 
     if (countedCash != null && !Number.isNaN(countedCash)) {
-        result.countedCash = roundMoney(countedCash);
-        result.difference = roundMoney(countedCash - result.expectedCash);
+        result.countedCash = roundToCurrency(countedCash);
+        result.difference = subtractMoney(countedCash, result.expectedCash);
     }
 
     return result;

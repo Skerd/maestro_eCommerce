@@ -7,6 +7,7 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {demoName} from "@coreModule/utilities/helpers";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreatePosPaymentMethodsResult} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.defaults";
+import {addMoney, percentOfMoney} from "armonia/src/modules/core/helpers/money";
 
 export const POS_ORDER_NAME = demoName("POS Order 1");
 
@@ -54,8 +55,8 @@ export async function createPosOrders(
     }
 
     const unitPrice = Number(hoodie.price ?? 69);
-    const taxAmount = Math.round(unitPrice * 0.2 * 100) / 100;
-    const priceTotal = Math.round((unitPrice + taxAmount) * 100) / 100;
+    const taxAmount = percentOfMoney(unitPrice, 20);
+    const priceTotal = addMoney(unitPrice, taxAmount);
 
     try {
         const payload = {
