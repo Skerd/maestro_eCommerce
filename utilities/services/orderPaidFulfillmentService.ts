@@ -10,6 +10,9 @@ import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/noti
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {toMinor} from "armonia/src/modules/core/helpers/money";
+import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 
 type FulfillmentCtx = CrudOptions & {auditUserId?: ObjectId | string};
 
@@ -71,13 +74,16 @@ export async function fulfillOrderPaidExtras(order: IProductOrder, ctx: Fulfillm
             giftCardsAccountedFor += item.quantity;
             if (existing >= item.quantity) continue;
 
+            // Stored as Decimal128 at the order currency's decimal places (GLB-08)
+            const decimals = await currencyDecimalPlaces(currencyId, ctx.session);
+            const value = decimal128FromMinor(toMinor(item.unitPrice, decimals), decimals);
             for (let i = existing; i < item.quantity; i++) {
                 const code = generateGiftCardCode();
                 await giftCardService.create(
                     {
                         code,
-                        initialBalance: item.unitPrice,
-                        balance: item.unitPrice,
+                        initialBalance: value,
+                        balance: value,
                         currency: currencyId,
                         purchasedBy: customerId,
                         order: orderId,

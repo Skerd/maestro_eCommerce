@@ -5,10 +5,10 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
-import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
+import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {SHOP_CURRENCY_SELECT, toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
@@ -25,12 +25,14 @@ export const router = Router();
  * variants is available when any of its variants is.
  */
 async function stockAvailability(product: any, variants: any[], companyId: unknown): Promise<ShopStockMap> {
-    const warehouseIds = (await Warehouse.find({company: companyId, isActive: true}, {_id: 1}).noDeleted().lean())
+    const warehouseIds = (await warehouseService.find({company: companyId, isActive: true}, {withDeleted: false}, undefined, "_id"))
         .map(warehouse => warehouse._id);
-    const rows = await Inventory.find(
+    const rows = await inventoryService.find(
         {product: product._id, company: companyId, warehouse: {$in: warehouseIds}},
-        {variant: 1, quantityOnHand: 1, quantityReserved: 1},
-    ).noDeleted().lean();
+        {withDeleted: false},
+        undefined,
+        "variant quantityOnHand quantityReserved",
+    );
 
     const available = new Set<string>();
     for (const row of rows as any[]) {
@@ -60,9 +62,7 @@ const DETAIL_POPULATE = [
 ] as const;
 
 async function findActiveProduct(filter: Record<string, unknown>) {
-    return Product.findOne({...filter, status: "active"}).noDeleted()
-        .populate([...DETAIL_POPULATE])
-        .lean();
+    return productService.findOne({...filter, status: "active"}, {withDeleted: false}, [...DETAIL_POPULATE]);
 }
 
 router.post(
@@ -87,9 +87,7 @@ router.post(
                 } else if (sellerCompanyId) {
                     product = await findActiveProduct({company: new ObjectId(sellerCompanyId), slug: slugKey});
                 } else {
-                    const matches = await Product.find({slug: slugKey, status: "active"}).noDeleted()
-                        .populate([...DETAIL_POPULATE])
-                        .lean();
+                    const matches = await productService.find({slug: slugKey, status: "active"}, {withDeleted: false}, [...DETAIL_POPULATE]);
                     // Ambiguous slug across sellers — require id or sellerCompanyId
                     if (matches.length > 1) {
                         throw apiValidationException("product_not_found", null, null, languageCode);
@@ -109,11 +107,13 @@ router.post(
             }
 
             const variants = product.hasVariants
-                ? await ProductVariant.find({product: product._id, company: productSellerId, status: "active"})
-                      .select("sku price compareAtPrice attributeCombination mainImage order trackInventory")
-                      .populate("attributeCombination.attribute", "name")
-                      .sort({order: 1})
-                      .lean()
+                ? await productVariantService.find(
+                      {product: product._id, company: productSellerId, status: "active"},
+                      {},
+                      {path: "attributeCombination.attribute", select: "name"},
+                      "sku price compareAtPrice attributeCombination mainImage order trackInventory",
+                      {order: 1},
+                  )
                 : [];
 
             const relatedFilter: Record<string, unknown> = {
@@ -124,27 +124,17 @@ router.post(
 
             const explicitRelatedIds = (product.relatedProducts as any[]) ?? [];
             let related = explicitRelatedIds.length
-                ? await Product.find({...relatedFilter, _id: {$in: explicitRelatedIds}}).noDeleted()
-                    .select(CARD_FIELDS)
-                    .populate("company", "name logo siteSlug siteHost")
-                    .populate("currency", SHOP_CURRENCY_SELECT)
-                    .limit(RELATED_LIMIT)
-                    .lean()
+                ? await productService.find({...relatedFilter, _id: {$in: explicitRelatedIds}}, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT)
                 : [];
 
             if (related.length < RELATED_LIMIT) {
                 const categoryIds = (product.categories as any[])?.map((c: any) => c._id ?? c) ?? [];
                 if (categoryIds.length) {
-                    const fill = await Product.find({
+                    const fill = await productService.find({
                         ...relatedFilter,
                         _id: {$nin: [product._id, ...related.map((r: any) => r._id)]},
                         categories: {$in: categoryIds},
-                    }).noDeleted()
-                        .select(CARD_FIELDS)
-                        .populate("company", "name logo siteSlug siteHost")
-                        .populate("currency", SHOP_CURRENCY_SELECT)
-                        .limit(RELATED_LIMIT - related.length)
-                        .lean();
+                    }, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT - related.length);
                     related = [...related, ...fill];
                 }
             }

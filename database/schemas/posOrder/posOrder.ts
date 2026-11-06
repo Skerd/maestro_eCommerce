@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
@@ -24,6 +24,8 @@ import {IPosSession} from "@eCommerceModule/database/schemas/posSession/posSessi
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
 import {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {PosOrderSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.schema-def";
 import {applyPosOrderIndexes} from "./posOrder.indexes";
 import {posOrderViews} from "./posOrder.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -48,7 +50,7 @@ export interface IPosOrderLine {
     productName: string;
     productSku?: string;
     barcode?: string;
-    _id: Schema.Types.ObjectId;
+    _id: Types.ObjectId;
 }
 
 export interface IPosOrderPayment {
@@ -61,7 +63,7 @@ export interface IPosOrderPayment {
     terminalAuthCode?: string;
     terminalReference?: string;
     terminalId?: string;
-    _id: Schema.Types.ObjectId;
+    _id: Types.ObjectId;
 }
 
 export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
@@ -123,6 +125,9 @@ const NoWritePermission = {
 };
 
 const HideFromTable = {hideColumn: true} as const;
+
+/** Required paths the server sets: the order number, its till and session, lines, payments, amounts and state. */
+const POS_ORDER_SERVER_OWNED = ["name", "session", "config", "cashier"];
 
 const PosOrderSchema = new Schema<IPosOrder>(
     {
@@ -515,6 +520,7 @@ ownershipPlugin(PosOrderSchema);
 auditPlugin(PosOrderSchema);
 softDeletePlugin(PosOrderSchema);
 lifeCyclePlugin(PosOrderSchema);
+validateSchemaDefAgainstMongoose(PosOrderSchema, PosOrderSchemaDef, "PosOrder", POS_ORDER_SERVER_OWNED);
 applyPosOrderIndexes(PosOrderSchema);
 const PosOrder = model<IPosOrder>("PosOrder", PosOrderSchema);
 normalizeSchemaPermissions(PosOrder);

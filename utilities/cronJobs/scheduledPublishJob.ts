@@ -1,6 +1,6 @@
 import type {ObjectId} from "mongodb";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 
 export async function runScheduledPublish(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("scheduled_publish", parentLogger);
@@ -9,7 +9,7 @@ export async function runScheduledPublish(company: ObjectId, parentLogger?: serv
     const now = new Date();
 
     try {
-        const productResult = await Product.updateMany(
+        const productResult = await productService.updateMany(
             {
                 company,
                 status: "draft",
@@ -18,7 +18,8 @@ export async function runScheduledPublish(company: ObjectId, parentLogger?: serv
                 $or: [{price: {$ne: null}}, {hasVariants: true}],
             },
             {$set: {status: "active"}},
-        ).noDeleted();
+            {withDeleted: false},
+        );
 
         logger.debug(`Published ${productResult.modifiedCount} products`);
     } catch (e: unknown) {

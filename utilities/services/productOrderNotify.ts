@@ -1,7 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {runAfterCommit} from "@coreModule/utilities/middlewares/transactionUtils";
-import Currency from "@coreModule/database/schemas/currency/currency";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
@@ -46,7 +46,7 @@ function formatMoney(amount: number | undefined, languageCode: string, currencyC
 async function resolveCurrencyCode(currency: unknown): Promise<string | undefined> {
     const currencyId = nestedEntityToRef(currency);
     if (!currencyId) return undefined;
-    const doc = await Currency.findById(currencyId, {abbreviation: 1}).lean();
+    const doc = await currencyService.findById(currencyId, {}, undefined, "abbreviation");
     return doc?.abbreviation?.toUpperCase();
 }
 
@@ -121,14 +121,16 @@ export type NotifyOrderOpts = {
 
 /**
  * In-app notify (when customer id present) + transactional email (order.email, else the customer's login).
+ * Both follow the caller's write, so they wait for its transaction: `opts.session`, else the request's (D06).
  */
 export async function notifyProductOrderCustomer(
     code: string,
     opts: NotifyOrderOpts,
 ): Promise<void> {
-    if (opts.session) {
-        return runAfterCommit(opts.session, () => notifyProductOrderCustomer(code, {...opts, session: undefined}));
-    }
+    return runAfterCommit(opts.session, () => sendProductOrderCustomerNotice(code, opts));
+}
+
+async function sendProductOrderCustomerNotice(code: string, opts: NotifyOrderOpts): Promise<void> {
     const companyId = opts.companyId.toString();
     const customerFromOrder = opts.order ? nestedEntityToRef(opts.order.customer) : undefined;
     const customerId = opts.customerId || customerFromOrder?.toString() || "";
@@ -181,10 +183,7 @@ export async function notifyProductOrderCustomer(
     });
 }
 
-/**
- * Merchant in-app + email for a new product order.
- */
-export async function notifyMerchantsNewOrder(opts: {
+type NewOrderMerchantNotice = {
     companyId: ObjectId | string;
     languageCode: string;
     orderId: string;
@@ -192,10 +191,16 @@ export async function notifyMerchantsNewOrder(opts: {
     grandTotal?: number;
     currency?: unknown;
     session?: ClientSession | null;
-}): Promise<void> {
-    if (opts.session) {
-        return runAfterCommit(opts.session, () => notifyMerchantsNewOrder({...opts, session: undefined}));
-    }
+};
+
+/**
+ * Merchant in-app + email for a new product order, once the order's transaction has committed (D06).
+ */
+export async function notifyMerchantsNewOrder(opts: NewOrderMerchantNotice): Promise<void> {
+    return runAfterCommit(opts.session, () => sendNewOrderMerchantNotice(opts));
+}
+
+async function sendNewOrderMerchantNotice(opts: NewOrderMerchantNotice): Promise<void> {
     const currencyCode = await resolveCurrencyCode(opts.currency);
     const companyId = opts.companyId.toString();
     const receiverIds = await findCompanyAdminReceiverIds(companyId);

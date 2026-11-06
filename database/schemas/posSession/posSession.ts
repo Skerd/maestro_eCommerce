@@ -17,6 +17,8 @@ import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/curre
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {PosSessionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/posSession.schema-def";
 import {applyPosSessionIndexes} from "./posSession.indexes";
 import {posSessionViews} from "./posSession.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -64,6 +66,9 @@ const NoWritePermission = {
 };
 
 const HideFromTable = {hideColumn: true} as const;
+
+/** Required paths the server sets: the session name, currency, state, who opened it and when, and its totals. */
+const POS_SESSION_SERVER_OWNED = ["name"];
 
 const PosSessionSchema = new Schema<IPosSession>(
     {
@@ -244,6 +249,7 @@ ownershipPlugin(PosSessionSchema);
 auditPlugin(PosSessionSchema);
 softDeletePlugin(PosSessionSchema);
 lifeCyclePlugin(PosSessionSchema);
+validateSchemaDefAgainstMongoose(PosSessionSchema, PosSessionSchemaDef, "PosSession", POS_SESSION_SERVER_OWNED);
 applyPosSessionIndexes(PosSessionSchema);
 const PosSession = model<IPosSession>("PosSession", PosSessionSchema);
 normalizeSchemaPermissions(PosSession);

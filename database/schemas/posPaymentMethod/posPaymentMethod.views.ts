@@ -216,9 +216,6 @@ const posPaymentMethodCreateFormNodes: ViewConfig["nodes"] = [
                         options: [
                             {value: "cash", label: "form.paymentType.cash"},
                             {value: "card", label: "form.paymentType.card"},
-                            {value: "bank", label: "form.paymentType.bank"},
-                            {value: "customer_account", label: "form.paymentType.customer_account"},
-                            {value: "other", label: "form.paymentType.other"},
                         ],
                         className: "grow w-full"
                     },
@@ -400,9 +397,6 @@ const posPaymentMethodEditFormNodes: ViewConfig["nodes"] = [
                         options: [
                             {value: "cash", label: "form.paymentType.cash"},
                             {value: "card", label: "form.paymentType.card"},
-                            {value: "bank", label: "form.paymentType.bank"},
-                            {value: "customer_account", label: "form.paymentType.customer_account"},
-                            {value: "other", label: "form.paymentType.other"},
                         ],
                         className: "grow w-full"
                     },

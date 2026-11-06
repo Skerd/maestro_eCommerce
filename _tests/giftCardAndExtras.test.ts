@@ -60,14 +60,14 @@ describe("gift card service", () => {
         const card = await GiftCard.create({code: "GC-REDE-EMME-TEST", initialBalance: 100, balance: 100, status: "active", company: companyId});
 
         const first = await giftCardService.redeemAmount(card._id as ObjectId, 60, {});
-        expect(first!.balance).toBe(40);
+        expect(Number(first!.balance.toString())).toBe(40);
         expect(first!.status).toBe("active");
 
         const over = await giftCardService.redeemAmount(card._id as ObjectId, 50, {});
         expect(over).toBeNull();
 
         const rest = await giftCardService.redeemAmount(card._id as ObjectId, 40, {});
-        expect(rest!.balance).toBe(0);
+        expect(Number(rest!.balance.toString())).toBe(0);
 
         const reloaded = await GiftCard.findById(card._id);
         expect(reloaded!.status).toBe("depleted");
@@ -78,13 +78,13 @@ describe("gift card service", () => {
         const disabled = await GiftCard.create({code: "GC-DISA-BLED-BACK", initialBalance: 50, balance: 10, status: "disabled", company: companyId});
 
         const recredited = await giftCardService.recreditAmount(depleted._id as ObjectId, 30, {});
-        expect(recredited!.balance).toBe(30);
+        expect(Number(recredited!.balance.toString())).toBe(30);
         expect(recredited!.status).toBe("active");
 
         const blocked = await giftCardService.recreditAmount(disabled._id as ObjectId, 30, {});
         expect(blocked).toBeNull();
         const disabledReloaded = await GiftCard.findById(disabled._id);
-        expect(disabledReloaded!.balance).toBe(10);
+        expect(Number(disabledReloaded!.balance.toString())).toBe(10);
     }));
 });
 
@@ -140,7 +140,7 @@ describe("fulfillOrderPaidExtras", () => {
 
         const cards = await GiftCard.find({order: order._id});
         expect(cards).toHaveLength(2);
-        expect(cards.every(card => card.balance === 50 && card.status === "active")).toBe(true);
+        expect(cards.every(card => Number(card.balance.toString()) === 50 && card.status === "active")).toBe(true);
     }));
 
     it("issues a digital delivery with quantity-scaled download limit, idempotently", () => asCompany(async () => {
@@ -172,7 +172,7 @@ describe("fulfillOrderPaidExtras", () => {
         await fulfillOrderPaidExtras(order as any, {});
 
         const cards = await GiftCard.find({order: order._id});
-        expect(cards.map(card => card.balance)).toEqual([20]);
+        expect(cards.map(card => Number(card.balance.toString()))).toEqual([20]);
     }));
 
     it("does not issue anything for a line frozen as physical, even if the product is a gift card now", () => asCompany(async () => {

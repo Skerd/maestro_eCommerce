@@ -3,13 +3,14 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
-import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
-import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import type {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {
     assertIntentMatchesCheckout,
     placePaidCheckoutInBackground,
-} from "@eCommerceModule/utilities/services/checkoutPlacementService";
+} from "@eCommerceModule/workflows/checkoutPlacementService";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {handleStripeWebhook} from "@financeModule/utilities/services/payment/stripeWebhook";
 import {registerPaymentSourceHandler} from "@financeModule/utilities/services/payment/paymentSourceHandlers";
@@ -28,7 +29,7 @@ export const router = Router();
 async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; languageCode: string}): Promise<void> {
     const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
 
-    const order = await ProductOrder.findOne({idempotencyKey: checkout.idempotencyKey, company: companyId});
+    const order = await productOrderService.findOne({idempotencyKey: checkout.idempotencyKey, company: companyId});
     if (!order) {
         await placePaidCheckoutInBackground(checkout._id as any, ctx);
         return;
@@ -58,7 +59,7 @@ async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; lan
  */
 registerPaymentSourceHandler(["checkout", "productOrder"], {
     async succeeded(intent, ctx) {
-        const checkout = await Checkout.findOne({stripePaymentIntentId: intent.id});
+        const checkout = await checkoutService.findOne({stripePaymentIntentId: intent.id});
         if (!checkout) return;
         try {
             await assertIntentMatchesCheckout(checkout, intent, ctx);
@@ -70,17 +71,17 @@ registerPaymentSourceHandler(["checkout", "productOrder"], {
     },
 
     async failed(intent, {languageCode}) {
-        const checkout = await Checkout.findOne({stripePaymentIntentId: intent.id});
+        const checkout = await checkoutService.findOne({stripePaymentIntentId: intent.id});
         if (!checkout) return;
         if (checkout.status === "payment_processing") {
             checkout.status = "pending"; // buyer can retry with another method
             await checkout.save();
         }
         const companyId = ((checkout.company as any)?._id ?? checkout.company)?.toString?.() ?? "";
-        const order = await ProductOrder.findOne({
+        const order = await productOrderService.findOne({
             idempotencyKey: checkout.idempotencyKey,
             company: checkout.company,
-        }).select("_id orderNumber customer email grandTotal currency");
+        }, {}, undefined, "_id orderNumber customer email grandTotal currency");
         const customerId =
             ((order?.customer as any)?._id ?? order?.customer)?.toString?.()
             || ((checkout.user as any)?._id ?? checkout.user)?.toString?.()

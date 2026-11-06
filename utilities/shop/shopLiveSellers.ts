@@ -1,5 +1,5 @@
 import {ObjectId} from "mongodb";
-import Company from "@coreModule/database/schemas/company/company";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
 import {portalCompanyClause} from "@coreModule/utilities/marketing/portalCompanies";
 
 /**
@@ -21,7 +21,7 @@ export async function sellerCompanyClause(): Promise<{company: {$in: unknown[]}}
 }
 
 async function companyClause(filter: Record<string, unknown>): Promise<{company: {$in: unknown[]}}> {
-    const rows = await Company.find(filter, {_id: 1}).noDeleted().lean();
+    const rows = await companyService.find(filter, {withDeleted: false}, undefined, "_id");
     return {company: {$in: rows.map((row) => row._id)}};
 }
 
@@ -35,6 +35,6 @@ function liveSellerFilter(): Record<string, unknown> {
  */
 export async function liveSellerScope(sellerCompanyId: string | undefined): Promise<unknown> {
     if (!sellerCompanyId || !ObjectId.isValid(sellerCompanyId)) return undefined;
-    const seller = await Company.findOne({_id: new ObjectId(sellerCompanyId), ...liveSellerFilter()}, {_id: 1}).noDeleted().lean();
+    const seller = await companyService.findOne({_id: new ObjectId(sellerCompanyId), ...liveSellerFilter()}, {withDeleted: false}, undefined, "_id");
     return seller?._id ?? new ObjectId("000000000000000000000000");
 }

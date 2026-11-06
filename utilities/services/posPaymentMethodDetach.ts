@@ -1,7 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 
 /**
  * Detach a payment method from all company POS configs.
@@ -17,10 +17,10 @@ export async function detachPosPaymentMethodFromConfigs(
 ): Promise<void> {
     const {companyId, languageCode, session} = opts;
 
-    const configs = await PosConfig.find({
+    const configs = await posConfigService.find({
         company: companyId,
         paymentMethods: methodId,
-    }).noDeleted().session(session ?? null);
+    }, {session: session ?? undefined, withDeleted: false});
 
     for (const config of configs) {
         const methods = ((config.paymentMethods as any[]) ?? []).map((id) => id?.toString?.() ?? String(id));
@@ -36,13 +36,13 @@ export async function detachPosPaymentMethodFromConfigs(
     }
 
     if (configs.length > 0) {
-        await PosConfig.updateMany(
+        await posConfigService.updateMany(
             {
                 company: companyId,
                 paymentMethods: methodId,
             },
             {$pull: {paymentMethods: methodId}},
-            {session: session ?? undefined},
-        ).noDeleted();
+            {session: session ?? undefined, withDeleted: false},
+        );
     }
 }

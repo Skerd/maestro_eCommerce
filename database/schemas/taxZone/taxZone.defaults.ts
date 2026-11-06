@@ -47,7 +47,6 @@ export async function createTaxZones(
         return 1;
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating tax zone: ${message}`);
         logger.fail("Failed to create tax zones!");
         return 0;

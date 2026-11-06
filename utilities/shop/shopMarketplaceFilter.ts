@@ -1,6 +1,6 @@
 import {ObjectId} from "mongodb";
 import {escapeRegex} from "@coreModule/utilities/helpers";
-import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
+import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
 import {promotionService} from "@eCommerceModule/database/schemas/promotion/promotion.service";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {ShopPromotionMap} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
@@ -22,9 +22,7 @@ async function listingCategoryScope(
     platform: boolean,
     slug: string,
 ): Promise<ObjectId[] | null> {
-    const categories: any[] = await ListingCategory.find(companyClause).noDeleted()
-        .select("slug parentListingCategory company")
-        .lean();
+    const categories: any[] = await listingCategoryService.find(companyClause, {withDeleted: false}, undefined, "slug parentListingCategory company");
     const roots = categories.filter((category) => category.slug === slug);
     if (roots.length === 0) return null;
     if (platform && roots.length > 1) return null;

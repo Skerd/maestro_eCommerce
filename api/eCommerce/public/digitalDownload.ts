@@ -5,7 +5,7 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {getLogger} from "@coreModule/loggers/serverLog";
 import {serveMedia} from "@coreModule/utilities/media/serveMedia";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import DigitalDelivery from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery";
+import {digitalDeliveryService} from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery.service";
 
 export const basePath = "/api/eCommerce/digitalDownload";
 export const router = Router();
@@ -24,15 +24,7 @@ router.get(
         const languageCode = req.header("language") || "en-US";
         const {token, mediaId} = queryParams;
 
-        const delivery = await DigitalDelivery.findOneAndUpdate(
-            {
-                token,
-                $expr: {$lt: ["$downloadCount", "$downloadLimit"]},
-                $or: [{expiresAt: null}, {expiresAt: {$gt: new Date()}}],
-            },
-            {$inc: {downloadCount: 1}},
-            {new: true},
-        );
+        const delivery = await digitalDeliveryService.consumeDownload(token);
 
         if (!delivery) {
             throw apiValidationException("download_not_available", null, null, languageCode);
@@ -41,7 +33,7 @@ router.get(
         const allowed = (delivery.media as any[]).some(id => (id?._id ?? id).toString() === mediaId);
         if (!allowed) {
             // The request didn't stream a file — give the download back
-            await DigitalDelivery.updateOne({_id: delivery._id}, {$inc: {downloadCount: -1}});
+            await digitalDeliveryService.returnDownload(delivery._id);
             throw apiValidationException("file_not_in_delivery", null, null, languageCode);
         }
 

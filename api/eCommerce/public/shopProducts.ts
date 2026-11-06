@@ -3,7 +3,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {SHOP_CURRENCY_SELECT, toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
@@ -65,15 +65,8 @@ router.post(
             const sortSpec = (sort && SHOP_PRODUCT_SORT_SPECS[sort]) || SHOP_PRODUCT_SORT_SPECS.newest;
 
             const [products, total] = await Promise.all([
-                Product.find(filter).noDeleted()
-                    .select(CARD_FIELDS)
-                    .populate("company", "name logo siteSlug siteHost")
-                    .populate("currency", SHOP_CURRENCY_SELECT)
-                    .sort(sortSpec)
-                    .skip((page - 1) * limit)
-                    .limit(limit)
-                    .lean(),
-                Product.countDocuments(filter).noDeleted(),
+                productService.find(filter, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, sortSpec, limit, (page - 1) * limit),
+                productService.count(filter, {withDeleted: false}),
             ]);
 
             return {data: products.map(toShopProductCard), total, page, limit};

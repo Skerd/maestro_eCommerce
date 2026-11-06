@@ -78,7 +78,6 @@ export async function createInventories(
                 rows.push(inv);
             } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : String(e);
-                console.log(e);
                 logger.err(`Error creating inventory for variant '${sku}': ${message}`);
             }
         }
@@ -132,7 +131,6 @@ export async function createInventories(
             }
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
-            console.log(e);
             logger.err(`Error creating inventory for '${seed.seedKey}': ${message}`);
         }
     }

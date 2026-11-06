@@ -5,11 +5,11 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import User from "@coreModule/database/schemas/user/user";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
-import ListingAddOn from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn";
-import ListingPackage from "@eCommerceModule/database/schemas/listingPackage/listingPackage";
-import ProviderProfile from "@eCommerceModule/database/schemas/providerProfile/providerProfile";
+import {userService} from "@coreModule/database/schemas/user/user.service";
+import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
+import {listingAddOnService} from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn.service";
+import {listingPackageService} from "@eCommerceModule/database/schemas/listingPackage/listingPackage.service";
+import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
@@ -46,9 +46,7 @@ router.post(
             const listingFilter: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
             if (ctx.mode === "tenant") listingFilter.company = ctx.company._id;
 
-            const listing: any = await Listing.findOne(listingFilter).noDeleted()
-                .populate(SHOP_LISTING_CARD_POPULATE)
-                .lean();
+            const listing: any = await listingService.findOne(listingFilter, {withDeleted: false}, SHOP_LISTING_CARD_POPULATE);
             if (!listing) {
                 throw apiValidationException("listing_not_found", null, null, languageCode);
             }
@@ -58,33 +56,30 @@ router.post(
                 : (listing.company?._id ?? listing.company);
             const providerId = listing.provider._id ?? listing.provider;
             const [packages, addOns, user, profile, metrics, related, promotions] = await Promise.all([
-                ListingPackage.find({listing: listing._id, company: sellerCompanyId}).noDeleted()
-                    .select("name description price deliveryDays order")
-                    .populate("price.currency", CURRENCY_FIELDS)
-                    .sort({order: 1, "price.amount": 1})
-                    .lean(),
-                ListingAddOn.find({listing: listing._id, company: sellerCompanyId}).noDeleted()
-                    .select("name price deliveryDays")
-                    .populate("price.currency", CURRENCY_FIELDS)
-                    .sort({"price.amount": 1})
-                    .lean(),
-                User.findById(providerId).select("name surname createdAt").lean(),
-                ProviderProfile.findOne({user: providerId, company: sellerCompanyId}).noDeleted()
-                    .select("bio skills availability portfolio")
-                    .lean(),
+                listingPackageService.find(
+                    {listing: listing._id, company: sellerCompanyId},
+                    {withDeleted: false},
+                    {path: "price.currency", select: CURRENCY_FIELDS},
+                    "name description price deliveryDays order",
+                    {order: 1, "price.amount": 1},
+                ),
+                listingAddOnService.find(
+                    {listing: listing._id, company: sellerCompanyId},
+                    {withDeleted: false},
+                    {path: "price.currency", select: CURRENCY_FIELDS},
+                    "name price deliveryDays",
+                    {"price.amount": 1},
+                ),
+                userService.findById(providerId, {}, undefined, "name surname createdAt"),
+                providerProfileService.findOne({user: providerId, company: sellerCompanyId}, {withDeleted: false}, undefined, "bio skills availability portfolio"),
                 loadProviderProfileMetrics(providerId, sellerCompanyId, opts),
                 listing.category
-                    ? Listing.find({
+                    ? listingService.find({
                         company: sellerCompanyId,
                         status: "active",
                         category: listing.category._id,
                         _id: {$ne: listing._id},
-                    }).noDeleted()
-                        .select(SHOP_LISTING_CARD_FIELDS)
-                        .populate(SHOP_LISTING_CARD_POPULATE)
-                        .sort({avgRating: -1, createdAt: -1})
-                        .limit(RELATED_LIMIT)
-                        .lean()
+                    }, {withDeleted: false}, SHOP_LISTING_CARD_POPULATE, SHOP_LISTING_CARD_FIELDS, {avgRating: -1, createdAt: -1}, RELATED_LIMIT)
                     : [],
                 shopPromotionMap(sellerCompanyId, opts),
             ]);

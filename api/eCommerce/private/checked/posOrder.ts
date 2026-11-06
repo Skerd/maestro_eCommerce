@@ -1,5 +1,5 @@
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {z} from "zod";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import {PosOrderActions} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
@@ -19,8 +19,8 @@ export const {router} = createCrudRouter({
     entityName: "PosOrder",
     selectSearchField: "name",
     defaultSort: {createdAt: -1},
-    createSchema: () => z.object({}),
-    editSchema: () => z.object({_id: z.string()}),
+    createSchema: validateSingleForm,
+    editSchema: validateSingleForm,
     toDTO: posOrderToDTO,
     toDTOArray: posOrdersToDTO,
     toSelect: posOrdersToSelect,

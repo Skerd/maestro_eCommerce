@@ -2,7 +2,7 @@ import {Router} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import CmsBlock from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock";
+import {cmsBlockService} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.service";
 import {cmsBlocksToDTO} from "@eCommerceModule/utilities/mappers/cmsBlock/cmsBlockMapper.dto";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {sanitizeCmsHtml} from "@eCommerceModule/utilities/shop/cmsHtmlSanitizer";
@@ -29,14 +29,14 @@ router.get(
         }
 
         const now = new Date();
-        const blocks = await CmsBlock.find({
+        const blocks = await cmsBlockService.find({
             company: ctx.company._id,
             isActive: true,
             $and: [
                 {$or: [{startsAt: null}, {startsAt: {$lte: now}}]},
                 {$or: [{endsAt: null}, {endsAt: {$gte: now}}]},
             ],
-        }).noDeleted().sort({position: 1});
+        }, {withDeleted: false}, undefined, undefined, {position: 1});
 
         const data = cmsBlocksToDTO(blocks).map(block =>
             block.config?.html ? {...block, config: {...block.config, html: sanitizeCmsHtml(block.config.html)}} : block,

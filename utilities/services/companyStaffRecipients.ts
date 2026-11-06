@@ -1,18 +1,18 @@
 import {ObjectId} from "mongodb";
-import Role from "@coreModule/database/schemas/role/role";
-import User from "@coreModule/database/schemas/user/user";
+import {roleService} from "@coreModule/database/schemas/role/role.service";
+import {userService} from "@coreModule/database/schemas/user/user.service";
 
 /**
  * Active company admins (isAdmin roles) — used for merchant order / stock alerts.
  */
 export async function findCompanyAdminReceiverIds(companyId: ObjectId | string): Promise<string[]> {
     const cid = typeof companyId === "string" ? new ObjectId(companyId) : companyId;
-    const adminRoles = await Role.find({company: cid, isAdmin: true}).select("_id").lean();
+    const adminRoles = await roleService.find({company: cid, isAdmin: true}, {}, undefined, "_id");
     if (!adminRoles.length) {
         return [];
     }
     const roleIds = adminRoles.map(r => r._id);
-    const users = await User.find({
+    const users = await userService.find({
         companies: cid,
         isActive: true,
         roles: {
@@ -22,9 +22,7 @@ export async function findCompanyAdminReceiverIds(companyId: ObjectId | string):
                 roles: {$in: roleIds},
             },
         },
-    })
-        .select("_id")
-        .lean();
+    }, {}, undefined, "_id");
     return users.map(u => u._id.toString());
 }
 
@@ -32,12 +30,12 @@ export async function findCompanyAdminEmailRecipients(
     companyId: ObjectId | string,
 ): Promise<Array<{userId: string; email: string; fullName: string}>> {
     const cid = typeof companyId === "string" ? new ObjectId(companyId) : companyId;
-    const adminRoles = await Role.find({company: cid, isAdmin: true}).select("_id").lean();
+    const adminRoles = await roleService.find({company: cid, isAdmin: true}, {}, undefined, "_id");
     if (!adminRoles.length) {
         return [];
     }
     const roleIds = adminRoles.map(r => r._id);
-    const users = await User.find({
+    const users = await userService.find({
         companies: cid,
         isActive: true,
         roles: {
@@ -47,9 +45,7 @@ export async function findCompanyAdminEmailRecipients(
                 roles: {$in: roleIds},
             },
         },
-    })
-        .select("_id username name surname fullName")
-        .lean();
+    }, {}, undefined, "_id username name surname fullName");
 
     return users
         .filter(u => !!(u as any).username)

@@ -14,8 +14,8 @@ import {closePosSessionFormSchema} from "armonia/src/modules/eCommerce/api/eComm
 import type {ClosePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/closePosSession.form.validator";
 import {reconcilePosSessionFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/reconcilePosSession.form.validator";
 import type {ReconcilePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/reconcilePosSession.form.validator";
-import {cashMovePosSession, closePosSession, openPosSession} from "@eCommerceModule/utilities/services/posService";
-import {getPosSessionReconciliation} from "@eCommerceModule/utilities/services/posTillOps";
+import {cashMovePosSession, closePosSession, openPosSession} from "@eCommerceModule/workflows/posService";
+import {getPosSessionReconciliation} from "@eCommerceModule/workflows/posTillOps";
 import PosSessionModel from "./posSession";
 
 /**

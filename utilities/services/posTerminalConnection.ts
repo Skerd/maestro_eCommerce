@@ -33,7 +33,7 @@ export async function testPosTerminalConnection(
     method: TerminalMethod,
     ctx: ProbeCtx,
 ): Promise<TestPosTerminalConnectionResult> {
-    if (method.type !== "card" && method.type !== "bank") {
+    if (method.type !== "card") {
         throw apiValidationException("pos_terminal_not_for_method", "type", null, ctx.languageCode);
     }
     if (!method.terminalEnabled) {

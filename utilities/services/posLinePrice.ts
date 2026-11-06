@@ -1,7 +1,8 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import type {IProduct} from "@eCommerceModule/database/schemas/product/product";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 
 /**
  * Product types the till cannot sell: gift cards and digital downloads are only
@@ -22,16 +23,18 @@ export function assertPosSellable(product: {type: string}, languageCode: string)
  * the manager-PIN rule covers). Rejects variants that don't belong to the product.
  */
 export async function resolvePosLineUnitPrice(
-    product: {_id: unknown; price?: number},
+    product: Pick<IProduct, "_id" | "price">,
     variantId: string | undefined,
     ctx: {company: {_id: ObjectId}; languageCode: string; session?: ClientSession | null},
 ): Promise<number> {
     if (!variantId) return Number(product.price ?? 0);
 
-    const variant = await ProductVariant.findOne(
+    const variant = await productVariantService.findOne(
         {_id: new ObjectId(variantId), product: product._id, company: ctx.company._id},
-        {price: 1},
-    ).noDeleted().session(ctx.session ?? null);
+        {session: ctx.session ?? undefined, withDeleted: false},
+        undefined,
+        "price",
+    );
     if (!variant) throw apiValidationException("pos_variant_not_found", "variantId", null, ctx.languageCode);
 
     return Number(variant.price ?? product.price ?? 0);

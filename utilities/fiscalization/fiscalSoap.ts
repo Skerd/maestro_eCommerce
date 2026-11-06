@@ -8,6 +8,7 @@ import axios from "axios";
 import {HttpsProxyAgent} from "https-proxy-agent";
 import {SignedXml} from "xml-crypto";
 import {DOMParser} from "@xmldom/xmldom";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 
 export const FISCALIZATION_SCHEMA = "https://eFiskalizimi.tatime.gov.al/FiscalizationService/schema";
 export const EINVOICE_SCHEMA = "https://Einvoice.tatime.gov.al/EinvoiceService/schema";
@@ -112,16 +113,24 @@ export type Pkcs12Material = {
     certificatePem: string;
 };
 
-export function loadPkcs12(certificateBase64: string, password: string): Pkcs12Material {
-    const der = forge.util.decode64(certificateBase64.replace(/\s+/g, ""));
-    const asn1 = forge.asn1.fromDer(der);
-    const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, password);
+/**
+ * The private key and certificate of a PKCS#12 file. A file that cannot be read (corrupt, wrong password) or that lacks
+ * either part answers `fiscal_certificate_invalid`.
+ */
+export function loadPkcs12(certificateBase64: string, password: string, languageCode: string): Pkcs12Material {
+    let p12: forge.pkcs12.Pkcs12Pfx;
+    try {
+        const der = forge.util.decode64(certificateBase64.replace(/\s+/g, ""));
+        p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(der), password);
+    } catch {
+        throw apiValidationException("fiscal_certificate_invalid", "certificate", null, languageCode);
+    }
     const keyBags =
         p12.getBags({bagType: forge.pki.oids.pkcs8ShroudedKeyBag})[forge.pki.oids.pkcs8ShroudedKeyBag] ||
         p12.getBags({bagType: forge.pki.oids.keyBag})[forge.pki.oids.keyBag];
     const certBags = p12.getBags({bagType: forge.pki.oids.certBag})[forge.pki.oids.certBag];
     if (!keyBags?.[0]?.key || !certBags?.[0]?.cert) {
-        throw new Error("Invalid PKCS#12: missing private key or certificate");
+        throw apiValidationException("fiscal_certificate_invalid", "certificate", null, languageCode);
     }
     return {
         privateKeyPem: forge.pki.privateKeyToPem(keyBags[0].key),
@@ -136,8 +145,9 @@ export function getIIC(
     iicInput: string,
     certificateBase64: string,
     password: string,
+    languageCode: string,
 ): {iicSignature: string; iic: string} {
-    const {privateKeyPem} = loadPkcs12(certificateBase64, password);
+    const {privateKeyPem} = loadPkcs12(certificateBase64, password, languageCode);
     const signature = crypto.sign("sha256", Buffer.from(iicInput, "ascii"), {
         key: privateKeyPem,
         padding: crypto.constants.RSA_PKCS1_PADDING,
@@ -147,8 +157,8 @@ export function getIIC(
 }
 
 /** Enveloped XML-DSig (rsa-sha256 / sha256 / exclusive c14n) on element Id="Request". */
-export function signXml(requestXml: string, certificateBase64: string, password: string): string {
-    const {privateKeyPem, certificatePem} = loadPkcs12(certificateBase64, password);
+export function signXml(requestXml: string, certificateBase64: string, password: string, languageCode: string): string {
+    const {privateKeyPem, certificatePem} = loadPkcs12(certificateBase64, password, languageCode);
     const signer = new SignedXml({
         privateKey: privateKeyPem,
         publicCert: certificatePem,
@@ -216,9 +226,9 @@ export async function registerRequest(
     password: string,
     dictData: OrderedDict,
     requestType: string,
-    opts?: {einvoice?: boolean; proxyUrl?: string},
+    opts: {languageCode: string; einvoice?: boolean; proxyUrl?: string},
 ): Promise<{status: number; body: string; xml: FiscalXmlDocument; signedXml: string}> {
-    const signedXml = getXmlSigned(certificateBase64, password, dictData, requestType);
+    const signedXml = getXmlSigned(certificateBase64, password, dictData, requestType, opts.languageCode);
     const r = await postSoap(signedXml, url, opts);
     return {...r, signedXml};
 }
@@ -228,8 +238,9 @@ export function getXmlSigned(
     password: string,
     dictData: OrderedDict,
     requestType: string,
+    languageCode: string,
 ): string {
-    return signXml(dict2xml(dictData, requestType), certificateBase64, password);
+    return signXml(dict2xml(dictData, requestType), certificateBase64, password, languageCode);
 }
 
 export function extractFault(xml: FiscalXmlDocument): string | undefined {

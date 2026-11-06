@@ -25,7 +25,6 @@ import {returnRequestService} from "@eCommerceModule/database/schemas/returnRequ
 import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/fulfillmentMapper.dto";
 import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
-import {z} from "zod";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
@@ -81,8 +80,8 @@ export const {router} = createCrudRouter({
     entityName: "ProductOrder",
     selectSearchField: "orderNumber",
     defaultSort: {createdAt: -1},
-    createSchema: () => z.object({}),
-    editSchema: () => z.object({_id: z.string()}),
+    createSchema: validateSingleForm,
+    editSchema: validateSingleForm,
     toDTO: productOrderToDTO,
     toDTOArray: productOrdersToDTO,
     toSelect: productOrdersToSelect,

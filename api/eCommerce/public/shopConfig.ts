@@ -3,7 +3,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {PAYMENTS} from "@financeModule/environment";
-import Currency from "@coreModule/database/schemas/currency/currency";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import type {
     ShopCompany,
@@ -117,7 +117,8 @@ router.get(
         const {languageCode, origin} = params;
 
         const ctx = await resolveShopContext(origin, languageCode);
-        const currency: any = await Currency.findOne(ctx.mode === "tenant" ? {company: ctx.company._id} : {}).select("symbol abbreviation decimalPlaces").sort({createdAt: 1}).lean();
+        // The oldest currency is the shop's base currency
+        const [currency] = await currencyService.find(ctx.mode === "tenant" ? {company: ctx.company._id} : {}, {}, undefined, "symbol abbreviation decimalPlaces", {createdAt: 1}, 1);
         const currencyPayload = currency
             ? {
                   _id: currency._id.toString(),

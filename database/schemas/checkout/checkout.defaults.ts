@@ -96,7 +96,6 @@ export async function createCheckouts(
             result.pending = doc;
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
-            console.log(e);
             logger.err(`Error creating pending checkout: ${message}`);
         }
     } else {
@@ -155,7 +154,6 @@ export async function createCheckouts(
             result.confirmed = doc;
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
-            console.log(e);
             logger.err(`Error creating confirmed checkout: ${message}`);
         }
     }

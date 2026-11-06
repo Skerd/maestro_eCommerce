@@ -25,8 +25,9 @@ import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/utilities/services/posService";
+import {openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
+import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
@@ -123,7 +124,7 @@ describe("till sales (#19)", () => {
             isVatRegistered: true, tcrCode: "TCR1", businessUnitCode: "BU1", softCode: "SC1", operatorCode: "OP1",
             fiscalizationUrl: "https://fiscal.test", selfcareUrl: "https://selfcare.test",
             certificateBase64: "", certificatePassword: "",
-        } as any, {companyVat: "L12345678A"});
+        } as any, {languageCode: "en-US", companyVat: "L12345678A"});
 
         const invoice = sentRequests[0]["6__Invoice"];
         expect(invoice["20__TotVATAmt"]).toBe("4.00");
@@ -171,5 +172,33 @@ describe("till sales (#19)", () => {
 
         expect(refund.payments.map(payment => payment.amount)).toEqual([30, 20]);
         expect((await PosSession.findById(sessionId))!.cashRegisterBalance).toBe(drawerAfterSale - 20);
+    }));
+
+    // TD-B41: the ledger recorded the cash handed over (change included) and never heard of till refunds.
+    it("writes what each payment paid to the finance ledger and books refunds against it", () => asCompany(async () => {
+        const {warehouse, cash, sessionId} = await seedTill();
+        const card = await PosPaymentMethod.create({name: "Card", type: "card", isActive: true, company: companyId} as any);
+        const lamp = await seedProduct({price: 50});
+        await Inventory.create({product: lamp._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+        const {order} = await payPosOrder({
+            sessionId,
+            lines: [{productId: lamp._id.toString(), quantity: 2}],
+            payments: [{paymentMethodId: card._id.toString(), amount: 60}, {paymentMethodId: cash._id.toString(), amount: 50}],
+        } as any, ctx);
+        const ledger = async (type: string) => (await PaymentTransaction.find({type}).sort({_id: 1})).map(row => ({
+            amount: Number(row.amount.toString()), refunded: Number(row.refundedAmount.toString()), status: row.status,
+        }));
+        expect(await ledger("charge")).toEqual([
+            {amount: 60, refunded: 0, status: "succeeded"},
+            {amount: 40, refunded: 0, status: "succeeded"},
+        ]);
+
+        await refundPosOrder({_id: order._id.toString()}, ctx);
+
+        expect((await ledger("refund")).map(row => row.amount)).toEqual([60, 40]);
+        expect(await ledger("charge")).toEqual([
+            {amount: 60, refunded: 60, status: "refunded"},
+            {amount: 40, refunded: 40, status: "refunded"},
+        ]);
     }));
 });

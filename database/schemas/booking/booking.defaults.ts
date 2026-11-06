@@ -177,7 +177,6 @@ export async function createBookings(
         return {bookings, bySeedKey};
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating bookings: ${message}`);
         logger.fail("Failed to create bookings!");
         return {bookings: [], bySeedKey: {}};

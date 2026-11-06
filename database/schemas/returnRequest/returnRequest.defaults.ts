@@ -64,7 +64,6 @@ export async function createReturnRequests(
         return doc;
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating return request: ${message}`);
         logger.fail("Failed to create return requests!");
         return undefined;

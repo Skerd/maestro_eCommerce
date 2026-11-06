@@ -9,7 +9,7 @@
 import type { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
-import Cart from "@eCommerceModule/database/schemas/cart/cart";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {notifyAbandonedCartEmail} from "@eCommerceModule/utilities/services/productOrderNotify";
@@ -26,15 +26,13 @@ export async function runAbandonedCart(company: ObjectId, parentLogger?: serverL
     try {
         const cutoff = new Date(Date.now() - ABANDON_AFTER_HOURS * 3600000);
 
-        const carts = await Cart.find({
+        const carts = await cartService.find({
             company,
             user: {$ne: null},
             "items.0": {$exists: true},
             updatedAt: {$lte: cutoff},
             abandonedNotifiedAt: null,
-        })
-            .select("user company items subtotal")
-            .limit(BATCH_SIZE);
+        }, {}, undefined, "user company items subtotal", undefined, BATCH_SIZE);
 
         let notified = 0;
         for (const cart of carts) {

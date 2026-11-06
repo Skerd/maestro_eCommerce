@@ -4,8 +4,8 @@ import type {PortalBrowseParams} from "@coreModule/domain/portal/portalProvider.
 import {catalogItems, filterValue, filterValues} from "@coreModule/domain/portal/portalCatalog";
 import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {SHOP_CURRENCY_SELECT} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
@@ -24,13 +24,14 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
     filter.company = {$in: companyIds};
     await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
     const [products, total] = await Promise.all([
-        Product.find(filter).noDeleted()
-            .select("company title slug mainImage price currency")
-            .populate("currency", SHOP_CURRENCY_SELECT)
-            .sort(SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"])
-            .skip(skip).limit(limit)
-            .lean<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef}[]>(),
-        Product.countDocuments(filter).noDeleted(),
+        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef}>(filter, {
+            select: "company title slug mainImage price currency",
+            populate: [{path: "currency", select: SHOP_CURRENCY_SELECT}],
+            sort: SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"],
+            skip,
+            limit,
+        }),
+        productService.count(filter, {withDeleted: false}),
     ]);
     const items = await catalogItems(products, (product) => ({
         kind: "product",
@@ -50,14 +51,14 @@ async function browseServices({scope, companyIds, query, priceMin, priceMax, sor
     if (!filter) return {items: [], total: 0};
     filter.company = {$in: companyIds};
     const [listings, total] = await Promise.all([
-        Listing.find(filter).noDeleted()
-            .select("company title mainImage price priceCurrency address.city")
-            .populate("priceCurrency", SHOP_CURRENCY_SELECT)
-            .populate("address.city", "name")
-            .sort(SHOP_LISTING_SORT_SPECS[sort ?? "newest"])
-            .skip(skip).limit(limit)
-            .lean<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}}[]>(),
-        Listing.countDocuments(filter).noDeleted(),
+        listingService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}}>(filter, {
+            select: "company title mainImage price priceCurrency address.city",
+            populate: [{path: "priceCurrency", select: SHOP_CURRENCY_SELECT}, {path: "address.city", select: "name"}],
+            sort: SHOP_LISTING_SORT_SPECS[sort ?? "newest"],
+            skip,
+            limit,
+        }),
+        listingService.count(filter, {withDeleted: false}),
     ]);
     const items = await catalogItems(listings, (listing) => ({
         kind: "service",

@@ -1,10 +1,11 @@
 import {ObjectId} from "mongodb";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
-import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
-import Product, {type IProduct} from "@eCommerceModule/database/schemas/product/product";
-import ProductVariant, {type IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
+import type {IProduct} from "@eCommerceModule/database/schemas/product/product";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import type {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import type {ICheckoutReservation} from "@eCommerceModule/database/schemas/checkout/checkout";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 
@@ -33,11 +34,12 @@ export async function explodeBundleLines(
     ctx: ReservationCtx,
 ): Promise<{product: ObjectId; variant?: ObjectId; quantity: number}[]> {
     const productIds = items.map(item => item.product);
-    const bundles = await Product.find(
+    const bundles = await productService.find(
         {_id: {$in: productIds}, company: companyId, type: "bundle"},
-        {bundleComponents: 1},
-        {session: ctx.session},
-    ).noDeleted();
+        {session: ctx.session ?? undefined, withDeleted: false},
+        undefined,
+        "bundleComponents",
+    );
     if (bundles.length === 0) return items;
 
     const bundleMap = new Map(
@@ -104,10 +106,8 @@ export async function trackedStockLines(
 
     const variantIds = items.flatMap(item => (item.variant ? [item.variant] : []));
     const [products, variants] = await Promise.all([
-        Product.find({_id: {$in: items.map(item => item.product)}, company: companyId}, {type: 1, trackInventory: 1})
-            .noDeleted().session(ctx.session ?? null),
-        ProductVariant.find({_id: {$in: variantIds}, company: companyId}, {trackInventory: 1})
-            .noDeleted().session(ctx.session ?? null),
+        productService.find({_id: {$in: items.map(item => item.product)}, company: companyId}, {session: ctx.session ?? undefined, withDeleted: false}, undefined, "type trackInventory"),
+        productVariantService.find({_id: {$in: variantIds}, company: companyId}, {session: ctx.session ?? undefined, withDeleted: false}, undefined, "trackInventory"),
     ]);
     const productMap = new Map(products.map(product => [product._id.toString(), product]));
     const variantMap = new Map(variants.map(variant => [variant._id.toString(), variant]));
@@ -134,8 +134,7 @@ export async function reserveCheckoutStock(
 ): Promise<ICheckoutReservation[]> {
     const items = await trackedStockLines(rawItems, companyId, ctx);
 
-    const warehouses = await Warehouse.find({company: companyId, isActive: true}, {_id: 1, isDefault: 1})
-        .noDeleted().session(ctx.session ?? null);
+    const warehouses = await warehouseService.find({company: companyId, isActive: true}, {session: ctx.session ?? undefined, withDeleted: false}, undefined, "_id isDefault");
     const warehouseIds = warehouses.map(warehouse => warehouse._id);
     const defaultWarehouseId = warehouses.find(warehouse => warehouse.isDefault)?._id.toString();
 
@@ -147,11 +146,12 @@ export async function reserveCheckoutStock(
     };
 
     for (const item of items) {
-        const rows = await Inventory.find(
+        const rows = await inventoryService.find(
             {product: item.product, company: companyId, variant: item.variant ?? null, warehouse: {$in: warehouseIds}},
-            {warehouse: 1, quantityOnHand: 1, quantityReserved: 1},
-            {session: ctx.session},
-        ).noDeleted();
+            {session: ctx.session ?? undefined, withDeleted: false},
+            undefined,
+            "warehouse quantityOnHand quantityReserved",
+        );
 
         const ordered = defaultWarehouseId
             ? [...rows].sort((a, b) =>

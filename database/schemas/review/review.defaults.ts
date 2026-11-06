@@ -152,7 +152,6 @@ export async function createReviews(
         return {reviews, bySeedKey};
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating reviews: ${message}`);
         logger.fail("Failed to create reviews!");
         return {reviews: [], bySeedKey: {}};

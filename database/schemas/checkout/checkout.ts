@@ -9,6 +9,13 @@ import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/curre
 import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {CountrySimpleSnippet} from "@coreModule/database/schemas/country/country.snippets";
+import auditPlugin from "@coreModule/database/plugins/auditPlugin";
+import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {ILifeCyclePluginFields, IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {CheckoutSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkout.schema-def";
 import {applyCheckoutIndexes} from "./checkout.indexes";
 import {checkoutViews} from "./checkout.views";
 
@@ -17,10 +24,10 @@ export type CheckoutPaymentMethod = "stripe" | "paypal" | "cod" | "bank_transfer
 export type CheckoutReservationState = "reserved" | "consumed" | "released";
 
 export interface ICheckoutItem {
-    product: Schema.Types.ObjectId;
-    variant?: Schema.Types.ObjectId;
+    product: Types.ObjectId;
+    variant?: Types.ObjectId;
     /** Seller tenant for the line (product.company); set on platform multi-seller carts. */
-    sellerCompany?: Schema.Types.ObjectId;
+    sellerCompany?: Types.ObjectId;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
@@ -29,7 +36,7 @@ export interface ICheckoutItem {
 
 /** Per-seller shipping/tax slice on a platform multi-seller checkout. */
 export interface ICheckoutSellerGroup {
-    sellerCompany: Schema.Types.ObjectId;
+    sellerCompany: Types.ObjectId;
     subtotal: number;
     shippingTotal: number;
     taxTotal: number;
@@ -91,10 +98,10 @@ export interface ICheckoutAddress {
     city: string;
     state?: string;
     postalCode?: string;
-    country?: Schema.Types.ObjectId;
+    country?: Types.ObjectId;
 }
 
-export interface ICheckout extends Document {
+export interface ICheckout extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     cart: ICart;
     user?: IUser;
     sessionId?: string;
@@ -102,7 +109,7 @@ export interface ICheckout extends Document {
     items: ICheckoutItem[];
     /** Populated on platform checkouts with more than one seller. */
     sellerGroups?: ICheckoutSellerGroup[];
-    appliedDiscounts?: {discount: Schema.Types.ObjectId; code?: string; amount: number}[];
+    appliedDiscounts?: {discount: Types.ObjectId; code?: string; amount: number}[];
     shippingAddress?: ICheckoutAddress;
     billingAddress?: ICheckoutAddress;
     availableShippingRates?: {name: string; carrier?: string; price: number; estimatedDeliveryDays?: number}[];
@@ -110,7 +117,7 @@ export interface ICheckout extends Document {
     taxBreakdown?: {name: string; rate: number; amount: number}[];
     reservations?: ICheckoutReservation[];
     /** Store credit applied to this checkout; redeemed atomically at confirm. */
-    giftCard?: {giftCard: Schema.Types.ObjectId; code: string; amount: number};
+    giftCard?: {giftCard: Types.ObjectId; code: string; amount: number};
     subtotal: number;
     discountTotal: number;
     shippingTotal: number;
@@ -126,6 +133,9 @@ export interface ICheckout extends Document {
     idempotencyKey: string;
     expiresAt: Date;
 }
+
+/** Required paths the server sets: copied from the cart or created with the checkout. */
+const CHECKOUT_SERVER_OWNED = ["cart", "currency", "idempotencyKey", "expiresAt"];
 
 const CheckoutSchema = new Schema<ICheckout>(
     {
@@ -274,7 +284,13 @@ const CheckoutSchema = new Schema<ICheckout>(
     {accessMode: "loose", timestamps: true},
 );
 
+// `company` is the shop of the request (the platform company on the portal apex); sellers are per line (TD-B11).
+ownershipPlugin(CheckoutSchema);
+auditPlugin(CheckoutSchema);
+softDeletePlugin(CheckoutSchema);
+lifeCyclePlugin(CheckoutSchema);
 applyCheckoutIndexes(CheckoutSchema);
+validateSchemaDefAgainstMongoose(CheckoutSchema, CheckoutSchemaDef, "Checkout", CHECKOUT_SERVER_OWNED);
 
 const Checkout = model<ICheckout>("Checkout", CheckoutSchema);
 normalizeSchemaPermissions(Checkout);

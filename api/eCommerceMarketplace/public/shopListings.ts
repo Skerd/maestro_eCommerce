@@ -4,7 +4,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
+import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS, shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {
@@ -23,13 +23,7 @@ export const router = Router();
 
 
 function findCards(filter: Record<string, unknown>, sort: Record<string, 1 | -1>, skip: number, limit: number) {
-    return Listing.find(filter).noDeleted()
-        .select(SHOP_LISTING_CARD_FIELDS)
-        .populate(SHOP_LISTING_CARD_POPULATE)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean();
+    return listingService.find(filter, {withDeleted: false}, SHOP_LISTING_CARD_POPULATE, SHOP_LISTING_CARD_FIELDS, sort, limit, skip);
 }
 
 router.post(
@@ -52,7 +46,7 @@ router.post(
             if (sort !== "recommended" || promotions.size === 0) {
                 const [listings, total] = await Promise.all([
                     findCards(filter, SHOP_LISTING_SORT_SPECS[sort === "recommended" ? "newest" : sort], skip, limit),
-                    Listing.countDocuments(filter).noDeleted(),
+                    listingService.count(filter, {withDeleted: false}),
                 ]);
                 return {data: listings.map((listing) => toShopListingCard(listing, promotions)), total, page, limit};
             }
@@ -62,8 +56,8 @@ router.post(
             const promotedFilter = {...filter, _id: {$in: promotedIds}};
             const otherFilter = {...filter, _id: {$nin: promotedIds}};
             const [promotedTotal, otherTotal] = await Promise.all([
-                Listing.countDocuments(promotedFilter).noDeleted(),
-                Listing.countDocuments(otherFilter).noDeleted(),
+                listingService.count(promotedFilter, {withDeleted: false}),
+                listingService.count(otherFilter, {withDeleted: false}),
             ]);
 
             const promoted = skip < promotedTotal ? await findCards(promotedFilter, SHOP_LISTING_SORT_SPECS.newest, skip, limit) : [];

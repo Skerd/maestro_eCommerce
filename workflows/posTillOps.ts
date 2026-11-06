@@ -3,12 +3,13 @@ import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import type {HoldPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
-import User from "@coreModule/database/schemas/user/user";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
-import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
+import {userService} from "@coreModule/database/schemas/user/user.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
+import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 import {
@@ -16,7 +17,8 @@ import {
     managerPinMatchesForUser,
 } from "@eCommerceModule/utilities/services/posManagerPin";
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
-import {addMoney, multiplyMoney, percentOfMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
+import {multiplyMoney, percentOfMoney, roundToCurrency, subtractMoney, sumMoney} from "armonia/src/modules/core/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import {roundRate} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {assertPosSellable, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
@@ -32,11 +34,14 @@ type Ctx = {
 async function generatePosOrderName(companyId: ObjectId, session?: ClientSession): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `POS/${year}/`;
-    const last = await PosOrder.findOne(
+    const [last] = await posOrderService.find(
         {company: companyId, name: {$regex: `^${prefix.replace(/\//g, "\\/")}`}},
-        {name: 1},
-        {sort: {createdAt: -1}, session},
-    ).lean();
+        {session},
+        undefined,
+        "name",
+        {createdAt: -1},
+        1,
+    );
     let sequence = 1;
     if (last?.name) {
         const parts = last.name.split("/");
@@ -47,10 +52,10 @@ async function generatePosOrderName(companyId: ObjectId, session?: ClientSession
 }
 
 async function resolveOpenedSession(sessionId: string, ctx: Ctx) {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: sessionId,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
@@ -76,26 +81,27 @@ type BuiltLine = {
 async function buildDraftLines(
     bodyLines: HoldPosOrderFormType["lines"],
     ctx: Ctx,
+    decimals: number,
 ): Promise<{lines: BuiltLine[]; subtotal: number; lineDiscountTotal: number}> {
     const lines: BuiltLine[] = [];
     let subtotal = 0;
     let lineDiscountTotal = 0;
 
     for (const line of bodyLines) {
-        const product = await Product.findOne({
+        const product = await productService.findOne({
             _id: line.productId,
             company: ctx.company._id,
             status: "active",
-        }).noDeleted().session(ctx.session ?? null);
+        }, {session: ctx.session, withDeleted: false});
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
         assertPosSellable(product, ctx.languageCode);
 
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = multiplyMoney(unitPrice, qty);
-        const discountAmount = percentOfMoney(gross, discPct);
-        const priceTotal = subtractMoney(gross, discountAmount);
+        const gross = multiplyMoney(unitPrice, qty, decimals);
+        const discountAmount = percentOfMoney(gross, discPct, decimals);
+        const priceTotal = subtractMoney(gross, discountAmount, decimals);
 
         lines.push({
             product: product._id,
@@ -111,8 +117,8 @@ async function buildDraftLines(
             productSku: product.sku,
             barcode: product.barcode ?? product.ean,
         });
-        subtotal = addMoney(subtotal, gross);
-        lineDiscountTotal = addMoney(lineDiscountTotal, discountAmount);
+        subtotal = sumMoney([subtotal, gross], decimals);
+        lineDiscountTotal = sumMoney([lineDiscountTotal, discountAmount], decimals);
     }
 
     return {lines, subtotal, lineDiscountTotal};
@@ -195,14 +201,14 @@ async function qrCodeDataUrl(payload: string): Promise<string | undefined> {
     }
 }
 
-function vatRowsFromOrder(order: IPosOrder): PosReceiptVatRow[] {
+function vatRowsFromOrder(order: IPosOrder, decimals: number): PosReceiptVatRow[] {
     const byRate = new Map<number, number>();
     for (const line of order.lines ?? []) {
-        const tax = roundToCurrency(Number(line.taxAmount || 0));
-        const gross = roundToCurrency(Number(line.priceTotal || 0));
-        const net = subtractMoney(gross, tax);
+        const tax = roundToCurrency(Number(line.taxAmount || 0), decimals);
+        const gross = roundToCurrency(Number(line.priceTotal || 0), decimals);
+        const net = subtractMoney(gross, tax, decimals);
         const rate = net !== 0 && tax !== 0 ? roundRate((Math.abs(tax) / Math.abs(net)) * 100) : 0;
-        byRate.set(rate, addMoney((byRate.get(rate) ?? 0), tax));
+        byRate.set(rate, sumMoney([(byRate.get(rate) ?? 0), tax], decimals));
     }
     if (byRate.size === 0) return [{rate: 0, amount: 0}];
     return [...byRate.entries()]
@@ -259,13 +265,11 @@ export async function buildReceiptFromPosOrder(
     order: IPosOrder,
     ctx: Ctx,
 ): Promise<PosReceiptPayload> {
-    const config = await PosConfig.findById(order.config).session(ctx.session ?? null);
+    const config = await posConfigService.findOne({_id: order.config}, {session: ctx.session});
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(config?.currency), ctx.session);
     let productOrderNumber: string | undefined;
     if (order.productOrder) {
-        const po = await ProductOrder.findById(order.productOrder)
-            .select("orderNumber")
-            .session(ctx.session ?? null)
-            .lean();
+        const po = await productOrderService.findOne({_id: order.productOrder}, {session: ctx.session}, undefined, "orderNumber");
         productOrderNumber = (po as {orderNumber?: string} | null)?.orderNumber;
     }
 
@@ -297,8 +301,8 @@ export async function buildReceiptFromPosOrder(
         amountPaid: order.amountPaid ?? 0,
         amountReturn: order.amountReturn ?? 0,
         amountTax,
-        amountWithoutVat: subtractMoney(amountTotal, amountTax),
-        vatRows: vatRowsFromOrder(order),
+        amountWithoutVat: subtractMoney(amountTotal, amountTax, decimals),
+        vatRows: vatRowsFromOrder(order, decimals),
         payments: (order.payments ?? []).map((payment) => ({
             method: payment.paymentMethodName ?? "Payment",
             type: payment.paymentMethodType,
@@ -322,28 +326,29 @@ export async function buildReceiptFromPosOrder(
 /** Park the current cart as a draft POS order (create or update). */
 export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     const sessionDoc = await resolveOpenedSession(body.sessionId, ctx);
-    const config = await PosConfig.findOne({
+    const config = await posConfigService.findOne({
         _id: sessionDoc.config,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
     await assertPosTillMutable(config, ctx);
 
-    const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx);
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
+    const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx, decimals);
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
-    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal);
-    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct);
-    const discountTotal = addMoney(lineDiscountTotal, orderDiscount);
-    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal));
+    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal, decimals);
+    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct, decimals);
+    const discountTotal = sumMoney([lineDiscountTotal, orderDiscount], decimals);
+    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal, decimals));
 
     let draft: IPosOrder | null = null;
     if (body._id) {
-        draft = await PosOrder.findOne({
+        draft = await posOrderService.findOne({
             _id: body._id,
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
-        }).noDeleted().session(ctx.session ?? null);
+        }, {session: ctx.session, withDeleted: false});
         if (!draft) throw apiValidationException("pos_held_not_found", "_id", null, ctx.languageCode);
     }
 
@@ -377,32 +382,27 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     draft.cashier = ctx.userId as any;
     await draft.save({session: ctx.session});
 
-    const populated = await PosOrder.findById(draft._id)
-        .populate("session config cashier customer")
-        .session(ctx.session ?? null);
+    const populated = await posOrderService.findById(draft._id, {session: ctx.session}, "session config cashier customer");
     return posOrderToDTO(populated!);
 }
 
 export async function listHeldPosOrders(sessionId: string, ctx: Ctx) {
     await resolveOpenedSession(sessionId, ctx);
-    const rows = await PosOrder.find({
+    const rows = await posOrderService.find({
         company: ctx.company._id,
         session: sessionId,
         state: "draft",
         isRefund: false,
-    }).noDeleted()
-        .sort({updatedAt: -1})
-        .limit(100)
-        .populate("cashier");
+    }, {withDeleted: false}, "cashier", undefined, {updatedAt: -1}, 100);
     return rows.map(posOrderToDTO);
 }
 
 export async function deleteHeldPosOrder(_id: string, ctx: Ctx) {
-    const draft = await PosOrder.findOne({
+    const draft = await posOrderService.findOne({
         _id,
         company: ctx.company._id,
         state: "draft",
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!draft) throw apiValidationException("pos_held_not_found", "_id", null, ctx.languageCode);
 
     draft.state = "cancel";
@@ -415,10 +415,10 @@ export async function listSessionPosOrders(
     ctx: Ctx,
     opts?: {state?: "paid" | "draft" | "refunded"; limit?: number},
 ) {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: sessionId,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
 
     const filter: Record<string, unknown> = {
@@ -428,21 +428,16 @@ export async function listSessionPosOrders(
     if (opts?.state) filter.state = opts.state;
     else filter.state = {$in: ["paid", "refunded"]};
 
-    const rows = await PosOrder.find(filter).noDeleted()
-        .sort({createdAt: -1})
-        .limit(Math.min(100, Math.max(1, opts?.limit ?? 50)))
-        .populate("cashier customer");
+    const rows = await posOrderService.find(filter, {withDeleted: false}, "cashier customer", undefined, {createdAt: -1}, Math.min(100, Math.max(1, opts?.limit ?? 50)));
     return rows.map(posOrderToDTO);
 }
 
 export async function reprintPosOrder(_id: string, ctx: Ctx) {
-    const order = await PosOrder.findOne({
+    const order = await posOrderService.findOne({
         _id,
         company: ctx.company._id,
         state: {$in: ["paid", "refunded"]},
-    }).noDeleted()
-        .populate("session config cashier customer payments.paymentMethod")
-        .session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false}, "session config cashier customer payments.paymentMethod");
     if (!order) throw apiValidationException("pos_order_not_found", "_id", null, ctx.languageCode);
 
     const receipt = await buildReceiptFromPosOrder(order, ctx);
@@ -475,33 +470,31 @@ export async function getPosSessionReconciliation(
     ctx: Ctx,
     countedCash?: number,
 ): Promise<PosSessionReconciliation> {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: sessionId,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
 
-    const heldDraftCount = await PosOrder.countDocuments({
+    const heldDraftCount = await posOrderService.count({
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "draft",
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
 
-    const paidOrders = await PosOrder.find({
+    const paidOrders = await posOrderService.find({
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "paid",
         isRefund: false,
-    }).noDeleted()
-        .select("payments")
-        .session(ctx.session ?? null)
-        .lean();
+    }, {session: ctx.session, withDeleted: false}, undefined, "payments");
 
     const salesByTender: Record<string, number> = {};
     for (const order of paidOrders) {
         for (const payment of order.payments ?? []) {
             const key = payment.paymentMethodType || "other";
-            salesByTender[key] = addMoney((salesByTender[key] ?? 0), Number(payment.amount || 0));
+            salesByTender[key] = sumMoney([(salesByTender[key] ?? 0), Number(payment.amount || 0)], decimals);
         }
     }
 
@@ -527,19 +520,17 @@ export async function getPosSessionReconciliation(
     };
 
     if (countedCash != null && !Number.isNaN(countedCash)) {
-        result.countedCash = roundToCurrency(countedCash);
-        result.difference = subtractMoney(countedCash, result.expectedCash);
+        result.countedCash = roundToCurrency(countedCash, decimals);
+        result.difference = subtractMoney(countedCash, result.expectedCash, decimals);
     }
 
     return result;
 }
 
 export async function rebuildPaidPosResult(order: IPosOrder, ctx: Ctx) {
-    const sessionDoc = await PosSession.findById(order.session).session(ctx.session ?? null);
+    const sessionDoc = await posSessionService.findOne({_id: order.session}, {session: ctx.session});
     const receipt = await buildReceiptFromPosOrder(order, ctx);
-    const populated = await PosOrder.findById(order._id)
-        .populate("session config cashier customer payments.paymentMethod")
-        .session(ctx.session ?? null);
+    const populated = await posOrderService.findById(order._id, {session: ctx.session}, "session config cashier customer payments.paymentMethod");
     return {
         order: posOrderToDTO(populated!),
         receipt,
@@ -559,11 +550,7 @@ export async function searchPosCustomers(query: string | undefined, ctx: Ctx) {
         const rx = {$regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i"};
         filter.$or = [{fullName: rx}, {name: rx}, {surname: rx}, {username: rx}, {phoneNumber: rx}];
     }
-    const rows = await User.find(filter).noDeleted()
-        .select("_id fullName name surname username phoneNumber")
-        .sort({fullName: 1})
-        .limit(30)
-        .lean();
+    const rows = await userService.find(filter, {withDeleted: false}, undefined, "_id fullName name surname username phoneNumber", {fullName: 1}, 30);
     return rows.map((u: any) => ({
         _id: u._id.toString(),
         label: u.fullName || [u.name, u.surname].filter(Boolean).join(" ") || u.username,
@@ -583,10 +570,10 @@ export async function verifyPosManagerPin(
     if (!ObjectId.isValid(configId)) {
         throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
     }
-    const config = await PosConfig.findOne({
+    const config = await posConfigService.findOne({
         _id: configId,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
     if (!hasAnyManagerPin(config)) {
         throw apiValidationException("pos_manager_pin_not_set", "pin", null, ctx.languageCode);

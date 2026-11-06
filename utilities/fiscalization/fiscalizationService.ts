@@ -4,9 +4,9 @@
  */
 import {randomUUID} from "crypto";
 import type {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
-import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
 import type {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
+import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {
     buildIicInput,
     buildVerifyQrUrl,
@@ -28,6 +28,7 @@ import {addMoney, includedPercentOfMinor, minorToNumber, percentOfMoney, prorate
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
 import {decimalToNumber} from "@coreModule/utilities/mappers/common.mapper";
+import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 
 
 function money(n: number): string {
@@ -80,9 +81,7 @@ export async function loadFiscalConfigWithCert(
         isActive: true,
     };
     if (fiscalConfigId) filter._id = fiscalConfigId;
-    const doc = await FiscalConfig.findOne(filter).noDeleted()
-        .select("+certificatePassword")
-        .sort({updatedAt: -1});
+    const doc = await fiscalConfigService.findLatestWithPassword(filter);
     const mediaRef = doc?.certificate?.[0];
     if (!doc || !mediaRef || !doc.certificatePassword) return null;
     const certificateBase64 = await pkcs12Base64(mediaRef);
@@ -90,20 +89,20 @@ export async function loadFiscalConfigWithCert(
     return Object.assign(doc.toObject(), {certificateBase64}) as IFiscalConfig & FiscalCert;
 }
 
-function resolveNipt(config: IFiscalConfig, companyVat?: string): string {
+function resolveNipt(config: IFiscalConfig, languageCode: string, companyVat?: string): string {
     const nipt = (config.nipt || companyVat || "").trim();
-    if (!nipt) throw new Error("Fiscal NIPT/NUIS is required (set FiscalConfig.nipt or company.vat)");
+    if (!nipt) throw apiValidationException("fiscal_nipt_missing", "", null, languageCode);
     return nipt;
 }
 
-function assertReady(config: IFiscalConfig & FiscalCert, companyVat?: string): string {
-    const nipt = resolveNipt(config, companyVat);
-    if (!config.tcrCode) throw new Error("TCR code missing — register TCR first");
+function assertReady(config: IFiscalConfig & FiscalCert, languageCode: string, companyVat?: string): string {
+    const nipt = resolveNipt(config, languageCode, companyVat);
+    if (!config.tcrCode) throw apiValidationException("fiscal_tcr_not_registered", "", null, languageCode);
     if (!config.businessUnitCode || !config.softCode || !config.operatorCode) {
-        throw new Error("businessUnitCode, softCode, and operatorCode are required");
+        throw apiValidationException("fiscal_codes_missing", "", null, languageCode);
     }
     if (!config.fiscalizationUrl || !config.selfcareUrl) {
-        throw new Error("fiscalizationUrl and selfcareUrl are required");
+        throw apiValidationException("fiscal_urls_missing", "", null, languageCode);
     }
     return nipt;
 }
@@ -152,17 +151,21 @@ export type FiscalInvoiceData = {
     corrective?: {iic: string; issueDateTime?: string};
 };
 
+/** Who registers, and in which language rule failures answer. */
+export type FiscalRegisterOptions = {
+    languageCode: string;
+    companyVat?: string;
+    companyName?: string;
+    buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
+};
+
 /** Signs and registers one invoice with the CIS (fiskalizo_fature), for any document that sold something. */
 export async function registerFiscalInvoice(
     data: FiscalInvoiceData,
     config: IFiscalConfig & FiscalCert,
-    opts?: {
-        companyVat?: string;
-        companyName?: string;
-        buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
-    },
+    opts: FiscalRegisterOptions,
 ): Promise<RegisterInvoiceResult> {
-    const nipt = assertReady(config, opts?.companyVat);
+    const nipt = assertReady(config, opts.languageCode, opts.companyVat);
     const issueDateTime = tiraneIsoNow();
     const uuid = randomUUID();
     const {invOrdNum, totPrice, totTax, items} = data;
@@ -179,7 +182,7 @@ export async function registerFiscalInvoice(
         softCode: config.softCode,
         totPrice,
     });
-    const {iic, iicSignature} = getIIC(iicInput, config.certificateBase64, config.certificatePassword);
+    const {iic, iicSignature} = getIIC(iicInput, config.certificateBase64, config.certificatePassword, opts.languageCode);
 
     const payments = data.payments.length ? data.payments : [{"1__Type": "OTHER", "2__Amt": money(totPrice)}];
     const typeOfInv = payments.some(p => p["1__Type"] === "BANKNOTE") ? "CASH" : "NONCASH";
@@ -198,7 +201,7 @@ export async function registerFiscalInvoice(
     const seller: OrderedDict = {
         "1__IDType": "NUIS",
         "2__IDNum": nipt,
-        "3__Name": config.sellerName || opts?.companyName || "Seller",
+        "3__Name": config.sellerName || opts.companyName || "Seller",
         "4__Address": config.sellerAddress || "N/A",
         "5__Town": config.sellerTown || "Tirane",
         "6__Country": config.sellerCountry || "ALB",
@@ -231,7 +234,7 @@ export async function registerFiscalInvoice(
     if (sameTaxes.length) {
         invoiceData["31__SameTaxes"] = {"1__SameTax": sameTaxes};
     }
-    if (opts?.buyer?.nipt) {
+    if (opts.buyer?.nipt) {
         invoiceData["27__Buyer"] = {
             "1__IDType": opts.buyer.idType || "NUIS",
             "2__IDNum": opts.buyer.nipt,
@@ -263,7 +266,7 @@ export async function registerFiscalInvoice(
         config.certificatePassword,
         request,
         "RegisterInvoiceRequest",
-        {proxyUrl: config.proxyUrl || undefined},
+        {languageCode: opts.languageCode, proxyUrl: config.proxyUrl || undefined},
     );
 
     const fault = extractFault(response.xml);
@@ -338,14 +341,10 @@ export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lin
 export async function registerPosInvoice(
     order: IPosOrder,
     config: IFiscalConfig & FiscalCert,
-    opts?: {
-        companyVat?: string;
-        companyName?: string;
-        buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
-    },
+    opts: FiscalRegisterOptions,
 ): Promise<RegisterInvoiceResult> {
     if (order.nivf) {
-        throw new Error("Order already fiscalized (has NIVF/FIC)");
+        throw apiValidationException("fiscal_already_fiscalized", "posOrderId", null, opts.languageCode);
     }
     const invOrdNum = invOrdFromOrderName(order.name);
     const totPrice = roundToCurrency(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
@@ -398,14 +397,15 @@ export async function registerPosInvoice(
 
 export async function registerTcr(
     config: IFiscalConfig & FiscalCert,
-    opts?: {companyVat?: string; validFrom?: string; validTo?: string},
+    opts: {languageCode: string; companyVat?: string; validFrom?: string; validTo?: string},
 ): Promise<{tcrCode?: string; fault?: string; signedXml: string}> {
-    const nipt = resolveNipt(config, opts?.companyVat);
-    if (!config.tcrIntId) throw new Error("tcrIntId is required to register TCR");
-    if (!config.maintainerCode) throw new Error("maintainerCode is required to register TCR");
+    const nipt = resolveNipt(config, opts.languageCode, opts.companyVat);
+    if (!config.tcrIntId || !config.maintainerCode) {
+        throw apiValidationException("fiscal_tcr_fields_missing", "fiscalConfigId", null, opts.languageCode);
+    }
     const issueDateTime = tiraneIsoNow();
     const header = getHeaderData(issueDateTime, randomUUID());
-    const validFrom = opts?.validFrom || issueDateTime.slice(0, 10);
+    const validFrom = opts.validFrom || issueDateTime.slice(0, 10);
 
     let tcrData: OrderedDict;
     if (!config.tcrCode) {
@@ -418,9 +418,9 @@ export async function registerTcr(
             "6__ValidFrom": validFrom,
             "7__Type": config.tcrType || "REGULAR",
         };
-        if (opts?.validTo) tcrData["8__ValidTo"] = opts.validTo;
+        if (opts.validTo) tcrData["8__ValidTo"] = opts.validTo;
     } else {
-        if (!opts?.validTo) throw new Error("validTo is required when updating an existing TCR");
+        if (!opts.validTo) throw apiValidationException("fiscal_tcr_valid_to_required", "validTo", null, opts.languageCode);
         tcrData = {
             "1__IssuerNUIS": nipt,
             "2__BusinUnitCode": config.businessUnitCode,
@@ -441,13 +441,13 @@ export async function registerTcr(
         config.certificatePassword,
         request,
         "RegisterTCRRequest",
-        {proxyUrl: config.proxyUrl || undefined},
+        {languageCode: opts.languageCode, proxyUrl: config.proxyUrl || undefined},
     );
     const fault = extractFault(response.xml);
     const tcrCode = extractNsText(response.xml, "TCRCode", FISCALIZATION_SCHEMA);
     if (tcrCode) {
         config.tcrCode = tcrCode;
-        await FiscalConfig.updateOne({_id: config._id}, {$set: {tcrCode}});
+        await fiscalConfigService.updateOne({_id: config._id}, {$set: {tcrCode}});
     }
     return {tcrCode, fault, signedXml: response.signedXml};
 }
@@ -455,6 +455,7 @@ export async function registerTcr(
 export async function getTaxpayer(
     config: IFiscalConfig & FiscalCert,
     tin: string,
+    languageCode: string,
 ): Promise<{raw: string; fault?: string; tin?: string; name?: string}> {
     const issueDateTime = tiraneIsoNow();
     const request: OrderedDict = {
@@ -482,7 +483,7 @@ export async function getTaxpayer(
         config.certificatePassword,
         requestFixed,
         "GetTaxpayersRequest",
-        {einvoice: true, proxyUrl: config.proxyUrl || undefined},
+        {languageCode, einvoice: true, proxyUrl: config.proxyUrl || undefined},
     );
     const fault = extractFault(response.xml);
     const name = extractNsText(response.xml, "Name", EINVOICE_SCHEMA);
@@ -500,25 +501,25 @@ export type RegisterEinvoiceResult = {
 export async function registerEinvoiceForPosOrder(
     order: IPosOrder,
     config: IFiscalConfig & FiscalCert,
-    opts?: {companyVat?: string; companyName?: string; currency?: string},
+    opts: {languageCode: string; companyVat?: string; companyName?: string; currency?: string},
 ): Promise<RegisterEinvoiceResult> {
     const nslf = (order as any).nslf as string | undefined;
     const nivf = (order as any).nivf as string | undefined;
     const iicSignature = (order as any).iicSignature as string | undefined;
     const issueDateTime = ((order as any).fiscalIssueDateTime as string) || tiraneIsoNow();
     if (!nslf || !nivf || !iicSignature) {
-        throw new Error("Fiscalize invoice first (need NSLF/NIVF/IICSignature) before e-invoice");
+        throw apiValidationException("fiscal_einvoice_not_fiscalized", "posOrderId", null, opts.languageCode);
     }
     const fiscalizedAt = (order as any).fiscalizedAt as Date | undefined;
     if (fiscalizedAt) {
         const ageMs = Date.now() - new Date(fiscalizedAt).getTime();
         if (ageMs > 48 * 60 * 60 * 1000) {
-            throw new Error("Cannot create e-invoice more than 48 hours after fiscalization");
+            throw apiValidationException("fiscal_einvoice_too_late", "posOrderId", null, opts.languageCode);
         }
     }
-    if ((order as any).eic) throw new Error("Order already has EIC");
+    if ((order as any).eic) throw apiValidationException("fiscal_einvoice_exists", "posOrderId", null, opts.languageCode);
 
-    const nipt = resolveNipt(config, opts?.companyVat);
+    const nipt = resolveNipt(config, opts.languageCode, opts.companyVat);
     const totGross = roundToCurrency(Number(order.amountTotal));
     const totVat = roundToCurrency(Number(order.amountTax));
     const totNet = subtractMoney(totGross, totVat);
@@ -541,7 +542,7 @@ export async function registerEinvoiceForPosOrder(
     const ublUnsigned = buildUblInvoiceXml({
         invoiceNumber: (order as any).fiscalInvNum || order.name,
         issueDate: issueDateTime.slice(0, 10),
-        currency: opts?.currency || "ALL",
+        currency: opts.currency || "ALL",
         nslf,
         iicSignature,
         nivf,
@@ -550,7 +551,7 @@ export async function registerEinvoiceForPosOrder(
         businessUnitCode: config.businessUnitCode,
         softCode: config.softCode,
         seller: {
-            name: config.sellerName || opts?.companyName || "Seller",
+            name: config.sellerName || opts.companyName || "Seller",
             nipt,
             street: config.sellerAddress,
             city: config.sellerTown,
@@ -566,7 +567,7 @@ export async function registerEinvoiceForPosOrder(
     });
 
     // Sign UBL root Id=Request (same enveloped approach as CIS requests)
-    const ublSigned = signXml(ublUnsigned.replace(/^<\?xml[^>]*>\s*/, ""), config.certificateBase64, config.certificatePassword);
+    const ublSigned = signXml(ublUnsigned.replace(/^<\?xml[^>]*>\s*/, ""), config.certificateBase64, config.certificatePassword, opts.languageCode);
     const ublB64 = Buffer.from(ublSigned, "utf8").toString("base64");
 
     const header = getHeaderData(tiraneIsoNow(), randomUUID());
@@ -584,7 +585,7 @@ export async function registerEinvoiceForPosOrder(
         config.certificatePassword,
         request,
         "RegisterEinvoiceRequest",
-        {einvoice: true, proxyUrl: config.proxyUrl || undefined},
+        {languageCode: opts.languageCode, einvoice: true, proxyUrl: config.proxyUrl || undefined},
     );
     const fault = extractFault(response.xml);
     const eic = extractNsText(response.xml, "EIC", EINVOICE_SCHEMA);
@@ -595,26 +596,29 @@ export async function registerEinvoiceForPosOrder(
 export async function fiscalizePosOrder(
     orderId: string,
     companyId: unknown,
-    opts?: {
+    opts: {
+        languageCode: string;
         fiscalConfigId?: string;
         companyVat?: string;
         companyName?: string;
         currency?: string;
     },
 ): Promise<{order: IPosOrder; invoice: RegisterInvoiceResult; einvoice?: RegisterEinvoiceResult}> {
-    const order = await PosOrder.findOne({_id: orderId, company: companyId}).noDeleted();
-    if (!order) throw new Error("POS order not found");
+    const {languageCode} = opts;
+    const order = await posOrderService.findOne({_id: orderId, company: companyId}, {withDeleted: false});
+    if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
     if (order.state !== "paid" && order.state !== "refunded") {
-        throw new Error("Only paid/refunded orders can be fiscalized");
+        throw apiValidationException("fiscal_order_state_invalid", "posOrderId", null, languageCode);
     }
-    const fiscalConfigId = opts?.fiscalConfigId ?? await fiscalConfigIdForPosConfig(companyId, order.config);
-    if (!fiscalConfigId) throw new Error("POS config has no fiscal config");
+    const fiscalConfigId = opts.fiscalConfigId ?? await fiscalConfigIdForPosConfig(companyId, order.config);
+    if (!fiscalConfigId) throw apiValidationException("fiscal_pos_config_missing", "fiscalConfigId", null, languageCode);
     const config = await loadFiscalConfigWithCert(companyId, fiscalConfigId);
-    if (!config) throw new Error("No active FiscalConfig with certificate found");
+    if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
 
     const invoice = await registerPosInvoice(order, config, {
-        companyVat: opts?.companyVat,
-        companyName: opts?.companyName,
+        languageCode,
+        companyVat: opts.companyVat,
+        companyName: opts.companyName,
     });
 
     order.nslf = invoice.nslf;
@@ -641,9 +645,10 @@ export async function fiscalizePosOrder(
     let einvoice: RegisterEinvoiceResult | undefined;
     try {
         einvoice = await registerEinvoiceForPosOrder(order, config, {
-            companyVat: opts?.companyVat,
-            companyName: opts?.companyName,
-            currency: opts?.currency,
+            languageCode,
+            companyVat: opts.companyVat,
+            companyName: opts.companyName,
+            currency: opts.currency,
         });
         if (einvoice.eic) {
             order.eic = einvoice.eic;

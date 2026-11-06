@@ -13,6 +13,12 @@ import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/curre
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 
+/** `decimalPlaces` of a populated currency; undefined when the currency is only a reference. */
+export function currencyDecimalPlacesOf(currency: unknown): number | undefined {
+    if (currency == null || typeof currency !== "object" || !("decimalPlaces" in currency)) return undefined;
+    return typeof currency.decimalPlaces === "number" ? currency.decimalPlaces : undefined;
+}
+
 export function posSessionToDTO(session: IPosSession): PosSession {
     const currency =
         mapSnippet<CurrencySimple>()(session.currency, CurrencySimpleSnippet)
@@ -22,6 +28,7 @@ export function posSessionToDTO(session: IPosSession): PosSession {
         name: session.name,
         config: mapSnippet<PosConfigSimple>()(session.config, PosConfigSimpleSnippet)!,
         currency,
+        decimalPlaces: currencyDecimalPlacesOf(session.currency) ?? currencyDecimalPlacesOf(session.config?.currency),
         state: session.state,
         openedBy: mapSnippet<SimpleBlankUser>()(session.openedBy, SimpleBlankUserSnippet),
         closedBy: mapSnippet<SimpleBlankUser>()(session.closedBy, SimpleBlankUserSnippet),

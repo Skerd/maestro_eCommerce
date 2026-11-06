@@ -5,7 +5,7 @@ import {createProductAttributeFormSchema} from "armonia/src/modules/eCommerce/ap
 import {editProductAttributeFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/editProductAttribute.form.validator";
 import {ProductAttributeSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productAttribute/productAttribute.schema-def";
 import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
 import {productAttributeToDTO, productAttributesToDTO} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.dto";
 import {productAttributesToSelect} from "@eCommerceModule/utilities/mappers/productAttribute/productAttributeMapper.select";
@@ -27,10 +27,10 @@ export const {router} = createCrudRouter({
     buildCreateData: buildCreateDataFromSchemaDef(ProductAttributeSchemaDef),
     buildUpdateData: buildUpdateDataFromSchemaDef(ProductAttributeSchemaDef),
     beforeDelete: async ({company, languageCode}, doc) => {
-        const inUse = await ProductVariant.countDocuments({
+        const inUse = await productVariantService.count({
             company: company._id,
             "attributeCombination.attribute": doc._id,
-        }).noDeleted();
+        }, {withDeleted: false});
         if (inUse > 0) {
             throw apiValidationException("product_attribute_in_use_by_variants", "", null, languageCode);
         }

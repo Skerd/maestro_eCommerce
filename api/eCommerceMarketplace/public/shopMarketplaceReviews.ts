@@ -5,9 +5,9 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
-import Order from "@eCommerceModule/database/schemas/order/order";
-import Review from "@eCommerceModule/database/schemas/review/review";
+import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
+import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
+import {reviewService} from "@eCommerceModule/database/schemas/review/review.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {toShopMarketplaceReview} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import {
@@ -38,9 +38,7 @@ router.post(
 
             let filter: Record<string, unknown>;
             if (listingId) {
-                const listing = await Listing.findOne({...active, _id: new ObjectId(listingId)}).noDeleted()
-                    .select("_id company")
-                    .lean();
+                const listing = await listingService.findOne({...active, _id: new ObjectId(listingId)}, {withDeleted: false}, undefined, "_id company");
                 if (!listing) {
                     throw apiValidationException("listing_not_found", null, null, languageCode);
                 }
@@ -48,25 +46,26 @@ router.post(
                 filter = {company: sellerCompanyId, listing: new ObjectId(listingId)};
             } else {
                 const provider = new ObjectId(providerId);
-                const listing = await Listing.findOne({...active, provider}).noDeleted().select("_id company").lean();
+                const listing = await listingService.findOne({...active, provider}, {withDeleted: false}, undefined, "_id company");
                 if (!listing) {
                     throw apiValidationException("provider_not_found", null, null, languageCode);
                 }
                 const sellerCompanyId = (listing as any).company;
-                const orders = await Order.find({company: sellerCompanyId, provider}).noDeleted().select("_id").lean();
+                const orders = await orderService.find({company: sellerCompanyId, provider}, {withDeleted: false}, undefined, "_id");
                 filter = {company: sellerCompanyId, order: {$in: orders.map((order) => order._id)}};
             }
 
             const [reviews, total] = await Promise.all([
-                Review.find(filter).noDeleted()
-                    .select("rating comment reviewer listing createdAt")
-                    .populate("reviewer", "name surname")
-                    .populate("listing", "title")
-                    .sort({createdAt: -1})
-                    .skip((page - 1) * limit)
-                    .limit(limit)
-                    .lean(),
-                Review.countDocuments(filter).noDeleted(),
+                reviewService.find(
+                    filter,
+                    {withDeleted: false},
+                    [{path: "reviewer", select: "name surname"}, {path: "listing", select: "title"}],
+                    "rating comment reviewer listing createdAt",
+                    {createdAt: -1},
+                    limit,
+                    (page - 1) * limit,
+                ),
+                reviewService.count(filter, {withDeleted: false}),
             ]);
 
             return {data: reviews.map(toShopMarketplaceReview), total};

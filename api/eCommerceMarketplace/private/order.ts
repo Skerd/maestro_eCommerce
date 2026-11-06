@@ -38,7 +38,7 @@ import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDeli
 import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import EscrowTransaction from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
+import {escrowTransactionService} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction.service";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
 
@@ -252,13 +252,13 @@ router.post(
             orderMilestoneService.find(scope, opts, ["currency"], undefined, {orderIndex: 1}),
             orderRevisionService.find(scope, opts, undefined, undefined, {createdAt: -1}),
             bookingService.find(scope, opts, undefined, undefined, {startAt: 1}),
-            EscrowTransaction.findOne({
+            escrowTransactionService.findOne({
                 order: order._id,
                 company: orderCompanyId,
                 type: "hold",
                 stripeClientSecret: {$exists: true, $ne: ""},
                 gatewayStatus: {$in: ["pending", "ledger_only"]},
-            }).select("stripeClientSecret").lean(),
+            }, {}, undefined, "stripeClientSecret"),
         ]);
 
         const escrowClientSecret = (unpaidHold as {stripeClientSecret?: string} | null)?.stripeClientSecret;

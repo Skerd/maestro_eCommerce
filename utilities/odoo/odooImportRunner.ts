@@ -43,7 +43,6 @@ import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
-import InventoryMovement from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import StockTransfer from "@eCommerceModule/database/schemas/stockTransfer/stockTransfer";
 import {stockTransferService} from "@eCommerceModule/database/schemas/stockTransfer/stockTransfer.service";
@@ -155,7 +154,7 @@ async function resolveStockRef(ctx: ImportCtx, productOdooId: number): Promise<S
  * it when missing. A match is never rewritten.
  */
 async function linkCurrency(ctx: ImportCtx, row: OdooCurrencyRow): Promise<"created" | "updated" | null> {
-    const existing = await Currency.findOne({abbreviation: row.code, company: ctx.companyId}).withDeleted().select("_id deletedAt").lean();
+    const existing = await currencyService.findOne({abbreviation: row.code, company: ctx.companyId}, {withDeleted: true}, undefined, "_id deletedAt");
     // A deleted currency still holds the unique code, so no new one can be created for it
     if (existing?.deletedAt) return null;
     const localId = existing?._id ?? (await currencyService.create({
@@ -687,12 +686,7 @@ async function importStockChanges(ctx: ImportCtx): Promise<OdooImportCounts> {
     }
     for (let offset = 0; offset < updates.length; offset += ODOO_SEARCH_PAGE_SIZE) {
         const slice = updates.slice(offset, offset + ODOO_SEARCH_PAGE_SIZE);
-        await InventoryMovement.bulkWrite(
-            slice.map((row) => ({
-                updateOne: {filter: {_id: row.id}, update: {$set: row.fields}},
-            })),
-            {ordered: false},
-        );
+        await inventoryMovementService.bulkUpdate(slice.map((row) => ({id: row.id, update: {$set: row.fields}})));
         counts.updated += slice.length;
     }
     return counts;

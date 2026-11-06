@@ -1,7 +1,8 @@
 import {ObjectId} from "mongodb";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
-import ShippingZone, {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
+import type {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
+import {shippingZoneService} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.service";
 import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 
 export type CartForShipping = {
@@ -103,11 +104,11 @@ const internalZonesShippingProvider: ShippingRateProvider = {
             return [];
         }
 
-        const zones = await ShippingZone.find({
+        const zones: IShippingZone[] = await shippingZoneService.find({
             company: companyId,
             isActive: true,
             countries: countryId,
-        }).noDeleted().lean();
+        }, {withDeleted: false});
 
         const availableRates: AvailableShippingRate[] = [];
         const destinationState = await resolveZoneState(countryId, cart.destinationState);

@@ -28,7 +28,7 @@ import {
     placeOrderFromCheckout,
     reserveStockForPayment,
     resetCheckoutPayment,
-} from "@eCommerceModule/utilities/services/checkoutPlacementService";
+} from "@eCommerceModule/workflows/checkoutPlacementService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
@@ -440,7 +440,7 @@ describe("fulfillOrderPaidExtras", () => {
         await fulfillOrderPaidExtras(order, {logger, languageCode: lang});
         await fulfillOrderPaidExtras(order, {logger, languageCode: lang});
 
-        const balances = (await GiftCard.find({order: order._id})).map(card => card.balance).sort();
+        const balances = (await GiftCard.find({order: order._id})).map(card => Number(card.balance.toString())).sort();
         expect(balances).toEqual([25, 50, 50]);
     }));
 });

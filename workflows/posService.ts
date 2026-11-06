@@ -7,17 +7,20 @@ import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eComme
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import type {CashMovePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/cashMovePosSession.form.validator";
 import type {ClosePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/closePosSession.form.validator";
-import User from "@coreModule/database/schemas/user/user";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import {userService} from "@coreModule/database/schemas/user/user.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import PosConfig, {type IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
+import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
+import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import {variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
+import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
+import {productVariantService, variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
@@ -29,7 +32,7 @@ import {
     getPosSessionReconciliation,
     rebuildPaidPosResult,
     refToId,
-} from "@eCommerceModule/utilities/services/posTillOps";
+} from "@eCommerceModule/workflows/posTillOps";
 import {warehouseIdsFromPosConfig} from "@eCommerceModule/utilities/services/warehousePosConfigGuard";
 import {
     assertPosTillMutable,
@@ -39,10 +42,15 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
-import {addMoney, allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
+import {allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
+import {posLineRefundTotal, posRefundAmount} from "armonia/src/modules/eCommerce/helpers/posRefundAmount";
 import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
+
+/** What a POS order DTO and receipt read. */
+const POS_ORDER_POPULATE = "session config cashier customer payments.paymentMethod";
 
 type Ctx = {
     logger: any;
@@ -56,11 +64,14 @@ type Ctx = {
 async function generatePosOrderName(companyId: ObjectId, session?: ClientSession): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `POS/${year}/`;
-    const last = await PosOrder.findOne(
+    const [last] = await posOrderService.find(
         {company: companyId, name: {$regex: `^${prefix.replace(/\//g, "\\/")}`}},
-        {name: 1},
-        {sort: {createdAt: -1}, session},
-    ).lean();
+        {session},
+        undefined,
+        "name",
+        {createdAt: -1},
+        1,
+    );
     let sequence = 1;
     if (last?.name) {
         const parts = last.name.split("/");
@@ -73,7 +84,7 @@ async function generatePosOrderName(companyId: ObjectId, session?: ClientSession
 async function generateSessionName(configName: string, companyId: ObjectId, session?: ClientSession): Promise<string> {
     const day = new Date().toISOString().slice(0, 10);
     const prefix = `${configName}/${day}/`;
-    const count = await PosSession.countDocuments({company: companyId, name: {$regex: `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`}}, {session});
+    const count = await posSessionService.count({company: companyId, name: {$regex: `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`}}, {session});
     return `${prefix}${count + 1}`;
 }
 
@@ -99,7 +110,7 @@ async function consumePosStock(params: {
         deletedAt: null,
     };
 
-    const before = await Inventory.findOne(filter, {quantityOnHand: 1, quantityReserved: 1}, {session: ctx.session});
+    const before = await inventoryService.findOne(filter, {session: ctx.session}, undefined, "quantityOnHand quantityReserved");
     const onHand = before?.quantityOnHand ?? 0;
     const reserved = before?.quantityReserved ?? 0;
     if (!allowOversell && onHand - reserved < quantity) {
@@ -165,11 +176,7 @@ async function consumePosStockAcrossWarehouses(params: {
             variant: rest.variantId ?? null,
             deletedAt: null,
         };
-        const before = await Inventory.findOne(
-            filter,
-            {quantityOnHand: 1, quantityReserved: 1},
-            {session: ctx.session},
-        );
+        const before = await inventoryService.findOne(filter, {session: ctx.session}, undefined, "quantityOnHand quantityReserved");
         const available = Math.max(0, (before?.quantityOnHand ?? 0) - (before?.quantityReserved ?? 0));
         let take = Math.min(remaining, available);
         if (allowOversell && isLast) take = remaining;
@@ -208,7 +215,7 @@ async function restockPosStock(params: {
         variant: variantId ?? null,
         deletedAt: null,
     };
-    const before = await Inventory.findOne(filter, {quantityOnHand: 1}, {session: ctx.session});
+    const before = await inventoryService.findOne(filter, {session: ctx.session}, undefined, "quantityOnHand");
     const onHand = before?.quantityOnHand ?? 0;
     const updated = await inventoryService.addStock(
         {product: productId, variant: variantId, warehouse: warehouseId, company: companyId},
@@ -252,7 +259,7 @@ function stockKeyOf(productId: unknown, variantId?: unknown): string {
  * the sale's `sale` movements minus the `return` movements of its earlier refunds.
  */
 async function returnableByWarehouse(posOrderId: ObjectId, ctx: Ctx): Promise<Map<string, Map<string, number>>> {
-    const refunds = await PosOrder.find({refundOf: posOrderId, company: ctx.company._id}, {_id: 1}).session(ctx.session ?? null);
+    const refunds = await posOrderService.find({refundOf: posOrderId, company: ctx.company._id}, {session: ctx.session}, undefined, "_id");
     const movements = await inventoryMovementService.find(
         {
             company: ctx.company._id,
@@ -287,10 +294,10 @@ export async function openPosSession(
     body: {configId: string; openingBalance?: number; notes?: string},
     ctx: Ctx,
 ) {
-    const config = await PosConfig.findOne({
+    const config = await posConfigService.findOne({
         _id: body.configId,
         company: ctx.company._id,
-    }).noDeleted().populate("paymentMethods warehouses currency managers fiscalConfig");
+    }, {withDeleted: false}, "paymentMethods warehouses currency managers fiscalConfig");
 
     if (!config) throw apiValidationException("pos_config_not_found", "configId", null, ctx.languageCode);
 
@@ -301,11 +308,11 @@ export async function openPosSession(
         throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
     }
 
-    const existing = await PosSession.findOne({
+    const existing = await posSessionService.findOne({
         company: ctx.company._id,
         config: config._id,
         state: {$in: ["opening_control", "opened", "closing_control"]},
-    }).noDeleted();
+    }, {withDeleted: false});
     if (existing) {
         throw apiValidationException("pos_session_already_open", "configId", null, ctx.languageCode);
     }
@@ -334,9 +341,7 @@ export async function openPosSession(
     });
     await doc.save({session: ctx.session});
 
-    const populated = await PosSession.findById(doc._id)
-        .populate("config currency openedBy")
-        .session(ctx.session ?? null);
+    const populated = await posSessionService.findById(doc._id, {session: ctx.session}, "config currency openedBy");
     const companyLock = await getCompanyPosLock(ctx.company._id, ctx.session);
     const companyLockActive = isCompanyPosLockActive(companyLock);
     return {
@@ -360,14 +365,10 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
         filter.config = new ObjectId(configId);
     }
 
-    const session = await PosSession.findOne(filter).noDeleted()
-        .sort({openedAt: -1, createdAt: -1})
-        .populate("config currency openedBy closedBy");
+    const [session] = await posSessionService.find(filter, {withDeleted: false}, "config currency openedBy closedBy", undefined, {openedAt: -1, createdAt: -1}, 1);
     if (!session) return null;
 
-    const config = await PosConfig.findById(session.config).populate(
-        "paymentMethods warehouses currency managers pausedBy fiscalConfig",
-    );
+    const config = await posConfigService.findOne({_id: session.config}, {}, "paymentMethods warehouses currency managers pausedBy fiscalConfig");
     const companyLock = await getCompanyPosLock(ctx.company._id);
     const companyLockActive = isCompanyPosLockActive(companyLock);
     return {
@@ -382,23 +383,24 @@ export async function getCurrentPosSession(configId: string | undefined, ctx: Ct
 }
 
 export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: Ctx) {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: body._id,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "_id", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "_id", null, ctx.languageCode);
     }
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
 
     {
-        const gateConfig = await PosConfig.findById(sessionDoc.config);
+        const gateConfig = await posConfigService.findOne({_id: sessionDoc.config});
         if (!gateConfig) throw apiValidationException("pos_config_not_found", "_id", null, ctx.languageCode);
         await assertPosTillMutable(gateConfig, ctx);
     }
 
     if (body.type === "out") {
-        const config = await PosConfig.findById(sessionDoc.config);
+        const config = await posConfigService.findOne({_id: sessionDoc.config});
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
             "@eCommerceModule/utilities/services/posManagerPin"
         );
@@ -425,37 +427,38 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
         at: new Date(),
         by: ctx.userId,
     } as any);
-    sessionDoc.cashRegisterBalance = addMoney(sessionDoc.cashRegisterBalance, delta);
-    sessionDoc.expectedCash = addMoney(sessionDoc.expectedCash, delta);
+    sessionDoc.cashRegisterBalance = sumMoney([sessionDoc.cashRegisterBalance, delta], decimals);
+    sessionDoc.expectedCash = sumMoney([sessionDoc.expectedCash, delta], decimals);
     sessionDoc.markModified("cashMoves");
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await PosSession.findById(sessionDoc._id).populate("config currency openedBy").session(ctx.session ?? null);
+    const populated = await posSessionService.findById(sessionDoc._id, {session: ctx.session}, "config currency openedBy");
     return posSessionToDTO(populated!);
 }
 
 export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: body._id,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "_id", null, ctx.languageCode);
     if (sessionDoc.state === "closed") {
         throw apiValidationException("pos_session_already_closed", "_id", null, ctx.languageCode);
     }
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
 
     const countedCash = Number(body.closingBalance);
     const expectedCash = Number(sessionDoc.expectedCash ?? 0);
-    const difference = subtractMoney(countedCash, expectedCash);
+    const difference = subtractMoney(countedCash, expectedCash, decimals);
     if (Math.abs(difference) >= 0.01 && !(body.differenceReason?.trim() || body.notes?.trim())) {
         throw apiValidationException("pos_close_difference_reason_required", "differenceReason", null, ctx.languageCode);
     }
 
-    const heldDraftCount = await PosOrder.countDocuments({
+    const heldDraftCount = await posOrderService.count({
         company: ctx.company._id,
         session: sessionDoc._id,
         state: "draft",
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (heldDraftCount > 0) {
         throw apiValidationException("pos_close_held_orders_open", "_id", null, ctx.languageCode);
     }
@@ -474,9 +477,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
     if (noteParts.length) sessionDoc.notes = noteParts.join(" | ");
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await PosSession.findById(sessionDoc._id)
-        .populate("config currency openedBy closedBy")
-        .session(ctx.session ?? null);
+    const populated = await posSessionService.findById(sessionDoc._id, {session: ctx.session}, "config currency openedBy closedBy");
     return {
         session: posSessionToDTO(populated!),
         reconciliation: {
@@ -506,12 +507,10 @@ export async function loadPosCatalog(
     if (params.warehouseId && ObjectId.isValid(params.warehouseId)) {
         warehouseIds = [new ObjectId(params.warehouseId)];
     } else if (params.configId && ObjectId.isValid(params.configId)) {
-        const cfg = await PosConfig.findOne({
+        const cfg = await posConfigService.findOne({
             _id: params.configId,
             company: ctx.company._id,
-        }).noDeleted()
-            .select("warehouses warehouse")
-            .lean();
+        }, {withDeleted: false}, undefined, "warehouses warehouse");
         if (cfg) warehouseIds = warehouseIdsFromPosConfig(cfg);
     }
 
@@ -519,14 +518,11 @@ export async function loadPosCatalog(
     let variantHits: any[] = [];
     if (params.barcode?.trim()) {
         const code = params.barcode.trim();
-        variantHits = await ProductVariant.find({
+        variantHits = await productVariantService.find({
             company: ctx.company._id,
             status: "active",
             $or: [{barcode: code}, {sku: code}],
-        }).noDeleted()
-            .select("product sku barcode price attributeCombination trackInventory")
-            .limit(20)
-            .lean();
+        }, {withDeleted: false}, undefined, "product sku barcode price attributeCombination trackInventory", undefined, 20);
     }
 
     const filter: Record<string, unknown> = {
@@ -562,40 +558,38 @@ export async function loadPosCatalog(
     }
 
     const [rows, total] = await Promise.all([
-        Product.find(filter).noDeleted()
-            .select("title sku barcode ean price currency mainImage trackInventory type shortDescription hasVariants")
-            .sort({title: 1})
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .lean(),
-        Product.countDocuments(filter).noDeleted(),
+        productService.find(
+            filter,
+            {withDeleted: false},
+            undefined,
+            "title sku barcode ean price currency mainImage trackInventory type shortDescription hasVariants",
+            {title: 1},
+            limit,
+            (page - 1) * limit,
+        ),
+        productService.count(filter, {withDeleted: false}),
     ]);
 
     const productIds = rows.map((p: any) => p._id);
     const variants = productIds.length
-        ? await ProductVariant.find({
+        ? await productVariantService.find({
               company: ctx.company._id,
               product: {$in: productIds},
               status: "active",
-          }).noDeleted()
-              .select("product sku barcode price attributeCombination trackInventory")
-              .sort({order: 1})
-              .lean()
+          }, {withDeleted: false}, undefined, "product sku barcode price attributeCombination trackInventory", {order: 1})
         : [];
 
     const variantIds = variants.map((v: any) => v._id);
     let stockRows: any[] = [];
     if (warehouseIds.length && (productIds.length || variantIds.length)) {
-        stockRows = await Inventory.find({
+        stockRows = await inventoryService.find({
             company: ctx.company._id,
             warehouse: {$in: warehouseIds},
             $or: [
                 {product: {$in: productIds}, variant: null},
                 ...(variantIds.length ? [{variant: {$in: variantIds}}] : []),
             ],
-        }).noDeleted()
-            .select("product variant quantityOnHand quantityReserved")
-            .lean();
+        }, {withDeleted: false}, undefined, "product variant quantityOnHand quantityReserved");
     }
 
     const stockKey = (productId: any, variantId?: any) =>
@@ -660,30 +654,30 @@ export async function loadPosCatalog(
 }
 
 export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: body.sessionId,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
     }
 
     if (body.clientRequestId) {
-        const existing = await PosOrder.findOne({
+        const existing = await posOrderService.findOne({
             company: ctx.company._id,
             clientRequestId: body.clientRequestId,
-        }).noDeleted().session(ctx.session ?? null);
+        }, {session: ctx.session, withDeleted: false});
         if (existing?.state === "paid") {
             // Idempotent replay succeeds even if the till is now paused/inactive.
             return rebuildPaidPosResult(existing, ctx);
         }
     }
 
-    const config = await PosConfig.findOne({
+    const config = await posConfigService.findOne({
         _id: sessionDoc.config,
         company: ctx.company._id,
-    }).noDeleted().populate("warehouses currency paymentMethods");
+    }, {withDeleted: false}, "warehouses currency paymentMethods");
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
 
     await assertPosTillMutable(config, ctx);
@@ -693,34 +687,34 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         throw apiValidationException("pos_config_warehouse_required", "warehouses", null, ctx.languageCode);
     }
     const assignedFiscalConfigId = refToId(config.fiscalConfig);
-    const FiscalConfigModel = (await import("@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig")).default;
     const assignedFiscal = assignedFiscalConfigId
-        ? await FiscalConfigModel.findOne({
+        ? await fiscalConfigService.findOne({
             _id: assignedFiscalConfigId,
             company: ctx.company._id,
-        }).noDeleted().select("_id isActive certificate")
+        }, {withDeleted: false}, undefined, "_id isActive certificate")
         : null;
     const currencyId = nestedEntityToRef(config.currency);
+    const decimals = await currencyDecimalPlaces(currencyId, ctx.session);
 
     const lines = [];
     let subtotal = 0;
     let lineDiscountTotal = 0;
 
     for (const line of body.lines) {
-        const product = await Product.findOne({
+        const product = await productService.findOne({
             _id: line.productId,
             company: ctx.company._id,
             status: "active",
-        }).noDeleted();
+        }, {withDeleted: false});
         if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
         assertPosSellable(product, ctx.languageCode);
 
         const qty = Number(line.quantity);
         const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
         const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = multiplyMoney(unitPrice, qty);
-        const discountAmount = percentOfMoney(gross, discPct);
-        const priceTotal = subtractMoney(gross, discountAmount);
+        const gross = multiplyMoney(unitPrice, qty, decimals);
+        const discountAmount = percentOfMoney(gross, discPct, decimals);
+        const priceTotal = subtractMoney(gross, discountAmount, decimals);
 
         lines.push({
             product: product._id,
@@ -737,30 +731,30 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             barcode: product.barcode ?? product.ean,
             productType: product.type,
         });
-        subtotal = addMoney(subtotal, gross);
-        lineDiscountTotal = addMoney(lineDiscountTotal, discountAmount);
+        subtotal = sumMoney([subtotal, gross], decimals);
+        lineDiscountTotal = sumMoney([lineDiscountTotal, discountAmount], decimals);
     }
 
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
-    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal);
-    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct);
-    const discountTotal = addMoney(lineDiscountTotal, orderDiscount);
-    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal));
+    const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal, decimals);
+    const orderDiscount = percentOfMoney(afterLineDisc, orderDiscPct, decimals);
+    const discountTotal = sumMoney([lineDiscountTotal, orderDiscount], decimals);
+    const amountTotal = Math.max(0, subtractMoney(subtotal, discountTotal, decimals));
 
     // Till prices include VAT: extract each line's share at the selling warehouse's rates,
     // after its part of the order discount
     const taxAddress = posTaxAddress(config);
     // The order discount is shared over the lines by value, in parts that add up to it exactly (D35).
     const discountShares = orderDiscount > 0 && afterLineDisc > 0
-        ? allocateMinor(toMinor(orderDiscount), lines.map(line => toMinor(line.priceTotal)))
+        ? allocateMinor(toMinor(orderDiscount, decimals), lines.map(line => toMinor(line.priceTotal, decimals)))
         : lines.map(() => 0n);
     for (const [index, line] of lines.entries()) {
-        const taxedAmount = subtractMoney(line.priceTotal, minorToNumber(discountShares[index]));
+        const taxedAmount = subtractMoney(line.priceTotal, minorToNumber(discountShares[index], decimals), decimals);
         line.taxAmount = taxAddress
-            ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id)
+            ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id, decimals)
             : 0;
     }
-    const amountTax = addMoney(...lines.map(line => line.taxAmount));
+    const amountTax = sumMoney(lines.map(line => line.taxAmount), decimals);
 
     if (discountTotal > 0.001 && config.pinForDiscount) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
@@ -777,38 +771,38 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     }
 
     const paymentMethodIds = body.payments.map(p => p.paymentMethodId);
-    const methods = await PosPaymentMethod.find({
+    const methods = await posPaymentMethodService.find({
         _id: {$in: paymentMethodIds},
         company: ctx.company._id,
         isActive: true,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (methods.length !== new Set(paymentMethodIds).size) {
         throw apiValidationException("pos_payment_method_invalid", "payments", null, ctx.languageCode);
     }
     const methodById = new Map(methods.map(m => [m._id.toString(), m]));
 
-    const amountPaid = addMoney(...body.payments.map(p => Number(p.amount)));
+    const amountPaid = sumMoney(body.payments.map(p => Number(p.amount)), decimals);
     if (amountPaid + 0.001 < amountTotal) {
         throw apiValidationException("pos_payment_insufficient", "payments", null, ctx.languageCode);
     }
-    const amountReturn = Math.max(0, subtractMoney(amountPaid, amountTotal));
+    const amountReturn = Math.max(0, subtractMoney(amountPaid, amountTotal, decimals));
 
     if (!currencyId) {
         throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
     }
 
-    if (body.customerId && !(await User.exists({_id: new ObjectId(body.customerId), companies: ctx.company._id}))) {
+    if (body.customerId && !(await userService.exists({_id: new ObjectId(body.customerId), companies: ctx.company._id}))) {
         throw apiValidationException("pos_customer_not_found", "customerId", null, ctx.languageCode);
     }
 
     let posOrder: IPosOrder;
     if (body.heldOrderId) {
-        const held = await PosOrder.findOne({
+        const held = await posOrderService.findOne({
             _id: body.heldOrderId,
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
-        }).noDeleted().session(ctx.session ?? null);
+        }, {session: ctx.session, withDeleted: false});
         if (!held) throw apiValidationException("pos_held_not_found", "heldOrderId", null, ctx.languageCode);
         posOrder = held;
     } else {
@@ -874,10 +868,12 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         });
     }
 
-    const soldVariants = await ProductVariant.find(
+    const soldVariants = await productVariantService.find(
         {_id: {$in: lines.flatMap(line => (line.variant ? [line.variant] : []))}, company: ctx.company._id},
-        {attributeCombination: 1},
-    ).session(ctx.session ?? null).lean();
+        {session: ctx.session},
+        undefined,
+        "attributeCombination",
+    );
     const variantLabels = new Map(soldVariants.map(variant => [variant._id.toString(), variantOptionsLabel(variant)]));
 
     const orderNumber = await generateOrderNumber(ctx.company._id);
@@ -934,7 +930,14 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     posOrder.productOrder = productOrder._id;
     await posOrder.save({session: ctx.session});
 
-    for (const payment of body.payments) {
+    // The ledger records what each payment actually paid, never the change a cash payment included (TD-B41)
+    const ledgerAmounts = paidNetOfChange(
+        body.payments.map((payment) => ({amount: payment.amount, isCash: methodById.get(payment.paymentMethodId)?.type === "cash"})),
+        amountReturn,
+        decimals,
+    );
+    for (const [paymentIndex, payment] of body.payments.entries()) {
+        if (ledgerAmounts[paymentIndex] <= 0n) continue;
         const method = methodById.get(payment.paymentMethodId);
         await paymentTransactionService.create(
             {
@@ -943,11 +946,12 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
                 gateway: "manual",
                 type: "charge",
                 status: "succeeded",
-                amount: Number(payment.amount),
+                amount: minorToNumber(ledgerAmounts[paymentIndex], decimals),
                 currency: currencyId,
                 refundedAmount: 0,
                 metadata: {
                     posOrderId: posOrder._id.toString(),
+                    paymentIndex,
                     paymentMethodId: payment.paymentMethodId,
                     paymentMethodType: method?.type,
                     paymentMethodName: method?.name,
@@ -967,25 +971,23 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     for (const payment of body.payments) {
         const method = methodById.get(payment.paymentMethodId);
         const amt = Number(payment.amount);
-        if (method?.type === "cash") cashPaid = addMoney(cashPaid, amt);
-        else cardPaid = addMoney(cardPaid, amt);
+        if (method?.type === "cash") cashPaid = sumMoney([cashPaid, amt], decimals);
+        else cardPaid = sumMoney([cardPaid, amt], decimals);
     }
     // Change returned from cash drawer
-    const netCash = subtractMoney(cashPaid, amountReturn);
+    const netCash = subtractMoney(cashPaid, amountReturn, decimals);
 
     sessionDoc.orderCount += 1;
-    sessionDoc.totalSales = addMoney(sessionDoc.totalSales, amountTotal);
-    sessionDoc.totalCash = addMoney(sessionDoc.totalCash, Math.max(0, netCash));
-    sessionDoc.totalCard = addMoney(sessionDoc.totalCard, cardPaid);
+    sessionDoc.totalSales = sumMoney([sessionDoc.totalSales, amountTotal], decimals);
+    sessionDoc.totalCash = sumMoney([sessionDoc.totalCash, Math.max(0, netCash)], decimals);
+    sessionDoc.totalCard = sumMoney([sessionDoc.totalCard, cardPaid], decimals);
     if (netCash !== 0) {
-        sessionDoc.cashRegisterBalance = addMoney(sessionDoc.cashRegisterBalance, netCash);
-        sessionDoc.expectedCash = addMoney(sessionDoc.expectedCash, netCash);
+        sessionDoc.cashRegisterBalance = sumMoney([sessionDoc.cashRegisterBalance, netCash], decimals);
+        sessionDoc.expectedCash = sumMoney([sessionDoc.expectedCash, netCash], decimals);
     }
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await PosOrder.findById(posOrder._id)
-        .populate("session config cashier customer payments.paymentMethod")
-        .session(ctx.session ?? null);
+    const populated = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
 
     const receiptCtx = {
         ...ctx,
@@ -1007,6 +1009,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         const {fiscalizePosOrder} = await import("@eCommerceModule/utilities/fiscalization/fiscalizationService");
         if (assignedFiscal?.isActive && (assignedFiscal.certificate?.length ?? 0) > 0) {
             const result = await fiscalizePosOrder(posOrder._id.toString(), ctx.company._id, {
+                languageCode: ctx.languageCode,
                 fiscalConfigId: assignedFiscal._id.toString(),
                 companyVat: (ctx.company as {vat?: string}).vat,
                 companyName: (ctx.company as {name?: string}).name,
@@ -1018,9 +1021,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
                 qrVerifyUrl: result.invoice.nivf ? result.invoice.qrVerifyUrl : undefined,
                 fault: result.invoice.fault || result.einvoice?.fault || result.order.fiscalError,
             };
-            const refreshed = await PosOrder.findById(posOrder._id)
-                .populate("session config cashier customer payments.paymentMethod")
-                .session(ctx.session ?? null);
+            const refreshed = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
             return {
                 order: posOrderToDTO(refreshed || populated!),
                 receipt: await decorateReceipt(refreshed || populated!),
@@ -1034,9 +1035,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         fiscal = {fault: message};
         posOrder.fiscalError = message;
         await posOrder.save({session: ctx.session});
-        const failed = await PosOrder.findById(posOrder._id)
-            .populate("session config cashier customer payments.paymentMethod")
-            .session(ctx.session ?? null);
+        const failed = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
         return {
             order: posOrderToDTO(failed || populated!),
             receipt: await decorateReceipt(failed || populated!),
@@ -1054,28 +1053,36 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
 }
 
 /**
- * Shares a refund over a sale's payments by what each actually paid (TD-B31): a cash payment's amount includes the
- * change handed back, so the change comes off the cash payments first and a 43.20 sale paid with 50.00 cash refunds
- * 43.20. The parts add up to the refund exactly (`allocateMinor`).
+ * What each payment of a sale actually paid, in minor units: a cash payment's amount includes the change handed back,
+ * so the change comes off the cash payments first, in order (D59). The finance ledger records these amounts (TD-B41).
  */
-function refundSharesOverPayments(payments: {amount: MoneyInput; isCash: boolean}[], change: MoneyInput, refundAmount: number): number[] {
-    let changeLeft = toMinor(change);
-    const paid = payments.map((payment) => {
-        const amount = toMinor(payment.amount);
+function paidNetOfChange(payments: {amount: MoneyInput; isCash: boolean}[], change: MoneyInput, decimals: number): bigint[] {
+    let changeLeft = toMinor(change, decimals);
+    return payments.map((payment) => {
+        const amount = toMinor(payment.amount, decimals);
         if (!payment.isCash || changeLeft <= 0n) return amount;
         const netted = amount < changeLeft ? amount : changeLeft;
         changeLeft -= netted;
         return amount - netted;
     });
+}
+
+/**
+ * Shares a refund over a sale's payments by what each actually paid (TD-B31): a cash payment's amount includes the
+ * change handed back, so the change comes off the cash payments first and a 43.20 sale paid with 50.00 cash refunds
+ * 43.20. The parts add up to the refund exactly (`allocateMinor`).
+ */
+function refundSharesOverPayments(payments: {amount: MoneyInput; isCash: boolean}[], change: MoneyInput, refundAmount: number, decimals: number): number[] {
+    const paid = paidNetOfChange(payments, change, decimals);
     if (sumMinor(paid) <= 0n) return payments.map(() => 0);
-    return allocateMinor(toMinor(refundAmount), paid).map((share) => minorToNumber(share));
+    return allocateMinor(toMinor(refundAmount, decimals), paid).map((share) => minorToNumber(share, decimals));
 }
 
 export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
-    const original = await PosOrder.findOne({
+    const original = await posOrderService.findOne({
         _id: body._id,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!original) throw apiValidationException("pos_order_not_found", "_id", null, ctx.languageCode);
     if (original.state !== "paid") {
         throw apiValidationException("pos_order_not_refundable", "_id", null, ctx.languageCode);
@@ -1084,15 +1091,16 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         throw apiValidationException("pos_order_is_refund", "_id", null, ctx.languageCode);
     }
 
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: original.session,
         company: ctx.company._id,
-    }).noDeleted();
+    }, {withDeleted: false});
     if (!sessionDoc || sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "session", null, ctx.languageCode);
     }
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
 
-    const config = await PosConfig.findById(original.config);
+    const config = await posConfigService.findOne({_id: original.config});
     if (!config) throw apiValidationException("pos_config_not_found", "config", null, ctx.languageCode);
     await assertPosTillMutable(config, ctx);
     const warehouseIds = warehouseIdsFromPosConfig(config);
@@ -1120,7 +1128,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         Math.max(0, Number(line.quantity) - Number(line.quantityRefunded ?? 0));
     const alreadyPartial = originalLines.some((l: any) => Number(l.quantityRefunded ?? 0) > 0.0001);
     const priorAmountRefunded = Number(original.amountRefunded ?? 0);
-    const remainingOrderAmount = Math.max(0, subtractMoney(Number(original.amountTotal), priorAmountRefunded));
+    const remainingOrderAmount = Math.max(0, subtractMoney(Number(original.amountTotal), priorAmountRefunded, decimals));
 
     let refundLines: any[];
     let refundAmount: number;
@@ -1143,23 +1151,18 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 quantityRefunded: 0,
                 unitPrice: line.unitPrice,
                 discountPercent: line.discountPercent,
-                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, qty, line.quantity) : 0,
-                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, qty, line.quantity) : 0,
-                priceTotal: line.quantity > 0 ? prorateMoney(line.priceTotal ?? 0, qty, line.quantity) : 0,
-                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, qty, line.quantity) : 0,
+                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, qty, line.quantity, decimals) : 0,
+                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, qty, line.quantity, decimals) : 0,
+                priceTotal: posLineRefundTotal(line, qty, decimals),
+                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, qty, line.quantity, decimals) : 0,
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
             });
             restockPlan.push({line, quantity: qty});
         }
-        refundAmount = addMoney(...refundLines.map(l => l.priceTotal));
-        // Apply order-level discount proportionally to selected lines' share of original subtotal
-        const originalLineSum = addMoney(...originalLines.map((l: any) => l.priceTotal ?? 0));
-        if (original.discountTotal > 0 && originalLineSum > 0) {
-            const orderDiscShare = prorateMoney(original.discountTotal, refundAmount, originalLineSum);
-            refundAmount = Math.max(0, subtractMoney(refundAmount, orderDiscShare));
-        }
+        // The same rule the panel's refund dialog shows (armonia `posRefundAmount`)
+        refundAmount = posRefundAmount(original, restockPlan, decimals);
         if (refundAmount > remainingOrderAmount + 0.011) {
             throw apiValidationException("pos_refund_amount_invalid", "amount", null, ctx.languageCode);
         }
@@ -1187,10 +1190,10 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
                 quantityRefunded: 0,
                 unitPrice: line.unitPrice,
                 discountPercent: line.discountPercent,
-                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, remaining, line.quantity) : 0,
-                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, remaining, line.quantity) : 0,
-                priceTotal: line.quantity > 0 ? prorateMoney(line.priceTotal ?? 0, remaining, line.quantity) : 0,
-                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, remaining, line.quantity) : 0,
+                discountAmount: line.quantity > 0 ? prorateMoney(line.discountAmount ?? 0, remaining, line.quantity, decimals) : 0,
+                priceSubtotal: line.quantity > 0 ? prorateMoney(line.priceSubtotal ?? 0, remaining, line.quantity, decimals) : 0,
+                priceTotal: posLineRefundTotal(line, remaining, decimals),
+                taxAmount: line.quantity > 0 ? prorateMoney(line.taxAmount ?? 0, remaining, line.quantity, decimals) : 0,
                 productName: line.productName,
                 productSku: line.productSku,
                 barcode: line.barcode,
@@ -1200,12 +1203,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             .map(line => ({line, quantity: remainingOf(line)}))
             .filter(p => p.quantity > 0);
         // Recompute amount from remaining lines when doing full remaining refund
-        refundAmount = addMoney(...refundLines.map(l => l.priceTotal));
-        const originalLineSum = addMoney(...originalLines.map((l: any) => l.priceTotal ?? 0));
-        if (original.discountTotal > 0 && originalLineSum > 0) {
-            const orderDiscShare = prorateMoney(original.discountTotal, refundAmount, originalLineSum);
-            refundAmount = Math.max(0, subtractMoney(refundAmount, orderDiscShare));
-        }
+        refundAmount = posRefundAmount(original, originalLines.map(line => ({line, quantity: remainingOf(line)})), decimals);
     }
 
     if (!(refundAmount > 0) || !refundLines.length) {
@@ -1213,13 +1211,13 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     }
 
     const originalPayments = original.payments ?? [];
-    const cashMethods = await PosPaymentMethod.find({
+    const cashMethods = await posPaymentMethodService.find({
         _id: {$in: originalPayments.flatMap((p) => {
             const id = nestedEntityToRef(p.paymentMethod);
             return id ? [id] : [];
         })},
         type: "cash",
-    }).session(ctx.session ?? null);
+    }, {session: ctx.session});
     const cashMethodIds = new Set(cashMethods.map(m => m._id.toString()));
     const isCashPayment = originalPayments.map((p) => {
         const mid = nestedEntityToRef(p.paymentMethod)?.toString();
@@ -1229,6 +1227,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         originalPayments.map((p, index) => ({amount: p.amount, isCash: isCashPayment[index]})),
         original.amountReturn,
         refundAmount,
+        decimals,
     );
 
     const name = await generatePosOrderName(ctx.company._id, ctx.session);
@@ -1253,11 +1252,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             terminalReference: p.terminalReference,
             terminalId: p.terminalId,
         })),
-        amountTax: addMoney(...refundLines.map(line => line.taxAmount)),
+        amountTax: sumMoney(refundLines.map(line => line.taxAmount), decimals),
         amountTotal: refundAmount,
         amountPaid: refundAmount,
         amountReturn: 0,
-        discountTotal: Math.max(0, original.amountTotal > 0 ? prorateMoney(original.discountTotal ?? 0, refundAmount, original.amountTotal) : roundToCurrency(original.discountTotal ?? 0)),
+        discountTotal: Math.max(0, original.amountTotal > 0 ? prorateMoney(original.discountTotal ?? 0, refundAmount, original.amountTotal, decimals) : roundToCurrency(original.discountTotal ?? 0, decimals)),
         note: body.reason ? `Refund: ${body.reason}` : `Refund of ${original.name}`,
         refundOf: original._id,
         isRefund: true,
@@ -1310,7 +1309,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
     }
     original.markModified("lines");
-    original.amountRefunded = addMoney(priorAmountRefunded, refundAmount);
+    original.amountRefunded = sumMoney([priorAmountRefunded, refundAmount], decimals);
 
     const allLinesFullyRefunded = originalLines.every((l: any) => remainingOf(l) <= 0.0001);
     const fullyRefunded =
@@ -1320,8 +1319,8 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     if (fullyRefunded) {
         original.state = "refunded";
         if (original.productOrder) {
-            await ProductOrder.findByIdAndUpdate(
-                original.productOrder,
+            await productOrderService.updateOne(
+                {_id: original.productOrder},
                 {
                     $set: {status: "refunded", paymentStatus: "refunded", fulfillmentStatus: "returned"},
                     $push: {timeline: {event: "refunded", timestamp: now, userId: ctx.userId, note: body.reason}},
@@ -1332,19 +1331,52 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     }
     await original.save({session: ctx.session});
 
-    // Cash refund reduces drawer: the cash payments' shares of the refund, never the change they included
-    const cashRefund = addMoney(...refundShares.filter((_, index) => isCashPayment[index]));
-    if (cashRefund > 0) {
-        sessionDoc.cashRegisterBalance = subtractMoney(sessionDoc.cashRegisterBalance, cashRefund);
-        sessionDoc.expectedCash = subtractMoney(sessionDoc.expectedCash, cashRefund);
-        sessionDoc.totalCash = Math.max(0, subtractMoney(sessionDoc.totalCash, cashRefund));
+    // Each payment's share goes back on its ledger charge (TD-B41)
+    const originalProductOrderId = nestedEntityToRef(original.productOrder);
+    if (originalProductOrderId) {
+        const charges = await paymentTransactionService.find(
+            {type: "charge", "metadata.posOrderId": original._id.toString()},
+            {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session},
+        );
+        for (const [paymentIndex, share] of refundShares.entries()) {
+            if (share <= 0) continue;
+            const methodId = nestedEntityToRef(originalPayments[paymentIndex].paymentMethod)?.toString();
+            const charge = charges.find((c) => c.metadata?.paymentIndex === paymentIndex)
+                ?? charges.find((c) => c.metadata?.paymentIndex === undefined && c.metadata?.paymentMethodId === methodId);
+            if (!charge) continue;
+            await paymentTransactionService.recordRefund(
+                {
+                    sourceType: "productOrder",
+                    sourceId: originalProductOrderId,
+                    chargeTransactionId: charge._id,
+                    gateway: "manual",
+                    amount: share,
+                    currency: charge.currency,
+                    metadata: {
+                        posOrderId: refundOrder._id.toString(),
+                        refundOfPosOrderId: original._id.toString(),
+                        paymentMethodId: methodId,
+                        paymentMethodName: originalPayments[paymentIndex].paymentMethodName,
+                        channel: "pos",
+                    },
+                    company: ctx.company._id,
+                },
+                {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId: ctx.userId},
+            );
+        }
     }
-    sessionDoc.totalSales = Math.max(0, subtractMoney(sessionDoc.totalSales, refundAmount));
+
+    // Cash refund reduces drawer: the cash payments' shares of the refund, never the change they included
+    const cashRefund = sumMoney(refundShares.filter((_, index) => isCashPayment[index]), decimals);
+    if (cashRefund > 0) {
+        sessionDoc.cashRegisterBalance = subtractMoney(sessionDoc.cashRegisterBalance, cashRefund, decimals);
+        sessionDoc.expectedCash = subtractMoney(sessionDoc.expectedCash, cashRefund, decimals);
+        sessionDoc.totalCash = Math.max(0, subtractMoney(sessionDoc.totalCash, cashRefund, decimals));
+    }
+    sessionDoc.totalSales = Math.max(0, subtractMoney(sessionDoc.totalSales, refundAmount, decimals));
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await PosOrder.findById(refundOrder._id)
-        .populate("session config cashier customer payments.paymentMethod")
-        .session(ctx.session ?? null);
+    const populated = await posOrderService.findById(refundOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
 
     return {
         order: posOrderToDTO(populated as IPosOrder),
@@ -1370,8 +1402,6 @@ export type ChargePosTerminalResult = {
     raw?: unknown;
 };
 
-export type {TestPosTerminalConnectionResult} from "./posTerminalConnection";
-export {testPosTerminalConnection} from "./posTerminalConnection";
 
 /**
  * Charge a bank payment terminal configured on a card POS payment method.
@@ -1379,24 +1409,25 @@ export {testPosTerminalConnection} from "./posTerminalConnection";
  * - `local_http`: POST JSON to {http|https}://{host}:{port}{path} (local ECR / bank POS bridge).
  */
 export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): Promise<ChargePosTerminalResult> {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: body.sessionId,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
     }
 
-    const gateConfig = await PosConfig.findById(sessionDoc.config).session(ctx.session ?? null);
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
+    const gateConfig = await posConfigService.findOne({_id: sessionDoc.config}, {session: ctx.session});
     if (!gateConfig) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
     await assertPosTillMutable(gateConfig, ctx);
 
-    const method = await PosPaymentMethod.findOne({
+    const method = await posPaymentMethodService.findOne({
         _id: body.paymentMethodId,
         company: ctx.company._id,
         isActive: true,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session, withDeleted: false});
     if (!method) throw apiValidationException("pos_payment_method_invalid", "paymentMethodId", null, ctx.languageCode);
     if (method.type !== "card") {
         throw apiValidationException("pos_terminal_not_for_method", "paymentMethodId", null, ctx.languageCode);
@@ -1405,7 +1436,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
         throw apiValidationException("pos_terminal_disabled", "paymentMethodId", null, ctx.languageCode);
     }
 
-    const amount = roundToCurrency(Number(body.amount));
+    const amount = roundToCurrency(Number(body.amount), decimals);
     if (!(amount > 0)) throw apiValidationException("pos_terminal_amount_invalid", "amount", null, ctx.languageCode);
 
     const reference = (body.reference || `POS-${Date.now()}`).slice(0, 120);

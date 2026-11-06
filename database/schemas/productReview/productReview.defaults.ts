@@ -82,7 +82,6 @@ export async function createProductReviews(
             );
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
-            console.log(e);
             logger.err(`Error creating product review for '${seedKey}': ${message}`);
             skipped += 1;
         }

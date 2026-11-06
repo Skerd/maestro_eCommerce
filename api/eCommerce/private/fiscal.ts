@@ -1,11 +1,15 @@
 import {Router} from "express";
-import {z} from "zod";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import {isObjectIdZod, stringMinMaxLengthZod} from "armonia/src/modules/core/helpers/zodBuilder";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {ServerError} from "armonia/src/modules/core/types";
+import {
+    getTaxpayerFormSchema,
+    posOrderFiscalFormSchema,
+    registerTcrFormSchema,
+} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscal/fiscal.form.validator";
 import {
     financeInvoiceFiscalData,
     fiscalizePosOrder,
@@ -16,17 +20,17 @@ import {
     registerFiscalInvoice,
     registerTcr,
 } from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
-import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
+import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.dto";
 import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {getModelCollectedData} from "@coreModule/database/collections";
 import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
-import Company from "@coreModule/database/schemas/company/company";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
-import Invoice from "@financeModule/database/schemas/invoice/invoice";
-import {registerInvoiceFiscalizer} from "@financeModule/database/schemas/invoice/invoice.service";
+import {invoiceService, registerInvoiceFiscalizer} from "@financeModule/database/schemas/invoice/invoice.service";
 
 export const basePath = "/api/eCommerce/fiscal";
 export const router = Router();
@@ -36,12 +40,13 @@ export const router = Router();
  * active fiscal config, through the same CIS registration as POS orders. A company
  * without one gets `null`: its invoices need no registration here.
  */
-registerInvoiceFiscalizer(async (invoice) => {
+registerInvoiceFiscalizer(async (invoice, {languageCode}) => {
     const config = await loadFiscalConfigWithCert(nestedEntityToRef(invoice.company));
     if (!config) return null;
-    const company = await Company.findById(nestedEntityToRef(invoice.company)).select("name vat");
-    const credited = invoice.creditedInvoice ? await Invoice.findById(invoice.creditedInvoice).select("fiscal") : null;
+    const company = await companyService.findById(nestedEntityToRef(invoice.company), {}, undefined, "name vat");
+    const credited = invoice.creditedInvoice ? await invoiceService.findById(invoice.creditedInvoice, {}, undefined, "fiscal") : null;
     const result = await registerFiscalInvoice(financeInvoiceFiscalData(invoice, credited?.fiscal?.iic), config, {
+        languageCode,
         companyVat: company?.vat,
         companyName: company?.name,
         ...(invoice.customer.vatNumber ? {buyer: {name: invoice.customer.name, nipt: invoice.customer.vatNumber, address: invoice.customer.address}} : {}),
@@ -49,45 +54,17 @@ registerInvoiceFiscalizer(async (invoice) => {
     return result.fault ? {error: result.fault} : {iic: result.nslf, fic: result.nivf, qrUrl: result.qrVerifyUrl};
 });
 
-function fiscalizeFormSchema(languageCode: string, form: any = null) {
-    return z.object({
-        posOrderId: isObjectIdZod(form?.["posOrderIdLabel"] ?? "posOrderId", languageCode),
-        fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode).optional(),
-    });
-}
-
-function registerTcrFormSchema(languageCode: string, form: any = null) {
-    return z.object({
-        fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode),
-        validFrom: z.string().optional(),
-        validTo: z.string().optional(),
-    });
-}
-
-export function getTaxpayerFormSchema(languageCode: string, form: any = null) {
-    return z.object({
-        fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode),
-        tin: stringMinMaxLengthZod(form?.["tinLabel"] ?? "tin", 1, 20, languageCode),
-    });
-}
-
-function einvoiceFormSchema(languageCode: string, form: any = null) {
-    return z.object({
-        posOrderId: isObjectIdZod(form?.["posOrderIdLabel"] ?? "posOrderId", languageCode),
-        fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode).optional(),
-    });
-}
-
 router.post(
     "/fiscalizePosOrder",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
-    validateFormZod(fiscalizeFormSchema),
+    validateFormZod(posOrderFiscalFormSchema),
     asyncHandler(async (params: any) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
         try {
             const result = await fiscalizePosOrder(posOrderId, company._id, {
+                languageCode,
                 fiscalConfigId,
                 companyVat: company.vat,
                 companyName: company.name,
@@ -103,6 +80,7 @@ router.post(
                 },
             };
         } catch (e: any) {
+            if (e instanceof ServerError) throw e;
             throw apiValidationException("fiscal_error", "posOrderId", null, languageCode, [e?.message || String(e)]);
         }
     }),
@@ -112,17 +90,18 @@ router.post(
     "/registerEinvoice",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 20}),
-    validateFormZod(einvoiceFormSchema),
+    validateFormZod(posOrderFiscalFormSchema),
     asyncHandler(async (params: any) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
-        const order = await PosOrder.findOne({_id: posOrderId, company: company._id}).noDeleted();
+        const order = await posOrderService.findOne({_id: posOrderId, company: company._id}, {withDeleted: false});
         if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
         const resolvedFiscalConfigId = fiscalConfigId ?? await fiscalConfigIdForPosConfig(company._id, order.config);
         const config = await loadFiscalConfigWithCert(company._id, resolvedFiscalConfigId);
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
         try {
             const result = await registerEinvoiceForPosOrder(order, config, {
+                languageCode,
                 companyVat: company.vat,
                 companyName: company.name,
             });
@@ -143,6 +122,7 @@ router.post(
                 },
             };
         } catch (e: any) {
+            if (e instanceof ServerError) throw e;
             throw apiValidationException("fiscal_einvoice_error", "posOrderId", null, languageCode, [e?.message || String(e)]);
         }
     }),
@@ -170,11 +150,12 @@ router.post(
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
         try {
             const result = await registerTcr(config, {
+                languageCode,
                 companyVat: company.vat,
                 validFrom,
                 validTo,
             });
-            const refreshed = await FiscalConfig.findById(config._id);
+            const refreshed = await fiscalConfigService.findById(config._id);
             return {
                 data: {
                     tcrCode: result.tcrCode || refreshed?.tcrCode,
@@ -183,6 +164,7 @@ router.post(
                 },
             };
         } catch (e: any) {
+            if (e instanceof ServerError) throw e;
             throw apiValidationException("fiscal_tcr_error", "fiscalConfigId", null, languageCode, [e?.message || String(e)]);
         }
     }),
@@ -199,9 +181,10 @@ router.post(
         const config = await loadFiscalConfigWithCert(company._id, fiscalConfigId);
         if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
         try {
-            const result = await getTaxpayer(config, tin);
+            const result = await getTaxpayer(config, tin, languageCode);
             return {data: result};
         } catch (e: any) {
+            if (e instanceof ServerError) throw e;
             throw apiValidationException("fiscal_taxpayer_error", "tin", null, languageCode, [e?.message || String(e)]);
         }
     }),

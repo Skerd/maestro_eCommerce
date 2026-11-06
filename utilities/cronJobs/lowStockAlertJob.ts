@@ -1,7 +1,7 @@
 import type {ObjectId} from "mongodb";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {CONSTANTS} from "@coreModule/environment";
-import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
+import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import {notifyMerchantsLowStock} from "@eCommerceModule/utilities/services/productOrderNotify";
 
 export async function runLowStockAlert(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
@@ -12,7 +12,7 @@ export async function runLowStockAlert(company: ObjectId, parentLogger?: serverL
 
     try {
         // Clear alert flag when stock recovered above reorder point
-        await Inventory.updateMany(
+        await inventoryService.updateMany(
             {
                 company,
                 lowStockAlertSent: true,
@@ -26,7 +26,7 @@ export async function runLowStockAlert(company: ObjectId, parentLogger?: serverL
             {$set: {lowStockAlertSent: false}},
         );
 
-        const lowStockItems = await Inventory.find({
+        const lowStockItems = await inventoryService.find({
             company,
             lowStockAlertSent: {$ne: true},
             $expr: {
@@ -36,10 +36,7 @@ export async function runLowStockAlert(company: ObjectId, parentLogger?: serverL
                     {$ne: ["$reorderPoint", null]},
                 ],
             },
-        })
-            .populate("product", "title sku")
-            .populate("warehouse", "name code")
-            .lean();
+        }, {}, [{path: "product", select: "title sku"}, {path: "warehouse", select: "name code"}]);
 
         logger.debug(`Found ${lowStockItems.length} low stock items`);
 
@@ -61,7 +58,7 @@ export async function runLowStockAlert(company: ObjectId, parentLogger?: serverL
                     availableQuantity: available,
                     reorderPoint: item.reorderPoint ?? 0,
                 });
-                await Inventory.updateOne({_id: item._id}, {$set: {lowStockAlertSent: true}});
+                await inventoryService.updateOne({_id: item._id}, {$set: {lowStockAlertSent: true}});
                 notified += 1;
             } catch (e: any) {
                 logger.err(`Low stock notify failed for inventory ${item._id}`, e);

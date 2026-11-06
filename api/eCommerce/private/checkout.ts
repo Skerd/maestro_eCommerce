@@ -6,23 +6,28 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import Currency from "@coreModule/database/schemas/currency/currency";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
 import Cart, {ICart} from "@eCommerceModule/database/schemas/cart/cart";
-import Discount from "@eCommerceModule/database/schemas/discount/discount";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
+import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
 import {distinctSellerCompanyIds, repriceCart} from "@eCommerceModule/utilities/services/cartPricingService";
-import {addMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
+import {roundToCurrency, subtractMoney, sumMoney} from "armonia/src/modules/core/helpers/money";
+import type {ClientSession} from "mongoose";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {
     assertDiscountUsable,
     placeOrderFromCheckout,
     reserveStockForPayment,
     resetCheckoutPayment,
-} from "@eCommerceModule/utilities/services/checkoutPlacementService";
+} from "@eCommerceModule/workflows/checkoutPlacementService";
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
 import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
@@ -49,7 +54,7 @@ const CHECKOUT_TTL_MS = 30 * 60 * 1000;
 /** The checkout DTO with its currency, so the storefront shows totals in the currency that is charged. */
 async function checkoutResponse(checkout: ICheckout) {
     const currencyId = (checkout.currency as any)?._id ?? checkout.currency;
-    const currency = currencyId ? await Currency.findById(currencyId).select(SHOP_CURRENCY_SELECT).lean() : null;
+    const currency = currencyId ? await currencyService.findById(currencyId, {}, undefined, SHOP_CURRENCY_SELECT) : null;
     return {data: {...checkoutToDTO(checkout.toObject() as ICheckout), currency: toShopCurrency(currency)}};
 }
 
@@ -63,12 +68,12 @@ async function resolveCurrencyId(cart: any, companyId: ObjectId): Promise<Object
 
     const firstProductId = cart.items?.[0]?.product?._id ?? cart.items?.[0]?.product;
     if (firstProductId) {
-        const product = await Product.findOne({_id: firstProductId, company: companyId}, {currency: 1});
+        const product = await productService.findOne({_id: firstProductId, company: companyId}, {}, undefined, "currency");
         const productCurrency = (product as any)?.currency?._id ?? (product as any)?.currency;
         if (productCurrency) return productCurrency;
     }
 
-    const fallback = await Currency.findOne({company: companyId}, {_id: 1}).sort({createdAt: 1});
+    const [fallback] = await currencyService.find({company: companyId}, {}, undefined, "_id", {createdAt: 1}, 1);
     return fallback?._id ?? null;
 }
 
@@ -88,7 +93,12 @@ function contentFingerprint(lines: any[], subtotal: number, discountTotal: numbe
 }
 
 /** Copies the (freshly priced) cart onto a pending checkout and clears anything derived from it. */
-function syncCheckoutFromCart(checkout: ICheckout, cart: ICart, sessionCompanyId: ObjectId): void {
+/** The `decimalPlaces` of the checkout's currency, where its totals are rounded (TD-B38). */
+function checkoutDecimals(checkout: ICheckout, session?: ClientSession): Promise<number> {
+    return currencyDecimalPlaces(nestedEntityToRef(checkout.currency), session);
+}
+
+function syncCheckoutFromCart(checkout: ICheckout, cart: ICart, sessionCompanyId: ObjectId, decimals: number): void {
     checkout.items = (cart.items as any[]).map(item => ({
         product: item.product,
         variant: item.variant,
@@ -110,7 +120,7 @@ function syncCheckoutFromCart(checkout: ICheckout, cart: ICart, sessionCompanyId
     checkout.shippingTotal = 0;
     checkout.taxTotal = 0;
     checkout.taxBreakdown = [];
-    checkout.grandTotal = Math.max(0, subtractMoney(subtractMoney(checkout.subtotal, checkout.discountTotal), checkout.giftCard?.amount ?? 0));
+    checkout.grandTotal = Math.max(0, subtractMoney(subtractMoney(checkout.subtotal, checkout.discountTotal, decimals), checkout.giftCard?.amount ?? 0, decimals));
 }
 
 function itemSellerId(item: any, fallback: ObjectId): string {
@@ -122,28 +132,27 @@ function itemSellerId(item: any, fallback: ObjectId): string {
  * order total and the card's live balance.
  */
 async function recomputeTotals(checkout: ICheckout, companyId: ObjectId, languageCode: string, session?: any): Promise<void> {
-    const totalBeforeGiftCard = addMoney(
-        Math.max(0, subtractMoney(checkout.subtotal, checkout.discountTotal)), checkout.shippingTotal ?? 0, checkout.taxTotal ?? 0,
-    );
+    const decimals = await checkoutDecimals(checkout, session);
+    const totalBeforeGiftCard = sumMoney([Math.max(0, subtractMoney(checkout.subtotal, checkout.discountTotal, decimals)), checkout.shippingTotal ?? 0, checkout.taxTotal ?? 0], decimals);
 
     if (checkout.giftCard?.code) {
         const card = await giftCardService.findRedeemable(checkout.giftCard.code, companyId, {languageCode, session});
-        const amount = card ? Math.min(roundToCurrency(card.balance), totalBeforeGiftCard) : 0;
+        const amount = card ? Math.min(roundToCurrency(card.balance, decimals), totalBeforeGiftCard) : 0;
         checkout.giftCard = amount > 0 && card ? {giftCard: card._id as any, code: card.code, amount} : undefined;
     }
 
-    checkout.grandTotal = Math.max(0, subtractMoney(totalBeforeGiftCard, checkout.giftCard?.amount ?? 0));
+    checkout.grandTotal = Math.max(0, subtractMoney(totalBeforeGiftCard, checkout.giftCard?.amount ?? 0, decimals));
 }
 
 /** Loads the buyer's open checkout (pending or mid-payment). */
 async function findOpenCheckout(params: any): Promise<ICheckout> {
     const {languageCode, company, actionUserCtx, checkoutId, session} = params;
-    const checkout = await Checkout.findOne({
+    const checkout = await checkoutService.findOne({
         _id: new ObjectId(checkoutId),
         company: company._id,
         user: actionUserCtx.userId,
         status: {$in: ["pending", "payment_processing"]},
-    }).session(session ?? null);
+    }, {session: session ?? undefined});
     if (!checkout) throw apiValidationException("checkout_not_found", null, null, languageCode);
     return checkout;
 }
@@ -163,13 +172,13 @@ router.post(
         const {languageCode, company, actionUserCtx, idempotencyKey} = params;
         const userId = new ObjectId(actionUserCtx.userId);
 
-        const existing = await Checkout.findOne({idempotencyKey});
+        const existing = await checkoutService.findOne({idempotencyKey});
         if (existing && (existing.company.toString() !== company._id.toString() || existing.user?.toString() !== userId.toString())) {
             throw apiValidationException("idempotency_key_conflict", null, null, languageCode);
         }
         // Mid-payment or already placed: resume as-is (redirect returns land here)
         if (existing && ["payment_processing", "confirmed"].includes(existing.status)) {
-            const cart = await Cart.findOne({user: userId, company: company._id});
+            const cart = await cartService.findOne({user: userId, company: company._id});
             const cartChanged = existing.status === "payment_processing" && cart && (cart.items as any[]).length > 0
                 && contentFingerprint(cart.items as any[], cart.subtotal, cart.discountTotal ?? 0, cart.appliedGiftCard?.amount ?? 0)
                     !== contentFingerprint(existing.items as any[], existing.subtotal, existing.discountTotal, (existing.giftCard?.amount ?? 0));
@@ -180,7 +189,7 @@ router.post(
             throw apiValidationException("checkout_expired", null, null, languageCode);
         }
 
-        const cart = await Cart.findOne({user: userId, company: company._id});
+        const cart = await cartService.findOne({user: userId, company: company._id});
         if (!cart || (cart.items as any[]).length === 0) {
             throw apiValidationException("cart_empty", null, null, languageCode);
         }
@@ -201,7 +210,7 @@ router.post(
             if (changed) {
                 // An offline method may already hold stock for the old contents
                 await resetCheckoutPayment(existing, {logger: params.logger, languageCode, auditUserId: actionUserCtx.userId});
-                syncCheckoutFromCart(existing, cart, company._id);
+                syncCheckoutFromCart(existing, cart, company._id, await checkoutDecimals(existing));
                 existing.expiresAt = new Date(Date.now() + CHECKOUT_TTL_MS);
                 await existing.save();
             }
@@ -222,7 +231,7 @@ router.post(
             taxTotal: 0,
             expiresAt: new Date(Date.now() + CHECKOUT_TTL_MS),
         });
-        syncCheckoutFromCart(checkout, cart, company._id);
+        syncCheckoutFromCart(checkout, cart, company._id, await checkoutDecimals(checkout));
 
         await checkout.save();
         return checkoutResponse(checkout);
@@ -241,14 +250,14 @@ router.post(
 
         const checkout = await findOpenCheckout(params);
         await resetCheckoutPayment(checkout, placementCtx(params));
+        const decimals = await checkoutDecimals(checkout, session);
 
         checkout.shippingAddress = shippingAddress;
         checkout.billingAddress = billingAddress ?? shippingAddress;
 
         const productIds = (checkout.items as any[]).map(item => item.product?._id ?? item.product);
         const products = new Map(
-            (await Product.find({_id: {$in: productIds}}, {weight: 1, weightUnit: 1, type: 1, requiresShipping: 1, company: 1})
-                .session(session).lean())
+            (await productService.find({_id: {$in: productIds}}, {session}, undefined, "weight weightUnit type requiresShipping company"))
                 .map((p: any) => [p._id.toString(), p]),
         );
         const productOf = (item: any) => products.get(String(item.product?._id ?? item.product));
@@ -262,7 +271,7 @@ router.post(
             availableRates.map(rate => ({
                 name: rate.rateName ?? rate.name ?? "",
                 carrier: rate.zoneName ?? rate.carrier,
-                price: roundToCurrency(rate.price ?? 0),
+                price: roundToCurrency(rate.price ?? 0, decimals),
                 estimatedDeliveryDays: rate.estimatedDays ?? rate.estimatedDeliveryDays,
             }));
 
@@ -299,7 +308,7 @@ router.post(
             for (const sellerId of sellerIds) {
                 const sellerCompanyId = new ObjectId(sellerId);
                 const items = (checkout.items as any[]).filter(item => itemSellerId(item, company._id) === sellerId);
-                const subtotal = addMoney(...items.map((item) => item.totalPrice ?? 0));
+                const subtotal = sumMoney(items.map((item) => item.totalPrice ?? 0), decimals);
                 const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
                 const totalWeight = items.reduce((sum, item) => {
                     const product = productOf(item);
@@ -317,7 +326,7 @@ router.post(
                     : [{rateName: "No shipping required", price: 0}];
                 const rates = normalizeRates(availableRates as any[]);
                 const cheapest = [...rates].sort((a, b) => a.price - b.price)[0] ?? {name: "No shipping required", price: 0};
-                shippingSum = addMoney(shippingSum, cheapest.price);
+                shippingSum = sumMoney([shippingSum, cheapest.price], decimals);
                 groups.push({
                     sellerCompany: sellerCompanyId as any,
                     subtotal,
@@ -363,18 +372,19 @@ router.post(
         const rates = (checkout.availableShippingRates as any[]) ?? [];
         const rate = Number.isInteger(rateIndex) ? rates[rateIndex] : undefined;
         if (!rate) throw apiValidationException("invalid_rate_index", null, null, languageCode);
+        const decimals = await checkoutDecimals(checkout, session);
 
         const sellerIds = distinctSellerCompanyIds(checkout.items as any);
         const promoCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : company._id;
         const appliedDiscountId = checkout.appliedDiscounts?.[0]?.discount;
         const freeShipping = appliedDiscountId
-            ? Boolean(await Discount.exists({_id: appliedDiscountId, company: promoCompanyId, type: "free_shipping", deletedAt: null}).session(session))
+            ? await discountService.exists({_id: appliedDiscountId, company: promoCompanyId, type: "free_shipping", deletedAt: null}, {session})
             : false;
 
         checkout.selectedShippingRate = rate;
         if ((checkout.sellerGroups?.length ?? 0) > 1) {
             // Combined multi-seller rate already priced; honour free shipping only when a single-seller promo applied
-            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0);
+            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0, decimals);
             let taxSum = 0;
             const breakdown: {name: string; rate: number; amount: number}[] = [];
             for (const group of checkout.sellerGroups ?? []) {
@@ -385,9 +395,10 @@ router.post(
                     0,
                     checkout.shippingAddress as any ?? {},
                     new ObjectId(sellerId),
+                    decimals,
                 );
                 group.taxTotal = tax.amount;
-                taxSum = addMoney(taxSum, tax.amount);
+                taxSum = sumMoney([taxSum, tax.amount], decimals);
                 breakdown.push(...tax.breakdown);
                 if (freeShipping) group.shippingTotal = 0;
             }
@@ -395,12 +406,13 @@ router.post(
             checkout.taxBreakdown = breakdown;
             checkout.markModified("sellerGroups");
         } else {
-            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0);
+            checkout.shippingTotal = freeShipping ? 0 : roundToCurrency(rate.price ?? 0, decimals);
             const tax = await calculateLinesTax(
                 checkout.items as any[],
                 checkout.discountTotal,
                 checkout.shippingAddress as any ?? {},
                 promoCompanyId,
+                decimals,
             );
             checkout.taxTotal = tax.amount;
             checkout.taxBreakdown = tax.breakdown;
@@ -458,7 +470,7 @@ router.post(
         }
 
         const currencyId = (checkout.currency as any)?._id ?? (checkout.currency as any);
-        const currency = await Currency.findById(currencyId, {abbreviation: 1}).session(session);
+        const currency = await currencyService.findById(currencyId, {session}, undefined, "abbreviation");
         if (!currency?.abbreviation) throw apiValidationException("currency_not_configured", null, null, languageCode);
 
         const intent = await adapter.createPaymentIntent({
@@ -512,12 +524,12 @@ router.post(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, session, checkoutId, email, phone, notes} = params;
 
-        const checkout = await Checkout.findOne({
+        const checkout = await checkoutService.findOne({
             _id: new ObjectId(checkoutId),
             company: company._id,
             user: actionUserCtx.userId,
             status: {$in: ["pending", "payment_processing", "confirmed"]},
-        }).session(session);
+        }, {session});
         if (!checkout) throw apiValidationException("checkout_not_found", null, null, languageCode);
 
         const {order, siblingOrders} = await placeOrderFromCheckout(checkout, {email, phone, notes}, placementCtx(params));

@@ -1,4 +1,5 @@
 import {ObjectId} from "mongodb";
+import {getLogger} from "@coreModule/loggers/serverLog";
 import {type NotificationEvent, notificationEventBus} from "@coreModule/domain/notifications/notificationEventBus";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {createAndPushNotification} from "@coreModule/domain/notifications/notificationDomainService";
@@ -94,7 +95,7 @@ function bindHandler(code: ProductOrderCode): void {
                     opts,
                 );
             } catch (e) {
-                console.error(`Failed to create ${code} notification for ${receiverId}:`, e);
+                getLogger("product_order_notifications").err(`Failed to create ${code} notification for ${receiverId}: ${e instanceof Error ? e.message : String(e)}`);
             }
         }
     });
@@ -143,7 +144,7 @@ export function registerAbandonedCartNotificationHandlers(): void {
                     opts,
                 );
             } catch (e) {
-                console.error(`Failed to create ABANDONED_CART notification for ${receiverId}:`, e);
+                getLogger("product_order_notifications").err(`Failed to create ABANDONED_CART notification for ${receiverId}: ${e instanceof Error ? e.message : String(e)}`);
             }
         }
     });

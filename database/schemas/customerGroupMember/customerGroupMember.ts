@@ -14,6 +14,8 @@ import type {ICustomerGroup} from "@eCommerceModule/database/schemas/customerGro
 import {CustomerGroupSimpleSnippet} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.snippets";
 import {applyCustomerGroupMemberIndexes} from "./customerGroupMember.indexes";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {CustomerGroupMemberSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/customerGroupMember/customerGroupMember.schema-def";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
 
 export interface ICustomerGroupMember extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     user: IUser;
@@ -44,5 +46,6 @@ auditPlugin(CustomerGroupMemberSchema);
 softDeletePlugin(CustomerGroupMemberSchema);
 applyCustomerGroupMemberIndexes(CustomerGroupMemberSchema);
 lifeCyclePlugin(CustomerGroupMemberSchema);
+validateSchemaDefAgainstMongoose(CustomerGroupMemberSchema, CustomerGroupMemberSchemaDef, "CustomerGroupMember");
 const CustomerGroupMember = model<ICustomerGroupMember>("CustomerGroupMember", CustomerGroupMemberSchema);
 export default CustomerGroupMember;

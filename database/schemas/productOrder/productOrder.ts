@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
@@ -64,7 +64,7 @@ export interface IProductOrderItem {
         variantLabel?: string;
         productType?: string
     };
-    _id: Schema.Types.ObjectId;
+    _id: Types.ObjectId;
 }
 
 export interface IProductOrderTimelineEntry {

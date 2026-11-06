@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {getTaxpayerFormSchema} from "@eCommerceModule/api/eCommerce/private/fiscal";
+import {getTaxpayerFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscal/fiscal.form.validator";
 
 // TD-B22: `.max()` chained on `notEmptyZod` threw while building the schema, so `/getTaxpayer` answered 500 on every call.
 describe("fiscal /getTaxpayer schema", () => {

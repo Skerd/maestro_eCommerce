@@ -1,7 +1,8 @@
 import {ObjectId} from "mongodb";
-import PricingRule, {IPricingRule} from "@eCommerceModule/database/schemas/pricingRule/pricingRule";
-import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
-import Product from "@eCommerceModule/database/schemas/product/product";
+import type {IPricingRule} from "@eCommerceModule/database/schemas/pricingRule/pricingRule";
+import {pricingRuleService} from "@eCommerceModule/database/schemas/pricingRule/pricingRule.service";
+import {customerGroupMemberService} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import type {
     CartLineForPricing,
     PricingCalculationResult,
@@ -89,9 +90,7 @@ export async function calculatePricing(
     companyId: ObjectId,
 ): Promise<PricingCalculationResult> {
     const now = new Date();
-    const rules = await PricingRule.find({company: companyId, isActive: true}).noDeleted()
-        .sort({priority: -1, createdAt: -1})
-        .lean();
+    const rules = await pricingRuleService.find({company: companyId, isActive: true}, {withDeleted: false}, undefined, undefined, {priority: -1, createdAt: -1});
 
     const activeRules = rules.filter((r) => isRuleActive(r as IPricingRule, now) && ruleMatchesCustomerGroups(r as IPricingRule, cart.customerGroupIds));
 
@@ -145,9 +144,7 @@ export async function enrichCartLinesWithProductMeta(
     companyId: ObjectId,
 ): Promise<CartLineForPricing[]> {
     const productIds = [...new Set(items.map((i) => i.product.toString()))].map((id) => new ObjectId(id));
-    const products = await Product.find({_id: {$in: productIds}, company: companyId})
-        .select("categories collections")
-        .lean();
+    const products = await productService.find({_id: {$in: productIds}, company: companyId}, {}, undefined, "categories collections");
 
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
@@ -167,6 +164,6 @@ export async function enrichCartLinesWithProductMeta(
 }
 
 export async function getCustomerGroupIdsForUser(userId: ObjectId, companyId: ObjectId): Promise<ObjectId[]> {
-    const members = await CustomerGroupMember.find({user: userId, company: companyId}).noDeleted().select("customerGroup").lean();
+    const members = await customerGroupMemberService.find({user: userId, company: companyId}, {withDeleted: false}, undefined, "customerGroup");
     return members.map((m) => toObjectId(m.customerGroup));
 }

@@ -1,15 +1,17 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import Discount from "@eCommerceModule/database/schemas/discount/discount";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {calculatePricing, getCustomerGroupIdsForUser} from "@eCommerceModule/utilities/services/pricingCalculationService";
 import {
     validateDiscountForCustomer,
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
-import {addMoney, multiplyMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
+import {multiplyMoney, roundToCurrency, subtractMoney, sumMoney} from "armonia/src/modules/core/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
@@ -80,7 +82,7 @@ export function distinctSellerCompanyIds(items: PriceableLine[]): string[] {
  *  - the gift-card amount is re-capped to the live balance and remaining total.
  * Returns what changed so the buyer can be told.
  */
-export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{notices: CartNotices; meta: LineCatalogMeta[]}> {
+export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{notices: CartNotices; meta: LineCatalogMeta[]; decimalPlaces: number}> {
     const notices: CartNotices = {};
     const productIds = [...new Set(doc.items.map(item => idOf(item.product)))].map(id => new ObjectId(id));
     const variantIds = doc.items.filter(item => item.variant).map(item => new ObjectId(idOf(item.variant)));
@@ -98,17 +100,18 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     }
 
     const [products, variants] = await Promise.all([
-        Product.find(
+        productService.find(
             productFilter,
-            {title: 1, slug: 1, sku: 1, price: 1, mainImage: 1, categories: 1, type: 1, hasVariants: 1, weight: 1, minOrderQty: 1, maxOrderQty: 1, stepQty: 1, company: 1},
-        ).noDeleted().session(ctx.session ?? null).lean(),
+            {session: ctx.session ?? undefined, withDeleted: false},
+            undefined,
+            "title slug sku price currency mainImage categories type hasVariants weight minOrderQty maxOrderQty stepQty company",
+        ),
         variantIds.length
-            ? ProductVariant.find(
-                  variantFilter,
-                  {product: 1, sku: 1, price: 1, mainImage: 1, company: 1},
-              ).noDeleted().session(ctx.session ?? null).lean()
+            ? productVariantService.find(variantFilter, {session: ctx.session ?? undefined, withDeleted: false}, undefined, "product sku price mainImage company")
             : Promise.resolve([]),
     ]);
+    // A cart holds one currency (`cart_currency_mismatch`), so its first product's currency sets the precision
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(products[0]?.currency), ctx.session);
     const productMap = new Map(products.map((p: any) => [p._id.toString(), p]));
     const variantMap = new Map((variants as any[]).map(v => [v._id.toString(), v]));
 
@@ -172,7 +175,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
                 .filter(idx => idx >= 0);
             const groupItems = indexes.map(idx => doc.items[idx]);
             const groupMeta = indexes.map(idx => meta[idx]);
-            const baseSubtotal = addMoney(...groupItems.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
+            const baseSubtotal = sumMoney(groupItems.map((item) => multiplyMoney(item.unitPrice, item.quantity, decimals)), decimals);
             const customerGroupIds = ctx.userId
                 ? await getCustomerGroupIdsForUser(ctx.userId, new ObjectId(sellerId))
                 : [];
@@ -193,8 +196,8 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
             );
             pricing.adjustedLines.forEach((line, i) => {
                 const item = doc.items[indexes[i]];
-                item.unitPrice = roundToCurrency(line.unitPrice);
-                item.totalPrice = multiplyMoney(item.unitPrice, item.quantity);
+                item.unitPrice = roundToCurrency(line.unitPrice, decimals);
+                item.totalPrice = multiplyMoney(item.unitPrice, item.quantity, decimals);
             });
         }
         // Multi-seller: drop company-scoped promos
@@ -209,7 +212,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
         doc.discountTotal = 0;
     } else {
         const pricingCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : ctx.companyId;
-        const baseSubtotal = addMoney(...doc.items.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
+        const baseSubtotal = sumMoney(doc.items.map((item) => multiplyMoney(item.unitPrice, item.quantity, decimals)), decimals);
         const customerGroupIds = ctx.userId ? await getCustomerGroupIdsForUser(ctx.userId, pricingCompanyId) : [];
         const pricing = await calculatePricing(
             {
@@ -228,18 +231,18 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
         );
         pricing.adjustedLines.forEach((line, idx) => {
             const item = doc.items[idx];
-            item.unitPrice = roundToCurrency(line.unitPrice);
-            item.totalPrice = multiplyMoney(item.unitPrice, item.quantity);
+            item.unitPrice = roundToCurrency(line.unitPrice, decimals);
+            item.totalPrice = multiplyMoney(item.unitPrice, item.quantity, decimals);
         });
-        doc.subtotal = addMoney(...doc.items.map((item) => item.totalPrice));
+        doc.subtotal = sumMoney(doc.items.map((item) => item.totalPrice), decimals);
 
         // 3. Re-validate the applied discount against the re-priced lines
         const applied = doc.appliedDiscounts?.[0];
         if (applied) {
-            const discount = await Discount.findOne({_id: idOf(applied.discount), company: pricingCompanyId}).noDeleted().session(ctx.session ?? null);
+            const discount = await discountService.findOne({_id: idOf(applied.discount), company: pricingCompanyId}, {session: ctx.session ?? undefined, withDeleted: false});
             const result = discount
                 ? await validateDiscountForCustomer(
-                      toValidationCart(doc, meta, ctx.userId),
+                      toValidationCart(doc, meta, ctx.userId, decimals),
                       discount,
                       pricingCompanyId,
                       ctx.session,
@@ -264,7 +267,7 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
                 session: ctx.session ?? undefined,
             });
             if (card) {
-                doc.appliedGiftCard.amount = Math.min(roundToCurrency(card.balance), Math.max(0, subtractMoney(doc.subtotal, doc.discountTotal)));
+                doc.appliedGiftCard.amount = Math.min(roundToCurrency(card.balance, decimals), Math.max(0, subtractMoney(doc.subtotal, doc.discountTotal, decimals)));
             } else {
                 notices.giftCardRemoved = true;
                 doc.appliedGiftCard = undefined;
@@ -273,17 +276,18 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     }
 
     if (multiSeller) {
-        doc.subtotal = addMoney(...doc.items.map((item) => item.totalPrice));
+        doc.subtotal = sumMoney(doc.items.map((item) => item.totalPrice), decimals);
     }
 
-    return {notices, meta};
+    return {notices, meta, decimalPlaces: decimals};
 }
 
 /** Builds the discount-validation view of a priced cart. */
-export function toValidationCart(doc: PriceableDoc, meta: LineCatalogMeta[], customerId?: ObjectId): CartForValidation {
+export function toValidationCart(doc: PriceableDoc, meta: LineCatalogMeta[], customerId?: ObjectId, decimalPlaces?: number): CartForValidation {
     return {
         subtotal: doc.subtotal,
         customerId,
+        decimalPlaces,
         items: doc.items.map((item, idx) => ({
             productId: new ObjectId(meta[idx].productId),
             variantId: item.variant ? new ObjectId(idOf(item.variant)) : undefined,

@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import {runAfterCommit} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ObjectId} from "mongodb";
 import {action} from "@coreModule/api/actionDecorator";
 import {AUTHENTICATION, clientHostFor} from "@coreModule/environment";
@@ -464,15 +465,18 @@ export class PosConfigActions {
             {session, logger, languageCode, auditUserId: actionUserCtx.userId},
         );
 
-        await dispatchManagerPinResetEmail({
-            companyId: company._id.toString(),
-            email,
-            userId,
-            fullName: actionUserInfo?.name || email,
-            configId: config._id.toString(),
-            configName: config.name,
-            resetCode,
-            languageCode,
+        // The code in the email is only valid once the write above has committed (D06)
+        await runAfterCommit(session, async () => {
+            await dispatchManagerPinResetEmail({
+                companyId: company._id.toString(),
+                email,
+                userId,
+                fullName: actionUserInfo?.name || email,
+                configId: config._id.toString(),
+                configName: config.name,
+                resetCode,
+                languageCode,
+            });
         });
 
         logger.finish(

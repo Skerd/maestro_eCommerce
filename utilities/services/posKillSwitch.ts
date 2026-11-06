@@ -2,13 +2,12 @@ import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import PosCompanyPosLock, {
-    type IPosCompanyPosLock,
-} from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
+import type {IPosCompanyPosLock} from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
+import {posCompanyPosLockService} from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock.service";
 import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
-import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
-import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
+import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
+import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
+import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
 import {pushWebsocketMessage} from "@coreModule/connections/connectToWebSocketServer";
 import {ECommerceWebSocketMessageCodes} from "armonia/src/modules/eCommerce/websocket/types";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
@@ -29,7 +28,7 @@ export async function getCompanyPosLock(
     companyId: ObjectId | string,
     session?: ClientSession | null,
 ): Promise<IPosCompanyPosLock | null> {
-    return PosCompanyPosLock.findOne({company: companyId}).session(session ?? null);
+    return posCompanyPosLockService.findForCompany(companyId, session);
 }
 
 export function isCompanyPosLockActive(lock: IPosCompanyPosLock | null | undefined): boolean {
@@ -164,22 +163,22 @@ export async function forceClosePosSession(
     reason: PosKillReason,
     ctx: PosGateCtx,
 ): Promise<void> {
-    const sessionDoc = await PosSession.findOne({
+    const sessionDoc = await posSessionService.findOne({
         _id: sessionId,
         company: ctx.company._id,
-    }).noDeleted().session(ctx.session ?? null);
+    }, {session: ctx.session ?? undefined, withDeleted: false});
     if (!sessionDoc) return;
     if (sessionDoc.state === "closed") return;
 
-    await PosOrder.updateMany(
+    await posOrderService.updateMany(
         {
             company: ctx.company._id,
             session: sessionDoc._id,
             state: "draft",
         },
         {$set: {state: "cancel"}},
-        {session: ctx.session ?? undefined},
-    ).noDeleted();
+        {session: ctx.session ?? undefined, withDeleted: false},
+    );
 
     const expectedCash = round2(Number(sessionDoc.expectedCash ?? 0));
     const now = new Date();
@@ -205,13 +204,11 @@ export async function forceCloseOpenSessionsForConfig(
     reason: PosKillReason,
     ctx: PosGateCtx,
 ): Promise<KillPipelineResult> {
-    const sessions = await PosSession.find({
+    const sessions = await posSessionService.find({
         company: ctx.company._id,
         config: configId,
         state: {$in: ["opening_control", "opened", "closing_control"]},
-    }).noDeleted()
-        .select("_id openedBy")
-        .session(ctx.session ?? null);
+    }, {session: ctx.session ?? undefined, withDeleted: false}, undefined, "_id openedBy");
 
     const sessionIds = sessions.map((s) => s._id.toString());
     const cashierUserIds = [
@@ -296,18 +293,7 @@ export async function upsertCompanyPosLock(
     fields: {pausedAt: Date | null; pausedBy: ObjectId | null; pauseReason: string | null},
     session?: ClientSession | null,
 ): Promise<IPosCompanyPosLock> {
-    const doc = await PosCompanyPosLock.findOneAndUpdate(
-        {company: companyId},
-        {
-            $set: {
-                company: companyId,
-                pausedAt: fields.pausedAt,
-                pausedBy: fields.pausedBy,
-                pauseReason: fields.pauseReason,
-            },
-        },
-        {upsert: true, new: true, session: session ?? undefined},
-    );
+    const doc = await posCompanyPosLockService.setForCompany(companyId, fields, session);
     return doc!;
 }
 
@@ -324,10 +310,10 @@ export async function resolveTerminalCancelMeta(
     cancelPath?: string;
     terminalId?: string;
 } | null> {
-    const method = await PosPaymentMethod.findOne({
+    const method = await posPaymentMethodService.findOne({
         _id: paymentMethodId,
         company: companyId,
-    }).noDeleted().session(session ?? null);
+    }, {session: session ?? undefined, withDeleted: false});
     if (!method) return null;
     return {
         provider: method.terminalProvider || "manual",

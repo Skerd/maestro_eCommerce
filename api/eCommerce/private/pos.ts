@@ -20,9 +20,9 @@ import {
     type PosSessionOrdersFormType,
     type VerifyPosManagerPinFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/pos/posTill.form.validator";
-import {chargePosTerminal, getCurrentPosSession, loadPosCatalog} from "@eCommerceModule/utilities/services/posService";
+import {chargePosTerminal, getCurrentPosSession, loadPosCatalog} from "@eCommerceModule/workflows/posService";
 import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
-import {listHeldPosOrders, listSessionPosOrders, searchPosCustomers, verifyPosManagerPin} from "@eCommerceModule/utilities/services/posTillOps";
+import {listHeldPosOrders, listSessionPosOrders, searchPosCustomers, verifyPosManagerPin} from "@eCommerceModule/workflows/posTillOps";
 
 export const basePath = "/api/eCommerce/pos";
 export const router = Router();

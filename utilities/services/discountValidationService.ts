@@ -1,7 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
-import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {addMoney, multiplyMoney, percentOfMoney, roundToCurrency} from "armonia/src/modules/core/helpers/money";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
+import {DEFAULT_DECIMAL_PLACES, multiplyMoney, percentOfMoney, roundToCurrency, sumMoney} from "armonia/src/modules/core/helpers/money";
 
 export type CartForValidation = {
     subtotal: number;
@@ -17,6 +17,8 @@ export type CartForValidation = {
     }[];
     customerId?: ObjectId;
     appliedDiscountIds?: ObjectId[];
+    /** The cart currency's `decimalPlaces`, where discount amounts are rounded (default 2, TD-B38). */
+    decimalPlaces?: number;
 };
 
 export type DiscountValidationResult =
@@ -51,6 +53,7 @@ function lineIsEligible(discount: IDiscount, line: ValidationLine): boolean {
 }
 
 function computeBuyXGetYAmount(cart: CartForValidation, discount: IDiscount): DiscountValidationResult {
+    const decimals = cart.decimalPlaces ?? DEFAULT_DECIMAL_PLACES;
     const bx = discount.buyXGetY;
     const productIds = bx?.getProductIds ?? [];
     if (!bx || !productIds.length || !(bx.buyQuantity >= 1) || !(bx.getQuantity >= 1)) {
@@ -75,8 +78,8 @@ function computeBuyXGetYAmount(cart: CartForValidation, discount: IDiscount): Di
 
     unitPrices.sort((a, b) => a - b);
     const freeCount = Math.floor(eligibleQty / group) * bx.getQuantity;
-    const free = addMoney(...unitPrices.slice(0, freeCount));
-    const discountAmount = Math.min(free, roundToCurrency(cart.subtotal));
+    const free = sumMoney(unitPrices.slice(0, freeCount), decimals);
+    const discountAmount = Math.min(free, roundToCurrency(cart.subtotal, decimals));
 
     return {valid: true, discountAmount, discount};
 }
@@ -89,6 +92,7 @@ function computeBuyXGetYAmount(cart: CartForValidation, discount: IDiscount): Di
  */
 export function validateDiscount(cart: CartForValidation, discount: IDiscount): DiscountValidationResult {
     const now = new Date();
+    const decimals = cart.decimalPlaces ?? DEFAULT_DECIMAL_PLACES;
 
     if (!discount.isActive) {
         return {valid: false, reason: "discount_inactive"};
@@ -107,7 +111,7 @@ export function validateDiscount(cart: CartForValidation, discount: IDiscount): 
     }
 
     const merchandise = cart.items.filter(item => !item.isGiftCard);
-    const merchandiseSubtotal = addMoney(...merchandise.map((item) => multiplyMoney(item.unitPrice, item.quantity)));
+    const merchandiseSubtotal = sumMoney(merchandise.map((item) => multiplyMoney(item.unitPrice, item.quantity, decimals)), decimals);
 
     if (discount.minimumOrderAmount != null && merchandiseSubtotal < discount.minimumOrderAmount) {
         return {valid: false, reason: "minimum_order_amount_not_met"};
@@ -127,17 +131,17 @@ export function validateDiscount(cart: CartForValidation, discount: IDiscount): 
 
     const eligibleSubtotal = cart.items
         .filter(item => lineIsEligible(discount, item))
-        .reduce((sum, item) => addMoney(sum, multiplyMoney(item.unitPrice, item.quantity)), 0);
+        .reduce((sum, item) => sumMoney([sum, multiplyMoney(item.unitPrice, item.quantity, decimals)], decimals), 0);
     if (eligibleSubtotal <= 0) {
         return {valid: false, reason: "discount_not_applicable_to_cart"};
     }
 
     if (discount.type === "percentage") {
         const percent = Math.min(100, Math.max(0, discount.value));
-        return {valid: true, discountAmount: percentOfMoney(eligibleSubtotal, percent), discount};
+        return {valid: true, discountAmount: percentOfMoney(eligibleSubtotal, percent, decimals), discount};
     }
     if (discount.type === "fixed") {
-        return {valid: true, discountAmount: Math.min(roundToCurrency(discount.value), eligibleSubtotal), discount};
+        return {valid: true, discountAmount: Math.min(roundToCurrency(discount.value, decimals), eligibleSubtotal), discount};
     }
 
     return {valid: true, discountAmount: 0, discount};
@@ -150,12 +154,12 @@ export async function countCustomerDiscountUses(
     companyId: ObjectId,
     session?: any,
 ): Promise<number> {
-    return ProductOrder.countDocuments({
+    return productOrderService.count({
         company: companyId,
         customer: customerId,
         "appliedDiscounts.discount": discountId,
         status: {$ne: "cancelled"},
-    }).noDeleted().session(session ?? null);
+    }, {session: session ?? undefined, withDeleted: false});
 }
 
 /** validateDiscount plus the per-customer usage limit (needs a DB lookup). */

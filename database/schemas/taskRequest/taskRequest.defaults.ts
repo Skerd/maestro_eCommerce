@@ -225,7 +225,6 @@ export async function createTaskRequests(
         return {taskRequests, bySeedKey};
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating task requests: ${message}`);
         logger.fail("Failed to create task requests!");
         return {taskRequests: [], bySeedKey: {}};

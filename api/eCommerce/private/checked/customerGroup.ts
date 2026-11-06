@@ -7,7 +7,6 @@ import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import CustomerGroup from "@eCommerceModule/database/schemas/customerGroup/customerGroup";
 import {customerGroupService} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.service";
 import {CustomerGroupActions} from "@eCommerceModule/database/schemas/customerGroup/customerGroup.actions";
-import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
 import {customerGroupMemberService} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.service";
 import {customerGroupToDTO, customerGroupsToDTO} from "@eCommerceModule/utilities/mappers/customerGroup/customerGroupMapper.dto";
 import {customerGroupsToSelect} from "@eCommerceModule/utilities/mappers/customerGroup/customerGroupMapper.select";
@@ -55,12 +54,11 @@ export const {router} = createCrudRouter({
         afterRestore: async (group, {session, company}) => {
             if (!group.deletedAt) return;
             const deletedWithGroup = {$gte: new Date(group.deletedAt.getTime() - 5000), $lte: group.deletedAt};
-            const liveUsers = await CustomerGroupMember.distinct("user", {customerGroup: group._id, company: company._id, deletedAt: null})
-                .session(session);
-            await CustomerGroupMember.updateMany(
-                {customerGroup: group._id, company: company._id, deletedBy: nestedEntityToRef(group.deletedBy), deletedAt: deletedWithGroup, user: {$nin: liveUsers}},
-                {$set: {deletedAt: null, deletedBy: null}},
-                {session},
+            await customerGroupMemberService.restoreDeletedWithGroup(
+                {customerGroup: group._id, company: company._id},
+                nestedEntityToRef(group.deletedBy),
+                deletedWithGroup,
+                session,
             );
         },
     }),
@@ -79,13 +77,16 @@ router.post(
         const filter = {customerGroup: new ObjectId(customerGroupId), company: company._id};
 
         const [members, total] = await Promise.all([
-            CustomerGroupMember.find(filter).noDeleted()
-                .populate("user", "name surname photo")
-                .populate("customerGroup", "name")
-                .sort({createdAt: -1})
-                .skip(skip)
-                .limit(Math.min(Number(limit), 100)),
-            CustomerGroupMember.countDocuments(filter).noDeleted(),
+            customerGroupMemberService.find(
+                filter,
+                {withDeleted: false},
+                [{path: "user", select: "name surname photo"}, {path: "customerGroup", select: "name"}],
+                undefined,
+                {createdAt: -1},
+                Math.min(Number(limit), 100),
+                skip,
+            ),
+            customerGroupMemberService.count(filter, {withDeleted: false}),
         ]);
 
         return {data: customerGroupMembersToDTO(members), total};

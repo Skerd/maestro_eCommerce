@@ -3,9 +3,9 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {buildShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {productTypes} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
@@ -109,7 +109,7 @@ router.post(
             });
             if (!filter) return {data: emptyFacets()};
 
-            const aggregated: unknown = await Product.aggregate([
+            const aggregated: unknown = await productService.aggregate([
                 {$match: {...filter, deletedAt: null}},
                 {$facet: {
                     total: [{$count: "count"}],
@@ -150,20 +150,16 @@ router.post(
 
             const attributeQuery: Record<string, unknown> = {isUsedForVariants: true};
             if (companyId != null) attributeQuery.company = companyId;
-            const variantAttributes = await ProductAttribute.find(attributeQuery)
-                .select("name")
-                .noDeleted()
-                .lean();
+            const variantAttributes = await productAttributeService.find(attributeQuery, {withDeleted: false}, undefined, "name");
             if (variantAttributes.length > 0) {
-                const productIds = await Product.find(filter).noDeleted().distinct("_id");
+                const productIds = (await productService.find(filter, {withDeleted: false}, undefined, "_id")).map(product => product._id);
                 const variantQuery: Record<string, unknown> = {
                     status: "active",
                     product: {$in: productIds},
                     "attributeCombination.attribute": {$in: variantAttributes.map(attribute => attribute._id)},
                 };
                 if (companyId != null) variantQuery.company = companyId;
-                const variants = await ProductVariant.find(variantQuery)
-                    .select("product attributeCombination").noDeleted().lean();
+                const variants = await productVariantService.find(variantQuery, {withDeleted: false}, undefined, "product attributeCombination");
 
                 const nameById = new Map(variantAttributes.map(attribute => [String(attribute._id), attribute.name]));
                 const productsByKey = new Map<string, Set<string>>();

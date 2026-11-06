@@ -15,6 +15,7 @@ import type {
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/customerAddress/myCustomerAddress.form.validator";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import type {ClientSession} from "mongoose";
 import CustomerAddress from "@eCommerceModule/database/schemas/customerAddress/customerAddress";
 import {customerAddressService} from "@eCommerceModule/database/schemas/customerAddress/customerAddress.service";
 import {CustomerAddressActions} from "@eCommerceModule/database/schemas/customerAddress/customerAddress.actions";
@@ -58,7 +59,7 @@ const ADDRESS_POPULATE = ["city", "state", "country", "customer"];
 async function clearOtherDefaults(
     params: AuthenticatedMWType & {session?: unknown; type: string; keepId?: ObjectId},
 ): Promise<void> {
-    await CustomerAddress.updateMany(
+    await customerAddressService.updateMany(
         {
             company: params.company._id,
             customer: new ObjectId(params.actionUserCtx.userId),
@@ -67,7 +68,7 @@ async function clearOtherDefaults(
             ...(params.keepId ? {_id: {$ne: params.keepId}} : {}),
         },
         {$set: {isDefault: false}},
-        {session: params.session as never},
+        {session: params.session as ClientSession | undefined},
     );
 }
 

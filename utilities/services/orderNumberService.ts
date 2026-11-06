@@ -1,6 +1,6 @@
 import {ObjectId} from "mongodb";
 import mongoose from "mongoose";
-import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 
 /**
  * Per-company, per-year order sequences. A raw collection (no schema, no
@@ -15,11 +15,14 @@ function sequences() {
 
 /** Highest sequence already used by orders for this prefix (pre-counter data). */
 async function highestExistingSequence(companyId: ObjectId, prefix: string): Promise<number> {
-    const last = await ProductOrder.findOne(
+    const [last] = await productOrderService.find(
         {company: companyId, orderNumber: {$regex: `^${prefix}\\d+$`}},
-        {orderNumber: 1},
-        {sort: {orderNumber: -1}},
-    ).lean();
+        {},
+        undefined,
+        "orderNumber",
+        {orderNumber: -1},
+        1,
+    );
     const lastSeq = last?.orderNumber ? parseInt(last.orderNumber.slice(prefix.length), 10) : 0;
     return Number.isNaN(lastSeq) ? 0 : lastSeq;
 }

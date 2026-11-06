@@ -2,7 +2,7 @@ import {Router} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import Country from "@coreModule/database/schemas/country/country";
+import {countryService} from "@coreModule/database/schemas/country/country.service";
 import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
 
 export const basePath = "/api/eCommerce/shopCountries";
@@ -22,7 +22,7 @@ router.get(
 
         await resolveShopContext(origin, languageCode);
 
-        const countries = await Country.find({}).select("name code").sort({name: 1}).lean();
+        const countries = await countryService.find({}, {}, undefined, "name code", {name: 1});
 
         return {
             data: countries.map((country: any) => ({

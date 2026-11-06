@@ -1,7 +1,7 @@
-import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import Category from "@eCommerceModule/database/schemas/category/category";
-import Collection from "@eCommerceModule/database/schemas/collection/collection";
+import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
+import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import {applyShopCatalogRefinement, type ShopCatalogRefinement} from "./shopCatalogRefinement";
@@ -31,7 +31,7 @@ async function withDescendantCategories(
     companyClause: Record<string, unknown>,
     rootId: unknown,
 ): Promise<unknown[]> {
-    const categories = await Category.find(companyClause, {_id: 1, parent: 1}).lean();
+    const categories = await categoryService.find(companyClause, {}, undefined, "_id parent");
     const ids = [String(rootId)];
     for (let i = 0; i < ids.length; i++) {
         for (const category of categories) {
@@ -62,32 +62,23 @@ export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<R
     if (search) filter.title = {$regex: escapeRegex(search), $options: "i"};
 
     if (scope.categoryIds && scope.categoryIds.length > 0) {
-        const categories = await Category.find({...companyClause, _id: {$in: scope.categoryIds}}, {_id: 1});
+        const categories = await categoryService.find({...companyClause, _id: {$in: scope.categoryIds}}, {}, undefined, "_id");
         if (categories.length === 0) return null;
         filter.categories = {$in: categories.map(category => category._id)};
     } else if (scope.categorySlug) {
-        const matches = await Category.find(
-            {...companyClause, slug: scope.categorySlug.toLowerCase()},
-            {_id: 1},
-        ).lean();
+        const matches = await categoryService.find({...companyClause, slug: scope.categorySlug.toLowerCase()}, {}, undefined, "_id");
         if (matches.length === 0) return null;
         if (scope.companyId == null && matches.length > 1) return null;
         filter.categories = {$in: await withDescendantCategories(companyClause, matches[0]._id)};
     }
 
-    const collectionFields = {_id: 1, type: 1, company: 1, products: 1, rules: 1, ruleCondition: 1};
+    const collectionFields = "_id type company products rules ruleCondition";
     if (scope.collectionId) {
-        const collection = await Collection.findOne(
-            {...companyClause, _id: scope.collectionId, isVisible: true},
-            collectionFields,
-        );
+        const collection = await collectionService.findOne({...companyClause, _id: scope.collectionId, isVisible: true}, {}, undefined, collectionFields);
         if (!collection) return null;
         applyCollectionMembershipToProductFilter(collection, filter);
     } else if (scope.collectionSlug) {
-        const matches = await Collection.find(
-            {...companyClause, slug: scope.collectionSlug.toLowerCase(), isVisible: true},
-            collectionFields,
-        );
+        const matches = await collectionService.find({...companyClause, slug: scope.collectionSlug.toLowerCase(), isVisible: true}, {}, undefined, collectionFields);
         if (matches.length === 0) return null;
         if (scope.companyId == null && matches.length > 1) return null;
         applyCollectionMembershipToProductFilter(matches[0], filter);
@@ -106,10 +97,7 @@ async function variantProductIdsByAttribute(
     const names = [...new Set(groups.map(group => group.name))];
     const attributeFilter: Record<string, unknown> = {name: {$in: names}};
     if (companyId != null) attributeFilter.company = companyId;
-    const attributes = await ProductAttribute.find(attributeFilter)
-        .select("name")
-        .noDeleted()
-        .lean();
+    const attributes = await productAttributeService.find(attributeFilter, {withDeleted: false}, undefined, "name");
 
     const idsByName = new Map<string, unknown[]>();
     for (const attribute of attributes) {
@@ -130,10 +118,7 @@ async function variantProductIdsByAttribute(
 
     const variantFilter: Record<string, unknown> = {status: "active", $or: clauses};
     if (companyId != null) variantFilter.company = companyId;
-    const variants = await ProductVariant.find(variantFilter)
-        .select("product attributeCombination")
-        .noDeleted()
-        .lean();
+    const variants = await productVariantService.find(variantFilter, {withDeleted: false}, undefined, "product attributeCombination");
 
     for (const group of groups) {
         const idSet = new Set((idsByName.get(group.name) ?? []).map(id => String(id)));

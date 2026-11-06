@@ -1,14 +1,13 @@
 import {Router} from "express";
 import {ObjectId} from "mongodb";
-import {z} from "zod";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {isObjectIdZod} from "armonia/src/modules/core/helpers/zodBuilder";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
+import {shopProductReviewsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopProductReviews/shopProductReviews.form.validator";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
@@ -16,19 +15,6 @@ import type {ShopProductReviewsResponse} from "armonia/src/modules/eCommerce/api
 
 export const basePath = "/api/eCommerce/shopProductReviews";
 export const router = Router();
-
-function shopProductReviewsFormSchema(languageCode: string, _form: any = null) {
-    return z.object({
-        id: isObjectIdZod("id", languageCode).optional(),
-        slug: z.string().min(1).max(300).optional(),
-        sellerCompanyId: isObjectIdZod("sellerCompanyId", languageCode).optional(),
-        page: z.coerce.number().min(1).max(1000).optional(),
-        limit: z.coerce.number().min(1).max(50).optional(),
-    }).refine((value) => Boolean(value.id || value.slug), {
-        message: "id_or_slug_required",
-        path: ["slug"],
-    });
-}
 
 router.post(
     "",
@@ -44,24 +30,15 @@ router.post(
             if (id) {
                 const byId: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
                 if (ctx.mode === "tenant") byId.company = ctx.company._id;
-                product = await Product.findOne(byId, {ratingAverage: 1, ratingCount: 1, company: 1}).noDeleted().lean();
+                product = await productService.findShopRating(byId);
             } else if (slug) {
                 const slugKey = String(slug).toLowerCase();
                 if (ctx.mode === "tenant") {
-                    product = await Product.findOne(
-                        {company: ctx.company._id, slug: slugKey, status: "active"},
-                        {ratingAverage: 1, ratingCount: 1, company: 1},
-                    ).noDeleted().lean();
+                    product = await productService.findShopRating({company: ctx.company._id, slug: slugKey, status: "active"});
                 } else if (sellerCompanyId) {
-                    product = await Product.findOne(
-                        {company: new ObjectId(sellerCompanyId), slug: slugKey, status: "active"},
-                        {ratingAverage: 1, ratingCount: 1, company: 1},
-                    ).noDeleted().lean();
+                    product = await productService.findShopRating({company: new ObjectId(sellerCompanyId), slug: slugKey, status: "active"});
                 } else {
-                    const matches = await Product.find(
-                        {slug: slugKey, status: "active"},
-                        {ratingAverage: 1, ratingCount: 1, company: 1},
-                    ).noDeleted().lean();
+                    const matches = await productService.findShopRatings({slug: slugKey, status: "active"});
                     if (matches.length > 1) {
                         throw apiValidationException("product_not_found", null, null, languageCode);
                     }
@@ -83,14 +60,8 @@ router.post(
             const filter = {product: product._id, company: productSellerId};
 
             const [reviews, total] = await Promise.all([
-                ProductReview.find(filter).noDeleted()
-                    .select("rating title comment reviewer createdAt")
-                    .populate("reviewer", "name surname")
-                    .sort({createdAt: -1})
-                    .skip((page - 1) * limit)
-                    .limit(limit)
-                    .lean(),
-                ProductReview.countDocuments(filter).noDeleted(),
+                productReviewService.findShopPage(filter, page, limit),
+                productReviewService.countLive(filter),
             ]);
 
             return {

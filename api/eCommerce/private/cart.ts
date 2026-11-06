@@ -7,9 +7,12 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import Cart, {ICart} from "@eCommerceModule/database/schemas/cart/cart";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
-import Discount from "@eCommerceModule/database/schemas/discount/discount";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import {cartToDTO} from "@eCommerceModule/utilities/mappers/cart/cartMapper.dto";
 import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {validateDiscountForCustomer} from "@eCommerceModule/utilities/services/discountValidationService";
@@ -86,9 +89,7 @@ async function toCartResponse(cart: ICart, notices: CartNotices, meta: LineCatal
 async function cartCurrency(cart: ICart) {
     const first: any = (cart.items as any[] | undefined)?.[0];
     if (!first) return undefined;
-    const product: any = await Product.findById(first.product?._id ?? first.product, {currency: 1})
-        .populate("currency", SHOP_CURRENCY_SELECT)
-        .lean();
+    const product = await productService.findById(first.product?._id ?? first.product, {}, {path: "currency", select: SHOP_CURRENCY_SELECT}, "currency");
     return toShopCurrency(product?.currency);
 }
 
@@ -106,7 +107,7 @@ router.get(
     asyncHandler(async (params: any) => {
         const {company, actionUserCtx} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) return {data: null};
 
         const before = JSON.stringify([cart.items, cart.subtotal, cart.discountTotal, cart.appliedGiftCard]);
@@ -136,7 +137,7 @@ router.put(
         if (!platform) productQuery.company = company._id;
         else Object.assign(productQuery, await sellerCompanyClause());
 
-        const product: any = await Product.findOne(productQuery).noDeleted().lean();
+        const product = await productService.findOne(productQuery, {withDeleted: false});
         if (!product) throw apiValidationException("product_not_found", "", null, languageCode);
 
         const sellerCompanyId = product.company;
@@ -145,17 +146,17 @@ router.put(
             throw apiValidationException("variant_required", "variantId", null, languageCode);
         }
         if (variantId) {
-            const variantDoc = await ProductVariant.findOne({
+            const variantDoc = await productVariantService.findOne({
                 _id: new ObjectId(variantId),
                 product: product._id,
                 company: sellerCompanyId,
                 status: "active",
-            }).noDeleted().lean();
+            }, {withDeleted: false});
             if (!variantDoc) throw apiValidationException("variant_not_found", "", null, languageCode);
         }
 
         const filter = {company: company._id, user: actionUserCtx.userId};
-        let cart = await Cart.findOne(filter);
+        let cart = await cartService.findOne(filter);
 
         // One cart, one currency: totals and the payment are in a single currency
         const firstLine = (cart?.items as any[] | undefined)?.[0];
@@ -164,7 +165,7 @@ router.put(
                 _id: firstLine.product?._id ?? firstLine.product,
             };
             if (!platform) firstProductQuery.company = company._id;
-            const firstProduct: any = await Product.findOne(firstProductQuery, {currency: 1}).lean();
+            const firstProduct = await productService.findOne(firstProductQuery, {}, undefined, "currency");
             if (firstProduct?.currency && firstProduct.currency.toString() !== product.currency.toString()) {
                 throw apiValidationException("cart_currency_mismatch", "productId", null, languageCode);
             }
@@ -223,7 +224,7 @@ router.patch(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, itemId, quantity} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         const item = (cart.items as any[]).find((i: any) => i._id?.toString() === itemId);
@@ -233,7 +234,7 @@ router.patch(
             cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
         } else {
             const sellerId = item.sellerCompany?._id ?? item.sellerCompany ?? company._id;
-            const product = await Product.findOne({_id: item.product?._id ?? item.product, company: sellerId}).lean();
+            const product = await productService.findOne({_id: item.product?._id ?? item.product, company: sellerId});
             if (product) assertQuantityAllowed(product, quantity, languageCode);
             item.quantity = quantity;
         }
@@ -252,7 +253,7 @@ router.delete(
         const {itemId} = queryParams;
         if (!ObjectId.isValid(itemId)) throw apiValidationException("item_not_found", "", null, languageCode);
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
@@ -269,7 +270,7 @@ router.post(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx, code} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
         assertSingleSellerPromo(cart, languageCode);
 
@@ -277,13 +278,13 @@ router.post(
         const promoCompanyId = sellerIds[0] ? new ObjectId(sellerIds[0]) : company._id;
 
         const now = new Date();
-        const discount = await Discount.findOne({
+        const discount = await discountService.findOne({
             company: promoCompanyId,
             code: code.trim().toUpperCase(),
             isActive: true,
             startsAt: {$lte: now},
             $or: [{endsAt: null}, {endsAt: {$gte: now}}],
-        }).noDeleted();
+        }, {withDeleted: false});
         if (!discount) return {valid: false, message: "discount_not_found"};
 
         const userId = new ObjectId(actionUserCtx.userId);
@@ -291,8 +292,8 @@ router.post(
 
         // Validate against freshly priced lines (never against stale stored totals)
         cart.appliedDiscounts = [];
-        const {meta} = await repriceCart(cart as any, ctx);
-        const result = await validateDiscountForCustomer(toValidationCart(cart as any, meta, userId), discount, promoCompanyId);
+        const {meta, decimalPlaces} = await repriceCart(cart as any, ctx);
+        const result = await validateDiscountForCustomer(toValidationCart(cart as any, meta, userId, decimalPlaces), discount, promoCompanyId);
         if (result.valid === false) return {valid: false, message: result.reason};
 
         cart.appliedDiscounts = [{discount: discount._id, code: discount.code, amount: result.discountAmount}] as any;
@@ -309,7 +310,7 @@ router.delete(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         cart.appliedDiscounts = [];
@@ -326,7 +327,7 @@ router.post(
     asyncHandler(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, code} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
         assertSingleSellerPromo(cart, languageCode);
 
@@ -335,14 +336,15 @@ router.post(
 
         const giftCard = await giftCardService.findRedeemable(code, promoCompanyId, {logger, languageCode});
         if (!giftCard) return {valid: false, message: "gift_card_not_redeemable"};
+        const decimalPlaces = await currencyDecimalPlaces(nestedEntityToRef(giftCard.currency));
 
         cart.appliedGiftCard = {
             giftCard: giftCard._id as any,
             code: giftCard.code,
-            amount: Math.min(roundToCurrency(giftCard.balance), Math.max(0, subtractMoney(cart.subtotal, cart.discountTotal ?? 0))),
+            amount: Math.min(roundToCurrency(giftCard.balance, decimalPlaces), Math.max(0, subtractMoney(cart.subtotal, cart.discountTotal ?? 0, decimalPlaces))),
         };
         const saved = await repriceAndSave(cart, params);
-        return {valid: true, data: saved.data, giftCardAmount: cart.appliedGiftCard?.amount ?? 0, balance: giftCard.balance};
+        return {valid: true, data: saved.data, giftCardAmount: cart.appliedGiftCard?.amount ?? 0, balance: roundToCurrency(giftCard.balance, decimalPlaces)};
     }),
 );
 
@@ -354,7 +356,7 @@ router.delete(
     asyncHandler(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
 
-        const cart = await Cart.findOne({company: company._id, user: actionUserCtx.userId});
+        const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
         if (!cart) throw apiValidationException("cart_not_found", "", null, languageCode);
 
         cart.appliedGiftCard = undefined;
@@ -370,7 +372,7 @@ router.delete(
     asyncHandler(async (params: any) => {
         const {company, actionUserCtx} = params;
 
-        await Cart.findOneAndUpdate(
+        await cartService.updateOne(
             {company: company._id, user: actionUserCtx.userId},
             {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}, $unset: {appliedGiftCard: 1}},
         );

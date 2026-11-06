@@ -6,8 +6,8 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import Country from "@coreModule/database/schemas/country/country";
 import State from "@coreModule/database/schemas/state/state";
 import City from "@coreModule/database/schemas/city/city";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
-import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
+import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
+import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {
@@ -45,15 +45,12 @@ router.post(
             const categoryFilter = companyFilter;
 
             const [categories, categoryCounts, placeRows] = await Promise.all([
-                ListingCategory.find(categoryFilter).noDeleted()
-                    .select("name slug parentListingCategory order")
-                    .sort({order: 1, name: 1})
-                    .lean(),
-                Listing.aggregate<{_id: unknown; count: number}>([
+                listingCategoryService.find(categoryFilter, {withDeleted: false}, undefined, "name slug parentListingCategory order", {order: 1, name: 1}),
+                listingService.aggregate([
                     {$match: activeMatch},
                     {$group: {_id: "$category", count: {$sum: 1}}},
                 ]),
-                Listing.aggregate<{_id: PlaceKey}>([
+                listingService.aggregate([
                     {$match: {...activeMatch, address: {$exists: true}}},
                     {$group: {_id: {country: "$address.country", state: "$address.state", city: "$address.city"}}},
                 ]),

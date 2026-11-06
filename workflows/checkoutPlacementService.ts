@@ -3,17 +3,17 @@ import type {ClientSession} from "mongoose";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {mongooseInstance} from "@coreModule/connections/connectToMongoDb";
 import {flushAfterCommitTasks} from "@coreModule/utilities/middlewares/transactionUtils";
-import Currency from "@coreModule/database/schemas/currency/currency";
-import User from "@coreModule/database/schemas/user/user";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
+import {userService} from "@coreModule/database/schemas/user/user.service";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
-import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import Checkout, {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
-import Discount from "@eCommerceModule/database/schemas/discount/discount";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import ProductVariant from "@eCommerceModule/database/schemas/productVariant/productVariant";
-import {variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
+import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import type {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
+import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productVariantService, variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
 import ProductOrder, {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {countCustomerDiscountUses} from "@eCommerceModule/utilities/services/discountValidationService";
@@ -63,10 +63,8 @@ async function lineSnapshotFacts(checkout: ICheckout, ctx: PlacementCtx, company
     });
     const variantIds = lines.flatMap(item => (item.variant ? [idOf(item.variant)] : []));
     const [products, variants] = await Promise.all([
-        Product.find({_id: {$in: lines.map(item => idOf(item.product))}, company: companyId}, {type: 1})
-            .session(ctx.session ?? null).lean(),
-        ProductVariant.find({_id: {$in: variantIds}, company: companyId}, {attributeCombination: 1})
-            .session(ctx.session ?? null).lean(),
+        productService.find({_id: {$in: lines.map(item => idOf(item.product))}, company: companyId}, {session: ctx.session}, undefined, "type"),
+        productVariantService.find({_id: {$in: variantIds}, company: companyId}, {session: ctx.session}, undefined, "attributeCombination"),
     ]);
     return {
         productTypes: new Map(products.map(product => [product._id.toString(), product.type])),
@@ -156,7 +154,7 @@ export async function resetCheckoutPayment(checkout: ICheckout, ctx: PlacementCt
 /** Gateway minor-unit amount + currency the checkout must be charged with. */
 async function expectedCharge(checkout: ICheckout, gateway: "stripe" | "paypal") {
     const adapter = getPaymentAdapter(gateway);
-    const currency = await Currency.findById(idOf(checkout.currency), {abbreviation: 1});
+    const currency = await currencyService.findById(idOf(checkout.currency), {}, undefined, "abbreviation");
     const code = currency?.abbreviation?.toLowerCase();
     if (!adapter || !code) return null;
     return {amountMinor: adapter.toMinorUnits(checkout.grandTotal, code), currencyCode: code};
@@ -190,13 +188,13 @@ async function resolvePayment(checkout: ICheckout, ctx: PlacementCtx) {
     if (isOfflinePaymentMethod(checkout.paymentMethod!)) return {paid: false, fullyCoveredByGiftCard, charge: null};
 
     const gateway = paymentMethodToGateway(checkout.paymentMethod!);
-    const charge = await PaymentTransaction.findOne({
+    const [charge] = await paymentTransactionService.find({
         sourceType: "checkout",
         sourceId: checkout._id,
         type: "charge",
         company: idOf(checkout.company),
         ...(checkout.stripePaymentIntentId ? {gatewayTransactionId: checkout.stripePaymentIntentId} : {gateway}),
-    }).sort({createdAt: -1}).session(ctx.session ?? null);
+    }, {session: ctx.session}, undefined, undefined, {createdAt: -1}, 1);
     if (!charge) throw apiValidationException("payment_not_initiated", null, null, ctx.languageCode);
 
     if (charge.status !== "succeeded") {
@@ -229,17 +227,7 @@ export async function assertDiscountUsable(checkout: ICheckout, ctx: PlacementCt
     const sellers = sellerCompanyIdsOnCheckout(checkout);
     const companyId = sellers[0] ?? idOf(checkout.company);
     const now = new Date();
-    const discount = await Discount.findOne({
-        _id: discountId,
-        company: companyId,
-        deletedAt: null,
-        isActive: true,
-        startsAt: {$lte: now},
-        $and: [
-            {$or: [{endsAt: null}, {endsAt: {$gte: now}}]},
-            {$or: [{usageLimit: null}, {$expr: {$lt: ["$usageCount", "$usageLimit"]}}]},
-        ],
-    }).session(ctx.session ?? null);
+    const discount = await discountService.findUsable(discountId, companyId, now, ctx.session);
     if (!discount) throw apiValidationException("discount_no_longer_valid", null, null, ctx.languageCode);
 
     if (discount.usageLimitPerCustomer && checkout.user) {
@@ -265,21 +253,7 @@ async function consumeDiscount(checkout: ICheckout, moneyCaptured: boolean, ctx:
     const companyId = sellers[0] ?? idOf(checkout.company);
     const now = new Date();
 
-    const counted = await Discount.findOneAndUpdate(
-        {
-            _id: discountId,
-            company: companyId,
-            deletedAt: null,
-            isActive: true,
-            startsAt: {$lte: now},
-            $and: [
-                {$or: [{endsAt: null}, {endsAt: {$gte: now}}]},
-                {$or: [{usageLimit: null}, {$expr: {$lt: ["$usageCount", "$usageLimit"]}}]},
-            ],
-        },
-        {$inc: {usageCount: 1}},
-        {new: true, session: ctx.session},
-    );
+    const counted = await discountService.countUseIfUsable(discountId, companyId, now, ctx.session);
 
     let reason: string | null = counted ? null : "discount_no_longer_valid";
     if (counted?.usageLimitPerCustomer && checkout.user) {
@@ -290,7 +264,7 @@ async function consumeDiscount(checkout: ICheckout, moneyCaptured: boolean, ctx:
     if (reason && !moneyCaptured) throw apiValidationException(reason, null, null, ctx.languageCode);
     if (reason) {
         ctx.logger?.warn?.(`Checkout ${checkout._id}: honouring discount ${applied.code} on a paid order despite ${reason}`);
-        if (!counted) await Discount.updateOne({_id: discountId}, {$inc: {usageCount: 1}}, {session: ctx.session});
+        if (!counted) await discountService.countUse(discountId, ctx.session);
     }
 }
 
@@ -313,18 +287,18 @@ export async function placeOrderFromCheckout(
     const primaryKey = multiSeller
         ? `${checkout.idempotencyKey}:${sellerIds[0].toString()}`
         : checkout.idempotencyKey;
-    const existingOrder = await ProductOrder.findOne({
+    const existingOrder = await productOrderService.findOne({
         idempotencyKey: primaryKey,
         company: multiSeller ? sellerIds[0] : sessionCompanyId,
-    }).session(ctx.session ?? null);
+    }, {session: ctx.session});
     if (existingOrder) {
         const siblings = multiSeller
-            ? await ProductOrder.find({
+            ? await productOrderService.find({
                 customer: customerId,
                 stripePaymentIntentId: checkout.stripePaymentIntentId || undefined,
                 idempotencyKey: {$regex: `^${checkout.idempotencyKey}`},
                 _id: {$ne: existingOrder._id},
-            }).session(ctx.session ?? null)
+            }, {session: ctx.session})
             : [];
         return {order: existingOrder, created: false, siblingOrders: siblings.length ? siblings : undefined};
     }
@@ -359,7 +333,7 @@ export async function placeOrderFromCheckout(
         }
     }
 
-    const currency = await Currency.findById(idOf(checkout.currency), {abbreviation: 1}).session(ctx.session ?? null).lean();
+    const currency = await currencyService.findById(idOf(checkout.currency), {session: ctx.session}, undefined, "abbreviation decimalPlaces");
     const now = new Date();
     const paymentStatus = paid ? "paid" : "unpaid";
     const placedOrders: IProductOrder[] = [];
@@ -502,7 +476,7 @@ export async function placeOrderFromCheckout(
     await checkout.save({session: ctx.session});
 
     if (customerId) {
-        await Cart.updateOne(
+        await cartService.updateOne(
             {user: customerId, company: sessionCompanyId},
             {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}, $unset: {appliedGiftCard: 1}},
             {session: ctx.session},
@@ -534,11 +508,11 @@ export async function placePaidCheckoutInBackground(
             placed = null;
             // A retried attempt starts clean: notifications queued by the aborted one are dropped
             await flushAfterCommitTasks(session, false, logFailure);
-            const checkout = await Checkout.findOne({_id: checkoutId}).session(session);
+            const checkout = await checkoutService.findOne({_id: checkoutId}, {session});
             if (!checkout || !["pending", "payment_processing", "confirmed", "expired"].includes(checkout.status)) return;
 
             // The account login (username) is the buyer's email address
-            const owner = checkout.user ? await User.findById(idOf(checkout.user), {username: 1}).session(session) : null;
+            const owner = checkout.user ? await userService.findById(idOf(checkout.user), {session}, undefined, "username") : null;
             const result = await placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session});
             placed = result.order;
         });

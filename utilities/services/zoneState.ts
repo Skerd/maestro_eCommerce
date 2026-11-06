@@ -1,5 +1,5 @@
 import {ObjectId} from "mongodb";
-import State from "@coreModule/database/schemas/state/state";
+import {stateService} from "@coreModule/database/schemas/state/state.service";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 
 /**
@@ -13,9 +13,11 @@ export async function resolveZoneState(countryId: ObjectId, state: string | unde
     if (!value) return undefined;
     if (ObjectId.isValid(value) && new ObjectId(value).toString() === value) return value;
 
-    const match = await State.findOne(
+    const match = await stateService.findOne(
         {country: countryId, name: {$regex: `^${escapeRegex(value)}$`, $options: "i"}},
-        {_id: 1},
-    ).lean();
+        {},
+        undefined,
+        "_id",
+    );
     return match ? String(match._id) : value;
 }

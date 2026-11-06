@@ -130,7 +130,6 @@ export async function createOrderMilestones(
         return created;
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating order milestones: ${message}`);
         logger.fail("Failed to create order milestones!");
         return [];

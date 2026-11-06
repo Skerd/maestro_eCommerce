@@ -45,7 +45,6 @@ export async function createCustomerGroupMembers(
             await CustomerGroup.syncMemberCount(group._id, company._id);
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : String(e);
-            console.log(e);
             logger.err(`Error creating customer group member ${i}: ${message}`);
         }
     }

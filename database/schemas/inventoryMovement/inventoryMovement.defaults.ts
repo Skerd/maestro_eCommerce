@@ -68,7 +68,6 @@ export async function createInventoryMovements(
         return doc;
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating inventory movement: ${message}`);
         logger.fail("Failed to create inventory movements!");
         return undefined;

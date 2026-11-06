@@ -1,6 +1,7 @@
 import {Types, type ClientSession} from "mongoose";
-import Product from "@eCommerceModule/database/schemas/product/product";
-import Collection, {type ICollection} from "@eCommerceModule/database/schemas/collection/collection";
+import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import type {ICollection} from "@eCommerceModule/database/schemas/collection/collection";
+import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
 import {buildProductFilterFromCollectionRules} from "@eCommerceModule/utilities/services/collectionRuleEngine";
 
 function companyIdOf(collection: ICollection): Types.ObjectId | string {
@@ -51,13 +52,14 @@ export async function countCollectionProducts(
     if (collection.type === "dynamic") {
         const rules = collection.rules ?? [];
         if (rules.length === 0) return 0;
-        return Product.countDocuments(
+        return productService.count(
             buildProductFilterFromCollectionRules(
                 companyId,
                 rules,
                 collection.ruleCondition ?? "all",
             ),
-        ).noDeleted();
+            {withDeleted: false},
+        );
     }
     return productIdsOf(collection).length;
 }
@@ -75,14 +77,18 @@ export async function collectionIdsByProduct(
     const byProduct = new Map(productIds.map(id => [id.toString(), [] as string[]]));
     if (productIds.length === 0) return byProduct;
 
-    const collections = await Collection.find({company: companyId}).noDeleted().session(session ?? null);
+    const collections = await collectionService.find({company: companyId}, {session: session ?? undefined, withDeleted: false});
     for (const collection of collections) {
         let members: string[];
         if (collection.type === "dynamic") {
             const ruleFilter: Record<string, unknown> = {};
             applyCollectionMembershipToProductFilter(collection, ruleFilter);
-            const matches = await Product.find({$and: [{_id: {$in: productIds}, company: companyId}, ruleFilter]}, {_id: 1})
-                .noDeleted().session(session ?? null).lean();
+            const matches = await productService.find(
+                {$and: [{_id: {$in: productIds}, company: companyId}, ruleFilter]},
+                {session: session ?? undefined, withDeleted: false},
+                undefined,
+                "_id",
+            );
             members = matches.map(product => product._id.toString());
         } else {
             const listed = new Set(productIdsOf(collection).map(String));

@@ -12,7 +12,7 @@ import Cart from "@eCommerceModule/database/schemas/cart/cart";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
-import Currency from "@coreModule/database/schemas/currency/currency";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {ObjectId} from "mongodb";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 
@@ -179,7 +179,7 @@ async function revenueCurrency(req: Request, companyId: ObjectId, start: Date, e
         {$sort: {orderCount: -1}},
     ]);
     const codes = new Map(
-        (await Currency.find({_id: {$in: used.map(row => row._id)}}, {abbreviation: 1}).lean())
+        (await currencyService.find({_id: {$in: used.map(row => row._id)}}, {}, undefined, "abbreviation"))
             .map(currency => [currency._id.toString(), currency.abbreviation]),
     );
     const currencies = used.map(row => ({

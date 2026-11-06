@@ -11,11 +11,11 @@ import { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
 import { mongooseInstance } from "@coreModule/connections/connectToMongoDb";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
-import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import { releaseReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
-import { placePaidCheckoutInBackground } from "@eCommerceModule/utilities/services/checkoutPlacementService";
+import { placePaidCheckoutInBackground } from "@eCommerceModule/workflows/checkoutPlacementService";
 import { getPaymentAdapter } from "@eCommerceModule/utilities/services/payment/paymentService";
-import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
+import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 
 const BATCH_SIZE = 200;
 const PURGE_AFTER_DAYS = 30;
@@ -25,7 +25,7 @@ async function chargeSucceeded(checkout: any): Promise<boolean> {
     const intentId = checkout.stripePaymentIntentId as string | undefined;
     if (!intentId) return false;
 
-    const local = await PaymentTransaction.exists({gatewayTransactionId: intentId, type: "charge", status: "succeeded"});
+    const local = await paymentTransactionService.exists({gatewayTransactionId: intentId, type: "charge", status: "succeeded"});
     if (local) return true;
 
     const adapter = getPaymentAdapter("stripe");
@@ -45,11 +45,11 @@ async function expireCheckout(checkoutId: ObjectId, ctx: { logger: serverLogger;
     try {
         await session.withTransaction(async () => {
             expired = false;
-            const checkout = await Checkout.findOne({
+            const checkout = await checkoutService.findOne({
                 _id: checkoutId,
                 status: { $in: ["pending", "payment_processing"] },
                 expiresAt: { $lte: new Date() },
-            }).session(session);
+            }, { session });
             if (!checkout) return;
 
             if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
@@ -72,11 +72,11 @@ export async function runCheckoutExpiry(company: ObjectId, parentLogger?: server
     logger.start("Running checkout expiry job...");
 
     try {
-        const due = await Checkout.find({
+        const due = await checkoutService.find({
             company,
             status: { $in: ["pending", "payment_processing"] },
             expiresAt: { $lte: new Date() },
-        }).limit(BATCH_SIZE);
+        }, {}, undefined, undefined, undefined, BATCH_SIZE);
 
         let expiredCount = 0;
         let placedCount = 0;
@@ -102,15 +102,16 @@ export async function runCheckoutExpiry(company: ObjectId, parentLogger?: server
         }
 
         const purgeBefore = new Date(Date.now() - PURGE_AFTER_DAYS * 86400000);
-        const purged = await Checkout.deleteMany({
+        // A purge removes the rows for good: soft-deleted checkouts would keep their idempotency keys taken
+        const purged = await checkoutService.deleteMany({
             company,
             status: { $in: ["expired", "failed"] },
             updatedAt: { $lte: purgeBefore },
-        });
+        }, { hard: true });
 
         logger.finish(
             `Checkout expiry finished: ${expiredCount} expired, ${placedCount} paid checkouts placed, ` +
-            `${due.length - expiredCount - placedCount} skipped, ${purged.deletedCount ?? 0} purged.`,
+            `${due.length - expiredCount - placedCount} skipped, ${purged.deletedCount} purged.`,
         );
     } catch (e: any) {
         logger.err("Checkout expiry job failed", e);

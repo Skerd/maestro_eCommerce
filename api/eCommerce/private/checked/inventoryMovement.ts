@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
 import InventoryMovement from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement";
@@ -19,8 +19,8 @@ export const {router} = createCrudRouter({
     service: inventoryMovementService,
     entityName: "Inventory movement",
     defaultSort: {occurredAt: -1, createdAt: -1},
-    createSchema: () => z.object({}),
-    editSchema: () => z.object({_id: z.string()}),
+    createSchema: validateSingleForm,
+    editSchema: validateSingleForm,
     toDTO: inventoryMovementToDTO,
     toDTOArray: inventoryMovementsToDTO,
     toSelect: inventoryMovementsToSelect,

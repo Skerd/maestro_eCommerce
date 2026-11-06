@@ -2,7 +2,7 @@ import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 
 /** Resolve warehouse ObjectIds from a POS config (supports legacy `warehouse`). */
 export function warehouseIdsFromPosConfig(config: {
@@ -31,13 +31,10 @@ export async function detachWarehouseFromPosConfigsOrThrow(params: {
 }): Promise<void> {
     const {warehouseId, companyId, languageCode, session} = params;
 
-    const configs = await PosConfig.find({
+    const configs = await posConfigService.find({
         company: companyId,
         $or: [{warehouses: warehouseId}, {warehouse: warehouseId}],
-    }).noDeleted()
-        .select({warehouses: 1, warehouse: 1})
-        .session(session ?? null)
-        .lean();
+    }, {session: session ?? undefined, withDeleted: false}, undefined, "warehouses warehouse");
 
     if (!configs.length) return;
 
@@ -48,15 +45,15 @@ export async function detachWarehouseFromPosConfigsOrThrow(params: {
         }
     }
 
-    const opts = session ? {session} : {};
-    await PosConfig.updateMany(
+    const opts = {session: session ?? undefined, withDeleted: false};
+    await posConfigService.updateMany(
         {company: companyId, warehouses: warehouseId},
         {$pull: {warehouses: warehouseId}},
         opts,
-    ).noDeleted();
-    await PosConfig.updateMany(
+    );
+    await posConfigService.updateMany(
         {company: companyId, warehouse: warehouseId},
         {$unset: {warehouse: ""}},
         opts,
-    ).noDeleted();
+    );
 }

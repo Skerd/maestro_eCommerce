@@ -138,7 +138,6 @@ export async function createDisputes(
         return {disputes, bySeedKey};
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
-        console.log(e);
         logger.err(`Error creating disputes: ${message}`);
         logger.fail("Failed to create disputes!");
         return {disputes: [], bySeedKey: {}};

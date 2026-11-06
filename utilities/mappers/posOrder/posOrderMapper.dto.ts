@@ -22,6 +22,7 @@ import {PosOrderSimpleSnippet} from "@eCommerceModule/database/schemas/posOrder/
 import {PosPaymentMethodSimpleSnippet} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
 import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/productOrder/productOrder.snippets";
+import {currencyDecimalPlacesOf} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 
 export function posOrderToDTO(order: IPosOrder): PosOrder {
     const config = order.config as {currency?: object} | undefined;
@@ -95,6 +96,8 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         amountPaid: order.amountPaid,
         amountReturn: order.amountReturn,
         discountTotal: order.discountTotal,
+        decimalPlaces: currencyDecimalPlacesOf(config?.currency)
+            ?? currencyDecimalPlacesOf((order.session as {currency?: unknown} | undefined)?.currency),
         amountRefunded: order.amountRefunded,
         note: order.note,
         orderDiscountPercent: order.orderDiscountPercent,

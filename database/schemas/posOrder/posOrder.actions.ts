@@ -13,8 +13,8 @@ import {payPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
 import {refundPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
-import {payPosOrder, refundPosOrder} from "@eCommerceModule/utilities/services/posService";
-import {deleteHeldPosOrder, holdPosOrder, reprintPosOrder} from "@eCommerceModule/utilities/services/posTillOps";
+import {payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {deleteHeldPosOrder, holdPosOrder, reprintPosOrder} from "@eCommerceModule/workflows/posTillOps";
 import PosOrderModel from "./posOrder";
 
 /**

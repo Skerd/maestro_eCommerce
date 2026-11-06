@@ -2,8 +2,8 @@ import {Router} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
-import Category from "@eCommerceModule/database/schemas/category/category";
-import Collection from "@eCommerceModule/database/schemas/collection/collection";
+import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
+import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {ShopTaxonomyResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
@@ -25,8 +25,8 @@ router.post(
                 : await liveSellerCompanyClause();
 
             const [categories, collections] = await Promise.all([
-                Category.find(companyFilter).noDeleted().select("name slug parent").sort({name: 1}).lean(),
-                Collection.find({...companyFilter, isVisible: true}).noDeleted().select("name slug").sort({name: 1}).lean(),
+                categoryService.find(companyFilter, {withDeleted: false}, undefined, "name slug parent", {name: 1}),
+                collectionService.find({...companyFilter, isVisible: true}, {withDeleted: false}, undefined, "name slug", {name: 1}),
             ]);
 
             return {

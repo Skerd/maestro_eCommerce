@@ -4,7 +4,11 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
-import {IOwnershipPluginFields} from "@coreModule/database/types/plugin-fields";
+import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
+import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
+import {ILifeCyclePluginFields, IOwnershipPluginFields, ISoftDeletePluginFields} from "@coreModule/database/types/plugin-fields";
+import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
+import {DigitalDeliverySchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/digitalDelivery/digitalDelivery.schema-def";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {CompanyBlankSnippet} from "@coreModule/database/schemas/company/company.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
@@ -16,7 +20,7 @@ import {applyDigitalDeliveryIndexes} from "./digitalDelivery.indexes";
  * nothing else. Media ids are snapshotted so later product edits don't change
  * what was bought. System-internal: no CRUD router, no panel.
  */
-export interface IDigitalDelivery extends Document, IOwnershipPluginFields {
+export interface IDigitalDelivery extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: Types.ObjectId;
     product: Types.ObjectId;
     customer: IUser;
@@ -45,7 +49,10 @@ const DigitalDeliverySchema = new Schema<IDigitalDelivery>(
 
 ownershipPlugin(DigitalDeliverySchema);
 auditPlugin(DigitalDeliverySchema);
+softDeletePlugin(DigitalDeliverySchema);
+lifeCyclePlugin(DigitalDeliverySchema);
 applyDigitalDeliveryIndexes(DigitalDeliverySchema);
+validateSchemaDefAgainstMongoose(DigitalDeliverySchema, DigitalDeliverySchemaDef, "DigitalDelivery");
 const DigitalDelivery = model<IDigitalDelivery>("DigitalDelivery", DigitalDeliverySchema);
 normalizeSchemaPermissions(DigitalDelivery);
 export default DigitalDelivery;
