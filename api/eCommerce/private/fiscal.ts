@@ -4,7 +4,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
-import {isObjectIdZod, notEmptyZod} from "armonia/src/modules/core/helpers/zodBuilder";
+import {isObjectIdZod, stringMinMaxLengthZod} from "armonia/src/modules/core/helpers/zodBuilder";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {
     financeInvoiceFiscalData,
@@ -64,10 +64,10 @@ function registerTcrFormSchema(languageCode: string, form: any = null) {
     });
 }
 
-function getTaxpayerFormSchema(languageCode: string, form: any = null) {
+export function getTaxpayerFormSchema(languageCode: string, form: any = null) {
     return z.object({
         fiscalConfigId: isObjectIdZod(form?.["fiscalConfigIdLabel"] ?? "fiscalConfigId", languageCode),
-        tin: notEmptyZod(form?.["tinLabel"] ?? "tin", languageCode).max(20),
+        tin: stringMinMaxLengthZod(form?.["tinLabel"] ?? "tin", 1, 20, languageCode),
     });
 }
 

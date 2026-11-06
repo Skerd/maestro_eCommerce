@@ -27,6 +27,7 @@ import {buildUblInvoiceXml} from "./ublInvoice";
 import {addMoney, includedPercentOfMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
+import {decimalToNumber} from "@coreModule/utilities/mappers/common.mapper";
 
 
 function money(n: number): string {
@@ -305,7 +306,7 @@ export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lin
         const gross = invoice.pricesIncludeVat ? roundToCurrency(line.total) : addMoney(line.total, percentOfMoney(line.total, invoice.vatRate));
         const tax = minorToNumber(includedPercentOfMinor(toMinor(gross), invoice.vatRate));
         const net = subtractMoney(gross, tax);
-        const qty = Math.sign(line.total || 1) * Math.abs(line.quantity || 1);
+        const qty = Math.sign(decimalToNumber(line.total) || 1) * Math.abs(line.quantity || 1);
         const row: OrderedDict = {
             "1__N": line.description,
             "2__C": line.description,

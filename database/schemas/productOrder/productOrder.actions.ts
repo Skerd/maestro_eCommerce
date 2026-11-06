@@ -30,6 +30,9 @@ import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderP
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
+import {minorToNumber, toMinor} from "armonia/src/modules/core/helpers/money";
+import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import type {ActionMessage} from "armonia/src/modules/core/types/shared.types";
 import Fulfillment from "@eCommerceModule/database/schemas/fulfillment/fulfillment";
 import ProductOrderModel, {type IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
@@ -335,6 +338,7 @@ export class ProductOrderActions {
         }
 
         const currencyId = requireCurrency(order, languageCode, "order_not_awaiting_payment");
+        const decimals = await currencyDecimalPlaces(currencyId, session);
         await paymentTransactionService.create(
             {
                 sourceType: "productOrder",
@@ -342,9 +346,9 @@ export class ProductOrderActions {
                 gateway: "manual",
                 type: "charge",
                 status: "succeeded",
-                amount: order.grandTotal,
+                amount: decimal128FromMinor(toMinor(order.grandTotal, decimals), decimals),
                 currency: currencyId,
-                refundedAmount: 0,
+                refundedAmount: decimal128FromMinor(0n, decimals),
                 metadata: paymentReference ? {reference: paymentReference} : undefined,
                 company,
             },
@@ -445,14 +449,15 @@ export async function refundProductOrder(
         throw apiValidationException("no_charge_transaction_found", "", null, languageCode);
     }
 
-    const alreadyRefunded = charge.refundedAmount ?? 0;
-    const remaining = charge.amount - alreadyRefunded;
+    const currencyId = requireCurrency(order, languageCode, "order_not_refundable");
+    // In minor units of the charge's currency (D35); the ledger stores Decimal128 (GLB-08).
+    const decimals = await currencyDecimalPlaces(currencyId, session);
+    const alreadyRefunded = charge.refundedAmount;
+    const remaining = minorToNumber(toMinor(charge.amount, decimals) - toMinor(alreadyRefunded, decimals), decimals);
     const refundAmount = amount ?? remaining;
     if (refundAmount <= 0 || refundAmount > remaining) {
         throw apiValidationException("invalid_refund_amount", "", null, languageCode);
     }
-
-    const currencyId = requireCurrency(order, languageCode, "order_not_refundable");
 
     let gatewayRefundId: string | undefined;
     if (charge.gateway !== "manual" && charge.gatewayTransactionId) {
@@ -465,6 +470,7 @@ export async function refundProductOrder(
             gatewayTransactionId: charge.gatewayTransactionId,
             amount: refundAmount < remaining ? refundAmount : undefined,
             currencyCode: currency?.abbreviation ?? "usd",
+            decimalPlaces: decimals,
             reason: refundReason,
             // Keyed on what was refunded before, not on the amount: a retry after an aborted
             // transaction reuses the key, so the gateway never issues a second refund

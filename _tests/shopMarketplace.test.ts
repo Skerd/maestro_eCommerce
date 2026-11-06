@@ -1,6 +1,6 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 
-import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import request from "supertest";
@@ -54,7 +54,6 @@ import TaskRequest from "@eCommerceModule/database/schemas/taskRequest/taskReque
 import Bid from "@eCommerceModule/database/schemas/bid/bid";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-let replSet: MongoMemoryReplSet;
 const otherCompanyId = new ObjectId();
 const currencyId = new ObjectId();
 const providerId = new ObjectId();
@@ -71,14 +70,12 @@ const stranger: TestCaller = {userId: strangerId.toString(), companyId: companyI
 const visitor = customer;
 
 beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
-    await mongoose.connect(replSet.getUri());
+    await connectTestDatabase();
     await Promise.all([Order.init(), Review.init(), Dispute.init(), Bid.init()]);
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await replSet.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {

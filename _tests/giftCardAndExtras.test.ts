@@ -1,6 +1,5 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from "vitest";
-import {MongoMemoryServer} from "mongodb-memory-server";
-import mongoose from "mongoose";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import {ObjectId} from "mongodb";
 import GiftCard from "@financeModule/database/schemas/giftCard/giftCard";
 import {generateGiftCardCode, giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
@@ -11,7 +10,6 @@ import {explodeBundleLines} from "@eCommerceModule/utilities/services/inventoryR
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-let mongod: MongoMemoryServer;
 
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
@@ -20,13 +18,11 @@ const currencyId = new ObjectId();
 const customerId = new ObjectId();
 
 beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestDatabase();
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await mongod.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {

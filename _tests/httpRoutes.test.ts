@@ -1,6 +1,6 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 
-import {MongoMemoryReplSet} from "mongodb-memory-server";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import request from "supertest";
@@ -36,9 +36,6 @@ import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-// Transactions (every write route) need a replica set; WiredTiger so concurrent
-// requests really conflict (the default in-memory test engine never does)
-let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
@@ -50,8 +47,7 @@ let admin: TestCaller;
 const webClient: TestCaller = {userId: userId.toString(), companyId: companyId.toString(), permissions: []};
 
 beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({replSet: {count: 1, storageEngine: "wiredTiger"}});
-    await mongoose.connect(replSet.getUri());
+    await connectTestDatabase();
     // Every registered model (audit log, …): a collection or index built inside a transaction aborts it.
     await Promise.all(Object.values(mongoose.models).map((model) => model.init()));
     admin = {
@@ -63,8 +59,7 @@ beforeAll(async () => {
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await replSet.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {

@@ -1,6 +1,5 @@
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
-import {MongoMemoryReplSet} from "mongodb-memory-server";
-import mongoose from "mongoose";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import {ObjectId} from "mongodb";
 import Checkout from "@eCommerceModule/database/schemas/checkout/checkout";
 import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
@@ -9,21 +8,17 @@ import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExp
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-// Expiry runs in transactions, which need a replica set
-let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 
 beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
-    await mongoose.connect(replSet.getUri());
+    await connectTestDatabase();
     await Promise.all([Checkout.init(), Inventory.init(), Warehouse.init()]);
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await replSet.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {

@@ -1,5 +1,5 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from "vitest";
-import {MongoMemoryReplSet} from "mongodb-memory-server";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import {getLogger} from "@coreModule/loggers/serverLog";
@@ -19,9 +19,8 @@ import {BidActions} from "@eCommerceModule/database/schemas/bid/bid.actions";
 import {runOrderAutoComplete} from "@eCommerceModule/utilities/cronJobs/orderAutoCompleteJob";
 import {orderChildFilter, orderPartyFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
+import {addMoney} from "armonia/src/modules/core/helpers/money";
 
-// The auto-complete cron runs its own transactions, which need a replica set
-let replSet: MongoMemoryReplSet;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
@@ -34,14 +33,12 @@ const lang = "en-US";
 const logger = getLogger("marketplace_flows_test");
 
 beforeAll(async () => {
-    replSet = await MongoMemoryReplSet.create({replSet: {count: 1}});
-    await mongoose.connect(replSet.getUri());
+    await connectTestDatabase();
     await Promise.all([Order.init(), OrderDelivery.init(), Review.init(), Bid.init()]);
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await replSet.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {
@@ -91,7 +88,7 @@ async function seedOrderInProgress(price = 100): Promise<ObjectId> {
 async function ledgerTotals(orderId: ObjectId): Promise<Record<string, number>> {
     const rows = await EscrowTransaction.find({order: orderId});
     return rows.reduce<Record<string, number>>((totals, row) => {
-        totals[row.type] = Math.round(((totals[row.type] ?? 0) + row.amount) * 100) / 100;
+        totals[row.type] = addMoney(totals[row.type] ?? 0, row.amount);
         return totals;
     }, {});
 }

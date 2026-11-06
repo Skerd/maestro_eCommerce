@@ -45,7 +45,8 @@ function netOfRefundsStages() {
                 from: PaymentTransaction.collection.name,
                 let: {orderId: "$_id"},
                 pipeline: [
-                    {$match: {$expr: {$and: [
+                    // The soft-delete hook filters only the outer pipeline (DB-04).
+                    {$match: {deletedAt: null, $expr: {$and: [
                         {$eq: ["$sourceId", "$$orderId"]},
                         {$eq: ["$sourceType", "productOrder"]},
                         {$eq: ["$type", "refund"]},
@@ -55,7 +56,9 @@ function netOfRefundsStages() {
                 as: "refunds",
             },
         },
-        {$addFields: {netTotal: {$subtract: ["$grandTotal", {$ifNull: [{$arrayElemAt: ["$refunds.amount", 0]}, 0]}]}}},
+        // Ledger amounts are Decimal128 (TD-B29) and order totals numbers: the refunds are read as a number, so
+        // the revenue figures stay numbers in the response.
+        {$addFields: {netTotal: {$subtract: ["$grandTotal", {$toDouble: {$ifNull: [{$arrayElemAt: ["$refunds.amount", 0]}, 0]}}]}}},
     ];
 }
 

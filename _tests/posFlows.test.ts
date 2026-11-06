@@ -1,5 +1,5 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
-import {MongoMemoryServer} from "mongodb-memory-server";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import {DOMParser} from "@xmldom/xmldom";
@@ -25,24 +25,22 @@ import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {openPosSession, payPosOrder} from "@eCommerceModule/utilities/services/posService";
+import {openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/utilities/services/posService";
+import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
 const ctx = {logger: getLogger("pos_flows_test"), languageCode: "en-US", company: {_id: companyId, name: "Shop"}, userId: new ObjectId()};
 
 beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestDatabase();
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await mongod.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {
@@ -132,5 +130,46 @@ describe("till sales (#19)", () => {
         expect(invoice["8__TotPriceWoVAT"]).toBe("20.00");
         expect(invoice["30__Items"]["1__I"][0]).toMatchObject({"10__VR": "20.00", "11__VA": "4.00"});
         expect(invoice["31__SameTaxes"]["1__SameTax"][0]).toMatchObject({"3__VATRate": "20.00", "4__VATAmt": "4.00"});
+    }));
+
+    // TD-B31: a cash payment's amount includes the change given back, so the refund used to return the change too.
+    it("refunds what was paid, not the cash handed over, and takes only that out of the drawer", () => asCompany(async () => {
+        const {warehouse, cash, sessionId} = await seedTill();
+        const wine = await seedProduct({price: 43.2});
+        await Inventory.create({product: wine._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+        const {order} = await payPosOrder({
+            sessionId,
+            lines: [{productId: wine._id.toString(), quantity: 1}],
+            payments: [{paymentMethodId: cash._id.toString(), amount: 50}],
+        } as any, ctx);
+        expect(order.amountReturn).toBe(6.8);
+        const drawerAfterSale = (await PosSession.findById(sessionId))!.cashRegisterBalance;
+
+        const {order: refund} = await refundPosOrder({_id: order._id.toString()}, ctx);
+
+        expect(refund.amountTotal).toBe(43.2);
+        expect(refund.payments.map(payment => payment.amount)).toEqual([43.2]);
+        const drawer = (await PosSession.findById(sessionId))!;
+        expect(drawer.cashRegisterBalance).toBe(drawerAfterSale - 43.2);
+    }));
+
+    it("splits a refund over card and cash by what each actually paid", () => asCompany(async () => {
+        const {warehouse, cash, sessionId} = await seedTill();
+        const card = await PosPaymentMethod.create({name: "Card", type: "card", isActive: true, company: companyId} as any);
+        const lamp = await seedProduct({price: 50});
+        await Inventory.create({product: lamp._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+        // Two lamps for 100.00: 60.00 on the card, 50.00 in cash with 10.00 change, so the cash really paid 40.00
+        const {order} = await payPosOrder({
+            sessionId,
+            lines: [{productId: lamp._id.toString(), quantity: 2}],
+            payments: [{paymentMethodId: card._id.toString(), amount: 60}, {paymentMethodId: cash._id.toString(), amount: 50}],
+        } as any, ctx);
+        const drawerAfterSale = (await PosSession.findById(sessionId))!.cashRegisterBalance;
+        const lineId = (await PosOrder.findById(order._id))!.lines[0]._id.toString();
+
+        const {order: refund} = await refundPosOrder({_id: order._id.toString(), lines: [{lineId, quantity: 1}]}, ctx);
+
+        expect(refund.payments.map(payment => payment.amount)).toEqual([30, 20]);
+        expect((await PosSession.findById(sessionId))!.cashRegisterBalance).toBe(drawerAfterSale - 20);
     }));
 });

@@ -1,5 +1,5 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from "vitest";
-import {MongoMemoryServer} from "mongodb-memory-server";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import {getLogger} from "@coreModule/loggers/serverLog";
@@ -18,7 +18,6 @@ import {productOrderLinesToSelect} from "@eCommerceModule/utilities/mappers/prod
 import {attachOrderLineProductCopy} from "@eCommerceModule/utilities/mappers/productOrder/orderLineDisplay";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
@@ -33,14 +32,12 @@ const staff = (permissions: string[]) => ({
 }) as any;
 
 beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestDatabase();
     await Inventory.init();
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await mongod.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {

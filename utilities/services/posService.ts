@@ -39,7 +39,7 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
-import {addMoney, allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
+import {addMoney, allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
 import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
@@ -1053,6 +1053,24 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     };
 }
 
+/**
+ * Shares a refund over a sale's payments by what each actually paid (TD-B31): a cash payment's amount includes the
+ * change handed back, so the change comes off the cash payments first and a 43.20 sale paid with 50.00 cash refunds
+ * 43.20. The parts add up to the refund exactly (`allocateMinor`).
+ */
+function refundSharesOverPayments(payments: {amount: MoneyInput; isCash: boolean}[], change: MoneyInput, refundAmount: number): number[] {
+    let changeLeft = toMinor(change);
+    const paid = payments.map((payment) => {
+        const amount = toMinor(payment.amount);
+        if (!payment.isCash || changeLeft <= 0n) return amount;
+        const netted = amount < changeLeft ? amount : changeLeft;
+        changeLeft -= netted;
+        return amount - netted;
+    });
+    if (sumMinor(paid) <= 0n) return payments.map(() => 0);
+    return allocateMinor(toMinor(refundAmount), paid).map((share) => minorToNumber(share));
+}
+
 export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     const original = await PosOrder.findOne({
         _id: body._id,
@@ -1194,6 +1212,25 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         throw apiValidationException("pos_refund_amount_invalid", "amount", null, ctx.languageCode);
     }
 
+    const originalPayments = original.payments ?? [];
+    const cashMethods = await PosPaymentMethod.find({
+        _id: {$in: originalPayments.flatMap((p) => {
+            const id = nestedEntityToRef(p.paymentMethod);
+            return id ? [id] : [];
+        })},
+        type: "cash",
+    }).session(ctx.session ?? null);
+    const cashMethodIds = new Set(cashMethods.map(m => m._id.toString()));
+    const isCashPayment = originalPayments.map((p) => {
+        const mid = nestedEntityToRef(p.paymentMethod)?.toString();
+        return !!mid && cashMethodIds.has(mid);
+    });
+    const refundShares = refundSharesOverPayments(
+        originalPayments.map((p, index) => ({amount: p.amount, isCash: isCashPayment[index]})),
+        original.amountReturn,
+        refundAmount,
+    );
+
     const name = await generatePosOrderName(ctx.company._id, ctx.session);
     const now = new Date();
 
@@ -1206,11 +1243,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         customer: original.customer,
         customerName: original.customerName,
         lines: refundLines,
-        payments: (original.payments ?? []).map(p => ({
+        payments: originalPayments.map((p, index) => ({
             paymentMethod: p.paymentMethod,
             paymentMethodName: p.paymentMethodName,
             paymentMethodType: p.paymentMethodType,
-            amount: original.amountTotal > 0 ? prorateMoney(Number(p.amount), refundAmount, original.amountTotal) : roundToCurrency(Number(p.amount)),
+            amount: refundShares[index],
             paymentDate: now,
             terminalAuthCode: p.terminalAuthCode,
             terminalReference: p.terminalReference,
@@ -1295,23 +1332,8 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     }
     await original.save({session: ctx.session});
 
-    // Cash refund reduces drawer
-    const cashMethods = await PosPaymentMethod.find({
-        _id: {$in: (original.payments ?? []).flatMap((p) => {
-            const id = nestedEntityToRef(p.paymentMethod);
-            return id ? [id] : [];
-        })},
-        type: "cash",
-    }).session(ctx.session ?? null);
-    const cashMethodIds = new Set(cashMethods.map(m => m._id.toString()));
-    let cashRefund = 0;
-    for (const p of original.payments ?? []) {
-        const mid = nestedEntityToRef(p.paymentMethod)?.toString();
-        if (mid && cashMethodIds.has(mid)) {
-            const share = original.amountTotal > 0 ? prorateMoney(Number(p.amount), refundAmount, original.amountTotal) : roundToCurrency(Number(p.amount));
-            cashRefund = addMoney(cashRefund, share);
-        }
-    }
+    // Cash refund reduces drawer: the cash payments' shares of the refund, never the change they included
+    const cashRefund = addMoney(...refundShares.filter((_, index) => isCashPayment[index]));
     if (cashRefund > 0) {
         sessionDoc.cashRegisterBalance = subtractMoney(sessionDoc.cashRegisterBalance, cashRefund);
         sessionDoc.expectedCash = subtractMoney(sessionDoc.expectedCash, cashRefund);

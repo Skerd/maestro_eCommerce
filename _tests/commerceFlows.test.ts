@@ -1,5 +1,5 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
-import {MongoMemoryServer} from "mongodb-memory-server";
+import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import {getLogger} from "@coreModule/loggers/serverLog";
@@ -56,7 +56,6 @@ import PaymentTransaction from "@financeModule/database/schemas/paymentTransacti
 import {GiftCardActions} from "@financeModule/database/schemas/giftCard/giftCard.actions";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
-let mongod: MongoMemoryServer;
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
 const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
@@ -66,15 +65,13 @@ const lang = "en-US";
 const logger = getLogger("commerce_flows_test");
 
 beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    await connectTestDatabase();
     // The API boot normalizes every model's permissions; this model doesn't do it on its own
     normalizeSchemaPermissions(CustomerGroupMember);
 }, 120000);
 
 afterAll(async () => {
-    await mongoose.disconnect();
-    await mongod.stop();
+    await disconnectTestDatabase();
 });
 
 beforeEach(() => asCompany(async () => {
@@ -909,7 +906,7 @@ describe("returns", () => {
         } as any);
 
         expect((await ProductOrder.findById(order._id))!.paymentStatus).toBe("partially_refunded");
-        expect((await PaymentTransaction.findOne({sourceId: order._id, type: "charge"}))!.refundedAmount).toBe(50);
+        expect(String((await PaymentTransaction.findOne({sourceId: order._id, type: "charge"}))!.refundedAmount)).toBe("50.00");
         expect((await ReturnRequest.findById(request._id))!.status).toBe("completed");
     }));
 });
