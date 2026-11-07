@@ -1068,14 +1068,24 @@ function paidNetOfChange(payments: {amount: MoneyInput; isCash: boolean}[], chan
 }
 
 /**
- * Shares a refund over a sale's payments by what each actually paid (TD-B31): a cash payment's amount includes the
- * change handed back, so the change comes off the cash payments first and a 43.20 sale paid with 50.00 cash refunds
- * 43.20. The parts add up to the refund exactly (`allocateMinor`).
+ * Shares a refund over a sale's payments by what each can still give back (TD-B31, D84): what it actually paid (a cash
+ * payment's amount includes the change handed back, so the change comes off the cash payments first and a 43.20 sale
+ * paid with 50.00 cash refunds 43.20), less what earlier refunds already took from it (`refunded`, minor units). A run
+ * of partial refunds so never puts a rounding unit on a payment that is fully refunded. The parts add up to the refund
+ * exactly (`allocateMinor`).
  */
-function refundSharesOverPayments(payments: {amount: MoneyInput; isCash: boolean}[], change: MoneyInput, refundAmount: number, decimals: number): number[] {
-    const paid = paidNetOfChange(payments, change, decimals);
-    if (sumMinor(paid) <= 0n) return payments.map(() => 0);
-    return allocateMinor(toMinor(refundAmount, decimals), paid).map((share) => minorToNumber(share, decimals));
+function refundSharesOverPayments(
+    payments: {amount: MoneyInput; isCash: boolean; refunded: bigint}[],
+    change: MoneyInput,
+    refundAmount: number,
+    decimals: number,
+): number[] {
+    const refundable = paidNetOfChange(payments, change, decimals).map((paid, index) => {
+        const left = paid - payments[index].refunded;
+        return left > 0n ? left : 0n;
+    });
+    if (sumMinor(refundable) <= 0n) return payments.map(() => 0);
+    return allocateMinor(toMinor(refundAmount, decimals), refundable).map((share) => minorToNumber(share, decimals));
 }
 
 export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
@@ -1129,6 +1139,8 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     const alreadyPartial = originalLines.some((l: any) => Number(l.quantityRefunded ?? 0) > 0.0001);
     const priorAmountRefunded = Number(original.amountRefunded ?? 0);
     const remainingOrderAmount = Math.max(0, subtractMoney(Number(original.amountTotal), priorAmountRefunded, decimals));
+    // Refund amounts are compared exactly, in minor units at the currency's decimals (GLB-08)
+    const remainingMinor = toMinor(remainingOrderAmount, decimals);
 
     let refundLines: any[];
     let refundAmount: number;
@@ -1163,7 +1175,13 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
         // The same rule the panel's refund dialog shows (armonia `posRefundAmount`)
         refundAmount = posRefundAmount(original, restockPlan, decimals);
-        if (refundAmount > remainingOrderAmount + 0.011) {
+        const pickedOf = (line: {_id: unknown}) =>
+            restockPlan.filter((pick) => String(pick.line._id) === String(line._id)).reduce((sum, pick) => sum + pick.quantity, 0);
+        if (originalLines.every((line) => remainingOf(line) - pickedOf(line) <= 0.0001)) {
+            // The last refund takes exactly what is left: rounding each partial refund once can leave a cent
+            // behind, or ask for one more than the sale has left
+            refundAmount = remainingOrderAmount;
+        } else if (toMinor(refundAmount, decimals) > remainingMinor) {
             throw apiValidationException("pos_refund_amount_invalid", "amount", null, ctx.languageCode);
         }
     } else {
@@ -1173,11 +1191,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
             throw apiValidationException("pos_refund_lines_required", "lines", null, ctx.languageCode);
         }
         refundAmount = body.amount != null ? Number(body.amount) : remainingOrderAmount;
-        if (refundAmount <= 0 || refundAmount > remainingOrderAmount + 0.001) {
+        const askedMinor = toMinor(refundAmount, decimals);
+        if (askedMinor <= 0n || askedMinor > remainingMinor) {
             throw apiValidationException("pos_refund_amount_invalid", "amount", null, ctx.languageCode);
         }
-        const isFullRemaining = Math.abs(refundAmount - remainingOrderAmount) < 0.011;
-        if (!isFullRemaining) {
+        if (askedMinor !== remainingMinor) {
             // Partial amount without lines is ambiguous for restock — require line selection.
             throw apiValidationException("pos_refund_lines_required", "lines", null, ctx.languageCode);
         }
@@ -1223,8 +1241,23 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         const mid = nestedEntityToRef(p.paymentMethod)?.toString();
         return !!mid && cashMethodIds.has(mid);
     });
+    // Each payment's ledger charge: what earlier refunds took from it, and where this refund is booked (TD-B41)
+    const originalProductOrderId = nestedEntityToRef(original.productOrder);
+    const charges = originalProductOrderId
+        ? await paymentTransactionService.find(
+            {type: "charge", "metadata.posOrderId": original._id.toString()},
+            {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session},
+        )
+        : [];
+    const paymentMethodIdOf = (paymentIndex: number) => nestedEntityToRef(originalPayments[paymentIndex].paymentMethod)?.toString();
+    const chargeOf = (paymentIndex: number) =>
+        charges.find((c) => c.metadata?.paymentIndex === paymentIndex)
+        ?? charges.find((c) => c.metadata?.paymentIndex === undefined && c.metadata?.paymentMethodId === paymentMethodIdOf(paymentIndex));
     const refundShares = refundSharesOverPayments(
-        originalPayments.map((p, index) => ({amount: p.amount, isCash: isCashPayment[index]})),
+        originalPayments.map((p, index) => {
+            const charge = chargeOf(index);
+            return {amount: p.amount, isCash: isCashPayment[index], refunded: charge ? toMinor(charge.refundedAmount, decimals) : 0n};
+        }),
         original.amountReturn,
         refundAmount,
         decimals,
@@ -1312,9 +1345,10 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     original.amountRefunded = sumMoney([priorAmountRefunded, refundAmount], decimals);
 
     const allLinesFullyRefunded = originalLines.every((l: any) => remainingOf(l) <= 0.0001);
+    // Exactly, in minor units at the currency's decimals (GLB-08): a 0.03 sale is not refunded after 0.02
     const fullyRefunded =
         allLinesFullyRefunded ||
-        Math.abs(Number(original.amountRefunded) - Number(original.amountTotal)) < 0.011;
+        toMinor(original.amountRefunded, decimals) >= toMinor(original.amountTotal, decimals);
 
     if (fullyRefunded) {
         original.state = "refunded";
@@ -1332,17 +1366,11 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     await original.save({session: ctx.session});
 
     // Each payment's share goes back on its ledger charge (TD-B41)
-    const originalProductOrderId = nestedEntityToRef(original.productOrder);
     if (originalProductOrderId) {
-        const charges = await paymentTransactionService.find(
-            {type: "charge", "metadata.posOrderId": original._id.toString()},
-            {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session},
-        );
         for (const [paymentIndex, share] of refundShares.entries()) {
             if (share <= 0) continue;
-            const methodId = nestedEntityToRef(originalPayments[paymentIndex].paymentMethod)?.toString();
-            const charge = charges.find((c) => c.metadata?.paymentIndex === paymentIndex)
-                ?? charges.find((c) => c.metadata?.paymentIndex === undefined && c.metadata?.paymentMethodId === methodId);
+            const methodId = paymentMethodIdOf(paymentIndex);
+            const charge = chargeOf(paymentIndex);
             if (!charge) continue;
             await paymentTransactionService.recordRefund(
                 {
