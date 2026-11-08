@@ -369,7 +369,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
         });
     }
 
-    draft.customer = body.customerId ? (new ObjectId(body.customerId) as any) : undefined;
+    draft.customer = body.customerId ? new ObjectId(body.customerId) : undefined;
     draft.customerName = body.customerName || undefined;
     draft.note = body.note;
     draft.orderDiscountPercent = orderDiscPct;
@@ -379,7 +379,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     draft.amountPaid = 0;
     draft.amountReturn = 0;
     draft.payments = [];
-    draft.cashier = ctx.userId as any;
+    draft.cashier = ctx.userId;
     await draft.save({session: ctx.session});
 
     const populated = await posOrderService.findById(draft._id, {session: ctx.session}, "session config cashier customer");

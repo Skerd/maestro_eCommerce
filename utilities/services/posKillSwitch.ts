@@ -183,7 +183,7 @@ export async function forceClosePosSession(
     const expectedCash = roundToCurrency(sessionDoc.expectedCash ?? 0, decimals);
     const now = new Date();
     sessionDoc.state = "closed";
-    sessionDoc.closedBy = (ctx.userId as any) ?? sessionDoc.openedBy;
+    sessionDoc.closedBy = ctx.userId ? new ObjectId(ctx.userId) : sessionDoc.openedBy;
     sessionDoc.closedAt = now;
     sessionDoc.closingBalance = expectedCash;
     const forceNote = `force-closed: ${reason}`;
