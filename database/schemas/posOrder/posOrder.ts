@@ -54,7 +54,7 @@ export interface IPosOrderLine {
 }
 
 export interface IPosOrderPayment {
-    paymentMethod: IPosPaymentMethod;
+    paymentMethod: IPosPaymentMethod | Types.ObjectId;
     /** Denormalized so historical orders keep method details. */
     paymentMethodName?: string;
     paymentMethodType?: string;
@@ -63,7 +63,8 @@ export interface IPosOrderPayment {
     terminalAuthCode?: string;
     terminalReference?: string;
     terminalId?: string;
-    _id: Types.ObjectId;
+    /** Mongoose adds it when the payment is set on the order; a payment built at the till has none yet. */
+    _id?: Types.ObjectId;
 }
 
 export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
@@ -71,8 +72,8 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
     session: IPosSession;
     config: IPosConfig;
     state: PosOrderState;
-    cashier: IUser;
-    customer?: IUser;
+    cashier: IUser | Types.ObjectId;
+    customer?: IUser | Types.ObjectId;
     customerName?: string;
     lines: IPosOrderLine[];
     payments: IPosOrderPayment[];

@@ -73,24 +73,26 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
                 ),
             };
         }) ?? [],
-        payments: order.payments?.map((payment) => ({
-            paymentMethod: mapSnippet<PosPaymentMethodSimple>()(payment.paymentMethod, PosPaymentMethodSimpleSnippet)
-                ?? {
+        payments: order.payments?.map((payment) => {
+            const method = mapSnippet<PosPaymentMethodSimple>()(payment.paymentMethod, PosPaymentMethodSimpleSnippet);
+            return {
+                paymentMethod: method ?? {
                     _id: payment.paymentMethod?._id?.toString() ?? "",
                     name: payment.paymentMethodName ?? "",
                     type: payment.paymentMethodType ?? "",
                     isActive: true,
                     sequence: 0,
                 },
-            paymentMethodName: payment.paymentMethodName ?? payment.paymentMethod?.name,
-            paymentMethodType: payment.paymentMethodType ?? payment.paymentMethod?.type,
-            amount: payment.amount,
-            currency: tillCurrency,
-            paymentDate: payment.paymentDate?.toISOString?.(),
-            terminalAuthCode: payment.terminalAuthCode,
-            terminalReference: payment.terminalReference,
-            terminalId: payment.terminalId,
-        })) ?? [],
+                paymentMethodName: payment.paymentMethodName ?? method?.name,
+                paymentMethodType: payment.paymentMethodType ?? method?.type,
+                amount: payment.amount,
+                currency: tillCurrency,
+                paymentDate: payment.paymentDate?.toISOString?.(),
+                terminalAuthCode: payment.terminalAuthCode,
+                terminalReference: payment.terminalReference,
+                terminalId: payment.terminalId,
+            };
+        }) ?? [],
         amountTax: order.amountTax,
         amountTotal: order.amountTotal,
         amountPaid: order.amountPaid,

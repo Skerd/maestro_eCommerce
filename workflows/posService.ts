@@ -416,6 +416,10 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
     }
 
     const amount = roundToCurrency(body.amount, decimals);
+    // The form's 0.01 floor knows no currency: 0.4 in a 0-decimal till would store a 0 move (GLB-08)
+    if (toMinor(amount, decimals) <= 0n) {
+        throw apiValidationException("pos_cash_move_amount_invalid", "amount", null, ctx.languageCode);
+    }
     if (body.type === "out" && toMinor(sessionDoc.cashRegisterBalance, decimals) < toMinor(amount, decimals)) {
         throw apiValidationException("pos_insufficient_cash", "amount", null, ctx.languageCode);
     }
@@ -427,7 +431,7 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
         reason: body.reason,
         at: new Date(),
         by: ctx.userId,
-    } as any);
+    });
     sessionDoc.cashRegisterBalance = sumMoney([sessionDoc.cashRegisterBalance, delta], decimals);
     sessionDoc.expectedCash = sumMoney([sessionDoc.expectedCash, delta], decimals);
     sessionDoc.markModified("cashMoves");
@@ -470,7 +474,7 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
 
     const now = new Date();
     sessionDoc.state = "closed";
-    sessionDoc.closedBy = ctx.userId as any;
+    sessionDoc.closedBy = ctx.userId;
     sessionDoc.closedAt = now;
     sessionDoc.closingBalance = countedCash;
     const noteParts = [body.notes?.trim(), body.differenceReason?.trim()].filter(Boolean);
@@ -822,12 +826,12 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
 
     const now = new Date();
     posOrder.state = "paid";
-    posOrder.session = sessionDoc._id as any;
-    posOrder.config = config._id as any;
-    posOrder.cashier = ctx.userId as any;
-    posOrder.customer = body.customerId ? (new ObjectId(body.customerId) as any) : undefined;
+    posOrder.session = sessionDoc._id;
+    posOrder.config = config._id;
+    posOrder.cashier = ctx.userId;
+    posOrder.customer = body.customerId ? new ObjectId(body.customerId) : undefined;
     posOrder.customerName = body.customerName || (body.customerId ? undefined : "Walk-in Customer");
-    posOrder.lines = lines as any;
+    posOrder.lines = lines;
     posOrder.payments = body.payments.map(p => {
         const method = methodById.get(p.paymentMethodId);
         return {
@@ -840,7 +844,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             terminalReference: p.terminalReference,
             terminalId: p.terminalId || method?.terminalId,
         };
-    }) as any;
+    });
     posOrder.amountTax = amountTax;
     posOrder.amountTotal = amountTotal;
     posOrder.amountPaid = amountPaid;
@@ -849,7 +853,6 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     posOrder.orderDiscountPercent = orderDiscPct;
     posOrder.note = body.note;
     posOrder.isRefund = false;
-    posOrder.company = ctx.company._id as any;
     if (body.clientRequestId) posOrder.clientRequestId = body.clientRequestId;
     await posOrder.save({session: ctx.session});
 

@@ -203,6 +203,15 @@ describe("till money checks at the currency's decimals (TD-B52, GLB-08)", () => 
         expect([session.cashMoves.map((move) => move.amount), session.cashRegisterBalance, session.expectedCash]).toEqual([[10], 0, 0]);
     }));
 
+    // Old: 0.4 passed the form's 0.01 floor and stored a cash move of 0.
+    it("refuses a cash move that rounds to nothing at the currency's decimals", () => asCompany(async () => {
+        const {sessionId} = await openTill({decimals: 0, openingBalance: 10});
+
+        await expect(cashMovePosSession({_id: sessionId, type: "in", amount: 0.4, reason: "Float"}, ctx))
+            .rejects.toMatchObject({error_code: "pos_cash_move_amount_invalid"});
+        expect((await PosSession.findById(sessionId))!.cashMoves).toHaveLength(0);
+    }));
+
     // Old: the charge was written as the number 10, stored as "10" and "0".
     it("stores the ledger charge at the currency's scale", () => asCompany(async () => {
         await seedSale(5, 2, [10], {}, {decimals: 3});

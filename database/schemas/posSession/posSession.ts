@@ -1,4 +1,4 @@
-import {Document, model, Schema, SchemaTypes} from "mongoose";
+import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {IUser} from "@coreModule/database/schemas/user/user";
@@ -31,7 +31,7 @@ export interface IPosCashMove {
     amount: number;
     reason?: string;
     at?: Date;
-    by?: IUser;
+    by?: IUser | Types.ObjectId;
 }
 
 export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
@@ -40,7 +40,7 @@ export interface IPosSession extends Document, IOwnershipPluginFields, ISoftDele
     currency?: ICurrency;
     state: PosSessionState;
     openedBy?: IUser;
-    closedBy?: IUser;
+    closedBy?: IUser | Types.ObjectId;
     openedAt?: Date;
     closedAt?: Date;
     openingBalance: number;
