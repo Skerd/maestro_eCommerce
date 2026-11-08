@@ -17,6 +17,7 @@ import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posC
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
+import type {ProductType} from "@eCommerceModule/database/schemas/product/product";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
 import {productVariantService, variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
@@ -28,6 +29,7 @@ import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrde
 import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 import {posConfigToDTO} from "@eCommerceModule/utilities/mappers/posConfig/posConfigMapper.dto";
 import {
+    type BuiltLine,
     buildReceiptFromPosOrder,
     getPosSessionReconciliation,
     rebuildPaidPosResult,
@@ -704,7 +706,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const currencyId = nestedEntityToRef(config.currency);
     const decimals = await currencyDecimalPlaces(currencyId, ctx.session);
 
-    const lines = [];
+    const lines: (BuiltLine & {productType: ProductType})[] = [];
     let subtotal = 0;
     let lineDiscountTotal = 0;
 
@@ -1157,7 +1159,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     if (body.lines?.length) {
         refundLines = [];
         for (const req of body.lines) {
-            const line = originalLines.find((l) => l._id.toString() === req.lineId);
+            const line = originalLines.find((l) => l._id?.toString() === req.lineId);
             if (!line) throw apiValidationException("pos_refund_line_invalid", "lines", null, ctx.languageCode);
             const qty = Number(req.quantity);
             const remaining = remainingOf(line);
@@ -1183,7 +1185,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         }
         // The same rule the panel's refund dialog shows (armonia `posRefundAmount`)
         refundAmount = posRefundAmount(original, restockPlan, decimals);
-        const pickedOf = (line: {_id: unknown}) =>
+        const pickedOf = (line: {_id?: unknown}) =>
             restockPlan.filter((pick) => String(pick.line._id) === String(line._id)).reduce((sum, pick) => sum + pick.quantity, 0);
         if (originalLines.every((line) => remainingOf(line) - pickedOf(line) <= 0.0001)) {
             // The last refund takes exactly what is left: rounding each partial refund once can leave a cent
@@ -1340,7 +1342,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     // Persist refunded quantities on the original sale lines
     if (body.lines?.length) {
         for (const req of body.lines) {
-            const line = originalLines.find((l) => l._id.toString() === req.lineId);
+            const line = originalLines.find((l) => l._id?.toString() === req.lineId);
             if (!line) continue;
             line.quantityRefunded = roundQuantity(Number(line.quantityRefunded ?? 0) + Number(req.quantity));
         }

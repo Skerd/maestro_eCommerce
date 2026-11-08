@@ -13,7 +13,7 @@ import {
     mapOwnershipToDTO,
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
-import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
+import {mapSnippet, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {PosConfigSimpleSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
@@ -48,14 +48,14 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
                         sku: product.sku ?? line.productSku,
                     }
                     : {
-                        _id: line.product?._id?.toString() ?? "",
+                        _id: nestedEntityToRef(line.product)?.toString() ?? "",
                         title: line.productName,
                         slug: "",
                         sku: line.productSku,
                         status: "",
                         type: "",
                     },
-                variant: line.variant?._id?.toString(),
+                variant: nestedEntityToRef(line.variant)?.toString(),
                 quantity: line.quantity,
                 quantityRefunded: line.quantityRefunded,
                 unitPrice: line.unitPrice,
@@ -64,8 +64,8 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
                 priceSubtotal: line.priceSubtotal,
                 priceTotal: line.priceTotal,
                 taxAmount: line.taxAmount,
-                productName: line.productName ?? line.product?.title,
-                productSku: line.productSku ?? line.product?.sku,
+                productName: line.productName ?? product?.title,
+                productSku: line.productSku ?? product?.sku,
                 barcode: line.barcode,
                 currency: mapSnippet<CurrencySimple>()(
                     (line.product as {currency?: object} | undefined)?.currency,

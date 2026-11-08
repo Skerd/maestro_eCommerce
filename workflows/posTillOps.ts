@@ -63,7 +63,7 @@ async function resolveOpenedSession(sessionId: string, ctx: Ctx) {
     return sessionDoc;
 }
 
-type BuiltLine = {
+export type BuiltLine = {
     product: ObjectId;
     variant?: ObjectId;
     quantity: number;
@@ -373,8 +373,8 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     draft.customerName = body.customerName || undefined;
     draft.note = body.note;
     draft.orderDiscountPercent = orderDiscPct;
-    // Mongoose casts the built lines (product/variant ids) into line subdocuments with their own `_id`.
-    draft.set("lines", lines);
+    // Mongoose casts the built lines into line subdocuments with their own `_id`.
+    draft.lines = lines;
     draft.discountTotal = discountTotal;
     draft.amountTotal = amountTotal;
     draft.amountPaid = 0;

@@ -36,8 +36,8 @@ import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperator
 export type PosOrderState = "draft" | "paid" | "cancel" | "refunded";
 
 export interface IPosOrderLine {
-    product: IProduct;
-    variant?: IProductVariant;
+    product: IProduct | Types.ObjectId;
+    variant?: IProductVariant | Types.ObjectId;
     quantity: number;
     /** Cumulative qty already refunded against this sale line. */
     quantityRefunded?: number;
@@ -50,7 +50,8 @@ export interface IPosOrderLine {
     productName: string;
     productSku?: string;
     barcode?: string;
-    _id: Types.ObjectId;
+    /** Mongoose adds it when the line is set on the order; a line built at the till has none yet. */
+    _id?: Types.ObjectId;
 }
 
 export interface IPosOrderPayment {
