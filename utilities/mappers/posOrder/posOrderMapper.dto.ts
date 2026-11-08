@@ -67,10 +67,8 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
                 productName: line.productName ?? product?.title,
                 productSku: line.productSku ?? product?.sku,
                 barcode: line.barcode,
-                currency: mapSnippet<CurrencySimple>()(
-                    (line.product as {currency?: object} | undefined)?.currency,
-                    CurrencySimpleSnippet,
-                ),
+                // ProductSimpleSnippet already projects the product's currency through CurrencySimpleSnippet
+                currency: product?.currency,
             };
         }) ?? [],
         payments: order.payments?.map((payment) => {

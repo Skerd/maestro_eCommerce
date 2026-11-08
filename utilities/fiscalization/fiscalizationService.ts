@@ -354,7 +354,7 @@ export async function registerPosInvoice(
         "1__Type": payMethodType(p.paymentMethodType),
         "2__Amt": money(Number(p.amount) * (order.isRefund ? -1 : 1)),
     }));
-    const items: OrderedDict[] = ((order.lines as any[]) || []).map(line => {
+    const items: OrderedDict[] = order.lines.map(line => {
         const qty = Number(line.quantity) * (order.isRefund ? -1 : 1);
         const pb = subtractMoney(Number(line.priceSubtotal), Number(line.discountAmount || 0));
         // priceTotal is after discount; treat as gross when taxAmount present
@@ -523,7 +523,7 @@ export async function registerEinvoiceForPosOrder(
     const totGross = roundToCurrency(Number(order.amountTotal));
     const totVat = roundToCurrency(Number(order.amountTax));
     const totNet = subtractMoney(totGross, totVat);
-    const lines = ((order.lines as any[]) || []).map(line => {
+    const lines = order.lines.map(line => {
         const qty = Number(line.quantity);
         const pa = roundToCurrency(Number(line.priceTotal));
         const tax = roundToCurrency(Number(line.taxAmount || 0));

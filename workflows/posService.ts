@@ -16,7 +16,7 @@ import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posCo
 import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
-import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
+import PosOrder, {IPosOrder, type IPosOrderLine} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import type {ProductType} from "@eCommerceModule/database/schemas/product/product";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
@@ -1144,17 +1144,17 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     }
 
     const originalLines = original.lines ?? [];
-    const remainingOf = (line: any) =>
+    const remainingOf = (line: IPosOrderLine) =>
         Math.max(0, Number(line.quantity) - Number(line.quantityRefunded ?? 0));
-    const alreadyPartial = originalLines.some((l: any) => Number(l.quantityRefunded ?? 0) > 0.0001);
+    const alreadyPartial = originalLines.some((l) => Number(l.quantityRefunded ?? 0) > 0.0001);
     const priorAmountRefunded = Number(original.amountRefunded ?? 0);
     const remainingOrderAmount = Math.max(0, subtractMoney(Number(original.amountTotal), priorAmountRefunded, decimals));
     // Refund amounts are compared exactly, in minor units at the currency's decimals (GLB-08)
     const remainingMinor = toMinor(remainingOrderAmount, decimals);
 
-    let refundLines: any[];
+    let refundLines: IPosOrderLine[];
     let refundAmount: number;
-    let restockPlan: {line: any; quantity: number}[] = [];
+    let restockPlan: {line: IPosOrderLine; quantity: number}[] = [];
 
     if (body.lines?.length) {
         refundLines = [];
@@ -1354,7 +1354,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
     original.markModified("lines");
     original.amountRefunded = sumMoney([priorAmountRefunded, refundAmount], decimals);
 
-    const allLinesFullyRefunded = originalLines.every((l: any) => remainingOf(l) <= 0.0001);
+    const allLinesFullyRefunded = originalLines.every((l) => remainingOf(l) <= 0.0001);
     // Exactly, in minor units at the currency's decimals (GLB-08): a 0.03 sale is not refunded after 0.02
     const fullyRefunded =
         allLinesFullyRefunded ||
