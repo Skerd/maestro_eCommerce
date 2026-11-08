@@ -29,6 +29,8 @@ import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
 import {decimalToNumber} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {ServerError} from "armonia/src/modules/core/types";
+import axios from "axios";
 
 
 function money(n: number): string {
@@ -586,9 +588,23 @@ export async function registerEinvoiceForPosOrder(
     return {eic, ublXml: ublSigned, fault, signedXml: response.signedXml};
 }
 
+/** Connection failures that prove the request never left for CIS. */
+const NOT_SENT_ERROR_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN"]);
+
+/**
+ * Whether a failed registration provably never reached CIS: a check that failed before sending, or a connection that
+ * was never made. Anything else (a timeout, a dropped connection) may have registered the sale.
+ */
+function neverReachedCis(error: unknown): boolean {
+    if (error instanceof ServerError) return true;
+    return axios.isAxiosError(error) && error.code !== undefined && NOT_SENT_ERROR_CODES.has(error.code);
+}
+
 /**
  * Persist CIS result onto PosOrder and register the e-invoice. Runs outside any transaction, on a committed sale (D97):
- * the CIS call must never be repeated by a transaction retry.
+ * the CIS call must never be repeated by a transaction retry. The sale is marked `fiscalRegisteringAt` before it is
+ * sent and the mark is cleared with CIS's answer; a sale still marked is refused with `fiscal_registration_unconfirmed`
+ * (TD-B75).
  */
 export async function fiscalizePosOrder(
     orderId: string,
@@ -612,11 +628,30 @@ export async function fiscalizePosOrder(
     const config = await loadFiscalConfigWithCert(companyId, fiscalConfigId);
     if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
 
-    const invoice = await registerPosInvoice(order, config, {
-        languageCode,
-        companyVat: opts.companyVat,
-        companyName: opts.companyName,
-    });
+    // Claimed in one write, so two callers never send a sale at once, and a sale whose answer may be lost is never
+    // sent again: CIS has no lookup by IIC here, and a new send registers a second invoice (TD-B75)
+    const registeringAt = new Date();
+    const claim = await posOrderService.updateOne(
+        {_id: order._id, company: companyId, fiscalRegisteringAt: null},
+        {$set: {fiscalRegisteringAt: registeringAt}},
+    );
+    if (!claim.matchedCount) throw apiValidationException("fiscal_registration_unconfirmed", "posOrderId", null, languageCode);
+    order.fiscalRegisteringAt = registeringAt;
+
+    let invoice: RegisterInvoiceResult;
+    try {
+        invoice = await registerPosInvoice(order, config, {
+            languageCode,
+            companyVat: opts.companyVat,
+            companyName: opts.companyName,
+        });
+    } catch (error: unknown) {
+        if (neverReachedCis(error)) {
+            // The sale may be sent again. Should this write fail, the marker stays, which only asks for a manual check
+            await posOrderService.updateOne({_id: order._id, company: companyId}, {$unset: {fiscalRegisteringAt: 1}}).catch(() => undefined);
+        }
+        throw error;
+    }
 
     order.nslf = invoice.nslf;
     order.iicSignature = invoice.iicSignature;
@@ -633,6 +668,7 @@ export async function fiscalizePosOrder(
     order.fiscalizedAt = invoice.nivf ? new Date() : undefined;
     order.fiscalError = invoice.fault || undefined;
     order.fiscalRequestXml = invoice.signedXml;
+    order.fiscalRegisteringAt = undefined;
     await order.save();
 
     if (invoice.fault || !invoice.nivf) {

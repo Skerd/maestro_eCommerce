@@ -113,6 +113,11 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
     einvoiceAt?: Date;
     fiscalError?: string;
     fiscalRequestXml?: string;
+    /**
+     * Set just before the sale is sent to CIS and cleared when CIS's answer is stored. Set without codes, CIS may have
+     * registered the sale and the answer was lost, so it is never sent again automatically (TD-B75). Internal.
+     */
+    fiscalRegisteringAt?: Date;
     ublXml?: string;
     company: ICompany;
 }
@@ -495,6 +500,11 @@ const PosOrderSchema = new Schema<IPosOrder>(
         },
         fiscalRequestXml: {
             type: SchemaTypes.String,
+            select: false,
+            permissions: NoWritePermission,
+        },
+        fiscalRegisteringAt: {
+            type: SchemaTypes.Date,
             select: false,
             permissions: NoWritePermission,
         },

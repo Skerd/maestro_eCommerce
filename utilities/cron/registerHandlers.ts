@@ -5,6 +5,7 @@ import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExp
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
 import {runOrderAutoComplete} from "@eCommerceModule/utilities/cronJobs/orderAutoCompleteJob";
 import {runTaskRequestExpiry} from "@eCommerceModule/utilities/cronJobs/taskRequestExpiryJob";
+import {runPosFiscalSweep} from "@eCommerceModule/utilities/cronJobs/posFiscalSweepJob";
 
 export function registerECommerceCronHandlers(): void {
     registerCronHandler({
@@ -52,6 +53,18 @@ export function registerECommerceCronHandlers(): void {
             name: "Abandoned cart reminders",
             cronExpression: "0 45 * * * *",
             priority: 10,
+        },
+    });
+
+    registerCronHandler({
+        code: "eCommerce.posFiscalSweep",
+        handler: async ctx => {
+            await runPosFiscalSweep(ctx.company, ctx.logger);
+        },
+        defaultJob: {
+            name: "POS fiscal sweep",
+            cronExpression: "30 */5 * * * *",
+            priority: 30,
         },
     });
 

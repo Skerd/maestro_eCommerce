@@ -1,8 +1,9 @@
-import {ObjectId} from "mongodb";
+import {MongoError, ObjectId} from "mongodb";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {ServerError} from "armonia/src/modules/core/types";
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import type {CashMovePosSessionFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/cashMovePosSession.form.validator";
@@ -991,7 +992,14 @@ type PosSaleFiscal = {nslf?: string; nivf?: string; eic?: string; qrVerifyUrl?: 
  * the failure is stored and returned as `fiscal.fault`.
  */
 export async function payAndFiscalizePosOrder(body: PayPosOrderFormType, ctx: Omit<Ctx, "session">) {
-    const {fiscalConfigId, ...sale} = await runInTransaction(ctx.logger, (session) => payPosOrder(body, {...ctx, session}));
+    const {fiscalConfigId, ...sale} = await runInTransaction(ctx.logger, (session) => payPosOrder(body, {...ctx, session}))
+        .catch((error: unknown) => {
+            // The driver retried the conflict until its time ran out: the till may try again, as asyncHandler answers
+            if (error instanceof MongoError && error.hasErrorLabel("TransientTransactionError")) {
+                throw apiValidationException("concurrent_request_retry", "", null, ctx.languageCode);
+            }
+            throw error;
+        });
     if (!fiscalConfigId) return {...sale, fiscal: undefined};
 
     const fiscal = await registerPosSaleWithCis(sale.order._id, fiscalConfigId, ctx);
@@ -1010,8 +1018,15 @@ export async function payAndFiscalizePosOrder(body: PayPosOrderFormType, ctx: Om
     };
 }
 
-/** Registers a committed till sale with CIS; a failure is stored on the sale and returned, never thrown. */
-async function registerPosSaleWithCis(orderId: string, fiscalConfigId: string, ctx: Omit<Ctx, "session">): Promise<PosSaleFiscal> {
+/**
+ * Registers a committed till sale with CIS; a failure is stored on the sale and returned, never thrown. The pay
+ * request calls it, and the fiscal sweep for a sale whose request stopped before CIS (TD-B75), with no user.
+ */
+export async function registerPosSaleWithCis(
+    orderId: string,
+    fiscalConfigId: string,
+    ctx: Omit<Ctx, "session" | "userId"> & {userId?: ObjectId},
+): Promise<PosSaleFiscal> {
     try {
         const result = await fiscalizePosOrder(orderId, ctx.company._id, {
             languageCode: ctx.languageCode,
@@ -1029,6 +1044,8 @@ async function registerPosSaleWithCis(orderId: string, fiscalConfigId: string, c
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         ctx.logger.warn(`POS fiscalize failed for ${orderId}: ${message}`);
+        // Another caller is registering the sale, or its answer was lost: its own outcome stands
+        if (err instanceof ServerError && err.error_code === "fiscal_registration_unconfirmed") return {fault: message};
         try {
             await posOrderService.updateById(orderId, {$set: {fiscalError: message}}, {logger: ctx.logger, languageCode: ctx.languageCode, auditUserId: ctx.userId});
         } catch (error: unknown) {

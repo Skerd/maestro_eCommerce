@@ -77,6 +77,20 @@ export const {router} = createCrudRouter({
 });
 ```
 
+## Cron handlers
+
+Registered in `utilities/cron/registerHandlers.ts`; every run is company-scoped.
+
+| Code | Schedule | What it does |
+|------|----------|--------------|
+| `eCommerce.lowStockAlert` | hourly | Alerts staff about stock at or under its reorder point; clears the flag when stock recovers |
+| `eCommerce.scheduledPublish` | every 5 min | Publishes scheduled products whose time has come (unpriced ones stay in draft) |
+| `eCommerce.checkoutExpiry` | hourly at :15 | Settles checkouts past `expiresAt`: one whose gateway charge already succeeded is placed as an order, the rest expire |
+| `eCommerce.abandonedCart` | hourly at :45 | Reminds signed-in buyers once about carts untouched for 24 h+ |
+| `eCommerce.posFiscalSweep` | every 5 min | Registers with CIS the paid till sales that never reached it (2 min–24 h old, no codes, no fault, no `fiscalRegisteringAt` marker); a marker older than 10 min without codes is logged for a manual check (D97, TD-B75) |
+| `eCommerceMarketplace.orderAutoComplete` | hourly | Accepts deliveries the customer left unanswered for `autoAcceptDays` and completes the order |
+| `eCommerceMarketplace.taskRequestExpiry` | hourly | Closes open task requests past `expiresAt` and tells the users still waiting on a bid |
+
 ## Path alias
 
 ```ts

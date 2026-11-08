@@ -18,6 +18,8 @@ vi.mock("@eCommerceModule/utilities/fiscalization/fiscalSoap", async (importOrig
         return {status: 200, body: "<ok/>", xml: new DOMParser().parseFromString("<ok/>", "text/xml"), signedXml: ""};
     },
 }));
+vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
+    (await import("@coreModule/_tests/httpHarness")).authMWStub);
 // The till's certificate file: only its bytes are read, and the SOAP call above is mocked
 vi.mock("@coreModule/utilities/gridfs/gridfsStorage", async (importOriginal) => ({
     ...(await importOriginal<object>()),
@@ -41,6 +43,10 @@ import PaymentTransaction from "@financeModule/database/schemas/paymentTransacti
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
+import request from "supertest";
+import {allPermissionTags, appFor, callerHeader} from "@coreModule/_tests/httpHarness";
+import * as fiscalRoute from "@eCommerceModule/api/eCommerce/private/fiscal";
+import {runPosFiscalSweep} from "@eCommerceModule/utilities/cronJobs/posFiscalSweepJob";
 
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
@@ -312,5 +318,74 @@ describe("till sale fiscalization (D97)", () => {
         expect(order).toMatchObject({state: "paid", fiscalError: "CIS unreachable"});
         expect(order.nslf).toBeUndefined();
         expect(await ProductOrder.countDocuments({idempotencyKey: `pos:${order._id}`})).toBe(1);
+    }));
+});
+
+// TD-B75: a sale the pay request never got to CIS is registered by the sweep; one whose answer may be lost never again.
+describe("till sale fiscal recovery (TD-B75)", () => {
+    const app = appFor([{...fiscalRoute, module: "eCommerce"}]);
+
+    /** Rings up committed sales that never reached CIS, as when the process stops right after the commit. */
+    async function seedUnregisteredSales(count: number) {
+        const body = await seedFiscalSale();
+        const ids: string[] = [];
+        for (let i = 0; i < count; i++) ids.push((await payPosOrder(body, ctx)).order._id.toString());
+        return ids;
+    }
+    /** Moves a sale's last change back, past the sweep's grace period, without touching anything else. */
+    const age = (id: string, minutes: number, fields: Record<string, unknown> = {}) =>
+        PosOrder.collection.updateOne({_id: new ObjectId(id)}, {$set: {updatedAt: new Date(Date.now() - minutes * 60000), ...fields}});
+    const marker = async (id: string) => (await PosOrder.findById(id).select("+fiscalRegisteringAt"))!.fiscalRegisteringAt;
+
+    it("registers a stale paid sale that never reached CIS, once", () => asCompany(async () => {
+        const [id] = await seedUnregisteredSales(1);
+        await age(id, 5);
+
+        await runPosFiscalSweep(companyId, ctx.logger);
+        await runPosFiscalSweep(companyId, ctx.logger);
+
+        expect(sentRequests).toHaveLength(1);
+        const order = (await PosOrder.findById(id))!;
+        expect(order).toMatchObject({state: "paid", nslf: "IIC"});
+        expect(order.fiscalError).toBeUndefined();
+        expect(await marker(id)).toBeUndefined();
+    }));
+
+    it("skips sales that are fresh, registered, faulted or already sent to CIS", () => asCompany(async () => {
+        const [fresh, registered, faulted, sent] = await seedUnregisteredSales(4);
+        await age(registered, 5, {nslf: "IIC-1", nivf: "FIC-1"});
+        await age(faulted, 5, {fiscalError: "CIS unreachable"});
+        await age(sent, 20, {fiscalRegisteringAt: new Date(Date.now() - 20 * 60000)});
+
+        await runPosFiscalSweep(companyId, ctx.logger);
+
+        expect(sentRequests).toHaveLength(0);
+        expect((await PosOrder.findById(fresh))!.nslf).toBeUndefined();
+        expect((await PosOrder.findById(sent))!.nslf).toBeUndefined();
+        expect(await marker(sent)).toBeInstanceOf(Date);
+    }));
+
+    it("refuses a manual re-send of a sale sent to CIS whose answer was not stored", () => asCompany(async () => {
+        const [id] = await seedUnregisteredSales(1);
+        await age(id, 20, {fiscalRegisteringAt: new Date(Date.now() - 20 * 60000)});
+        const admin = {userId: ctx.userId.toString(), companyId: companyId.toString(), isAdmin: true, permissions: allPermissionTags([PosOrder])};
+
+        const response = await request(app).post("/api/eCommerce/fiscal/fiscalizePosOrder").set(callerHeader(admin)).send({posOrderId: id});
+
+        expect([response.status, response.body.error_code]).toEqual([409, "fiscal_registration_unconfirmed"]);
+        expect(sentRequests).toHaveLength(0);
+    }));
+
+    it("answers 409 concurrent_request_retry when the sale's transaction runs out of retries", () => asCompany(async () => {
+        const body = await seedFiscalSale();
+        const exhausted = new MongoError("Write conflict");
+        exhausted.addErrorLabel("TransientTransactionError");
+        const withTransaction = vi.spyOn(ClientSession.prototype, "withTransaction").mockRejectedValueOnce(exhausted);
+        try {
+            await expect(payAndFiscalizePosOrder(body, ctx)).rejects.toMatchObject({error_code: "concurrent_request_retry", status: 409});
+        } finally {
+            withTransaction.mockRestore();
+        }
+        expect(sentRequests).toHaveLength(0);
     }));
 });
