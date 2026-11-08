@@ -318,7 +318,7 @@ export async function openPosSession(
         throw apiValidationException("pos_session_already_open", "configId", null, ctx.languageCode);
     }
 
-    const openingBalance = Number(body.openingBalance ?? 0);
+    const openingBalance = roundToCurrency(body.openingBalance ?? 0, await currencyDecimalPlaces(currencyId, ctx.session));
     const name = await generateSessionName(config.name, ctx.company._id, ctx.session);
     const now = new Date();
 
@@ -415,8 +415,8 @@ export async function cashMovePosSession(body: CashMovePosSessionFormType, ctx: 
         }
     }
 
-    const amount = Number(body.amount);
-    if (body.type === "out" && sessionDoc.cashRegisterBalance < amount) {
+    const amount = roundToCurrency(body.amount, decimals);
+    if (body.type === "out" && toMinor(sessionDoc.cashRegisterBalance, decimals) < toMinor(amount, decimals)) {
         throw apiValidationException("pos_insufficient_cash", "amount", null, ctx.languageCode);
     }
 
@@ -966,7 +966,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
                     channel: "pos",
                 },
                 company: ctx.company._id,
-            } as any,
+            },
             {logger: ctx.logger, languageCode: ctx.languageCode, session: ctx.session, auditUserId: ctx.userId},
         );
     }

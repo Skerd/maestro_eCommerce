@@ -12,7 +12,7 @@ import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
-import {closePosSession, openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {cashMovePosSession, closePosSession, openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
 import {forceClosePosSession} from "@eCommerceModule/utilities/services/posKillSwitch";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
@@ -183,6 +183,24 @@ describe("till money checks at the currency's decimals (TD-B52, GLB-08)", () => 
 
         const closed = (await PosSession.findById(sessionId))!;
         expect([closed.state, closed.closingBalance]).toEqual(["closed", 10.005]);
+    }));
+
+    // TD-B61. Old: 10.4 was stored as the opening balance of a till whose currency has no minor unit.
+    it("opens a till on its opening balance at the currency's decimals", () => asCompany(async () => {
+        const {sessionId} = await openTill({decimals: 0, openingBalance: 10.4});
+
+        const opened = (await PosSession.findById(sessionId))!;
+        expect([opened.openingBalance, opened.expectedCash, opened.cashRegisterBalance]).toEqual([10, 10, 10]);
+    }));
+
+    // TD-B61. Old: 10.4 out of a 10 till was refused as a float above the balance, and would have been stored unrounded.
+    it("takes a cash move at the currency's decimals and checks it against the register in minor units", () => asCompany(async () => {
+        const {sessionId} = await openTill({decimals: 0, openingBalance: 10});
+
+        await cashMovePosSession({_id: sessionId, type: "out", amount: 10.4, reason: "Bank"}, ctx);
+
+        const session = (await PosSession.findById(sessionId))!;
+        expect([session.cashMoves.map((move) => move.amount), session.cashRegisterBalance, session.expectedCash]).toEqual([[10], 0, 0]);
     }));
 
     // Old: the charge was written as the number 10, stored as "10" and "0".

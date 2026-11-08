@@ -15,6 +15,8 @@ import {productVariantService, variantOptionsLabel} from "@eCommerceModule/datab
 import ProductOrder, {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
+import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
+import {DEFAULT_DECIMAL_PLACES, toMinor} from "armonia/src/modules/core/helpers/money";
 import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard.service";
 import {countCustomerDiscountUses} from "@eCommerceModule/utilities/services/discountValidationService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
@@ -428,6 +430,7 @@ export async function placeOrderFromCheckout(
         }
 
         if (!multiSeller && fullyCoveredByGiftCard) {
+            const decimals = currency?.decimalPlaces ?? DEFAULT_DECIMAL_PLACES;
             await paymentTransactionService.create(
                 {
                     sourceType: "productOrder",
@@ -435,11 +438,12 @@ export async function placeOrderFromCheckout(
                     gateway: "wallet",
                     type: "charge",
                     status: "succeeded",
-                    amount: giftCardAmount,
+                    amount: decimal128FromMinor(toMinor(giftCardAmount, decimals), decimals),
                     currency: idOf(checkout.currency),
+                    refundedAmount: decimal128FromMinor(0n, decimals),
                     metadata: {giftCardCode: checkout.giftCard!.code, checkoutId: checkout._id.toString()},
                     company: sellerCompanyId,
-                } as any,
+                },
                 ctx,
             );
         }

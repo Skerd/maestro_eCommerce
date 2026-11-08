@@ -53,6 +53,7 @@ import ReturnRequest from "@eCommerceModule/database/schemas/returnRequest/retur
 import {ReturnRequestActions} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.actions";
 import {returnedItemsValue, returnRequestService} from "@eCommerceModule/database/schemas/returnRequest/returnRequest.service";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
+import Currency from "@coreModule/database/schemas/currency/currency";
 import {GiftCardActions} from "@financeModule/database/schemas/giftCard/giftCard.actions";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
@@ -404,6 +405,24 @@ describe("checkout placement", () => {
         expect([line.unitPrice, line.totalPrice]).toEqual([50, 100]);
         const stored = await ProductOrder.findById(order._id);
         expect([stored!.taxTotal, stored!.grandTotal]).toEqual([20, 125]);
+    }));
+
+    // TD-B61: the gift-card-only charge was written as the raw number, stored as "105.5" with refundedAmount "0".
+    it("stores a gift-card-only charge at the currency's scale", () => asCompany(async () => {
+        await Currency.create({_id: currencyId, name: "Dinar", symbol: "KD", abbreviation: "KWD", decimalPlaces: 3, company: companyId});
+        const product = await seedProduct();
+        await seedStock(product, 5);
+        const card = await GiftCard.create({code: "GC-KWDX-ONLY-CARD", initialBalance: 200, balance: 200, status: "active", company: companyId} as any);
+        const checkout = await seedCheckout(product, {
+            grandTotal: 0,
+            paymentMethod: undefined,
+            giftCard: {giftCard: card._id, code: card.code, amount: 105.5},
+        });
+
+        const {order} = await placeOrderFromCheckout(checkout, {}, placement);
+
+        const charge = (await PaymentTransaction.findOne({sourceId: order._id, type: "charge"}))!;
+        expect([charge.gateway, charge.amount.toString(), charge.refundedAmount.toString()]).toEqual(["wallet", "105.500", "0.000"]);
     }));
 
     it("lets only one of two buyers hold the last units (#8)", () => asCompany(async () => {

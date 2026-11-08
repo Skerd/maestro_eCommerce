@@ -163,41 +163,40 @@ const PosSessionSchema = new Schema<IPosSession>(
         },
         cashMoves: {
             type: [{
+                // Declared inline, without the `{type: {...}, _id: false}` wrapper: the move's own field is called `type`, so the
+                // wrapper made Mongoose read the whole move as one nested path `type` and every cash move failed validation.
                 type: {
-                    type: {
-                        type: SchemaTypes.String,
-                        enum: ["in", "out"],
-                        required: true,
-                        permissions: NoWritePermission,
-                        dynamicTableConfiguration: HideFromTable,
-                    },
-                    amount: {
-                        type: SchemaTypes.Number,
-                        required: true,
-                        min: 0,
-                        permissions: NoWritePermission,
-                        dynamicTableConfiguration: HideFromTable,
-                    },
-                    reason: {
-                        type: SchemaTypes.String,
-                        permissions: NoWritePermission,
-                        dynamicTableConfiguration: HideFromTable,
-                    },
-                    at: {
-                        type: SchemaTypes.Date,
-                        default: Date.now,
-                        permissions: NoWritePermission,
-                        dynamicTableConfiguration: HideFromTable,
-                    },
-                    by: {
-                        type: SchemaTypes.ObjectId,
-                        ref: "User",
-                        refAllowlist: SimpleUserSnippet,
-                        permissions: NoWritePermission,
-                        dynamicTableConfiguration: HideFromTable,
-                    },
+                    type: SchemaTypes.String,
+                    enum: ["in", "out"],
+                    required: true,
+                    permissions: NoWritePermission,
+                    dynamicTableConfiguration: HideFromTable,
                 },
-                _id: false,
+                amount: {
+                    type: SchemaTypes.Number,
+                    required: true,
+                    min: 0,
+                    permissions: NoWritePermission,
+                    dynamicTableConfiguration: HideFromTable,
+                },
+                reason: {
+                    type: SchemaTypes.String,
+                    permissions: NoWritePermission,
+                    dynamicTableConfiguration: HideFromTable,
+                },
+                at: {
+                    type: SchemaTypes.Date,
+                    default: Date.now,
+                    permissions: NoWritePermission,
+                    dynamicTableConfiguration: HideFromTable,
+                },
+                by: {
+                    type: SchemaTypes.ObjectId,
+                    ref: "User",
+                    refAllowlist: SimpleUserSnippet,
+                    permissions: NoWritePermission,
+                    dynamicTableConfiguration: HideFromTable,
+                },
             }],
             default: [],
             dynamicTableConfiguration: HideFromTable,
