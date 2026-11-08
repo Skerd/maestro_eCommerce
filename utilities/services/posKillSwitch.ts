@@ -2,6 +2,8 @@ import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {roundToCurrency} from "armonia/src/modules/core/helpers/money";
+import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import type {IPosCompanyPosLock} from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
 import {posCompanyPosLockService} from "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock.service";
 import type {IPosConfig} from "@eCommerceModule/database/schemas/posConfig/posConfig";
@@ -154,10 +156,6 @@ export async function voidInFlightTerminalsForSessions(
 
 // ─── Force-close ────────────────────────────────────────────────────────────
 
-function round2(n: number): number {
-    return Math.round((n + Number.EPSILON) * 100) / 100;
-}
-
 export async function forceClosePosSession(
     sessionId: ObjectId | string,
     reason: PosKillReason,
@@ -180,7 +178,9 @@ export async function forceClosePosSession(
         {session: ctx.session ?? undefined, withDeleted: false},
     );
 
-    const expectedCash = round2(Number(sessionDoc.expectedCash ?? 0));
+    // The till closes on its expected cash at the till currency's decimals, never a fixed two (GLB-08)
+    const decimals = await currencyDecimalPlaces(nestedEntityToRef(sessionDoc.currency), ctx.session);
+    const expectedCash = roundToCurrency(sessionDoc.expectedCash ?? 0, decimals);
     const now = new Date();
     sessionDoc.state = "closed";
     sessionDoc.closedBy = (ctx.userId as any) ?? sessionDoc.openedBy;

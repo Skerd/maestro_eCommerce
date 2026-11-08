@@ -42,7 +42,8 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
-import {allocateMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
+import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
+import {allocateMinor, fromMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
 import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import {posLineRefundTotal, posRefundAmount} from "armonia/src/modules/eCommerce/helpers/posRefundAmount";
 import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
@@ -450,7 +451,9 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
     const countedCash = Number(body.closingBalance);
     const expectedCash = Number(sessionDoc.expectedCash ?? 0);
     const difference = subtractMoney(countedCash, expectedCash, decimals);
-    if (Math.abs(difference) >= 0.01 && !(body.differenceReason?.trim() || body.notes?.trim())) {
+    // Any difference of one minor unit or more needs a reason, at the till currency's decimals (GLB-08)
+    const hasDifference = toMinor(difference, decimals) !== 0n;
+    if (hasDifference && !(body.differenceReason?.trim() || body.notes?.trim())) {
         throw apiValidationException("pos_close_difference_reason_required", "differenceReason", null, ctx.languageCode);
     }
 
@@ -471,8 +474,9 @@ export async function closePosSession(body: ClosePosSessionFormType, ctx: Ctx) {
     sessionDoc.closedAt = now;
     sessionDoc.closingBalance = countedCash;
     const noteParts = [body.notes?.trim(), body.differenceReason?.trim()].filter(Boolean);
-    if (Math.abs(difference) >= 0.01) {
-        noteParts.push(`Cash difference: ${difference.toFixed(2)} (counted ${countedCash.toFixed(2)} vs expected ${expectedCash.toFixed(2)})`);
+    if (hasDifference) {
+        const shown = (amount: number) => fromMinor(toMinor(amount, decimals), decimals);
+        noteParts.push(`Cash difference: ${shown(difference)} (counted ${shown(countedCash)} vs expected ${shown(expectedCash)})`);
     }
     if (noteParts.length) sessionDoc.notes = noteParts.join(" | ");
     await sessionDoc.save({session: ctx.session});
@@ -756,7 +760,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     }
     const amountTax = sumMoney(lines.map(line => line.taxAmount), decimals);
 
-    if (discountTotal > 0.001 && config.pinForDiscount) {
+    if (toMinor(discountTotal, decimals) > 0n && config.pinForDiscount) {
         const {hasAnyManagerPin, managerPinMatchesForUser} = await import(
             "@eCommerceModule/utilities/services/posManagerPin"
         );
@@ -782,7 +786,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const methodById = new Map(methods.map(m => [m._id.toString(), m]));
 
     const amountPaid = sumMoney(body.payments.map(p => Number(p.amount)), decimals);
-    if (amountPaid + 0.001 < amountTotal) {
+    if (toMinor(amountPaid, decimals) < toMinor(amountTotal, decimals)) {
         throw apiValidationException("pos_payment_insufficient", "payments", null, ctx.languageCode);
     }
     const amountReturn = Math.max(0, subtractMoney(amountPaid, amountTotal, decimals));
@@ -946,9 +950,10 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
                 gateway: "manual",
                 type: "charge",
                 status: "succeeded",
-                amount: minorToNumber(ledgerAmounts[paymentIndex], decimals),
+                // Stored at the currency's scale, as finance writes its charges ("10.000", not "10")
+                amount: decimal128FromMinor(ledgerAmounts[paymentIndex], decimals),
                 currency: currencyId,
-                refundedAmount: 0,
+                refundedAmount: decimal128FromMinor(0n, decimals),
                 metadata: {
                     posOrderId: posOrder._id.toString(),
                     paymentIndex,

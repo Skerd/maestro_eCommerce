@@ -11,7 +11,9 @@ import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import {openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
+import {closePosSession, openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {forceClosePosSession} from "@eCommerceModule/utilities/services/posKillSwitch";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
@@ -37,9 +39,12 @@ beforeEach(() => asCompany(async () => {
     }
 }));
 
-type TillOptions = {decimals?: number; paymentMethods?: number};
+type TillOptions = {decimals?: number; paymentMethods?: number; openingBalance?: number; pinForDiscount?: boolean};
 
-/** An open till in a currency with `decimals` places, selling one product from one warehouse, paid by card. */
+/**
+ * An open till in a currency with `decimals` places, selling one product from one warehouse, paid by card.
+ * `pinForDiscount` makes discounts need a manager's PIN (a manager with a PIN is assigned).
+ */
 async function openTill(options: TillOptions = {}) {
     const country = new ObjectId();
     const decimals = options.decimals ?? 2;
@@ -48,10 +53,12 @@ async function openTill(options: TillOptions = {}) {
     await TaxZone.create({name: "Home", country, isActive: true, priority: 1, company: companyId, rates: [{name: "VAT", rate: 20, isCompound: false, appliesTo: "all"}]});
     const methods = await Promise.all(Array.from({length: options.paymentMethods ?? 1}, (_, index) =>
         PosPaymentMethod.create({name: `Card ${index + 1}`, type: "card", isActive: true, company: companyId})));
+    const manager = new ObjectId();
+    const pin = options.pinForDiscount ? {pinForDiscount: true, managers: [manager], managerPins: [{user: manager, pinHash: "hash"}]} : {};
     const config = await PosConfig.create({
-        name: "Till 1", isActive: true, warehouses: [warehouse._id], currency: currency._id, paymentMethods: methods.map((method) => method._id), company: companyId,
+        name: "Till 1", isActive: true, warehouses: [warehouse._id], currency: currency._id, paymentMethods: methods.map((method) => method._id), company: companyId, ...pin,
     });
-    const {session} = await openPosSession({configId: config._id.toString()}, ctx);
+    const {session} = await openPosSession({configId: config._id.toString(), openingBalance: options.openingBalance}, ctx);
     return {sessionId: session._id.toString(), methods, warehouse};
 }
 
@@ -78,7 +85,7 @@ async function seedSale(price: number, quantity: number, payments: number[], sal
 }
 
 const refundOne = (orderId: unknown, lineId: string) => refundPosOrder({_id: String(orderId), lines: [{lineId, quantity: 1}]}, ctx);
-/** Each ledger charge's amount, refunded amount (as numbers: the till writes them unscaled) and status. */
+/** Each ledger charge's amount, refunded amount (as numbers) and status. */
 const chargeState = async () => (await PaymentTransaction.find({type: "charge"}).sort({_id: 1}))
     .map((row) => [Number(row.amount.toString()), Number(row.refundedAmount.toString()), row.status]);
 
@@ -139,5 +146,50 @@ describe("till refunds (D84, GLB-08)", () => {
 
         await expect(refundPosOrder({_id: order._id.toString(), amount: 10.001}, ctx)).rejects.toMatchObject({error_code: "pos_refund_amount_invalid"});
         expect(await chargeState()).toEqual([[10, 0, "succeeded"]]);
+    }));
+});
+
+// TD-B52: the till's other money checks, compared in minor units at the currency's decimals. Each case is one the old
+// fixed tolerance (0.01, 0.001, two decimals) got wrong for a 3-decimal currency.
+describe("till money checks at the currency's decimals (TD-B52, GLB-08)", () => {
+    // Old: |difference| >= 0.01 let a 0.005 KWD shortfall close without a reason.
+    it("asks a reason for a cash difference of one minor unit, and notes it at the currency's decimals", () => asCompany(async () => {
+        const {sessionId} = await openTill({decimals: 3, openingBalance: 10.005});
+
+        await expect(closePosSession({_id: sessionId, closingBalance: 10}, ctx)).rejects.toMatchObject({error_code: "pos_close_difference_reason_required"});
+        await closePosSession({_id: sessionId, closingBalance: 10, differenceReason: "Short"}, ctx);
+
+        expect((await PosSession.findById(sessionId))!.notes).toBe("Short | Cash difference: -0.005 (counted 10.000 vs expected 10.005)");
+    }));
+
+    // Old: discountTotal > 0.001 let a 0.001 KWD discount through without the manager's PIN.
+    it("asks the manager's PIN for a one-minor-unit discount", () => asCompany(async () => {
+        await expect(seedSale(1, 1, [0.999], {discountPercent: 0.1}, {decimals: 3, pinForDiscount: true}))
+            .rejects.toMatchObject({error_code: "pos_manager_pin_invalid"});
+        expect(await PosOrder.countDocuments({state: "paid"})).toBe(0);
+    }));
+
+    // Old: amountPaid + 0.001 < amountTotal took 9.999 KWD for a 10.000 sale.
+    it("refuses a payment one minor unit short", () => asCompany(async () => {
+        await expect(seedSale(10, 1, [9.999], {}, {decimals: 3})).rejects.toMatchObject({error_code: "pos_payment_insufficient"});
+        expect(await PosOrder.countDocuments({state: "paid"})).toBe(0);
+    }));
+
+    // Old: round2 closed a 10.005 KWD till on 10.01.
+    it("force-closes a till on its expected cash at the currency's decimals", () => asCompany(async () => {
+        const {sessionId} = await openTill({decimals: 3, openingBalance: 10.005});
+
+        await forceClosePosSession(sessionId, "pause", {languageCode: ctx.languageCode, company: ctx.company, userId: ctx.userId});
+
+        const closed = (await PosSession.findById(sessionId))!;
+        expect([closed.state, closed.closingBalance]).toEqual(["closed", 10.005]);
+    }));
+
+    // Old: the charge was written as the number 10, stored as "10" and "0".
+    it("stores the ledger charge at the currency's scale", () => asCompany(async () => {
+        await seedSale(5, 2, [10], {}, {decimals: 3});
+
+        const charge = (await PaymentTransaction.findOne({type: "charge"}))!;
+        expect([charge.amount.toString(), charge.refundedAmount.toString()]).toEqual(["10.000", "0.000"]);
     }));
 });
