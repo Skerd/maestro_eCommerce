@@ -586,7 +586,10 @@ export async function registerEinvoiceForPosOrder(
     return {eic, ublXml: ublSigned, fault, signedXml: response.signedXml};
 }
 
-/** Persist CIS result onto PosOrder and register the e-invoice. */
+/**
+ * Persist CIS result onto PosOrder and register the e-invoice. Runs outside any transaction, on a committed sale (D97):
+ * the CIS call must never be repeated by a transaction retry.
+ */
 export async function fiscalizePosOrder(
     orderId: string,
     companyId: unknown,

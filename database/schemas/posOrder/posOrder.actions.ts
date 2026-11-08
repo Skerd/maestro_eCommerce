@@ -13,7 +13,7 @@ import {payPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce
 import type {PayPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/payPosOrder.form.validator";
 import {refundPosOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
 import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/refundPosOrder.form.validator";
-import {payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {payAndFiscalizePosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
 import {deleteHeldPosOrder, holdPosOrder, reprintPosOrder} from "@eCommerceModule/workflows/posTillOps";
 import PosOrderModel from "./posOrder";
 
@@ -78,15 +78,15 @@ export class PosOrderActions {
         return {data};
     }
 
+    /** Owns its transaction: the sale commits before CIS is called (D97). */
     @action({
         auth: "private",
         rateLimit: {windowMs: 60000, max: 60},
-        transaction: true,
         schema: payPosOrderFormSchema,
     })
-    async pay(params: TransactionRequiredParams & PayPosOrderFormType) {
+    async pay(params: AuthenticatedMWType & PayPosOrderFormType) {
         assertPosOrderWrite(params, "state");
-        const data = await payPosOrder(
+        const data = await payAndFiscalizePosOrder(
             {
                 sessionId: params.sessionId,
                 customerId: params.customerId,

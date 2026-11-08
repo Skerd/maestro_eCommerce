@@ -1,19 +1,27 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
 import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/testDatabase";
 import mongoose from "mongoose";
-import {ObjectId} from "mongodb";
+import {ClientSession, MongoError, ObjectId} from "mongodb";
 import {DOMParser} from "@xmldom/xmldom";
 import {getLogger} from "@coreModule/loggers/serverLog";
 
 // The tax authority is never called: signing and the SOAP request are captured instead
 const sentRequests: Record<string, any>[] = [];
+/** Set to make the next CIS call fail, as when the tax authority is unreachable. */
+let cisFailure: Error | undefined;
 vi.mock("@eCommerceModule/utilities/fiscalization/fiscalSoap", async (importOriginal) => ({
     ...(await importOriginal<object>()),
     getIIC: () => ({iic: "IIC", iicSignature: "SIG"}),
     registerRequest: async (_url: string, _cert: string, _password: string, request: Record<string, any>) => {
         sentRequests.push(request);
+        if (cisFailure) throw cisFailure;
         return {status: 200, body: "<ok/>", xml: new DOMParser().parseFromString("<ok/>", "text/xml"), signedXml: ""};
     },
+}));
+// The till's certificate file: only its bytes are read, and the SOAP call above is mocked
+vi.mock("@coreModule/utilities/gridfs/gridfsStorage", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    getGridFSStorage: () => ({getFileBuffer: async () => Buffer.from("certificate")}),
 }));
 
 import Currency from "@coreModule/database/schemas/currency/currency";
@@ -22,10 +30,12 @@ import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
+import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import Media from "@coreModule/database/schemas/media/media";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {openPosSession, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {openPosSession, payAndFiscalizePosOrder, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
@@ -47,6 +57,7 @@ afterAll(async () => {
 
 beforeEach(() => asCompany(async () => {
     sentRequests.length = 0;
+    cisFailure = undefined;
     for (const collection of await mongoose.connection.db!.collections()) {
         await collection.deleteMany({});
     }
@@ -66,7 +77,7 @@ async function seedTill() {
         name: "Till 1", isActive: true, warehouses: [warehouse._id], currency: currency._id, paymentMethods: [cash._id], company: companyId,
     } as any);
     const {session} = await openPosSession({configId: config._id.toString()}, ctx);
-    return {warehouse, cash, sessionId: session._id};
+    return {warehouse, cash, config, sessionId: session._id};
 }
 
 let slug = 0;
@@ -117,6 +128,22 @@ describe("till sales (#19)", () => {
 
         expect(order.lines.map(line => line.unitPrice)).toEqual([12]);
         expect(order.amountTotal).toBe(12);
+    }));
+
+    // TD-B70: pay read the till outside the request's transaction, so it missed a pause made in it.
+    it("reads the till as the request's transaction sees it", () => asCompany(async () => {
+        const {warehouse, cash, config, sessionId} = await seedTill();
+        const mug = await seedProduct({price: 10});
+        await Inventory.create({product: mug._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+
+        await expect(runInTransaction(ctx.logger, async (session) => {
+            await PosConfig.updateOne({_id: config._id}, {pausedAt: new Date()}, {session});
+            return payPosOrder({
+                sessionId: sessionId.toString(),
+                lines: [{productId: mug._id.toString(), quantity: 1}],
+                payments: [{paymentMethodId: cash._id.toString(), amount: 10}],
+            }, {...ctx, session});
+        })).rejects.toMatchObject({error_code: "pos_config_paused"});
     }));
 
     it("refuses gift-card products at the till", () => asCompany(async () => {
@@ -220,5 +247,70 @@ describe("till sales (#19)", () => {
             {amount: 60, refunded: 60, status: "refunded"},
             {amount: 40, refunded: 40, status: "refunded"},
         ]);
+    }));
+});
+
+/** A cash till with an active CIS config and a mug in stock: the body of a 12.00 sale of one mug. */
+async function seedFiscalSale() {
+    const {warehouse, cash, config, sessionId} = await seedTill();
+    const mug = await seedProduct({price: 12});
+    await Inventory.create({product: mug._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+    const certificate = new ObjectId();
+    await Media.collection.insertOne({_id: certificate, fileId: new ObjectId(), company: companyId});
+    const fiscalConfig = new ObjectId();
+    await FiscalConfig.collection.insertOne({
+        _id: fiscalConfig, name: "CIS", isActive: true, company: companyId, updatedAt: new Date(),
+        nipt: "L12345678A", tcrCode: "TCR1", businessUnitCode: "BU1", softCode: "SC1", operatorCode: "OP1",
+        fiscalizationUrl: "https://fiscal.test", einvoiceUrl: "https://einvoice.test", selfcareUrl: "https://selfcare.test",
+        certificate: [certificate], certificatePassword: "secret",
+    });
+    await PosConfig.updateOne({_id: config._id}, {fiscalConfig});
+    return {
+        sessionId: sessionId.toString(),
+        lines: [{productId: mug._id.toString(), quantity: 1}],
+        payments: [{paymentMethodId: cash._id.toString(), amount: 12}],
+    };
+}
+
+// TD-B73 / D97: the sale commits first, then CIS registers it outside the transaction.
+describe("till sale fiscalization (D97)", () => {
+    it("registers the sale with CIS once when its transaction is retried", () => asCompany(async () => {
+        const body = await seedFiscalSale();
+        // The first commit fails as a write conflict does, so the whole sale is run again
+        const commit = vi.spyOn(ClientSession.prototype, "commitTransaction").mockImplementationOnce(async function (this: ClientSession) {
+            await this.abortTransaction();
+            const conflict = new MongoError("Write conflict");
+            conflict.addErrorLabel("TransientTransactionError");
+            throw conflict;
+        });
+        try {
+            const sale = await payAndFiscalizePosOrder(body, ctx);
+            expect(commit).toHaveBeenCalledTimes(2);
+            expect(sale.fiscal).toMatchObject({nslf: "IIC"});
+        } finally {
+            commit.mockRestore();
+        }
+
+        expect(sentRequests).toHaveLength(1);
+        expect(await PosOrder.countDocuments({state: "paid"})).toBe(1);
+    }));
+
+    it("stores the CIS codes on the committed sale and returns them for the receipt", () => asCompany(async () => {
+        const sale = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+
+        expect(sale).toMatchObject({fiscal: {nslf: "IIC", fault: undefined}, order: {nslf: "IIC"}, receipt: {nslf: "IIC", fiscalAttempted: true}});
+        expect(sentRequests).toHaveLength(1);
+        expect((await PosOrder.findById(sale.order._id))!.nslf).toBe("IIC");
+    }));
+
+    it("keeps the sale and stores the fault when CIS fails", () => asCompany(async () => {
+        cisFailure = new Error("CIS unreachable");
+        const sale = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+
+        expect(sale).toMatchObject({fiscal: {fault: "CIS unreachable"}, receipt: {fiscalError: "CIS unreachable"}});
+        const order = (await PosOrder.findById(sale.order._id))!;
+        expect(order).toMatchObject({state: "paid", fiscalError: "CIS unreachable"});
+        expect(order.nslf).toBeUndefined();
+        expect(await ProductOrder.countDocuments({idempotencyKey: `pos:${order._id}`})).toBe(1);
     }));
 });

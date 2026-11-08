@@ -50,6 +50,8 @@ import {posLineRefundTotal, posRefundAmount} from "armonia/src/modules/eCommerce
 import {POS_UNSELLABLE_TYPES} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
+import {fiscalizePosOrder} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 
 /** What a POS order DTO and receipt read. */
 const POS_ORDER_POPULATE = "session config cashier customer payments.paymentMethod";
@@ -57,7 +59,7 @@ const POS_ORDER_POPULATE = "session config cashier customer payments.paymentMeth
 type Ctx = {
     logger: any;
     languageCode: string;
-    company: {_id: ObjectId; name?: string};
+    company: {_id: ObjectId; name?: string; vat?: string};
     userId: ObjectId;
     session?: ClientSession;
 };
@@ -662,11 +664,15 @@ export async function loadPosCatalog(
     return {data, page, limit, total};
 }
 
+/**
+ * Rings up a till sale in `ctx.session`. It does not call CIS (D97): `payAndFiscalizePosOrder` registers the sale once
+ * it has committed, with the till's fiscal config that `fiscalConfigId` names.
+ */
 export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const sessionDoc = await posSessionService.findOne({
         _id: body.sessionId,
         company: ctx.company._id,
-    }, {withDeleted: false});
+    }, {session: ctx.session, withDeleted: false});
     if (!sessionDoc) throw apiValidationException("pos_session_not_found", "sessionId", null, ctx.languageCode);
     if (sessionDoc.state !== "opened") {
         throw apiValidationException("pos_session_not_opened", "sessionId", null, ctx.languageCode);
@@ -679,14 +685,15 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         }, {session: ctx.session, withDeleted: false});
         if (existing?.state === "paid") {
             // Idempotent replay succeeds even if the till is now paused/inactive.
-            return rebuildPaidPosResult(existing, ctx);
+            // A replay is never registered again: its first request did that (D97)
+            return {...await rebuildPaidPosResult(existing, ctx), fiscalConfigId: undefined};
         }
     }
 
     const config = await posConfigService.findOne({
         _id: sessionDoc.config,
         company: ctx.company._id,
-    }, {withDeleted: false}, "warehouses currency paymentMethods");
+    }, {session: ctx.session, withDeleted: false}, "warehouses currency paymentMethods");
     if (!config) throw apiValidationException("pos_config_not_found", "sessionId", null, ctx.languageCode);
 
     await assertPosTillMutable(config, ctx);
@@ -700,7 +707,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         ? await fiscalConfigService.findOne({
             _id: assignedFiscalConfigId,
             company: ctx.company._id,
-        }, {withDeleted: false}, undefined, "_id isActive certificate")
+        }, {session: ctx.session, withDeleted: false}, undefined, "_id isActive certificate")
         : null;
     const currencyId = nestedEntityToRef(config.currency);
     const decimals = await currencyDecimalPlaces(currencyId, ctx.session);
@@ -747,7 +754,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         _id: {$in: paymentMethodIds},
         company: ctx.company._id,
         isActive: true,
-    }, {withDeleted: false});
+    }, {session: ctx.session, withDeleted: false});
     if (methods.length !== new Set(paymentMethodIds).size) {
         throw apiValidationException("pos_payment_method_invalid", "payments", null, ctx.languageCode);
     }
@@ -763,7 +770,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
         throw apiValidationException("pos_currency_required", "currency", null, ctx.languageCode);
     }
 
-    if (body.customerId && !(await userService.exists({_id: new ObjectId(body.customerId), companies: ctx.company._id}))) {
+    if (body.customerId && !(await userService.exists({_id: new ObjectId(body.customerId), companies: ctx.company._id}, {session: ctx.session}))) {
         throw apiValidationException("pos_customer_not_found", "customerId", null, ctx.languageCode);
     }
 
@@ -959,69 +966,77 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     }
     await sessionDoc.save({session: ctx.session});
 
-    const populated = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
-
-    const receiptCtx = {
-        ...ctx,
-        company: {_id: ctx.company._id, name: ctx.company?.name || config.name},
-    };
-    const decorateReceipt = async (doc: typeof populated) => {
-        const next = await buildReceiptFromPosOrder(doc!, receiptCtx);
-        next.productOrderNumber = orderNumber;
-        next.paidAt = now.toISOString();
-        next.customerName = body.customerName || "Walk-in Customer";
-        return next;
-    };
-
-    const receipt = await decorateReceipt(populated);
-
-    // Albanian CIS fiscalization when the till's fiscal config is active and has a certificate (best-effort; pay succeeds even if CIS fails)
-    let fiscal: {nslf?: string; nivf?: string; eic?: string; qrVerifyUrl?: string; fault?: string} | undefined;
-    try {
-        const {fiscalizePosOrder} = await import("@eCommerceModule/utilities/fiscalization/fiscalizationService");
-        if (assignedFiscal?.isActive && (assignedFiscal.certificate?.length ?? 0) > 0) {
-            const result = await fiscalizePosOrder(posOrder._id.toString(), ctx.company._id, {
-                languageCode: ctx.languageCode,
-                fiscalConfigId: assignedFiscal._id.toString(),
-                companyVat: (ctx.company as {vat?: string}).vat,
-                companyName: (ctx.company as {name?: string}).name,
-            });
-            fiscal = {
-                nslf: result.invoice.nslf,
-                nivf: result.invoice.nivf,
-                eic: result.einvoice?.eic,
-                qrVerifyUrl: result.invoice.nivf ? result.invoice.qrVerifyUrl : undefined,
-                fault: result.invoice.fault || result.einvoice?.fault || result.order.fiscalError,
-            };
-            const refreshed = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
-            return {
-                order: posOrderToDTO(refreshed || populated!),
-                receipt: await decorateReceipt(refreshed || populated!),
-                session: posSessionToDTO(sessionDoc),
-                fiscal,
-            };
-        }
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        ctx.logger?.warn?.(`POS fiscalize skipped/failed: ${message}`);
-        fiscal = {fault: message};
-        posOrder.fiscalError = message;
-        await posOrder.save({session: ctx.session});
-        const failed = await posOrderService.findById(posOrder._id, {session: ctx.session}, POS_ORDER_POPULATE);
-        return {
-            order: posOrderToDTO(failed || populated!),
-            receipt: await decorateReceipt(failed || populated!),
-            session: posSessionToDTO(sessionDoc),
-            fiscal,
-        };
-    }
+    const populated = await posOrderService.findByIdOrThrow(posOrder._id, {session: ctx.session, languageCode: ctx.languageCode}, POS_ORDER_POPULATE);
+    const receipt = await buildReceiptFromPosOrder(populated, ctx);
+    receipt.productOrderNumber = orderNumber;
+    receipt.paidAt = now.toISOString();
+    receipt.customerName = body.customerName || "Walk-in Customer";
 
     return {
-        order: posOrderToDTO(populated!),
+        order: posOrderToDTO(populated),
         receipt,
         session: posSessionToDTO(sessionDoc),
+        // Albanian CIS registration, when the till's fiscal config is active and has a certificate
+        fiscalConfigId: assignedFiscal?.isActive && (assignedFiscal.certificate?.length ?? 0) > 0 ? assignedFiscal._id.toString() : undefined,
+    };
+}
+
+/** What CIS answered for a till sale, as the till prints it. */
+type PosSaleFiscal = {nslf?: string; nivf?: string; eic?: string; qrVerifyUrl?: string; fault?: string};
+
+/**
+ * Till pay (D97): the sale commits in its own transaction first, and only then is registered with CIS, outside it.
+ * A retried attempt or a failed commit so never registers an invoice twice, or one without its sale. The fiscal
+ * result is stored on the sale in a follow-up write and returned for the receipt; when CIS fails the sale stands, and
+ * the failure is stored and returned as `fiscal.fault`.
+ */
+export async function payAndFiscalizePosOrder(body: PayPosOrderFormType, ctx: Omit<Ctx, "session">) {
+    const {fiscalConfigId, ...sale} = await runInTransaction(ctx.logger, (session) => payPosOrder(body, {...ctx, session}));
+    if (!fiscalConfigId) return {...sale, fiscal: undefined};
+
+    const fiscal = await registerPosSaleWithCis(sale.order._id, fiscalConfigId, ctx);
+    const order = await posOrderService.findByIdOrThrow(sale.order._id, {languageCode: ctx.languageCode}, POS_ORDER_POPULATE);
+    const receipt = await buildReceiptFromPosOrder(order, ctx);
+    return {
+        ...sale,
+        order: posOrderToDTO(order),
+        receipt: {
+            ...receipt,
+            productOrderNumber: sale.receipt.productOrderNumber,
+            paidAt: sale.receipt.paidAt,
+            customerName: sale.receipt.customerName,
+        },
         fiscal,
     };
+}
+
+/** Registers a committed till sale with CIS; a failure is stored on the sale and returned, never thrown. */
+async function registerPosSaleWithCis(orderId: string, fiscalConfigId: string, ctx: Omit<Ctx, "session">): Promise<PosSaleFiscal> {
+    try {
+        const result = await fiscalizePosOrder(orderId, ctx.company._id, {
+            languageCode: ctx.languageCode,
+            fiscalConfigId,
+            companyVat: ctx.company.vat,
+            companyName: ctx.company.name,
+        });
+        return {
+            nslf: result.invoice.nslf,
+            nivf: result.invoice.nivf,
+            eic: result.einvoice?.eic,
+            qrVerifyUrl: result.invoice.nivf ? result.invoice.qrVerifyUrl : undefined,
+            fault: result.invoice.fault || result.einvoice?.fault || result.order.fiscalError,
+        };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        ctx.logger.warn(`POS fiscalize failed for ${orderId}: ${message}`);
+        try {
+            await posOrderService.updateById(orderId, {$set: {fiscalError: message}}, {logger: ctx.logger, languageCode: ctx.languageCode, auditUserId: ctx.userId});
+        } catch (error: unknown) {
+            // The sale has committed: the till still gets its receipt, marked not fiscalized
+            ctx.logger.err(`Could not store the CIS failure on POS order ${orderId}`, error);
+        }
+        return {fault: message};
+    }
 }
 
 /**
