@@ -373,7 +373,8 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
     draft.customerName = body.customerName || undefined;
     draft.note = body.note;
     draft.orderDiscountPercent = orderDiscPct;
-    draft.lines = lines as any;
+    // Mongoose casts the built lines (product/variant ids) into line subdocuments with their own `_id`.
+    draft.set("lines", lines);
     draft.discountTotal = discountTotal;
     draft.amountTotal = amountTotal;
     draft.amountPaid = 0;
