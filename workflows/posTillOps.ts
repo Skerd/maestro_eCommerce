@@ -5,6 +5,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import type {HoldPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/holdPosOrder.form.validator";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import type {ProductType} from "@eCommerceModule/database/schemas/product/product";
 import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
 import PosOrder, {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
@@ -78,12 +79,16 @@ export type BuiltLine = {
     barcode?: string;
 };
 
-async function buildDraftLines(
+/**
+ * Prices the cart lines on the server (held carts and pay), reading the products in the request's
+ * transaction. Each line keeps its product type for the tax lookup; the order schema drops it on save.
+ */
+export async function buildDraftLines(
     bodyLines: HoldPosOrderFormType["lines"],
     ctx: Ctx,
     decimals: number,
-): Promise<{lines: BuiltLine[]; subtotal: number; lineDiscountTotal: number}> {
-    const lines: BuiltLine[] = [];
+): Promise<{lines: (BuiltLine & {productType: ProductType})[]; subtotal: number; lineDiscountTotal: number}> {
+    const lines: (BuiltLine & {productType: ProductType})[] = [];
     let subtotal = 0;
     let lineDiscountTotal = 0;
 
@@ -116,6 +121,7 @@ async function buildDraftLines(
             productName: product.title,
             productSku: product.sku,
             barcode: product.barcode ?? product.ean,
+            productType: product.type,
         });
         subtotal = sumMoney([subtotal, gross], decimals);
         lineDiscountTotal = sumMoney([lineDiscountTotal, discountAmount], decimals);

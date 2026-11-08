@@ -350,7 +350,7 @@ export async function registerPosInvoice(
     const totPrice = roundToCurrency(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
     const totTax = roundToCurrency(Number(order.isRefund ? -order.amountTax : order.amountTax));
 
-    const payments = ((order.payments as any[]) || []).map(p => ({
+    const payments = order.payments.map(p => ({
         "1__Type": payMethodType(p.paymentMethodType),
         "2__Amt": money(Number(p.amount) * (order.isRefund ? -1 : 1)),
     }));
@@ -389,10 +389,7 @@ export async function registerPosInvoice(
         }
     }
 
-    const corrective = (order as any).refundOf && (order as any).correctiveIic
-        ? {iic: (order as any).correctiveIic, issueDateTime: (order as any).correctiveIssueDateTime}
-        : undefined;
-    return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items, corrective}, config, opts);
+    return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items}, config, opts);
 }
 
 export async function registerTcr(
@@ -503,21 +500,18 @@ export async function registerEinvoiceForPosOrder(
     config: IFiscalConfig & FiscalCert,
     opts: {languageCode: string; companyVat?: string; companyName?: string; currency?: string},
 ): Promise<RegisterEinvoiceResult> {
-    const nslf = (order as any).nslf as string | undefined;
-    const nivf = (order as any).nivf as string | undefined;
-    const iicSignature = (order as any).iicSignature as string | undefined;
-    const issueDateTime = ((order as any).fiscalIssueDateTime as string) || tiraneIsoNow();
+    const {nslf, nivf, iicSignature, fiscalizedAt} = order;
+    const issueDateTime = order.fiscalIssueDateTime || tiraneIsoNow();
     if (!nslf || !nivf || !iicSignature) {
         throw apiValidationException("fiscal_einvoice_not_fiscalized", "posOrderId", null, opts.languageCode);
     }
-    const fiscalizedAt = (order as any).fiscalizedAt as Date | undefined;
     if (fiscalizedAt) {
         const ageMs = Date.now() - new Date(fiscalizedAt).getTime();
         if (ageMs > 48 * 60 * 60 * 1000) {
             throw apiValidationException("fiscal_einvoice_too_late", "posOrderId", null, opts.languageCode);
         }
     }
-    if ((order as any).eic) throw apiValidationException("fiscal_einvoice_exists", "posOrderId", null, opts.languageCode);
+    if (order.eic) throw apiValidationException("fiscal_einvoice_exists", "posOrderId", null, opts.languageCode);
 
     const nipt = resolveNipt(config, opts.languageCode, opts.companyVat);
     const totGross = roundToCurrency(Number(order.amountTotal));
@@ -540,7 +534,7 @@ export async function registerEinvoiceForPosOrder(
     });
 
     const ublUnsigned = buildUblInvoiceXml({
-        invoiceNumber: (order as any).fiscalInvNum || order.name,
+        invoiceNumber: order.fiscalInvNum || order.name,
         issueDate: issueDateTime.slice(0, 10),
         currency: opts.currency || "ALL",
         nslf,

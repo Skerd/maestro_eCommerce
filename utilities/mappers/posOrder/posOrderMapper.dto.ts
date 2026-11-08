@@ -1,3 +1,4 @@
+import {ObjectId} from "mongodb";
 import type {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import type {PosOrder} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.dto";
 import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
@@ -25,7 +26,9 @@ import {ProductOrderSimpleSnippet} from "@eCommerceModule/database/schemas/produ
 import {currencyDecimalPlacesOf} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 
 export function posOrderToDTO(order: IPosOrder): PosOrder {
-    const config = order.config as {currency?: object} | undefined;
+    // The till and its session are populated on most reads; a held-cart list only has their ids.
+    const config = order.config instanceof ObjectId ? undefined : order.config;
+    const session = order.session instanceof ObjectId ? undefined : order.session;
     const tillCurrency = mapSnippet<CurrencySimple>()(config?.currency, CurrencySimpleSnippet);
 
     return {
@@ -97,7 +100,7 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         amountReturn: order.amountReturn,
         discountTotal: order.discountTotal,
         decimalPlaces: currencyDecimalPlacesOf(config?.currency)
-            ?? currencyDecimalPlacesOf((order.session as {currency?: unknown} | undefined)?.currency),
+            ?? currencyDecimalPlacesOf(session?.currency),
         amountRefunded: order.amountRefunded,
         note: order.note,
         orderDiscountPercent: order.orderDiscountPercent,

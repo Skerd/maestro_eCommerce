@@ -70,8 +70,8 @@ export interface IPosOrderPayment {
 
 export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     name: string;
-    session: IPosSession;
-    config: IPosConfig;
+    session: IPosSession | Types.ObjectId;
+    config: IPosConfig | Types.ObjectId;
     state: PosOrderState;
     cashier: IUser | Types.ObjectId;
     customer?: IUser | Types.ObjectId;

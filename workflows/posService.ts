@@ -17,7 +17,6 @@ import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posC
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import {posSessionService} from "@eCommerceModule/database/schemas/posSession/posSession.service";
 import PosOrder, {IPosOrder, type IPosOrderLine} from "@eCommerceModule/database/schemas/posOrder/posOrder";
-import type {ProductType} from "@eCommerceModule/database/schemas/product/product";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
 import {productVariantService, variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
@@ -29,7 +28,7 @@ import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrde
 import {posSessionToDTO} from "@eCommerceModule/utilities/mappers/posSession/posSessionMapper.dto";
 import {posConfigToDTO} from "@eCommerceModule/utilities/mappers/posConfig/posConfigMapper.dto";
 import {
-    type BuiltLine,
+    buildDraftLines,
     buildReceiptFromPosOrder,
     getPosSessionReconciliation,
     rebuildPaidPosResult,
@@ -45,10 +44,10 @@ import {
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
 import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
-import {allocateMinor, fromMinor, minorToNumber, multiplyMoney, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
+import {allocateMinor, fromMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
 import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import {posLineRefundTotal, posRefundAmount} from "armonia/src/modules/eCommerce/helpers/posRefundAmount";
-import {assertPosSellable, POS_UNSELLABLE_TYPES, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
+import {POS_UNSELLABLE_TYPES} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 
@@ -706,44 +705,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     const currencyId = nestedEntityToRef(config.currency);
     const decimals = await currencyDecimalPlaces(currencyId, ctx.session);
 
-    const lines: (BuiltLine & {productType: ProductType})[] = [];
-    let subtotal = 0;
-    let lineDiscountTotal = 0;
-
-    for (const line of body.lines) {
-        const product = await productService.findOne({
-            _id: line.productId,
-            company: ctx.company._id,
-            status: "active",
-        }, {withDeleted: false});
-        if (!product) throw apiValidationException("pos_product_not_found", "productId", null, ctx.languageCode);
-        assertPosSellable(product, ctx.languageCode);
-
-        const qty = Number(line.quantity);
-        const unitPrice = await resolvePosLineUnitPrice(product, line.variantId, ctx);
-        const discPct = Math.min(100, Math.max(0, Number(line.discountPercent ?? 0)));
-        const gross = multiplyMoney(unitPrice, qty, decimals);
-        const discountAmount = percentOfMoney(gross, discPct, decimals);
-        const priceTotal = subtractMoney(gross, discountAmount, decimals);
-
-        lines.push({
-            product: product._id,
-            variant: line.variantId ? new ObjectId(line.variantId) : undefined,
-            quantity: qty,
-            unitPrice,
-            discountPercent: discPct,
-            discountAmount,
-            priceSubtotal: gross,
-            priceTotal,
-            taxAmount: 0,
-            productName: product.title,
-            productSku: product.sku,
-            barcode: product.barcode ?? product.ean,
-            productType: product.type,
-        });
-        subtotal = sumMoney([subtotal, gross], decimals);
-        lineDiscountTotal = sumMoney([lineDiscountTotal, discountAmount], decimals);
-    }
+    const {lines, subtotal, lineDiscountTotal} = await buildDraftLines(body.lines, ctx, decimals);
 
     const orderDiscPct = Math.min(100, Math.max(0, Number(body.discountPercent ?? 0)));
     const afterLineDisc = subtractMoney(subtotal, lineDiscountTotal, decimals);

@@ -30,6 +30,7 @@ import PosSession from "@eCommerceModule/database/schemas/posSession/posSession"
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
 import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
+import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
@@ -97,6 +98,25 @@ describe("till sales (#19)", () => {
         expect(order.amountTax).toBe(9.16);
         const sale = await ProductOrder.findOne({idempotencyKey: `pos:${order._id}`});
         expect(sale!.items.map(item => item.quantity)).toEqual([1, 0.5]);
+    }));
+
+    // TD-B68: pay read the products outside the request's transaction, so it priced a line at the committed price.
+    it("prices the lines from the products as the request's transaction sees them", () => asCompany(async () => {
+        const {warehouse, cash, sessionId} = await seedTill();
+        const mug = await seedProduct({price: 10});
+        await Inventory.create({product: mug._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+
+        const {order} = await runInTransaction(ctx.logger, async (session) => {
+            await Product.updateOne({_id: mug._id}, {price: 12}, {session});
+            return payPosOrder({
+                sessionId: sessionId.toString(),
+                lines: [{productId: mug._id.toString(), quantity: 1}],
+                payments: [{paymentMethodId: cash._id.toString(), amount: 12}],
+            }, {...ctx, session});
+        });
+
+        expect(order.lines.map(line => line.unitPrice)).toEqual([12]);
+        expect(order.amountTotal).toBe(12);
     }));
 
     it("refuses gift-card products at the till", () => asCompany(async () => {
