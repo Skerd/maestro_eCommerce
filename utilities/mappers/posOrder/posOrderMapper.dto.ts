@@ -123,6 +123,11 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         fiscalizedAt: order.fiscalizedAt?.toISOString?.(),
         einvoiceAt: order.einvoiceAt?.toISOString?.(),
         fiscalError: order.fiscalError,
+        // The marker is loaded only where the router asks for it (`extraDocumentSelect`); elsewhere it reads false
+        fiscalAwaitingConfirmation: !!order.fiscalRegisteringAt && !order.nslf && !order.nivf,
+        fiscalResolution: order.fiscalResolution,
+        fiscalResolvedBy: mapSnippet<SimpleBlankUser>()(order.fiscalResolvedBy, SimpleBlankUserSnippet),
+        fiscalResolvedAt: order.fiscalResolvedAt?.toISOString?.(),
         ...mapSoftDeleteToDTO(order),
         ...mapOwnershipToDTO(order),
         ...mapLifeCycleToDTO(order),

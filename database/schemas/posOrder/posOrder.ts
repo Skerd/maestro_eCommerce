@@ -32,6 +32,7 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
 import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
+import {POS_FISCAL_RESOLUTIONS, type PosFiscalResolution} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.dto";
 
 export type PosOrderState = "draft" | "paid" | "cancel" | "refunded";
 
@@ -118,6 +119,10 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
      * registered the sale and the answer was lost, so it is never sent again automatically (TD-B75). Internal.
      */
     fiscalRegisteringAt?: Date;
+    /** Who resolved a sale left with `fiscalRegisteringAt` and no codes, when, and how (D98). */
+    fiscalResolution?: PosFiscalResolution;
+    fiscalResolvedBy?: IUser | Types.ObjectId;
+    fiscalResolvedAt?: Date;
     ublXml?: string;
     company: ICompany;
 }
@@ -507,6 +512,25 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.Date,
             select: false,
             permissions: NoWritePermission,
+        },
+        fiscalResolution: {
+            type: SchemaTypes.String,
+            enum: POS_FISCAL_RESOLUTIONS,
+            permissions: NoWritePermission,
+        },
+        fiscalResolvedBy: {
+            type: SchemaTypes.ObjectId,
+            ref: "User",
+            refAllowlist: SimpleUserSnippet,
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["name", "surname"],
+            },
+        },
+        fiscalResolvedAt: {
+            type: SchemaTypes.Date,
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {cellType: COLUMN_TYPE.DATETIME},
         },
         ublXml: {
             type: SchemaTypes.String,

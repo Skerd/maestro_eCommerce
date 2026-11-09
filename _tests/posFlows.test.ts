@@ -46,6 +46,8 @@ import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransacti
 import request from "supertest";
 import {allPermissionTags, appFor, callerHeader} from "@coreModule/_tests/httpHarness";
 import * as fiscalRoute from "@eCommerceModule/api/eCommerce/private/fiscal";
+import * as posOrderRoute from "@eCommerceModule/api/eCommerce/private/checked/posOrder";
+import {actionPermissionTag} from "@coreModule/utilities/security/actionPermissions";
 import {runPosFiscalSweep} from "@eCommerceModule/utilities/cronJobs/posFiscalSweepJob";
 
 const companyId = new ObjectId();
@@ -387,5 +389,111 @@ describe("till sale fiscal recovery (TD-B75)", () => {
             withTransaction.mockRestore();
         }
         expect(sentRequests).toHaveLength(0);
+    }));
+});
+
+// D98 / TD-B76: staff resolve a sale whose CIS answer was lost, after checking the CIS portal.
+describe("unconfirmed CIS registration (D98)", () => {
+    const app = appFor([{...posOrderRoute, module: "eCommerce"}]);
+    const NSLF = "0a1b2c3d4e5f60718293a4b5c6d7e8f9";
+    const NIVF = "6f9619ff-8b86-4d11-b42d-00c04fc964ff";
+    const EIC = "1b4e28ba-2fa1-41d2-883f-0016d3cca427";
+    const sentAt = new Date(Date.now() - 20 * 60000);
+    const staffId = new ObjectId();
+    const staff = (permissions: string[]) => callerHeader({userId: staffId.toString(), companyId: companyId.toString(), permissions});
+    const tag = (action: string) => actionPermissionTag(PosOrder, action, "self")!;
+
+    /** A committed sale sent to CIS whose answer was not stored, as a timeout leaves it. */
+    async function seedUnconfirmedSale(body?: Awaited<ReturnType<typeof seedFiscalSale>>) {
+        const id = (await payPosOrder(body ?? await seedFiscalSale(), ctx)).order._id.toString();
+        await PosOrder.collection.updateOne({_id: new ObjectId(id)}, {$set: {fiscalRegisteringAt: sentAt, fiscalError: "timeout of 60000ms exceeded"}});
+        return id;
+    }
+    const stored = async (id: string) => (await PosOrder.findById(id).select("+fiscalRegisteringAt"))!;
+    const post = (action: string, body: Record<string, unknown>, permissions = [tag(action)]) =>
+        request(app).post(`/api/eCommerce/posOrder/${action}`).set(staff(permissions)).send(body);
+
+    it("tells the panel which sales await a CIS portal check", () => asCompany(async () => {
+        const body = await seedFiscalSale();
+        const neverSent = (await payPosOrder(body, ctx)).order._id.toString();
+        const unconfirmed = await seedUnconfirmedSale(body);
+        const reader = allPermissionTags([PosOrder]);
+
+        const single = async (id: string) => (await post("single", {_id: id}, reader)).body;
+        const list = await request(app).post("/api/eCommerce/posOrder").set(staff(reader)).send({offset: 0, limit: 10});
+
+        expect((await single(unconfirmed)).fiscalAwaitingConfirmation).toBe(true);
+        expect((await single(neverSent)).fiscalAwaitingConfirmation).toBe(false);
+        expect(Object.fromEntries(list.body.data.map((row: {_id: string; fiscalAwaitingConfirmation: boolean}) => [row._id, row.fiscalAwaitingConfirmation])))
+            .toEqual({[unconfirmed]: true, [neverSent]: false});
+    }));
+
+    it("records the codes found in the CIS portal as the sale's fiscal result, and who recorded them", () => asCompany(async () => {
+        const id = await seedUnconfirmedSale();
+
+        const response = await post("recordFiscalCodes", {_id: id, nslf: NSLF, nivf: NIVF, eic: EIC});
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.order).toMatchObject({
+            nslf: NSLF.toUpperCase(), nivf: NIVF, eic: EIC, fiscalAwaitingConfirmation: false, fiscalResolution: "recorded",
+        });
+        const order = await stored(id);
+        expect(order).toMatchObject({nslf: NSLF.toUpperCase(), nivf: NIVF, eic: EIC, fiscalResolution: "recorded"});
+        expect(order.fiscalRegisteringAt).toBeUndefined();
+        expect(order.fiscalError).toBeUndefined();
+        expect(order.fiscalizedAt).toEqual(sentAt);
+        expect(String(order.fiscalResolvedBy)).toBe(staffId.toString());
+        expect(order.fiscalResolvedAt).toBeInstanceOf(Date);
+        expect(sentRequests).toHaveLength(0);
+    }));
+
+    it("refuses codes in the wrong format", () => asCompany(async () => {
+        const id = await seedUnconfirmedSale();
+
+        const response = await post("recordFiscalCodes", {_id: id, nslf: "not-a-code", nivf: NIVF});
+
+        expect(response.status).toBe(400);
+        expect((await stored(id)).fiscalRegisteringAt).toEqual(sentAt);
+    }));
+
+    it("clears the mark and sends the sale to CIS once when it was not registered", () => asCompany(async () => {
+        const id = await seedUnconfirmedSale();
+
+        const response = await post("resendFiscal", {_id: id});
+
+        expect(response.status).toBe(200);
+        expect(sentRequests).toHaveLength(1);
+        expect(response.body.data).toMatchObject({nslf: "IIC", order: {nslf: "IIC", fiscalAwaitingConfirmation: false, fiscalResolution: "resent"}});
+        const order = await stored(id);
+        expect(order).toMatchObject({nslf: "IIC", fiscalResolution: "resent"});
+        expect(order.fiscalRegisteringAt).toBeUndefined();
+        expect(String(order.fiscalResolvedBy)).toBe(staffId.toString());
+    }));
+
+    it("refuses a sale that does not await a CIS portal check", () => asCompany(async () => {
+        const body = await seedFiscalSale();
+        const neverSent = (await payPosOrder(body, ctx)).order._id.toString();
+        const registered = await seedUnconfirmedSale(body);
+        await PosOrder.collection.updateOne({_id: new ObjectId(registered)}, {$set: {nslf: "IIC", nivf: NIVF}});
+
+        for (const id of [neverSent, registered]) {
+            const record = await post("recordFiscalCodes", {_id: id, nslf: NSLF, nivf: NIVF});
+            const resend = await post("resendFiscal", {_id: id});
+            expect([record.status, record.body.error_code]).toEqual([409, "fiscal_not_awaiting_confirmation"]);
+            expect([resend.status, resend.body.error_code]).toEqual([409, "fiscal_not_awaiting_confirmation"]);
+        }
+        expect(sentRequests).toHaveLength(0);
+    }));
+
+    it("refuses a caller without the action's permission", () => asCompany(async () => {
+        const id = await seedUnconfirmedSale();
+
+        const record = await post("recordFiscalCodes", {_id: id, nslf: NSLF, nivf: NIVF}, [tag("resendFiscal")]);
+        const resend = await post("resendFiscal", {_id: id}, [tag("recordFiscalCodes")]);
+
+        expect([record.status, record.body.error_code]).toEqual([403, "user_permissions_not_sufficient"]);
+        expect([resend.status, resend.body.error_code]).toEqual([403, "user_permissions_not_sufficient"]);
+        expect(sentRequests).toHaveLength(0);
+        expect((await stored(id)).fiscalRegisteringAt).toEqual(sentAt);
     }));
 });

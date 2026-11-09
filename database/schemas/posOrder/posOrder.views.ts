@@ -493,7 +493,7 @@ export const posOrderSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "fiscalization", defaultOpen: false},
-            dependentAny: ["nslf", "nivf", "fiscalInvNum", "fiscalError"],
+            dependentAny: ["nslf", "nivf", "fiscalInvNum", "fiscalError", "fiscalResolution"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -637,6 +637,42 @@ export const posOrderSheetView: ViewConfig = {
                                 widget: "#DisplayCard",
                                 label: "fiscalError",
                                 widgetProps: {icon: "#IconAlertTriangle", expandable: true, maxLength: 250},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "fiscalResolution"},
+                            field: {
+                                name: "fiscalResolution",
+                                widget: "#DisplayCard",
+                                label: "fiscalResolution",
+                                widgetProps: {icon: "#IconCircleCheck", languageKeyCategory: "fiscalResolutionValues", type: "enum"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "fiscalResolvedBy"},
+                            field: {
+                                name: "fiscalResolvedBy",
+                                widget: "#DisplayCard",
+                                label: "fiscalResolvedBy",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "fiscalResolvedBy",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                    type: "user",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "fiscalResolvedAt"},
+                            field: {
+                                name: "fiscalResolvedAt",
+                                widget: "#DisplayCard",
+                                label: "fiscalResolvedAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"},
                             },
                         },
                     ],

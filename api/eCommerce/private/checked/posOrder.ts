@@ -10,7 +10,7 @@ import {posOrdersToSelect} from "@eCommerceModule/utilities/mappers/posOrder/pos
 export const basePath = "/api/eCommerce/posOrder";
 /**
  * POS orders are created by till actions (hold / pay / refund).
- * Panel is read + reprint — no CRUD create, edit, or delete.
+ * Panel is read + reprint, and resolving a sale whose CIS answer was lost (D98) — no CRUD create, edit, or delete.
  */
 export const {router} = createCrudRouter({
     collectionName: "posOrders",
@@ -24,6 +24,8 @@ export const {router} = createCrudRouter({
     toDTO: posOrderToDTO,
     toDTOArray: posOrdersToDTO,
     toSelect: posOrdersToSelect,
+    /** Internal marker, read only to tell the panel a sale awaits a CIS portal check (`fiscalAwaitingConfirmation`, D98). */
+    extraDocumentSelect: "+fiscalRegisteringAt",
     buildCreateData: (params) => {
         throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
     },

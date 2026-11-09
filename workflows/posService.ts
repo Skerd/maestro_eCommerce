@@ -1057,6 +1057,37 @@ export async function registerPosSaleWithCis(
 }
 
 /**
+ * A manual CIS send of a committed till sale, answered as the panel shows it: the `/fiscal/fiscalizePosOrder` route,
+ * and the "send again" resolution of a sale whose CIS answer was lost (D98). CIS's own fault is returned; a failure
+ * other than a rule refusal answers `fiscal_error`.
+ */
+export async function sendPosOrderToCis(
+    posOrderId: string,
+    ctx: {languageCode: string; company: {_id: unknown; name?: string; vat?: string}},
+    fiscalConfigId?: string,
+) {
+    try {
+        const result = await fiscalizePosOrder(posOrderId, ctx.company._id, {
+            languageCode: ctx.languageCode,
+            fiscalConfigId,
+            companyVat: ctx.company.vat,
+            companyName: ctx.company.name,
+        });
+        return {
+            order: posOrderToDTO(result.order),
+            nslf: result.invoice.nslf,
+            nivf: result.invoice.nivf,
+            eic: result.einvoice?.eic,
+            qrVerifyUrl: result.invoice.qrVerifyUrl,
+            fault: result.invoice.fault || result.einvoice?.fault,
+        };
+    } catch (error: unknown) {
+        if (error instanceof ServerError) throw error;
+        throw apiValidationException("fiscal_error", "posOrderId", null, ctx.languageCode, [error instanceof Error ? error.message : String(error)]);
+    }
+}
+
+/**
  * What each payment of a sale actually paid, in minor units: a cash payment's amount includes the change handed back,
  * so the change comes off the cash payments first, in order (D59). The finance ledger records these amounts (TD-B41).
  */

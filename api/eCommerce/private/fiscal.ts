@@ -12,7 +12,6 @@ import {
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscal/fiscal.form.validator";
 import {
     financeInvoiceFiscalData,
-    fiscalizePosOrder,
     getTaxpayer,
     fiscalConfigIdForPosConfig,
     loadFiscalConfigWithCert,
@@ -21,6 +20,7 @@ import {
     registerTcr,
 } from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
+import {sendPosOrderToCis} from "@eCommerceModule/workflows/posService";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {fiscalConfigToDTO} from "@eCommerceModule/utilities/mappers/fiscalConfig/fiscalConfigMapper.dto";
 import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
@@ -62,27 +62,7 @@ router.post(
     asyncHandler(async (params: any) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
-        try {
-            const result = await fiscalizePosOrder(posOrderId, company._id, {
-                languageCode,
-                fiscalConfigId,
-                companyVat: company.vat,
-                companyName: company.name,
-            });
-            return {
-                data: {
-                    order: posOrderToDTO(result.order),
-                    nslf: result.invoice.nslf,
-                    nivf: result.invoice.nivf,
-                    eic: result.einvoice?.eic,
-                    qrVerifyUrl: result.invoice.qrVerifyUrl,
-                    fault: result.invoice.fault || result.einvoice?.fault,
-                },
-            };
-        } catch (e: any) {
-            if (e instanceof ServerError) throw e;
-            throw apiValidationException("fiscal_error", "posOrderId", null, languageCode, [e?.message || String(e)]);
-        }
+        return {data: await sendPosOrderToCis(posOrderId, {languageCode, company}, fiscalConfigId)};
     }),
 );
 
