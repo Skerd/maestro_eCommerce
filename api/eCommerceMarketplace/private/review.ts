@@ -16,7 +16,7 @@ import Review, {type IReview} from "@eCommerceModule/database/schemas/review/rev
 import {reviewService} from "@eCommerceModule/database/schemas/review/review.service";
 import {reviewToDTO, reviewsToDTO} from "@eCommerceModule/utilities/mappers/review/reviewMapper.dto";
 import {reviewsToSelect} from "@eCommerceModule/utilities/mappers/review/reviewMapper.select";
-import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {asPortalBuyer, isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import type {serverLogger} from "@coreModule/loggers/serverLog";
 
@@ -112,7 +112,8 @@ router.put(
     rateLimiter({windowMs: 60000, max: 30}),
     transactionHandler(),
     validateFormZod(createReviewFormSchema),
-    asyncHandler(async (params: CrudCreateParams<CreateReviewFormType>) => {
+    // A buyer's own order bought on the portal is its seller's (D16)
+    asyncHandler(async (request: CrudCreateParams<CreateReviewFormType>) => asPortalBuyer(request, async () => request.order, async (params) => {
         const {company, actionUserCtx, session, logger, languageCode} = params;
         const created = await reviewService.create(
             {...await buildReviewCreate(params), company: company._id},
@@ -120,5 +121,5 @@ router.put(
         );
         await recalculateListingRating(created, params);
         return {data: {_id: created._id.toString()}};
-    }),
+    })),
 );

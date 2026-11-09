@@ -14,6 +14,10 @@ import {taskRequestService} from "@eCommerceModule/database/schemas/taskRequest/
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {UserContext} from "@coreModule/utilities/types/types";
 import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
+import type {ClientSession} from "mongoose";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
+import {inPortalMarketplace, isPortalPurchase} from "@eCommerceModule/utilities/shop/shopCompany.util";
 
 /** The two facts every rule below needs; the API passes its UserContext, the assistant its access decision. */
 type Caller = Pick<UserContext, "userId" | "isAdmin">;
@@ -31,6 +35,31 @@ export function orderPartyFilter(actionUserCtx: Caller): Record<string, unknown>
     if (actionUserCtx.isAdmin) return {};
     const userId = new ObjectId(actionUserCtx.userId);
     return {$or: [{customer: userId}, {provider: userId}]};
+}
+
+/**
+ * A buyer acting on their own services order from the portal zone (D16, TD-B93): the order belongs to its seller, so
+ * `work` runs on the portal marketplace with `params.company` set to that seller, and every read and write it does
+ * names the seller. Only the order's customer gets this; anyone else, and any request outside the portal, runs `work`
+ * as before in the request's tenant, so seller-side work stays tenant-only. `orderRef` resolves the order's id (a
+ * milestone action finds it from the milestone).
+ */
+export async function asPortalBuyer<P extends AuthenticatedMWType & {session?: ClientSession}, R>(
+    params: P,
+    orderRef: () => Promise<unknown>,
+    work: (params: P) => Promise<R>,
+): Promise<R> {
+    if (!isPortalPurchase(params.origin)) return work(params);
+    const {session, languageCode} = params;
+    const sellerId = await inPortalMarketplace(true, async () => {
+        const orderId = nestedEntityToRef(await orderRef());
+        if (!orderId) return undefined;
+        const order = await orderService.findOne({_id: orderId, customer: new ObjectId(params.actionUserCtx.userId)}, {session}, null, "company");
+        return order ? nestedEntityToRef(order.company) : undefined;
+    });
+    if (!sellerId || sellerId.toString() === String(params.company._id)) return work(params);
+    const seller = await companyService.findByIdOrThrow(sellerId, {session, languageCode}, [], "name isActive modules isPlatformOwner");
+    return inPortalMarketplace(true, () => work({...params, company: seller}));
 }
 
 export function isOrderParty(order: IOrder, userId: string, role: "customer" | "provider"): boolean {

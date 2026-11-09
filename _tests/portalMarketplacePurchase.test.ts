@@ -31,6 +31,13 @@ import * as serviceOrderRoute from "@eCommerceModule/api/eCommerceMarketplace/pr
 import Listing from "@eCommerceModule/database/schemas/listing/listing";
 import ListingPackage from "@eCommerceModule/database/schemas/listingPackage/listingPackage";
 import Order from "@eCommerceModule/database/schemas/order/order";
+import Review from "@eCommerceModule/database/schemas/review/review";
+import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
+import DigitalDelivery from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery";
+import State from "@coreModule/database/schemas/state/state";
+import * as reviewRoute from "@eCommerceModule/api/eCommerceMarketplace/private/review";
+import * as disputeRoute from "@eCommerceModule/api/eCommerceMarketplace/private/dispute";
+import * as digitalDeliveryRoute from "@eCommerceModule/api/eCommerce/private/digitalDelivery";
 import {appFor, callerHeader} from "@coreModule/_tests/httpHarness";
 import {asCrossTenant, withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {PORTAL_ROOT_DOMAIN} from "@coreModule/environment";
@@ -44,6 +51,9 @@ const app = appFor([
     {...checkoutRoute, module: "eCommerce"},
     {...productOrderRoute, module: "eCommerce"},
     {...serviceOrderRoute, module: "eCommerce"},
+    {...reviewRoute, module: "eCommerce"},
+    {...disputeRoute, module: "eCommerce"},
+    {...digitalDeliveryRoute, module: "eCommerce"},
 ]);
 
 const platform = new ObjectId();
@@ -281,5 +291,82 @@ describe("portal marketplace purchase (D16)", () => {
         const order = (await asCrossTenant("test assertions", () => Order.findById(created.body._id)))!;
         expect([String(order.company), order.amount]).toEqual([sellerA.toString(), 150]);
         expect([mine.status, mine.body.total, single.status]).toEqual([200, 1, 200]);
+    });
+
+    /** A services order of seller A that the shopper bought on the portal, in `status`. */
+    async function seedServiceOrder(status: string) {
+        const provider = new ObjectId();
+        return asCrossTenant("test setup", async () => (await Order.collection.insertOne({
+            name: `ORD-${new ObjectId().toString()}`, listing: new ObjectId(), customer: buyer, provider, amount: 100,
+            currency: new ObjectId(), status, company: sellerA, createdAt: new Date(),
+        })).insertedId);
+    }
+    const storedOrder = (_id: ObjectId) => asCrossTenant("test assertions", () => Order.findById(_id));
+
+    // TD-B93: the buyer's own actions on a services order of another seller, from the apex.
+    it("lets the buyer cancel, review and dispute their own services order of another seller from the apex", async () => {
+        await seedSeller(sellerA, "Alpha", 10, 5);
+        const pending = await seedServiceOrder("pending");
+        const completed = await seedServiceOrder("completed");
+        const active = await seedServiceOrder("in_progress");
+
+        const cancelled = await call("post", "/api/eCommerceMarketplace/order/cancel", {_id: pending.toString()});
+        const reviewed = await call("put", "/api/eCommerceMarketplace/review/createMine", {order: completed.toString(), rating: 5, comment: "Great"});
+        const disputed = await call("put", "/api/eCommerceMarketplace/dispute/createMine", {order: active.toString(), reason: "Late"});
+
+        expect([cancelled.status, cancelled.body.error_code]).toEqual([200, undefined]);
+        expect([reviewed.status, reviewed.body.error_code]).toEqual([200, undefined]);
+        expect([disputed.status, disputed.body.error_code]).toEqual([200, undefined]);
+        expect((await storedOrder(pending))!.status).toBe("cancelled");
+        await asCrossTenant("test assertions", async () => {
+            expect(String((await Review.findOne({order: completed}))!.company)).toBe(sellerA.toString());
+            expect(String((await Dispute.findOne({order: active}))!.company)).toBe(sellerA.toString());
+        });
+    });
+
+    it("keeps seller-side actions and other buyers' orders inside the request's company", async () => {
+        await seedSeller(sellerA, "Alpha", 10, 5);
+        const pending = await seedServiceOrder("pending");
+        await asCrossTenant("test setup", () => Order.collection.updateOne({_id: pending}, {$set: {customer: new ObjectId()}}));
+
+        const accepted = await call("post", "/api/eCommerceMarketplace/order/accept", {_id: pending.toString()});
+        const cancelled = await call("post", "/api/eCommerceMarketplace/order/cancel", {_id: pending.toString()});
+
+        expect(accepted.status).not.toBe(200);
+        expect(cancelled.body.error_code).toBe("order_not_found");
+        expect((await storedOrder(pending))!.status).toBe("pending");
+    });
+
+    // TD-B93: the buyer's downloads on the apex come from every seller.
+    it("lists the buyer's downloads from every seller on the apex", async () => {
+        const mug = await seedSeller(sellerA, "Alpha", 10, 5);
+        await asCrossTenant("test setup", () => DigitalDelivery.collection.insertOne({
+            order: new ObjectId(), product: mug._id, customer: buyer, token: "tok", media: [], downloadLimit: 3, downloadCount: 0, company: sellerA,
+        }));
+
+        const downloads = await call("post", "/api/eCommerce/digitalDelivery/my", {});
+
+        expect([downloads.status, downloads.body.data?.length]).toEqual([200, 1]);
+    });
+
+    // TD-B92: an address whose state is the platform's state row still matches the seller's state-restricted zones.
+    it("matches a seller's state-restricted zones from an apex address that names a state row", async () => {
+        const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
+        const platformTirana = await asCrossTenant("test setup", async () => {
+            const sellerAlbania = (await Country.findOne({company: sellerB}))!._id;
+            const sellerTirana = (await State.collection.insertOne({name: "Tirana District", code: "TR", country: sellerAlbania, company: sellerB})).insertedId;
+            await TaxZone.updateOne({company: sellerB}, {$set: {states: [sellerTirana]}});
+            await ShippingZone.updateOne({company: sellerB}, {$set: {states: [sellerTirana]}});
+            return (await State.collection.insertOne({name: "Tirana District", code: "TR", country: platformAlbania, company: platform})).insertedId;
+        });
+        await call("put", "/api/eCommerce/cart/item", {productId: book._id.toString(), quantity: 2});
+        const checkoutId: string = (await call("post", "/api/eCommerce/checkout/init", {idempotencyKey: "apex-checkout-7"})).body.data._id;
+
+        const shippingAddress = {...address, country: platformAlbania.toString(), state: platformTirana.toString()};
+        const rated = await call("post", "/api/eCommerce/checkout/address", {checkoutId, shippingAddress});
+        const shipped = await call("post", "/api/eCommerce/checkout/shipping", {checkoutId, rateIndex: 0});
+
+        expect(rated.body.data.availableShippingRates.map((rate: {name: string}) => rate.name)).toEqual(["Courier"]);
+        expect([shipped.status, shipped.body.data.taxTotal]).toEqual([200, 8]);
     });
 });

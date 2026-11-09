@@ -4,6 +4,7 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {digitalDeliveryService} from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery.service";
+import {isPortalPurchase, portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {digitalDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/digitalDelivery/digitalDeliveryMapper.dto";
 
 export const basePath = "/api/eCommerce/digitalDelivery";
@@ -17,13 +18,12 @@ router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: any) => {
-        const {logger, languageCode, company, actionUserCtx, orderId} = params;
+    // On the portal: the buyer's downloads from every seller (D16)
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
+        const {logger, languageCode, company, actionUserCtx, orderId, origin} = params;
 
-        const filter: Record<string, unknown> = {
-            company: company._id,
-            customer: new ObjectId(actionUserCtx.userId),
-        };
+        const filter: Record<string, unknown> = {customer: new ObjectId(actionUserCtx.userId)};
+        if (!isPortalPurchase(origin)) filter.company = company._id;
         if (orderId) filter.order = new ObjectId(orderId);
 
         const deliveries = await digitalDeliveryService.find(
@@ -40,5 +40,5 @@ router.post(
         );
 
         return {data: digitalDeliveriesToDTO(deliveries)};
-    }),
+    })),
 );

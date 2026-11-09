@@ -20,7 +20,7 @@ import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/noti
 import {disputeToDTO, disputesToDTO} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.dto";
 import {disputesToSelect} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.select";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
-import {isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {asPortalBuyer, isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 /** A party opens one dispute per non-final order; the initiator is the caller. */
 async function buildDisputeCreate({order: orderRef, reason, actionUserCtx, company, session, logger, languageCode}: CrudCreateParams<CreateDisputeFormType>) {
@@ -112,7 +112,8 @@ router.put(
     rateLimiter({windowMs: 60000, max: 30}),
     transactionHandler(),
     validateFormZod(createDisputeFormSchema),
-    asyncHandler(async (params: CrudCreateParams<CreateDisputeFormType>) => {
+    // A buyer's own order bought on the portal is its seller's (D16)
+    asyncHandler(async (request: CrudCreateParams<CreateDisputeFormType>) => asPortalBuyer(request, async () => request.order, async (params) => {
         const {company, actionUserCtx, session, logger, languageCode} = params;
         const created = await disputeService.create(
             {...await buildDisputeCreate(params), company: company._id},
@@ -120,5 +121,5 @@ router.put(
         );
         await notifyDisputeOpened(created, params);
         return {data: {_id: created._id.toString()}};
-    }),
+    })),
 );

@@ -34,7 +34,7 @@ import {
     completeSubmittedDeliveryAndRelease,
     refundRemainingEscrow,
 } from "@eCommerceModule/database/schemas/order/orderEscrow";
-import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {asPortalBuyer, isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
@@ -254,41 +254,44 @@ export class OrderActions {
     })
     async cancel(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
-        const {logger, languageCode, session, company, actionUserCtx, _id} = p;
-        const opts = {session, logger, languageCode};
+        // A buyer's own order bought on the portal is its seller's (D16)
+        return asPortalBuyer(p, async () => p._id, async (p) => {
+            const {logger, languageCode, session, company, actionUserCtx, _id} = p;
+            const opts = {session, logger, languageCode};
 
-        logger.start(`Cancelling order: ${_id}...`);
+            logger.start(`Cancelling order: ${_id}...`);
 
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
+            const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
 
-        const isProvider = isOrderParty(order, actionUserCtx.userId, "provider");
-        const isCustomer = isOrderParty(order, actionUserCtx.userId, "customer");
-        if (!isProvider && !isCustomer) {
-            throw apiValidationException("only_parties_can_cancel", null, null, languageCode);
-        }
-        if (order.status === "completed" || order.status === "cancelled") {
-            throw apiValidationException("order_already_final", null, null, languageCode);
-        }
-        if (!isProvider && order.status === "in_progress") {
-            throw apiValidationException("customer_cannot_cancel_started_order", null, null, languageCode);
-        }
-        if (await hasOpenDispute(order, p)) {
-            throw apiValidationException("cannot_cancel_with_open_dispute", null, null, languageCode);
-        }
+            const isProvider = isOrderParty(order, actionUserCtx.userId, "provider");
+            const isCustomer = isOrderParty(order, actionUserCtx.userId, "customer");
+            if (!isProvider && !isCustomer) {
+                throw apiValidationException("only_parties_can_cancel", null, null, languageCode);
+            }
+            if (order.status === "completed" || order.status === "cancelled") {
+                throw apiValidationException("order_already_final", null, null, languageCode);
+            }
+            if (!isProvider && order.status === "in_progress") {
+                throw apiValidationException("customer_cannot_cancel_started_order", null, null, languageCode);
+            }
+            if (await hasOpenDispute(order, p)) {
+                throw apiValidationException("cannot_cancel_with_open_dispute", null, null, languageCode);
+            }
 
-        await orderService.updateByIdOrThrow(order._id, {$set: {status: "cancelled"}}, {...opts, auditUserId: actionUserCtx.userId});
-        await refundRemainingEscrow(order, {...opts, companyId: company._id, auditUserId: actionUserCtx.userId});
+            await orderService.updateByIdOrThrow(order._id, {$set: {status: "cancelled"}}, {...opts, auditUserId: actionUserCtx.userId});
+            await refundRemainingEscrow(order, {...opts, companyId: company._id, auditUserId: actionUserCtx.userId});
 
-        const otherPartyId = isProvider ? order.customer._id : order.provider._id;
-        await notifyAfterCommit(p, NotificationEventCodes.ORDER_CANCELLED, otherPartyId.toString(), {
-            orderId: order._id.toString(),
-            orderName: order.name,
-            cancelledBy: isProvider ? "provider" : "customer",
+            const otherPartyId = isProvider ? order.customer._id : order.provider._id;
+            await notifyAfterCommit(p, NotificationEventCodes.ORDER_CANCELLED, otherPartyId.toString(), {
+                orderId: order._id.toString(),
+                orderName: order.name,
+                cancelledBy: isProvider ? "provider" : "customer",
+            });
+
+            logger.finish(`Successfully cancelled order: ${_id}`);
+
+            return {message: "Order cancelled successfully"};
         });
-
-        logger.finish(`Successfully cancelled order: ${_id}`);
-
-        return {message: "Order cancelled successfully"};
     }
 
     @action({
@@ -410,42 +413,45 @@ export class OrderActions {
     })
     async acceptDelivery(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & SingleForm;
-        const {logger, languageCode, session, company, actionUserCtx, _id} = p;
-        const opts = {session, logger, languageCode};
+        // A buyer's own order bought on the portal is its seller's (D16)
+        return asPortalBuyer(p, async () => p._id, async (p) => {
+            const {logger, languageCode, session, company, actionUserCtx, _id} = p;
+            const opts = {session, logger, languageCode};
 
-        logger.start(`Accepting delivery for order: ${_id}...`);
+            logger.start(`Accepting delivery for order: ${_id}...`);
 
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
+            const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
 
-        if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
-            throw apiValidationException("only_customer_can_accept_delivery", null, null, languageCode);
-        }
-        if (order.status !== "in_progress") {
-            throw apiValidationException("order_not_in_progress", null, null, languageCode);
-        }
-        if (await hasOpenDispute(order, p)) {
-            throw apiValidationException("cannot_accept_delivery_with_open_dispute", null, null, languageCode);
-        }
+            if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
+                throw apiValidationException("only_customer_can_accept_delivery", null, null, languageCode);
+            }
+            if (order.status !== "in_progress") {
+                throw apiValidationException("order_not_in_progress", null, null, languageCode);
+            }
+            if (await hasOpenDispute(order, p)) {
+                throw apiValidationException("cannot_accept_delivery_with_open_dispute", null, null, languageCode);
+            }
 
-        const delivery = await orderDeliveryService.findOne(
-            {order: order._id, status: "submitted", company: company._id},
-            opts,
-            null,
-            "_id",
-        );
-        if (!delivery) {
-            throw apiValidationException("no_pending_delivery", null, null, languageCode);
-        }
+            const delivery = await orderDeliveryService.findOne(
+                {order: order._id, status: "submitted", company: company._id},
+                opts,
+                null,
+                "_id",
+            );
+            if (!delivery) {
+                throw apiValidationException("no_pending_delivery", null, null, languageCode);
+            }
 
-        await completeSubmittedDeliveryAndRelease(order, delivery._id, {
-            ...opts,
-            companyId: company._id,
-            auditUserId: actionUserCtx.userId,
+            await completeSubmittedDeliveryAndRelease(order, delivery._id, {
+                ...opts,
+                companyId: company._id,
+                auditUserId: actionUserCtx.userId,
+            });
+
+            logger.finish(`Successfully accepted delivery for order: ${_id}`);
+
+            return {message: "Order completed successfully"};
         });
-
-        logger.finish(`Successfully accepted delivery for order: ${_id}`);
-
-        return {message: "Order completed successfully"};
     }
 
     @action({
@@ -458,62 +464,65 @@ export class OrderActions {
     })
     async requestRevision(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & RequestRevisionFormType;
-        const {logger, languageCode, session, company, actionUserCtx, _id, reason} = p;
-        const opts = {session, logger, languageCode};
+        // A buyer's own order bought on the portal is its seller's (D16)
+        return asPortalBuyer(p, async () => p._id, async (p) => {
+            const {logger, languageCode, session, company, actionUserCtx, _id, reason} = p;
+            const opts = {session, logger, languageCode};
 
-        logger.start(`Requesting revision for order: ${_id}...`);
+            logger.start(`Requesting revision for order: ${_id}...`);
 
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
+            const order = await orderService.findOneOrThrow({_id: new ObjectId(_id), company: company._id}, opts);
 
-        if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
-            throw apiValidationException("only_customer_can_request_revision", null, null, languageCode);
-        }
-        if (order.status !== "in_progress") {
-            throw apiValidationException("order_not_in_progress", null, null, languageCode);
-        }
+            if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
+                throw apiValidationException("only_customer_can_request_revision", null, null, languageCode);
+            }
+            if (order.status !== "in_progress") {
+                throw apiValidationException("order_not_in_progress", null, null, languageCode);
+            }
 
-        const delivery = await orderDeliveryService.findOne(
-            {order: order._id, status: "submitted", company: company._id},
-            opts,
-            null,
-            "_id",
-        );
-        if (!delivery) {
-            throw apiValidationException("no_pending_delivery", null, null, languageCode);
-        }
+            const delivery = await orderDeliveryService.findOne(
+                {order: order._id, status: "submitted", company: company._id},
+                opts,
+                null,
+                "_id",
+            );
+            if (!delivery) {
+                throw apiValidationException("no_pending_delivery", null, null, languageCode);
+            }
 
-        const revisionCount = await orderRevisionService.count({order: order._id, company: company._id}, opts);
-        if (revisionCount >= getECommerceMarketplaceConfig().maxRevisions) {
-            throw apiValidationException("max_revisions_reached", null, null, languageCode);
-        }
+            const revisionCount = await orderRevisionService.count({order: order._id, company: company._id}, opts);
+            if (revisionCount >= getECommerceMarketplaceConfig().maxRevisions) {
+                throw apiValidationException("max_revisions_reached", null, null, languageCode);
+            }
 
-        await orderDeliveryService.updateByIdOrThrow(
-            delivery._id,
-            {$set: {status: "revision_requested"}},
-            {...opts, auditUserId: actionUserCtx.userId},
-        );
+            await orderDeliveryService.updateByIdOrThrow(
+                delivery._id,
+                {$set: {status: "revision_requested"}},
+                {...opts, auditUserId: actionUserCtx.userId},
+            );
 
-        await orderRevisionService.create(
-            {
-                order: order._id,
-                delivery: delivery._id,
-                company: company._id,
-                requestedBy: new ObjectId(actionUserCtx.userId),
+            await orderRevisionService.create(
+                {
+                    order: order._id,
+                    delivery: delivery._id,
+                    company: company._id,
+                    requestedBy: new ObjectId(actionUserCtx.userId),
+                    reason,
+                    status: "pending",
+                },
+                {...opts, auditUserId: actionUserCtx.userId},
+            );
+
+            await notifyAfterCommit(p, NotificationEventCodes.ORDER_REVISION_REQUESTED, order.provider._id.toString(), {
+                orderId: order._id.toString(),
+                orderName: order.name,
                 reason,
-                status: "pending",
-            },
-            {...opts, auditUserId: actionUserCtx.userId},
-        );
+            });
 
-        await notifyAfterCommit(p, NotificationEventCodes.ORDER_REVISION_REQUESTED, order.provider._id.toString(), {
-            orderId: order._id.toString(),
-            orderName: order.name,
-            reason,
+            logger.finish(`Successfully requested revision for order: ${_id}`);
+
+            return {message: "Revision requested successfully"};
         });
-
-        logger.finish(`Successfully requested revision for order: ${_id}`);
-
-        return {message: "Revision requested successfully"};
     }
 
     /** Milestones split an accepted order's escrow; together they never exceed the order amount. */
@@ -525,42 +534,45 @@ export class OrderActions {
     })
     async createMilestone(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & CreateOrderMilestoneFormType;
-        const {logger, languageCode, session, company, actionUserCtx, order: orderRef, name, amount, orderIndex} = p;
-        const opts = {session, logger, languageCode};
+        // A buyer's own order bought on the portal is its seller's (D16)
+        return asPortalBuyer(p, async () => p.order, async (p) => {
+            const {logger, languageCode, session, company, actionUserCtx, order: orderRef, name, amount, orderIndex} = p;
+            const opts = {session, logger, languageCode};
 
-        logger.start(`Creating milestone for order: ${orderRef}...`);
+            logger.start(`Creating milestone for order: ${orderRef}...`);
 
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
+            const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
 
-        if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
-            throw apiValidationException("only_customer_can_create_milestone", null, null, languageCode);
-        }
-        if (order.status !== "accepted" && order.status !== "in_progress") {
-            throw apiValidationException("milestone_order_not_active", null, null, languageCode);
-        }
+            if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
+                throw apiValidationException("only_customer_can_create_milestone", null, null, languageCode);
+            }
+            if (order.status !== "accepted" && order.status !== "in_progress") {
+                throw apiValidationException("milestone_order_not_active", null, null, languageCode);
+            }
 
-        const existingMilestones = await orderMilestoneService.find({order: order._id, company: company._id}, opts, null, "amount");
-        const existingCents = sumMinor(existingMilestones.map((milestone) => toMinor(milestone.amount)));
-        if (existingCents + toMinor(amount) > toMinor(order.amount)) {
-            throw apiValidationException("milestone_total_exceeds_order_amount", null, null, languageCode);
-        }
+            const existingMilestones = await orderMilestoneService.find({order: order._id, company: company._id}, opts, null, "amount");
+            const existingCents = sumMinor(existingMilestones.map((milestone) => toMinor(milestone.amount)));
+            if (existingCents + toMinor(amount) > toMinor(order.amount)) {
+                throw apiValidationException("milestone_total_exceeds_order_amount", null, null, languageCode);
+            }
 
-        await orderMilestoneService.create(
-            {
-                order: order._id,
-                company: company._id,
-                name,
-                amount,
-                currency: order.currency._id,
-                status: "pending",
-                orderIndex: orderIndex ?? existingMilestones.length,
-            },
-            {...opts, auditUserId: actionUserCtx.userId},
-        );
+            await orderMilestoneService.create(
+                {
+                    order: order._id,
+                    company: company._id,
+                    name,
+                    amount,
+                    currency: order.currency._id,
+                    status: "pending",
+                    orderIndex: orderIndex ?? existingMilestones.length,
+                },
+                {...opts, auditUserId: actionUserCtx.userId},
+            );
 
-        logger.finish(`Successfully created milestone for order: ${orderRef}`);
+            logger.finish(`Successfully created milestone for order: ${orderRef}`);
 
-        return {message: "Milestone created successfully"};
+            return {message: "Milestone created successfully"};
+        });
     }
 
     /**
@@ -578,61 +590,64 @@ export class OrderActions {
     })
     async releaseMilestone(params: Record<string, any>): Promise<ActionMessage> {
         const p = params as TransactionRequiredParams & ReleaseOrderMilestoneFormType;
-        const {logger, languageCode, session, company, actionUserCtx, milestone: milestoneRef} = p;
-        const opts = {session, logger, languageCode};
-        const writeOpts = {...opts, auditUserId: actionUserCtx.userId};
+        // A buyer's own order bought on the portal is its seller's (D16)
+        return asPortalBuyer(p, async () => (await orderMilestoneService.findOne({_id: new ObjectId(p.milestone)}, {session: p.session}, null, "order"))?.order, async (p) => {
+            const {logger, languageCode, session, company, actionUserCtx, milestone: milestoneRef} = p;
+            const opts = {session, logger, languageCode};
+            const writeOpts = {...opts, auditUserId: actionUserCtx.userId};
 
-        logger.start(`Releasing milestone: ${milestoneRef}...`);
+            logger.start(`Releasing milestone: ${milestoneRef}...`);
 
-        const milestone = await orderMilestoneService.findOneOrThrow({_id: new ObjectId(milestoneRef), company: company._id}, opts);
-        if (milestone.status !== "pending") {
-            throw apiValidationException("milestone_already_released", null, null, languageCode);
-        }
+            const milestone = await orderMilestoneService.findOneOrThrow({_id: new ObjectId(milestoneRef), company: company._id}, opts);
+            if (milestone.status !== "pending") {
+                throw apiValidationException("milestone_already_released", null, null, languageCode);
+            }
 
-        const order = await orderService.findOneOrThrow({_id: milestone.order._id, company: company._id}, opts);
+            const order = await orderService.findOneOrThrow({_id: milestone.order._id, company: company._id}, opts);
 
-        if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
-            throw apiValidationException("only_customer_can_release_milestone", null, null, languageCode);
-        }
-        if (order.status !== "in_progress") {
-            throw apiValidationException("order_must_be_in_progress_to_release", null, null, languageCode);
-        }
-        if (await hasOpenDispute(order, p)) {
-            throw apiValidationException("cannot_release_with_open_dispute", null, null, languageCode);
-        }
+            if (!isOrderParty(order, actionUserCtx.userId, "customer")) {
+                throw apiValidationException("only_customer_can_release_milestone", null, null, languageCode);
+            }
+            if (order.status !== "in_progress") {
+                throw apiValidationException("order_must_be_in_progress_to_release", null, null, languageCode);
+            }
+            if (await hasOpenDispute(order, p)) {
+                throw apiValidationException("cannot_release_with_open_dispute", null, null, languageCode);
+            }
 
-        const balance = await escrowBalance(order._id, company._id, opts);
-        if (toMinor(milestone.amount) > toMinor(balance)) {
-            throw apiValidationException("milestone_exceeds_escrow_balance", null, null, languageCode);
-        }
+            const balance = await escrowBalance(order._id, company._id, opts);
+            if (toMinor(milestone.amount) > toMinor(balance)) {
+                throw apiValidationException("milestone_exceeds_escrow_balance", null, null, languageCode);
+            }
 
-        await orderMilestoneService.updateByIdOrThrow(milestone._id, {$set: {status: "released"}}, writeOpts);
+            await orderMilestoneService.updateByIdOrThrow(milestone._id, {$set: {status: "released"}}, writeOpts);
 
-        if (milestone.amount > 0) {
-            const providerStripeAccountId = await providerProfileService.getPayoutAccountId(order.provider._id, company._id, opts);
-            await createEscrowReleaseAndFee(
-                order._id,
-                milestone.amount,
-                order.currency._id,
-                company._id,
-                writeOpts,
-                {providerStripeAccountId, orderMilestoneId: milestone._id},
-            );
-        }
+            if (milestone.amount > 0) {
+                const providerStripeAccountId = await providerProfileService.getPayoutAccountId(order.provider._id, company._id, opts);
+                await createEscrowReleaseAndFee(
+                    order._id,
+                    milestone.amount,
+                    order.currency._id,
+                    company._id,
+                    writeOpts,
+                    {providerStripeAccountId, orderMilestoneId: milestone._id},
+                );
+            }
 
-        const pendingMilestones = await orderMilestoneService.count({order: order._id, company: company._id, status: "pending"}, opts);
-        if (pendingMilestones === 0 && await escrowBalance(order._id, company._id, opts) === 0) {
-            await orderService.updateByIdOrThrow(order._id, {$set: {status: "completed"}}, writeOpts);
-        }
+            const pendingMilestones = await orderMilestoneService.count({order: order._id, company: company._id, status: "pending"}, opts);
+            if (pendingMilestones === 0 && await escrowBalance(order._id, company._id, opts) === 0) {
+                await orderService.updateByIdOrThrow(order._id, {$set: {status: "completed"}}, writeOpts);
+            }
 
-        await notifyAfterCommit(p, NotificationEventCodes.ORDER_MILESTONE_RELEASED, order.provider._id.toString(), {
-            orderId: order._id.toString(),
-            orderName: order.name,
-            milestoneName: milestone.name,
+            await notifyAfterCommit(p, NotificationEventCodes.ORDER_MILESTONE_RELEASED, order.provider._id.toString(), {
+                orderId: order._id.toString(),
+                orderName: order.name,
+                milestoneName: milestone.name,
+            });
+
+            logger.finish(`Successfully released milestone: ${milestoneRef}`);
+
+            return {message: "Milestone released successfully"};
         });
-
-        logger.finish(`Successfully released milestone: ${milestoneRef}`);
-
-        return {message: "Milestone released successfully"};
     }
 }
