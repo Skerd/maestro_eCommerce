@@ -6,6 +6,10 @@ import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/te
 
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
+// The task request form's images are uploaded before the route; here the request names an existing media id
+vi.mock("@coreModule/utilities/middlewares/mediaUploadMW", () => ({
+    mediaUploadMW: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 vi.mock("@eCommerceModule/utilities/services/productOrderNotify", () => ({
     notifyProductOrderCustomer: vi.fn(async () => undefined),
     notifyMerchantsNewOrder: vi.fn(async () => undefined),
@@ -38,6 +42,8 @@ import State from "@coreModule/database/schemas/state/state";
 import * as reviewRoute from "@eCommerceModule/api/eCommerceMarketplace/private/review";
 import * as disputeRoute from "@eCommerceModule/api/eCommerceMarketplace/private/dispute";
 import * as digitalDeliveryRoute from "@eCommerceModule/api/eCommerce/private/digitalDelivery";
+import * as taskRequestRoute from "@eCommerceModule/api/eCommerceMarketplace/private/taskRequest";
+import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
 import {appFor, callerHeader} from "@coreModule/_tests/httpHarness";
 import {asCrossTenant, withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {PORTAL_ROOT_DOMAIN} from "@coreModule/environment";
@@ -54,6 +60,7 @@ const app = appFor([
     {...reviewRoute, module: "eCommerce"},
     {...disputeRoute, module: "eCommerce"},
     {...digitalDeliveryRoute, module: "eCommerce"},
+    {...taskRequestRoute, module: "eCommerce"},
 ]);
 
 const platform = new ObjectId();
@@ -368,5 +375,24 @@ describe("portal marketplace purchase (D16)", () => {
 
         expect(rated.body.data.availableShippingRates.map((rate: {name: string}) => rate.name)).toEqual(["Courier"]);
         expect([shipped.status, shipped.body.data.taxTotal]).toEqual([200, 8]);
+    });
+
+    // TD-B95: a buyer's task requests on the apex are the platform company's own records, so they post, list and open.
+    it("posts, lists and opens the buyer's task request from the apex", async () => {
+        const {category, currency} = await withTenant(platform, async () => ({
+            category: (await ListingCategory.collection.insertOne({name: "Painting", slug: "painting", order: 0, company: platform})).insertedId,
+            currency: (await new Currency({name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company: platform}).save())._id,
+        }));
+
+        const created = await call("put", "/api/eCommerceMarketplace/taskRequest/createMine", {
+            title: "Paint my flat", category: category.toString(), budgetMin: 100, budgetMax: 300, currency: currency.toString(),
+            mainImage: new ObjectId().toString(),
+            address: {street: "Rruga 1", postalCode: "1001", country: platformAlbania.toString(), city: new ObjectId().toString(), latitude: 41.3, longitude: 19.8},
+        });
+        const mine = await call("post", "/api/eCommerceMarketplace/taskRequest/my", {});
+        const single = await call("post", "/api/eCommerceMarketplace/taskRequest/mySingle", {_id: created.body.data?._id});
+
+        expect([created.status, created.body.error_code]).toEqual([200, undefined]);
+        expect([mine.status, mine.body.total, single.status]).toEqual([200, 1, 200]);
     });
 });
