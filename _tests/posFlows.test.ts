@@ -9,9 +9,16 @@ import {getLogger} from "@coreModule/loggers/serverLog";
 const sentRequests: Record<string, any>[] = [];
 /** Set to make the next CIS call fail, as when the tax authority is unreachable. */
 let cisFailure: Error | undefined;
+/** The IIC every signing yields; its signature is a function of the input, as RSA PKCS#1 v1.5 signing is. */
+let signedIic = "IIC";
+const iicInputs: string[] = [];
 vi.mock("@eCommerceModule/utilities/fiscalization/fiscalSoap", async (importOriginal) => ({
     ...(await importOriginal<object>()),
-    getIIC: () => ({iic: "IIC", iicSignature: "SIG"}),
+    getIIC: (input: string) => {
+        iicInputs.push(input);
+        return {iic: signedIic, iicSignature: `SIG:${input}`};
+    },
+    signXml: (xml: string) => xml,
     registerRequest: async (_url: string, _cert: string, _password: string, request: Record<string, any>) => {
         sentRequests.push(request);
         if (cisFailure) throw cisFailure;
@@ -37,10 +44,12 @@ import Media from "@coreModule/database/schemas/media/media";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
-import {openPosSession, payAndFiscalizePosOrder, payPosOrder, refundPosOrder} from "@eCommerceModule/workflows/posService";
+import {openPosSession, payAndFiscalizePosOrder, payPosOrder, refundPosOrder, sendPosOrderToCis} from "@eCommerceModule/workflows/posService";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
-import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {registerPosInvoice, type FiscalCert} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import type {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 import request from "supertest";
@@ -66,6 +75,8 @@ afterAll(async () => {
 beforeEach(() => asCompany(async () => {
     sentRequests.length = 0;
     cisFailure = undefined;
+    signedIic = "IIC";
+    iicInputs.length = 0;
     for (const collection of await mongoose.connection.db!.collections()) {
         await collection.deleteMany({});
     }
@@ -495,5 +506,223 @@ describe("unconfirmed CIS registration (D98)", () => {
         expect([resend.status, resend.body.error_code]).toEqual([403, "user_permissions_not_sufficient"]);
         expect(sentRequests).toHaveLength(0);
         expect((await stored(id)).fiscalRegisteringAt).toEqual(sentAt);
+    }));
+});
+
+// TD-B71: a till refund is registered with CIS as a corrective invoice of the sale it refunds.
+describe("till refund fiscalization (TD-B71)", () => {
+    const FIC = "6f9619ff-8b86-4d11-b42d-00c04fc964ff";
+
+    it("sends the refund as a corrective invoice naming the sale's IIC and issue time, with negative amounts", () => asCompany(async () => {
+        const {order: sale} = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+        // CIS answered with its FIC: the sale is registered
+        await PosOrder.collection.updateOne({_id: new ObjectId(sale._id)}, {$set: {nivf: FIC}});
+        const issued = (await PosOrder.findById(sale._id))!.fiscalIssueDateTime;
+        const {order: refund} = await refundPosOrder({_id: sale._id.toString()}, ctx);
+
+        await sendPosOrderToCis(refund._id.toString(), ctx);
+
+        expect(sentRequests).toHaveLength(2);
+        const invoice = sentRequests[1]["6__Invoice"];
+        expect(issued).toEqual(expect.any(String));
+        expect(invoice["24__CorrectiveInv"]).toEqual({"1__IICRef": "IIC", "2__IssueDateTime": issued, "3__Type": "CORRECTIVE"});
+        expect(invoice["9__TotPrice"]).toBe("-12.00");
+        expect(invoice["30__Items"]["1__I"][0]).toMatchObject({"4__Q": "-1.00", "8__PB": "-10.00", "9__PA": "-12.00", "11__VA": "-2.00"});
+    }));
+
+    // The invoice number's year is the issue time's in Albania: just after midnight on 1 January it is already the new
+    // year there, while UTC (and a server on it) is still in the old one.
+    it("numbers the invoice with the year of its issue time in Albanian time", () => asCompany(async () => {
+        const {order} = await payPosOrder(await seedFiscalSale(), ctx);
+        const issueDateTime = "2027-01-01T00:30:00+01:00";
+
+        await registerPosInvoice((await PosOrder.findById(order._id))!, {
+            isVatRegistered: true, nipt: "L12345678A", tcrCode: "TCR1", businessUnitCode: "BU1", softCode: "SC1", operatorCode: "OP1",
+            fiscalizationUrl: "https://fiscal.test", selfcareUrl: "https://selfcare.test", certificateBase64: "", certificatePassword: "",
+        } as IFiscalConfig & FiscalCert, {languageCode: "en-US", issueDateTime});
+
+        const invoice = sentRequests[0]["6__Invoice"];
+        expect(invoice["3__IssueDateTime"]).toBe(issueDateTime);
+        expect(invoice["4__InvNum"]).toMatch(/^\d+\/2027\/TCR1$/);
+    }));
+
+    it("refuses to register the refund of a sale CIS never registered, and sends nothing", () => asCompany(async () => {
+        const body = await seedFiscalSale();
+        const neverSent = (await payPosOrder(body, ctx)).order;
+        // Sent, but CIS gave no FIC (a fault): not registered either
+        const unregistered = (await payAndFiscalizePosOrder(body, ctx)).order;
+        sentRequests.length = 0;
+
+        for (const sale of [neverSent, unregistered]) {
+            const {order: refund} = await refundPosOrder({_id: sale._id.toString()}, ctx);
+            await expect(sendPosOrderToCis(refund._id.toString(), ctx)).rejects.toMatchObject({error_code: "fiscal_refund_original_not_fiscalized"});
+            // Nothing reached CIS, so the refund may be sent once its sale is registered
+            expect((await PosOrder.findById(refund._id).select("+fiscalRegisteringAt"))!.fiscalRegisteringAt).toBeUndefined();
+        }
+        expect(sentRequests).toHaveLength(0);
+    }));
+});
+
+// TD-B77: a sale resolved with the codes from the CIS portal (D98) is signed again for its e-invoice.
+describe("e-invoice of a sale resolved from the CIS portal (TD-B77)", () => {
+    const fiscalApp = appFor([{...fiscalRoute, module: "eCommerce"}]);
+    const posOrderApp = appFor([{...posOrderRoute, module: "eCommerce"}]);
+    const NSLF = "0A1B2C3D4E5F60718293A4B5C6D7E8F9";
+    const NIVF = "6f9619ff-8b86-4d11-b42d-00c04fc964ff";
+    const staff = () => callerHeader({userId: ctx.userId.toString(), companyId: companyId.toString(), permissions: allPermissionTags([PosOrder])});
+
+    /** A sale sent with NSLF as its IIC whose CIS answer was lost, then resolved by staff with the codes they found. */
+    async function seedRecordedSale(recordedNslf: string) {
+        signedIic = NSLF;
+        cisFailure = new Error("timeout of 60000ms exceeded");
+        const {order} = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+        cisFailure = undefined;
+        const id = order._id.toString();
+        const recorded = await request(posOrderApp).post("/api/eCommerce/posOrder/recordFiscalCodes").set(staff()).send({_id: id, nslf: recordedNslf, nivf: NIVF});
+        expect(recorded.status).toBe(200);
+        return id;
+    }
+    const registerEinvoice = (id: string) =>
+        request(fiscalApp).post("/api/eCommerce/fiscal/registerEinvoice").set(staff()).send({posOrderId: id});
+
+    it("signs the sale again over the input it was sent with, stores the signature and registers the e-invoice", () => asCompany(async () => {
+        const id = await seedRecordedSale(NSLF.toLowerCase());
+        const [sentInput] = iicInputs;
+
+        const response = await registerEinvoice(id);
+
+        expect(response.status).toBe(200);
+        expect(iicInputs).toEqual([sentInput, sentInput]);
+        expect((await PosOrder.findById(id).select("+iicSignature"))!.iicSignature).toBe(`SIG:${sentInput}`);
+        const ubl = Buffer.from(sentRequests[1]["5__EinvoiceEnvelope"]["1__UblInvoice"][0]["2__@UblInvoice"], "base64").toString("utf8");
+        expect(ubl).toContain(`IICSignature=SIG:${sentInput}`);
+    }));
+
+    it("uses the signature stored when CIS answered, without signing again", () => asCompany(async () => {
+        const {order} = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+        const id = order._id.toString();
+        await PosOrder.collection.updateOne({_id: new ObjectId(id)}, {$set: {nivf: NIVF}});
+
+        const response = await registerEinvoice(id);
+
+        expect(response.status).toBe(200);
+        expect(iicInputs).toHaveLength(1);
+        const ubl = Buffer.from(sentRequests[1]["5__EinvoiceEnvelope"]["1__UblInvoice"][0]["2__@UblInvoice"], "base64").toString("utf8");
+        expect(ubl).toContain(`IICSignature=SIG:${iicInputs[0]}`);
+    }));
+
+    /** A registered sale and its refund, both fiscalized; the sale's e-invoice is registered unless `saleEic` is null. */
+    async function seedFiscalizedRefund(saleEic: string | null) {
+        const {order: sale} = await payAndFiscalizePosOrder(await seedFiscalSale(), ctx);
+        await PosOrder.collection.updateOne({_id: new ObjectId(sale._id)}, {$set: {nivf: NIVF, ...(saleEic ? {eic: saleEic} : {})}});
+        const {order: refund} = await refundPosOrder({_id: sale._id.toString()}, ctx);
+        await sendPosOrderToCis(refund._id.toString(), ctx);
+        await PosOrder.collection.updateOne({_id: new ObjectId(refund._id)}, {$set: {nivf: "7c9e6679-7425-40de-944b-e07fc1f90ae7"}});
+        const issued = (await PosOrder.findById(sale._id))!.fiscalIssueDateTime!;
+        return {refundId: refund._id.toString(), issued};
+    }
+
+    // Item 3 of the 2026-11-09 follow-up: a refund's e-invoice corrects the sale's, as its fiscal invoice does (TD-B71).
+    it("registers a refund's e-invoice as a corrective invoice of the sale's, with negative amounts", () => asCompany(async () => {
+        const {refundId, issued} = await seedFiscalizedRefund("1b4e28ba-2fa1-41d2-883f-0016d3cca427");
+
+        const response = await registerEinvoice(refundId);
+
+        expect(response.status).toBe(200);
+        const ubl = Buffer.from(sentRequests[2]["5__EinvoiceEnvelope"]["1__UblInvoice"][0]["2__@UblInvoice"], "base64").toString("utf8");
+        expect(ubl).toContain("<cbc:InvoiceTypeCode>384</cbc:InvoiceTypeCode>");
+        expect(ubl.replace(/\s+/g, "")).toContain(
+            `<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>IIC</cbc:ID><cbc:IssueDate>${issued.slice(0, 10)}</cbc:IssueDate>`,
+        );
+        expect(ubl).toContain(`<cbc:PayableAmount currencyID="ALL">-12.00</cbc:PayableAmount>`);
+        expect(ubl).toContain(`<cbc:InvoicedQuantity unitCode="C62">-1.00</cbc:InvoicedQuantity>`);
+        expect(ubl).toContain(`<cbc:PriceAmount currencyID="ALL">10.00</cbc:PriceAmount>`);
+        // The negative totals keep their VAT category
+        expect(ubl).not.toContain("<cbc:ID>Z</cbc:ID>");
+    }));
+
+    it("refuses a refund's e-invoice when the sale has no registered e-invoice, and sends nothing", () => asCompany(async () => {
+        const {refundId} = await seedFiscalizedRefund(null);
+
+        const response = await registerEinvoice(refundId);
+
+        expect(response.body.error_code).toBe("fiscal_einvoice_refund_original_missing");
+        expect(sentRequests).toHaveLength(2);
+    }));
+
+    it("refuses codes whose IIC is not the one the sale was sent with, and registers nothing", () => asCompany(async () => {
+        const id = await seedRecordedSale("ffffffffffffffffffffffffffffffff");
+
+        const response = await registerEinvoice(id);
+
+        expect(response.body.error_code).toBe("fiscal_iic_mismatch");
+        expect(sentRequests).toHaveLength(1);
+        expect((await PosOrder.findById(id).select("+iicSignature"))!.iicSignature).toBeUndefined();
+    }));
+});
+
+// TD-B77: the till actions are gated by their own action permissions (SEC-02), not by POS field write tags.
+describe("till action permissions (SEC-02)", () => {
+    const app = appFor([{...posOrderRoute, module: "eCommerce"}]);
+    const caller = (permissions: string[]) => callerHeader({userId: ctx.userId.toString(), companyId: companyId.toString(), permissions});
+    const tag = (action: string) => actionPermissionTag(PosOrder, action, "self")!;
+
+    it("refunds and reprints with each action's permission alone", () => asCompany(async () => {
+        const {order} = await payPosOrder(await seedFiscalSale(), ctx);
+        const _id = order._id.toString();
+
+        const refund = await request(app).post("/api/eCommerce/posOrder/refund").set(caller([tag("refund")])).send({_id});
+        const reprint = await request(app).post("/api/eCommerce/posOrder/reprint").set(caller([tag("reprint")])).send({_id});
+
+        expect([refund.status, reprint.status]).toEqual([200, 200]);
+        expect(await PosOrder.countDocuments({isRefund: true})).toBe(1);
+    }));
+
+    it("refuses the till actions to a caller with only the POS field write tags", () => asCompany(async () => {
+        const {order} = await payPosOrder(await seedFiscalSale(), ctx);
+        const _id = order._id.toString();
+        const fieldWrites = caller(["posorders[write:state]", "posorders[write:amountRefunded]"]);
+
+        const refund = await request(app).post("/api/eCommerce/posOrder/refund").set(fieldWrites).send({_id});
+        const reprint = await request(app).post("/api/eCommerce/posOrder/reprint").set(fieldWrites).send({_id});
+
+        expect([refund.status, refund.body.error_code]).toEqual([403, "user_permissions_not_sufficient"]);
+        expect([reprint.status, reprint.body.error_code]).toEqual([403, "user_permissions_not_sufficient"]);
+        expect(await PosOrder.countDocuments({isRefund: true})).toBe(0);
+    }));
+});
+
+// TD-B74: the tax helpers read tax zones and products through the caller's transaction.
+describe("tax inside a transaction (TD-B74)", () => {
+    it("extracts a till sale's VAT at the rate its transaction set", () => asCompany(async () => {
+        const {warehouse, cash, sessionId} = await seedTill();
+        const mug = await seedProduct({price: 12});
+        await Inventory.create({product: mug._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
+
+        const {order} = await runInTransaction(ctx.logger, async (session) => {
+            await TaxZone.updateOne({name: "Home"}, {$set: {"rates.0.rate": 50}}, {session});
+            return payPosOrder({
+                sessionId: sessionId.toString(),
+                lines: [{productId: mug._id.toString(), quantity: 1}],
+                payments: [{paymentMethodId: cash._id.toString(), amount: 12}],
+            }, {...ctx, session});
+        });
+
+        // 12.00 with 50 % VAT inside it holds 4.00 (2.00 at the committed 20 %)
+        expect(order.amountTax).toBe(4);
+    }));
+
+    it("taxes checkout lines by the zones and product types its transaction sees", () => asCompany(async () => {
+        await seedTill();
+        const zone = (await TaxZone.findOne({name: "Home"}))!;
+        const ebook = await seedProduct({price: 10});
+
+        const tax = await runInTransaction(ctx.logger, async (session) => {
+            await Product.updateOne({_id: ebook._id}, {$set: {type: "digital"}}, {session});
+            await TaxZone.updateOne({_id: zone._id}, {$push: {rates: {name: "Digital", rate: 5, isCompound: false, appliesTo: "digital"}}}, {session});
+            return calculateLinesTax([{product: ebook._id, totalPrice: 10}], 0, {country: String(zone.country)}, companyId, 2, session);
+        });
+
+        expect(tax).toEqual({amount: 2.5, breakdown: [{name: "VAT", rate: 20, amount: 2}, {name: "Digital", rate: 5, amount: 0.5}]});
     }));
 });

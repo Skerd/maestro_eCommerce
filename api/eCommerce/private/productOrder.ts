@@ -26,6 +26,7 @@ import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/
 import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
@@ -138,14 +139,15 @@ router.post(
 
 /**
  * Buyer self-service routes (storefront account pages). Scoped hard to the
- * authenticated customer — no admin model permissions required.
+ * authenticated customer — no admin model permissions required. In the portal zone they read the buyer's orders
+ * from every seller (`portalPurchaseRoute`, D16).
  */
 router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validatePagedForm),
-    asyncHandler(async (params: AuthenticatedMWType & PagedForm) => {
+    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & PagedForm) => {
         const {company, actionUserCtx, logger, languageCode, origin} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
@@ -169,7 +171,7 @@ router.post(
         ]);
 
         return {data: orders.map(productOrderToBuyerDTO), total, page, limit};
-    }),
+    })),
 );
 
 router.post(
@@ -177,7 +179,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
-    asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
+    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & {_id: string}) => {
         const {languageCode, company, actionUserCtx, logger, _id, origin} = params;
 
         const filter: Record<string, unknown> = {
@@ -195,5 +197,5 @@ router.post(
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
         return {data: productOrderToBuyerDTO(order)};
-    }),
+    })),
 );

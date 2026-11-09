@@ -63,4 +63,21 @@ describe("eCommerce default role pack", () => {
             expect(role.excludedPermissions ?? [], slug).toEqual([]);
         }
     });
+
+    // The till actions are gated by their own permissions (SEC-02): every role that owns the POS orders gets them, as it
+    // had the POS field writes they used to check, and a read-only role gets neither.
+    it("gives the till actions to every role that owns the POS orders, and to no read-only role", () => {
+        const tillActions = ["hold", "pay", "refund", "reprint", "deleteHeld"] as const;
+        for (const method of tillActions) expect(typeof PosOrderActions.prototype[method]).toBe("function");
+        const tags = tillActions.map((method) => actionPermissionTag(PosOrder, method, "self"));
+
+        const owners = eCommerceDefaultRoles.filter((role) => role.permissionGroups?.includes("Posorders")).map((role) => role.slug);
+        expect(owners.sort()).toEqual(["ecom_cashier", "ecom_pos_supervisor", "ecom_store_manager"]);
+        for (const role of eCommerceDefaultRoles) {
+            for (const tag of tags) expect(role.excludedPermissions ?? [], role.slug).not.toContain(tag);
+        }
+        const analyst = eCommerceDefaultRoles.find((role) => role.slug === "ecom_analyst")!;
+        expect(analyst.permissionGroups).not.toContain("Posorders");
+        expect(analyst.readPermissionGroups).toContain("Posorders");
+    });
 });

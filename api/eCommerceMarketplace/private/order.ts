@@ -38,6 +38,7 @@ import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDeli
 import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {escrowTransactionService} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction.service";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
@@ -196,14 +197,15 @@ async function buyerOrderFlags(orderIds: ObjectId[], companyId: ObjectId | undef
 
 /**
  * Buyer self-service routes (storefront account pages). Scoped hard to the
- * authenticated customer — no admin model permissions required.
+ * authenticated customer — no admin model permissions required. In the portal zone they read the buyer's orders
+ * from every seller (`portalPurchaseRoute`, D16).
  */
 router.post(
     "/my",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(myServiceOrdersFormSchema),
-    asyncHandler(async (params: AuthenticatedMWType & MyServiceOrdersFormType) => {
+    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & MyServiceOrdersFormType) => {
         const {company, actionUserCtx, logger, languageCode, status, origin} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
@@ -222,7 +224,7 @@ router.post(
         const toBuyerDTO = await buyerOrderFlags(orders.map((order) => order._id), platform ? undefined : company._id, opts);
 
         return {data: orders.map(toBuyerDTO), total, page, limit};
-    }),
+    })),
 );
 
 router.post(
@@ -230,7 +232,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
-    asyncHandler(async (params: AuthenticatedMWType & {_id: string}) => {
+    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & {_id: string}) => {
         const {company, actionUserCtx, logger, languageCode, _id, origin} = params;
         const opts = {logger, languageCode};
         const platform = isPortalZoneOrigin(origin);
@@ -273,5 +275,5 @@ router.post(
                 bookings: bookingsToDTOArray(bookings),
             },
         };
-    }),
+    })),
 );

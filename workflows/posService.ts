@@ -731,7 +731,7 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
     for (const [index, line] of lines.entries()) {
         const taxedAmount = subtractMoney(line.priceTotal, minorToNumber(discountShares[index], decimals), decimals);
         line.taxAmount = taxAddress
-            ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id, decimals)
+            ? await calculateInclusiveTax(taxedAmount, line.productType, taxAddress, ctx.company._id, decimals, ctx.session)
             : 0;
     }
     const amountTax = sumMoney(lines.map(line => line.taxAmount), decimals);

@@ -13,7 +13,8 @@ import { mongooseInstance } from "@coreModule/connections/connectToMongoDb";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import { releaseReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
-import { placePaidCheckoutInBackground } from "@eCommerceModule/workflows/checkoutPlacementService";
+import { placePaidCheckoutInBackground, spansSellers } from "@eCommerceModule/workflows/checkoutPlacementService";
+import { inPortalMarketplace } from "@eCommerceModule/utilities/shop/shopCompany.util";
 import { getPaymentAdapter } from "@eCommerceModule/utilities/services/payment/paymentService";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 
@@ -53,7 +54,7 @@ async function expireCheckout(checkoutId: ObjectId, ctx: { logger: serverLogger;
             if (!checkout) return;
 
             if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
-                await releaseReservations(checkout, { ...ctx, session });
+                await inPortalMarketplace(spansSellers(checkout), () => releaseReservations(checkout, { ...ctx, session }));
             }
             checkout.status = "expired";
             await checkout.save({ session });

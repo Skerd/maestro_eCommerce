@@ -31,6 +31,7 @@ import {
     isOfflinePaymentMethod,
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
+import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {
     notifyMerchantsNewOrder,
     notifyProductOrderCustomer,
@@ -88,12 +89,47 @@ function checkoutLinesForSeller(checkout: ICheckout, sellerCompanyId: ObjectId) 
         }));
 }
 
+/**
+ * A checkout that buys from a company other than its own: a portal marketplace purchase, whose seller work runs
+ * through `inPortalMarketplace` (D16) wherever it is settled (the request, the payment webhook, the expiry job).
+ */
+export function spansSellers(checkout: ICheckout): boolean {
+    const own = idOf(checkout.company).toString();
+    return sellerCompanyIdsOnCheckout(checkout).some(seller => seller.toString() !== own);
+}
+
+/**
+ * The orders a checkout places, as their idempotency keys under their seller's company: one per seller on the
+ * portal marketplace (`${idempotencyKey}:${sellerId}`), else the checkout's own key.
+ */
+export function checkoutOrderKeys(checkout: ICheckout): {idempotencyKey: string; company: ObjectId}[] {
+    const sellers = sellerCompanyIdsOnCheckout(checkout);
+    if (sellers.length > 1) return sellers.map(seller => ({idempotencyKey: `${checkout.idempotencyKey}:${seller.toString()}`, company: seller}));
+    return [{idempotencyKey: checkout.idempotencyKey, company: sellers[0] ?? idOf(checkout.company)}];
+}
+
 function sellerCompanyIdsOnCheckout(checkout: ICheckout): ObjectId[] {
     const ids = new Set<string>();
     for (const item of checkout.items as any[]) {
         ids.add(item.sellerCompany ? idOf(item.sellerCompany).toString() : idOf(checkout.company).toString());
     }
     return [...ids].map(id => new ObjectId(id));
+}
+
+/**
+ * The seller's own row of the checkout's currency. Currencies are rows per company, and a portal marketplace checkout
+ * charges in one row (its first seller's), so each other seller's order points at its own row with the same code
+ * (TD-B86); without one the checkout's row is kept, the order's `currencyCode` still naming it.
+ */
+async function sellerCurrencyId(
+    currency: {abbreviation?: string; company?: unknown} | null,
+    checkoutCurrencyId: ObjectId,
+    sellerCompanyId: ObjectId,
+    ctx: PlacementCtx,
+): Promise<ObjectId> {
+    if (!currency?.abbreviation || (currency.company && idOf(currency.company).equals(sellerCompanyId))) return checkoutCurrencyId;
+    const own = await currencyService.findOne({company: sellerCompanyId, abbreviation: currency.abbreviation}, {session: ctx.session}, undefined, "_id");
+    return own?._id ?? checkoutCurrencyId;
 }
 
 /**
@@ -286,13 +322,8 @@ export async function placeOrderFromCheckout(
     const sellerIds = sellerCompanyIdsOnCheckout(checkout);
     const multiSeller = sellerIds.length > 1;
 
-    const primaryKey = multiSeller
-        ? `${checkout.idempotencyKey}:${sellerIds[0].toString()}`
-        : checkout.idempotencyKey;
-    const existingOrder = await productOrderService.findOne({
-        idempotencyKey: primaryKey,
-        company: multiSeller ? sellerIds[0] : sessionCompanyId,
-    }, {session: ctx.session});
+    // Orders are written under their seller's company, the checkout's own one outside the portal marketplace
+    const existingOrder = await productOrderService.findOne(checkoutOrderKeys(checkout)[0], {session: ctx.session});
     if (existingOrder) {
         const siblings = multiSeller
             ? await productOrderService.find({
@@ -335,7 +366,7 @@ export async function placeOrderFromCheckout(
         }
     }
 
-    const currency = await currencyService.findById(idOf(checkout.currency), {session: ctx.session}, undefined, "abbreviation decimalPlaces");
+    const currency = await currencyService.findById(idOf(checkout.currency), {session: ctx.session}, undefined, "abbreviation decimalPlaces company");
     const now = new Date();
     const paymentStatus = paid ? "paid" : "unpaid";
     const placedOrders: IProductOrder[] = [];
@@ -354,6 +385,7 @@ export async function placeOrderFromCheckout(
             return seller === sellerCompanyId.toString();
         });
         const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx, sellerCompanyId);
+        const orderCurrency = await sellerCurrencyId(currency, idOf(checkout.currency), sellerCompanyId, ctx);
         const orderNumber = await generateOrderNumber(sellerCompanyId);
         const subtotal = group?.subtotal ?? lines.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
         const shippingTotal = multiSeller ? (group?.shippingTotal ?? 0) : checkout.shippingTotal;
@@ -394,7 +426,7 @@ export async function placeOrderFromCheckout(
                     productType: productTypes.get(idOf(item.product).toString()),
                 },
             })),
-            currency: idOf(checkout.currency),
+            currency: orderCurrency,
             currencyCode: currency?.abbreviation,
             shippingAddress: checkout.shippingAddress,
             billingAddress: checkout.billingAddress ?? checkout.shippingAddress,
@@ -439,7 +471,7 @@ export async function placeOrderFromCheckout(
                     type: "charge",
                     status: "succeeded",
                     amount: decimal128FromMinor(toMinor(giftCardAmount, decimals), decimals),
-                    currency: idOf(checkout.currency),
+                    currency: orderCurrency,
                     refundedAmount: decimal128FromMinor(0n, decimals),
                     metadata: {giftCardCode: checkout.giftCard!.code, checkoutId: checkout._id.toString()},
                     company: sellerCompanyId,
@@ -517,7 +549,8 @@ export async function placePaidCheckoutInBackground(
 
             // The account login (username) is the buyer's email address
             const owner = checkout.user ? await userService.findById(idOf(checkout.user), {session}, undefined, "username") : null;
-            const result = await placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session});
+            const result = await inPortalMarketplace(spansSellers(checkout), () =>
+                placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session}));
             placed = result.order;
         });
         await flushAfterCommitTasks(session, true, logFailure);

@@ -79,7 +79,9 @@ export const {router} = createCrudRouter({
 
 ## Cron handlers
 
-Registered in `utilities/cron/registerHandlers.ts`; every run is company-scoped.
+Registered in `utilities/cron/registerHandlers.ts`; every run is company-scoped. Each company gets its job rows from
+the cron server's boot seed (`CRON_SEED_PLATFORM_JOBS=true`, which every solfeggio deploy sets): it adds only the rows a
+company is missing, so a handler added here reaches existing companies on the next deploy (TD-B77).
 
 | Code | Schedule | What it does |
 |------|----------|--------------|

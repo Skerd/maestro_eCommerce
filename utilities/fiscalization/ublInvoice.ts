@@ -6,7 +6,9 @@ export type UblInvoiceInput = {
     invoiceNumber: string;
     issueDate: string; // YYYY-MM-DD
     dueDate?: string;
-    documentType?: string; // 380 = commercial invoice
+    documentType?: string; // 380 = commercial invoice, 384 = corrective invoice
+    /** The invoice a corrective invoice corrects: its IIC and issue date. */
+    billingReference?: {id: string; issueDate: string};
     profileId?: string;
     currency: string;
     taxCurrency?: string;
@@ -149,6 +151,12 @@ export function buildUblInvoiceXml(input: UblInvoiceInput): string {
   ${noteXml}
   <cbc:DocumentCurrencyCode>${esc(input.currency)}</cbc:DocumentCurrencyCode>
   <cbc:TaxCurrencyCode>${esc(input.taxCurrency || input.currency)}</cbc:TaxCurrencyCode>
+  ${input.billingReference ? `<cac:BillingReference>
+    <cac:InvoiceDocumentReference>
+      <cbc:ID>${esc(input.billingReference.id)}</cbc:ID>
+      <cbc:IssueDate>${esc(input.billingReference.issueDate)}</cbc:IssueDate>
+    </cac:InvoiceDocumentReference>
+  </cac:BillingReference>` : ""}
   ${partyXml("AccountingSupplierParty", input.seller)}
   ${partyXml("AccountingCustomerParty", input.buyer || {name: "Walk-in Customer", country: "AL"})}
   <cac:TaxTotal>
@@ -157,8 +165,8 @@ export function buildUblInvoiceXml(input: UblInvoiceInput): string {
       <cbc:TaxableAmount currencyID="${esc(input.currency)}">${money(input.totNet)}</cbc:TaxableAmount>
       <cbc:TaxAmount currencyID="${esc(input.currency)}">${money(input.totVat)}</cbc:TaxAmount>
       <cac:TaxCategory>
-        <cbc:ID>${input.totVat > 0 ? "S" : "Z"}</cbc:ID>
-        <cbc:Percent>${input.totNet > 0 ? money((input.totVat / input.totNet) * 100) : "0.00"}</cbc:Percent>
+        <cbc:ID>${input.totVat !== 0 ? "S" : "Z"}</cbc:ID>
+        <cbc:Percent>${input.totNet !== 0 ? money((input.totVat / input.totNet) * 100) : "0.00"}</cbc:Percent>
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:TaxCategory>
     </cac:TaxSubtotal>

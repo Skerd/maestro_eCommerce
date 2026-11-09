@@ -1,8 +1,9 @@
 import {ObjectId} from "mongodb";
+import type {ClientSession} from "mongoose";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import {taxZoneService} from "@eCommerceModule/database/schemas/taxZone/taxZone.service";
-import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
+import {resolveZoneState, sellerCountryId} from "@eCommerceModule/utilities/services/zoneState";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {allocateMinor, DEFAULT_DECIMAL_PLACES, includedPercentOfMinor, minorToNumber, percentOfMinor, sumMinor, toMinor} from "armonia/src/modules/core/helpers/money";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
@@ -23,12 +24,16 @@ export type TaxLineContext = {
     productType?: "physical" | "digital";
     /** The currency's `decimalPlaces`, where each rate's amount is rounded (default 2, TD-B38). */
     decimalPlaces?: number;
+    /** The caller's transaction, when it runs in one: a provider reads its own data (tax zones) through it (TD-B74). */
+    session?: ClientSession;
 };
 
 /**
  * Provider seam (§2.C): `calculateTax` stays the single call-site facade;
  * external calculators (Avalara, TaxJar, …) implement this interface and
  * register under their env-selectable name. InternalZones is the default.
+ * `context.session` is the caller's transaction when there is one; a provider that reads the database reads through it,
+ * so it sees what the transaction wrote (BE-04).
  */
 export interface TaxCalculatorProvider {
     readonly name: string;
@@ -74,18 +79,14 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
     async calculate(subtotal, shippingAddress, companyId, context) {
         if (!shippingAddress.country) return {amount: 0, breakdown: []};
 
-        let countryId: ObjectId;
-        try {
-            countryId = new ObjectId(shippingAddress.country);
-        } catch {
-            return {amount: 0, breakdown: []};
-        }
+        if (!ObjectId.isValid(shippingAddress.country)) return {amount: 0, breakdown: []};
+        const countryId = await sellerCountryId(new ObjectId(shippingAddress.country), companyId, context.session);
 
         const zones = await taxZoneService.find({
             company: companyId,
             country: countryId,
             isActive: true,
-        }, {withDeleted: false}, undefined, undefined, {priority: -1});
+        }, {withDeleted: false, session: context.session}, undefined, undefined, {priority: -1});
 
         if (zones.length === 0) return {amount: 0, breakdown: []};
 
@@ -94,7 +95,7 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
         let taxAmount = 0n;
         let runningBase = toMinor(subtotal, decimals);
         const breakdown: TaxBreakdownLine[] = [];
-        const state = await resolveZoneState(countryId, shippingAddress.state);
+        const state = await resolveZoneState(countryId, shippingAddress.state, context.session);
 
         for (const zone of zones) {
             if (!zoneMatchesAddress(zone, state, shippingAddress.postalCode)) continue;
@@ -156,9 +157,10 @@ export async function calculateLinesTax(
     shippingAddress: ShippingAddress,
     companyId: ObjectId,
     decimals: number = DEFAULT_DECIMAL_PLACES,
+    session?: ClientSession,
 ): Promise<TaxResult> {
     const productIds = lines.map(line => nestedEntityToRef(line.product)?.toString() ?? "");
-    const products = await productService.find({_id: {$in: productIds.filter(Boolean)}, company: companyId}, {}, undefined, "type");
+    const products = await productService.find({_id: {$in: productIds.filter(Boolean)}, company: companyId}, {session}, undefined, "type");
     const typeOf = new Map(products.map(product => [product._id.toString(), product.type]));
 
     const groups = new Map<TaxLineContext["productType"], bigint>();
@@ -177,7 +179,7 @@ export async function calculateLinesTax(
     let index = 0;
     for (const [productType, value] of groups) {
         const base = value - discountShares[index++];
-        const result = await calculateTax(minorToNumber(base > 0n ? base : 0n, decimals), shippingAddress, companyId, {productType, decimalPlaces: decimals});
+        const result = await calculateTax(minorToNumber(base > 0n ? base : 0n, decimals), shippingAddress, companyId, {productType, decimalPlaces: decimals, session});
         amount += toMinor(result.amount, decimals);
         for (const line of result.breakdown) {
             const key = `${line.name}|${line.rate}`;
@@ -204,8 +206,9 @@ export async function calculateInclusiveTax(
     address: ShippingAddress,
     companyId: ObjectId,
     decimals: number = DEFAULT_DECIMAL_PLACES,
+    session?: ClientSession,
 ): Promise<number> {
     // The tax on 100, at 2 places whatever the currency, is the effective percentage, compound rates included.
-    const {amount} = await calculateTax(100, address, companyId, {productType: TAX_PRODUCT_TYPE[productType ?? ""]});
+    const {amount} = await calculateTax(100, address, companyId, {productType: TAX_PRODUCT_TYPE[productType ?? ""], session});
     return amount > 0 ? minorToNumber(includedPercentOfMinor(toMinor(gross, decimals), amount), decimals) : 0;
 }

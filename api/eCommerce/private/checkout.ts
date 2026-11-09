@@ -33,6 +33,7 @@ import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkou
 import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -68,7 +69,9 @@ async function resolveCurrencyId(cart: any, companyId: ObjectId): Promise<Object
 
     const firstProductId = cart.items?.[0]?.product?._id ?? cart.items?.[0]?.product;
     if (firstProductId) {
-        const product = await productService.findOne({_id: firstProductId, company: companyId}, {}, undefined, "currency");
+        // The line's seller owns the product (the session company outside the portal marketplace)
+        const sellerId = nestedEntityToRef(cart.items[0].sellerCompany) ?? companyId;
+        const product = await productService.findOne({_id: firstProductId, company: sellerId}, {}, undefined, "currency");
         const productCurrency = (product as any)?.currency?._id ?? (product as any)?.currency;
         if (productCurrency) return productCurrency;
     }
@@ -168,7 +171,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 10}),
     validateFormZod(initCheckoutFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, idempotencyKey} = params;
         const userId = new ObjectId(actionUserCtx.userId);
 
@@ -235,7 +238,7 @@ router.post(
 
         await checkout.save();
         return checkoutResponse(checkout);
-    }),
+    })),
 );
 
 // Set shipping address + calculate rates (resets any chosen rate, tax and payment attempt)
@@ -245,7 +248,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutAddressFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, session, shippingAddress, billingAddress} = params;
 
         const checkout = await findOpenCheckout(params);
@@ -352,7 +355,7 @@ router.post(
 
         await checkout.save({session});
         return checkoutResponse(checkout);
-    }),
+    })),
 );
 
 // Select shipping rate + recalculate totals
@@ -362,7 +365,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutShippingFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, session, rateIndex} = params;
 
         const checkout = await findOpenCheckout(params);
@@ -396,6 +399,7 @@ router.post(
                     checkout.shippingAddress as any ?? {},
                     new ObjectId(sellerId),
                     decimals,
+                    session,
                 );
                 group.taxTotal = tax.amount;
                 taxSum = sumMoney([taxSum, tax.amount], decimals);
@@ -413,6 +417,7 @@ router.post(
                 checkout.shippingAddress as any ?? {},
                 promoCompanyId,
                 decimals,
+                session,
             );
             checkout.taxTotal = tax.amount;
             checkout.taxBreakdown = tax.breakdown;
@@ -421,7 +426,7 @@ router.post(
 
         await checkout.save({session});
         return checkoutResponse(checkout);
-    }),
+    })),
 );
 
 /**
@@ -435,7 +440,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 10}),
     transactionHandler(),
     validateFormZod(checkoutPaymentFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, session, paymentMethod} = params;
         const ctx = placementCtx(params);
 
@@ -506,7 +511,7 @@ router.post(
         );
 
         return checkoutResponse(checkout);
-    }),
+    })),
 );
 
 /**
@@ -521,7 +526,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 5}),
     transactionHandler(),
     validateFormZod(confirmCheckoutFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, session, checkoutId, email, phone, notes} = params;
 
         const checkout = await checkoutService.findOne({
@@ -538,5 +543,5 @@ router.post(
             data: productOrderToBuyerDTO(order),
             ...(siblings.length > 0 ? {siblingOrders: siblings, siblingOrderIds: siblings.map(s => s._id)} : {}),
         };
-    }),
+    })),
 );

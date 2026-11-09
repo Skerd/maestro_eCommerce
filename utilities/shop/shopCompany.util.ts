@@ -1,6 +1,6 @@
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {resolveCompanyByOrigin, resolveSignupCompany} from "@coreModule/utilities/marketing/resolveCompanyByOrigin";
-import {isPortalApexOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {isPortalApexOrigin, isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {asCrossTenant, setRequestTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 /**
@@ -45,4 +45,24 @@ export async function resolveShopContext(origin: string, languageCode: string): 
  */
 export function inShopCatalog<T>(ctx: ShopContext, view: () => Promise<T>): Promise<T> {
     return ctx.mode === "platform" ? asCrossTenant("the apex marketplace lists every seller's catalog", view) : view();
+}
+
+/**
+ * Runs a purchase's seller work on the portal marketplace (D16): a cart or checkout opened in the portal zone buys
+ * from every listed seller, so its product, stock, discount and order reads and writes span their companies, and each
+ * write names its seller's `company` itself. Any other purchase runs in its own company's tenant, unchanged.
+ * `marketplace` is `isPortalPurchase(origin)` for a request, or `spansSellers(checkout)` for work after it.
+ */
+export function inPortalMarketplace<T>(marketplace: boolean, work: () => Promise<T>): Promise<T> {
+    return marketplace ? asCrossTenant("a portal marketplace purchase buys from every listed seller", work) : work();
+}
+
+/** A request's cart or checkout is a portal marketplace purchase: it comes from the portal zone. */
+export function isPortalPurchase(origin: string | undefined): boolean {
+    return isPortalZoneOrigin(origin ?? "");
+}
+
+/** A route handler whose work runs on the portal marketplace when its request is a portal purchase. */
+export function portalPurchaseRoute<P extends {origin?: string}, Q, R>(handler: (params: P, query: Q) => Promise<R>) {
+    return (params: P, query: Q): Promise<R> => inPortalMarketplace(isPortalPurchase(params.origin), () => handler(params, query));
 }

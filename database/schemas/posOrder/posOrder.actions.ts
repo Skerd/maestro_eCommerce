@@ -23,10 +23,9 @@ import PosOrderModel from "./posOrder";
 import {posOrderService} from "./posOrder.service";
 
 /**
- * Till operations write system-managed POS fields, so they are gated on those
- * fields' write tags: `posorders[write:state]` to ring up sales (and every till
- * read that goes with it), `posorders[write:amountRefunded]` to refund. Admin
- * roles receive both at boot; cashier roles must be granted them.
+ * The till routes that are not actions (`/pos/*` reads, `/fiscal/*`) have no action permission, so they are gated on the
+ * write tag of the field a sale changes: `posorders[write:state]`. The till actions below are gated by their own
+ * action permissions (SEC-02) instead.
  */
 export function assertPosOrderWrite(
     params: {languageCode: string; actionUserCtx: UserContext},
@@ -115,7 +114,6 @@ export class PosOrderActions {
         schema: holdPosOrderFormSchema,
     })
     async hold(params: TransactionRequiredParams & HoldPosOrderFormType) {
-        assertPosOrderWrite(params, "state");
         const data = await holdPosOrder(
             {
                 sessionId: params.sessionId,
@@ -138,7 +136,6 @@ export class PosOrderActions {
         schema: payPosOrderFormSchema,
     })
     async pay(params: AuthenticatedMWType & PayPosOrderFormType) {
-        assertPosOrderWrite(params, "state");
         const data = await payAndFiscalizePosOrder(
             {
                 sessionId: params.sessionId,
@@ -165,7 +162,6 @@ export class PosOrderActions {
         schema: refundPosOrderFormSchema,
     })
     async refund(params: TransactionRequiredParams & RefundPosOrderFormType) {
-        assertPosOrderWrite(params, "amountRefunded");
         const data = await refundPosOrder(
             {
                 _id: params._id,
@@ -186,7 +182,6 @@ export class PosOrderActions {
         schema: validateSingleForm,
     })
     async reprint(params: AuthenticatedMWType & {_id: string}) {
-        assertPosOrderWrite(params, "state");
         const data = await reprintPosOrder(params._id, tillCtx(params));
         return {data};
     }
@@ -198,7 +193,6 @@ export class PosOrderActions {
         schema: validateSingleForm,
     })
     async deleteHeld(params: TransactionRequiredParams & {_id: string}) {
-        assertPosOrderWrite(params, "state");
         const data = await deleteHeldPosOrder(params._id, tillCtx(params));
         return {data};
     }

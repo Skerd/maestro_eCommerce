@@ -10,6 +10,7 @@ import {giftCardService} from "@financeModule/database/schemas/giftCard/giftCard
 import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
+import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
@@ -24,6 +25,7 @@ import {
 } from "@eCommerceModule/utilities/services/cartPricingService";
 import {roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {
     addCartItemFormSchema,
@@ -93,6 +95,19 @@ async function cartCurrency(cart: ICart) {
     return toShopCurrency(product?.currency);
 }
 
+/**
+ * Two products price in the same currency: the same currency row, or on the portal marketplace, where each seller
+ * keeps its own rows, rows with the same code.
+ */
+async function sameCurrency(first: unknown, second: unknown, acrossSellers: boolean): Promise<boolean> {
+    const ids = [nestedEntityToRef(first), nestedEntityToRef(second)];
+    if (!ids[0] || !ids[1]) return false;
+    if (ids[0].equals(ids[1])) return true;
+    if (!acrossSellers) return false;
+    const rows = await currencyService.find({_id: {$in: ids}}, {}, undefined, "abbreviation");
+    return rows.length === 2 && Boolean(rows[0].abbreviation) && rows[0].abbreviation === rows[1].abbreviation;
+}
+
 function assertSingleSellerPromo(cart: ICart, languageCode: string): void {
     if (distinctSellerCompanyIds(cart.items as any).length > 1) {
         throw apiValidationException("cart_multi_seller_promo", "code", null, languageCode);
@@ -104,7 +119,7 @@ router.get(
     "/",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 120}),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {company, actionUserCtx} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -117,7 +132,7 @@ router.get(
         }
         await cart.populate("items.sellerCompany", "name siteSlug siteHost");
         return {data: await toCartResponse(cart, notices, meta)};
-    }),
+    })),
 );
 
 // PUT item into cart
@@ -126,7 +141,7 @@ router.put(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(addCartItemFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, productId, variantId, quantity, origin} = params;
         const platform = isPortalZoneOrigin(origin);
 
@@ -166,7 +181,7 @@ router.put(
             };
             if (!platform) firstProductQuery.company = company._id;
             const firstProduct = await productService.findOne(firstProductQuery, {}, undefined, "currency");
-            if (firstProduct?.currency && firstProduct.currency.toString() !== product.currency.toString()) {
+            if (firstProduct?.currency && !(await sameCurrency(firstProduct.currency, product.currency, platform))) {
                 throw apiValidationException("cart_currency_mismatch", "productId", null, languageCode);
             }
         }
@@ -212,7 +227,7 @@ router.put(
         }
 
         return repriceAndSave(cart, params);
-    }),
+    })),
 );
 
 // PATCH item quantity (0 removes the line)
@@ -221,7 +236,7 @@ router.patch(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(updateCartItemFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, itemId, quantity} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -240,7 +255,7 @@ router.patch(
         }
 
         return repriceAndSave(cart, params);
-    }),
+    })),
 );
 
 // DELETE item
@@ -248,7 +263,7 @@ router.delete(
     "/item/:itemId",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
-    asyncHandler(async (params: any, queryParams: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any, queryParams: any) => {
         const {languageCode, company, actionUserCtx} = params;
         const {itemId} = queryParams;
         if (!ObjectId.isValid(itemId)) throw apiValidationException("item_not_found", "", null, languageCode);
@@ -258,7 +273,7 @@ router.delete(
 
         cart.items = (cart.items as any[]).filter((i: any) => i._id?.toString() !== itemId) as any;
         return repriceAndSave(cart, params);
-    }),
+    })),
 );
 
 // Apply discount code
@@ -267,7 +282,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(applyCartCodeFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, code} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -299,7 +314,7 @@ router.post(
         cart.appliedDiscounts = [{discount: discount._id, code: discount.code, amount: result.discountAmount}] as any;
         const saved = await repriceAndSave(cart, params);
         return {valid: true, data: saved.data, discountAmount: cart.discountTotal};
-    }),
+    })),
 );
 
 // Remove the applied discount code
@@ -307,7 +322,7 @@ router.delete(
     "/discount",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -315,7 +330,7 @@ router.delete(
 
         cart.appliedDiscounts = [];
         return repriceAndSave(cart, params);
-    }),
+    })),
 );
 
 // Apply gift card (store credit) — amount re-capped on every reprice and at checkout
@@ -324,7 +339,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 20}),
     validateFormZod(applyCartCodeFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, code} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -345,7 +360,7 @@ router.post(
         };
         const saved = await repriceAndSave(cart, params);
         return {valid: true, data: saved.data, giftCardAmount: cart.appliedGiftCard?.amount ?? 0, balance: roundToCurrency(giftCard.balance, decimalPlaces)};
-    }),
+    })),
 );
 
 // Remove applied gift card
@@ -353,7 +368,7 @@ router.delete(
     "/gift-card",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 20}),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
 
         const cart = await cartService.findOne({company: company._id, user: actionUserCtx.userId});
@@ -361,7 +376,7 @@ router.delete(
 
         cart.appliedGiftCard = undefined;
         return repriceAndSave(cart, params);
-    }),
+    })),
 );
 
 // Clear cart (items, discount and store credit)
@@ -369,7 +384,7 @@ router.delete(
     "/clear",
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 10}),
-    asyncHandler(async (params: any) => {
+    asyncHandler(portalPurchaseRoute(async (params: any) => {
         const {company, actionUserCtx} = params;
 
         await cartService.updateOne(
@@ -377,5 +392,5 @@ router.delete(
             {$set: {items: [], subtotal: 0, discountTotal: 0, appliedDiscounts: []}, $unset: {appliedGiftCard: 1}},
         );
         return {message: "Cart cleared"};
-    }),
+    })),
 );

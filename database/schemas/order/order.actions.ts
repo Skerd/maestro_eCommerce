@@ -36,6 +36,7 @@ import {
 } from "@eCommerceModule/database/schemas/order/orderEscrow";
 import {isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
+import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
 import {createOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/createOrderMilestone.form.validator";
 import {releaseOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/releaseOrderMilestone.form.validator";
@@ -89,79 +90,82 @@ export class OrderActions {
         logger.start(`Creating order from listing: ${listingRef}...`);
 
         const platform = isPortalZoneOrigin(origin ?? "");
-        const listingFilter: Record<string, unknown> = {_id: new ObjectId(listingRef), status: "active"};
-        if (!platform) listingFilter.company = company._id;
+        // On the portal the listing's seller owns the order: its listing, packages and add-ons are read there (D16)
+        return inPortalMarketplace(platform, async () => {
+            const listingFilter: Record<string, unknown> = {_id: new ObjectId(listingRef), status: "active"};
+            if (!platform) listingFilter.company = company._id;
 
-        const listing = await listingService.findOneOrThrow(listingFilter, opts);
-        const orderCompanyId = platform ? listing.company._id : company._id;
+            const listing = await listingService.findOneOrThrow(listingFilter, opts);
+            const orderCompanyId = platform ? listing.company._id : company._id;
 
-        const providerId = listing.provider._id;
-        if (providerId.toString() === actionUserCtx.userId) {
-            throw apiValidationException("provider_cannot_order_own_listing", null, null, languageCode);
-        }
-
-        // Summed in exact minor units so package, add-on and milestone totals do not drift (D35).
-        let amountCents = toMinor(listing.price ?? 0);
-        let currencyId = listing.priceCurrency?._id;
-        let deliveryDays = listing.deliveryDays ?? 1;
-
-        if (packageRef) {
-            const pkg = await listingPackageService.findOneOrThrow(
-                {_id: new ObjectId(packageRef), listing: listing._id, company: orderCompanyId},
-                opts,
-            );
-            amountCents = toMinor(pkg.price.amount);
-            currencyId = pkg.price.currency._id;
-            deliveryDays = pkg.deliveryDays;
-        }
-
-        if (!currencyId) {
-            throw apiValidationException("listing_has_no_currency", null, null, languageCode);
-        }
-
-        if (addOnRefs?.length) {
-            const addOns = await listingAddOnService.find(
-                {_id: {$in: addOnRefs.map((id) => new ObjectId(id))}, listing: listing._id, company: orderCompanyId},
-                opts,
-                null,
-                "_id price deliveryDays",
-            );
-            if (addOns.length !== new Set(addOnRefs).size) {
-                throw apiValidationException("listing_add_on_not_found", null, null, languageCode);
+            const providerId = listing.provider._id;
+            if (providerId.toString() === actionUserCtx.userId) {
+                throw apiValidationException("provider_cannot_order_own_listing", null, null, languageCode);
             }
-            for (const addOn of addOns) {
-                if (!addOn.price.currency._id.equals(currencyId)) {
-                    throw apiValidationException("add_on_currency_mismatch", null, null, languageCode);
+
+            // Summed in exact minor units so package, add-on and milestone totals do not drift (D35).
+            let amountCents = toMinor(listing.price ?? 0);
+            let currencyId = listing.priceCurrency?._id;
+            let deliveryDays = listing.deliveryDays ?? 1;
+
+            if (packageRef) {
+                const pkg = await listingPackageService.findOneOrThrow(
+                    {_id: new ObjectId(packageRef), listing: listing._id, company: orderCompanyId},
+                    opts,
+                );
+                amountCents = toMinor(pkg.price.amount);
+                currencyId = pkg.price.currency._id;
+                deliveryDays = pkg.deliveryDays;
+            }
+
+            if (!currencyId) {
+                throw apiValidationException("listing_has_no_currency", null, null, languageCode);
+            }
+
+            if (addOnRefs?.length) {
+                const addOns = await listingAddOnService.find(
+                    {_id: {$in: addOnRefs.map((id) => new ObjectId(id))}, listing: listing._id, company: orderCompanyId},
+                    opts,
+                    null,
+                    "_id price deliveryDays",
+                );
+                if (addOns.length !== new Set(addOnRefs).size) {
+                    throw apiValidationException("listing_add_on_not_found", null, null, languageCode);
                 }
-                amountCents += toMinor(addOn.price.amount);
-                deliveryDays += addOn.deliveryDays ?? 0;
+                for (const addOn of addOns) {
+                    if (!addOn.price.currency._id.equals(currencyId)) {
+                        throw apiValidationException("add_on_currency_mismatch", null, null, languageCode);
+                    }
+                    amountCents += toMinor(addOn.price.amount);
+                    deliveryDays += addOn.deliveryDays ?? 0;
+                }
             }
-        }
 
-        const order = await orderService.create(
-            {
-                listing: listing._id,
-                customer: new ObjectId(actionUserCtx.userId),
-                provider: providerId,
-                amount: minorToNumber(amountCents),
-                currency: currencyId,
-                status: "pending",
-                company: orderCompanyId,
-                deliveryDueDate: new Date(Date.now() + deliveryDays * DAY_MS),
-                ...(note && {note}),
-            },
-            {...opts, auditUserId: actionUserCtx.userId},
-        );
+            const order = await orderService.create(
+                {
+                    listing: listing._id,
+                    customer: new ObjectId(actionUserCtx.userId),
+                    provider: providerId,
+                    amount: minorToNumber(amountCents),
+                    currency: currencyId,
+                    status: "pending",
+                    company: orderCompanyId,
+                    deliveryDueDate: new Date(Date.now() + deliveryDays * DAY_MS),
+                    ...(note && {note}),
+                },
+                {...opts, auditUserId: actionUserCtx.userId},
+            );
 
-        await notifyAfterCommit(p, NotificationEventCodes.ORDER_CREATED_FROM_LISTING, providerId.toString(), {
-            orderId: order._id.toString(),
-            listingId: listing._id.toString(),
-            listingTitle: listing.title,
+            await notifyAfterCommit(p, NotificationEventCodes.ORDER_CREATED_FROM_LISTING, providerId.toString(), {
+                orderId: order._id.toString(),
+                listingId: listing._id.toString(),
+                listingTitle: listing.title,
+            });
+
+            logger.finish(`Successfully created order from listing: ${listingRef}`);
+
+            return {message: "Order created successfully", _id: order._id.toString()};
         });
-
-        logger.finish(`Successfully created order from listing: ${listingRef}`);
-
-        return {message: "Order created successfully", _id: order._id.toString()};
     }
 
     @action({

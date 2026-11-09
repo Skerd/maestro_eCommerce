@@ -3,7 +3,7 @@ import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import type {IShippingZone} from "@eCommerceModule/database/schemas/shippingZone/shippingZone";
 import {shippingZoneService} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.service";
-import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
+import {resolveZoneState, sellerCountryId} from "@eCommerceModule/utilities/services/zoneState";
 
 export type CartForShipping = {
     subtotal: number;
@@ -97,12 +97,8 @@ const internalZonesShippingProvider: ShippingRateProvider = {
     async getRates(cart, companyId) {
         if (!cart.destinationCountry) return [];
 
-        let countryId: ObjectId;
-        try {
-            countryId = new ObjectId(cart.destinationCountry);
-        } catch {
-            return [];
-        }
+        if (!ObjectId.isValid(cart.destinationCountry)) return [];
+        const countryId = await sellerCountryId(new ObjectId(cart.destinationCountry), companyId);
 
         const zones: IShippingZone[] = await shippingZoneService.find({
             company: companyId,

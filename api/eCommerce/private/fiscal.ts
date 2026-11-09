@@ -1,6 +1,7 @@
 import {Router} from "express";
+import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
-import authMW from "@coreModule/utilities/middlewares/authMW";
+import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -9,6 +10,9 @@ import {
     getTaxpayerFormSchema,
     posOrderFiscalFormSchema,
     registerTcrFormSchema,
+    type GetTaxpayerFormType,
+    type PosOrderFiscalFormType,
+    type RegisterTcrFormType,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/fiscal/fiscal.form.validator";
 import {
     financeInvoiceFiscalData,
@@ -59,10 +63,12 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(posOrderFiscalFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType & PosOrderFiscalFormType) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
-        return {data: await sendPosOrderToCis(posOrderId, {languageCode, company}, fiscalConfigId)};
+        // The request's company, as the till actions pass it (posOrder.actions.ts `tillCtx`)
+        const owner = {_id: new ObjectId(params.actionUserCtx.orgId), name: company.name, vat: company.vat};
+        return {data: await sendPosOrderToCis(posOrderId, {languageCode, company: owner}, fiscalConfigId)};
     }),
 );
 
@@ -71,10 +77,10 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 20}),
     validateFormZod(posOrderFiscalFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType & PosOrderFiscalFormType) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, posOrderId, fiscalConfigId} = params;
-        const order = await posOrderService.findOne({_id: posOrderId, company: company._id}, {withDeleted: false});
+        const order = await posOrderService.findOne({_id: posOrderId, company: company._id}, {withDeleted: false}, undefined, "+iicSignature");
         if (!order) throw apiValidationException("pos_order_not_found", "posOrderId", null, languageCode);
         const resolvedFiscalConfigId = fiscalConfigId ?? await fiscalConfigIdForPosConfig(company._id, order.config);
         const config = await loadFiscalConfigWithCert(company._id, resolvedFiscalConfigId);
@@ -86,12 +92,12 @@ router.post(
                 companyName: company.name,
             });
             if (result.eic) {
-                (order as any).eic = result.eic;
-                (order as any).einvoiceAt = new Date();
-                (order as any).ublXml = result.ublXml;
-                (order as any).fiscalError = undefined;
+                order.eic = result.eic;
+                order.einvoiceAt = new Date();
+                order.ublXml = result.ublXml;
+                order.fiscalError = undefined;
             } else {
-                (order as any).fiscalError = result.fault;
+                order.fiscalError = result.fault;
             }
             await order.save();
             return {
@@ -101,9 +107,9 @@ router.post(
                     fault: result.fault,
                 },
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (e instanceof ServerError) throw e;
-            throw apiValidationException("fiscal_einvoice_error", "posOrderId", null, languageCode, [e?.message || String(e)]);
+            throw apiValidationException("fiscal_einvoice_error", "posOrderId", null, languageCode, [e instanceof Error ? e.message : String(e)]);
         }
     }),
 );
@@ -113,7 +119,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 10}),
     validateFormZod(registerTcrFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType & RegisterTcrFormType) => {
         // Registering the cash register changes the fiscal configuration
         const writable = SchemaGuard.sanitizeFields(
             FiscalConfig,
@@ -143,9 +149,9 @@ router.post(
                     config: refreshed ? fiscalConfigToDTO(refreshed) : undefined,
                 },
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (e instanceof ServerError) throw e;
-            throw apiValidationException("fiscal_tcr_error", "fiscalConfigId", null, languageCode, [e?.message || String(e)]);
+            throw apiValidationException("fiscal_tcr_error", "fiscalConfigId", null, languageCode, [e instanceof Error ? e.message : String(e)]);
         }
     }),
 );
@@ -155,7 +161,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(getTaxpayerFormSchema),
-    asyncHandler(async (params: any) => {
+    asyncHandler(async (params: AuthenticatedMWType & GetTaxpayerFormType) => {
         assertPosOrderWrite(params, "state");
         const {company, languageCode, fiscalConfigId, tin} = params;
         const config = await loadFiscalConfigWithCert(company._id, fiscalConfigId);
@@ -163,9 +169,9 @@ router.post(
         try {
             const result = await getTaxpayer(config, tin, languageCode);
             return {data: result};
-        } catch (e: any) {
+        } catch (e: unknown) {
             if (e instanceof ServerError) throw e;
-            throw apiValidationException("fiscal_taxpayer_error", "tin", null, languageCode, [e?.message || String(e)]);
+            throw apiValidationException("fiscal_taxpayer_error", "tin", null, languageCode, [e instanceof Error ? e.message : String(e)]);
         }
     }),
 );

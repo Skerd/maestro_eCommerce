@@ -9,8 +9,11 @@ import {productOrderService} from "@eCommerceModule/database/schemas/productOrde
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {
     assertIntentMatchesCheckout,
+    checkoutOrderKeys,
     placePaidCheckoutInBackground,
+    spansSellers,
 } from "@eCommerceModule/workflows/checkoutPlacementService";
+import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {handleStripeWebhook} from "@financeModule/utilities/services/payment/stripeWebhook";
 import {registerPaymentSourceHandler} from "@financeModule/utilities/services/payment/paymentSourceHandlers";
@@ -27,29 +30,31 @@ export const router = Router();
  * already exists unpaid is marked paid.
  */
 async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; languageCode: string}): Promise<void> {
-    const companyId = (checkout.company as any)?._id ?? (checkout.company as any);
+    // A portal marketplace checkout's orders belong to its sellers (D16, TD-B87)
+    return inPortalMarketplace(spansSellers(checkout), async () => {
+        const orders = await productOrderService.find({$or: checkoutOrderKeys(checkout)});
+        if (!orders.length) {
+            await placePaidCheckoutInBackground(checkout._id, ctx);
+            return;
+        }
 
-    const order = await productOrderService.findOne({idempotencyKey: checkout.idempotencyKey, company: companyId});
-    if (!order) {
-        await placePaidCheckoutInBackground(checkout._id as any, ctx);
-        return;
-    }
+        for (const order of orders) {
+            if (order.paymentStatus !== "unpaid") continue;
+            order.paymentStatus = "paid";
+            if (order.status === "pending") order.status = "confirmed";
+            order.timeline.push({event: "payment_received", timestamp: new Date()});
+            await order.save();
 
-    if (order.paymentStatus === "unpaid") {
-        order.paymentStatus = "paid";
-        if (order.status === "pending") order.status = "confirmed";
-        (order.timeline as any[]).push({event: "payment_received", timestamp: new Date()});
-        await order.save();
+            await fulfillOrderPaidExtras(order, ctx);
 
-        await fulfillOrderPaidExtras(order, ctx);
-
-        await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {
-            companyId,
-            languageCode: ctx.languageCode,
-            order,
-            extra: {grandTotal: order.grandTotal},
-        });
-    }
+            await notifyProductOrderCustomer(NotificationEventCodes.PRODUCT_ORDER_PAID, {
+                companyId: order.company._id ?? order.company,
+                languageCode: ctx.languageCode,
+                order,
+                extra: {grandTotal: order.grandTotal},
+            });
+        }
+    });
 }
 
 /**

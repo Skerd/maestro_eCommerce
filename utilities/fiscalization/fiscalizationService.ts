@@ -27,11 +27,15 @@ import {buildUblInvoiceXml} from "./ublInvoice";
 import {addMoney, includedPercentOfMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
 import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
 import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
-import {decimalToNumber} from "@coreModule/utilities/mappers/common.mapper";
+import {decimalToNumber, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {ServerError} from "armonia/src/modules/core/types";
 import axios from "axios";
+import {localDateOf} from "@coreModule/utilities/time/timeWindows";
 
+
+/** CIS issue times are Albanian local time. */
+const FISCAL_TIME_ZONE = "Europe/Tirane";
 
 function money(n: number): string {
     return Number.isFinite(n) ? roundToCurrency(n).toFixed(2) : n.toFixed(2);
@@ -150,7 +154,10 @@ export type FiscalInvoiceData = {
     totTax: number;
     payments: OrderedDict[];
     items: OrderedDict[];
+    /** The invoice it corrects (CIS CorrectiveInv): its IIC and the issue time sent with it. */
     corrective?: {iic: string; issueDateTime?: string};
+    /** The issue time to send, when the caller stored it before sending (TD-B77); now otherwise. */
+    issueDateTime?: string;
 };
 
 /** Who registers, and in which language rule failures answer. */
@@ -168,10 +175,11 @@ export async function registerFiscalInvoice(
     opts: FiscalRegisterOptions,
 ): Promise<RegisterInvoiceResult> {
     const nipt = assertReady(config, opts.languageCode, opts.companyVat);
-    const issueDateTime = tiraneIsoNow();
+    const issueDateTime = data.issueDateTime ?? tiraneIsoNow();
     const uuid = randomUUID();
     const {invOrdNum, totPrice, totTax, items} = data;
-    const year = new Date().getFullYear();
+    // The invoice number's year is the issue time's, in Albanian time, not the server's clock
+    const year = localDateOf(new Date(issueDateTime), FISCAL_TIME_ZONE).slice(0, 4);
     const invNum = `${invOrdNum}/${year}/${config.tcrCode}`;
     const totWoVat = subtractMoney(totPrice, totTax);
 
@@ -340,17 +348,57 @@ export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lin
     };
 }
 
+/** What a till order registers as its order number and totals, negative for a refund; its IIC covers `totPrice`. */
+function posInvoiceTotals(order: IPosOrder): {invOrdNum: string; totPrice: number; totTax: number} {
+    return {
+        invOrdNum: invOrdFromOrderName(order.name),
+        totPrice: roundToCurrency(Number(order.isRefund ? -order.amountTotal : order.amountTotal)),
+        totTax: roundToCurrency(Number(order.isRefund ? -order.amountTax : order.amountTax)),
+    };
+}
+
+/** The sale a till refund returns, with the codes it was registered under. */
+async function refundedSale(order: IPosOrder): Promise<IPosOrder | null> {
+    const originalId = nestedEntityToRef(order.refundOf);
+    return originalId
+        ? posOrderService.findOne({_id: originalId, company: nestedEntityToRef(order.company)}, {}, undefined, "nslf nivf eic fiscalIssueDateTime")
+        : null;
+}
+
+/**
+ * A till refund's e-invoice corrects the sale's e-invoice (UBL type 384, BillingReference to the sale's IIC and issue
+ * date), as its fiscal invoice corrects the sale's (TD-B71). A sale with no registered e-invoice has none to correct.
+ */
+async function refundedSaleEinvoiceReference(order: IPosOrder, languageCode: string): Promise<{id: string; issueDate: string}> {
+    const original = await refundedSale(order);
+    if (!original?.nslf || !original.nivf || !original.eic || !original.fiscalIssueDateTime) {
+        throw apiValidationException("fiscal_einvoice_refund_original_missing", "posOrderId", null, languageCode);
+    }
+    return {id: original.nslf, issueDate: original.fiscalIssueDateTime.slice(0, 10)};
+}
+
+/**
+ * A till refund is a corrective invoice of the sale it refunds (CIS CorrectiveInv): it names that sale's IIC and the
+ * issue time sent with it. A sale CIS never registered has nothing to correct, so its refund is refused (TD-B71).
+ */
+async function refundedSaleReference(order: IPosOrder, languageCode: string): Promise<{iic: string; issueDateTime: string}> {
+    const original = await refundedSale(order);
+    if (!original?.nslf || !original.nivf || !original.fiscalIssueDateTime) {
+        throw apiValidationException("fiscal_refund_original_not_fiscalized", "posOrderId", null, languageCode);
+    }
+    return {iic: original.nslf, issueDateTime: original.fiscalIssueDateTime};
+}
+
 export async function registerPosInvoice(
     order: IPosOrder,
     config: IFiscalConfig & FiscalCert,
-    opts: FiscalRegisterOptions,
+    opts: FiscalRegisterOptions & {issueDateTime?: string},
 ): Promise<RegisterInvoiceResult> {
     if (order.nivf) {
         throw apiValidationException("fiscal_already_fiscalized", "posOrderId", null, opts.languageCode);
     }
-    const invOrdNum = invOrdFromOrderName(order.name);
-    const totPrice = roundToCurrency(Number(order.isRefund ? -order.amountTotal : order.amountTotal));
-    const totTax = roundToCurrency(Number(order.isRefund ? -order.amountTax : order.amountTax));
+    const {invOrdNum, totPrice, totTax} = posInvoiceTotals(order);
+    const corrective = order.isRefund ? await refundedSaleReference(order, opts.languageCode) : undefined;
 
     const payments = order.payments.map(p => ({
         "1__Type": payMethodType(p.paymentMethodType),
@@ -373,7 +421,7 @@ export async function registerPosInvoice(
             "5__UPB": money(unitNet),
             "6__UPA": money(unitGross),
             "7__R": money(Number(line.discountPercent || 0)),
-            "8__PB": money(net * (order.isRefund ? -1 : 1) === net ? net : (order.isRefund ? -Math.abs(net) : net)),
+            "8__PB": money(order.isRefund ? -Math.abs(net) : net),
             "9__PA": money(order.isRefund ? -Math.abs(pa) : pa),
         };
         if (tax) {
@@ -383,15 +431,8 @@ export async function registerPosInvoice(
         }
         return row;
     });
-    // Fix PB signs for refunds
-    for (const row of items) {
-        if (order.isRefund) {
-            row["8__PB"] = money(-Math.abs(Number(row["8__PB"])));
-            row["9__PA"] = money(-Math.abs(Number(row["9__PA"])));
-        }
-    }
 
-    return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items}, config, opts);
+    return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items, corrective, issueDateTime: opts.issueDateTime}, config, opts);
 }
 
 export async function registerTcr(
@@ -497,14 +538,49 @@ export type RegisterEinvoiceResult = {
     signedXml: string;
 };
 
+/**
+ * The IIC signature of a registered till sale. A sale resolved with the codes found in the CIS portal (D98) has none
+ * stored, so it is signed again over the IIC input that was sent, with the issue time stored before sending: RSA
+ * PKCS#1 v1.5 signs deterministically, so this is the signature CIS received. It is stored once recomputed; one whose
+ * IIC is not the recorded NSLF was not the invoice sent, and is refused (TD-B77).
+ */
+async function posOrderIicSignature(
+    order: IPosOrder,
+    config: IFiscalConfig & FiscalCert,
+    opts: {languageCode: string; companyVat?: string},
+): Promise<string> {
+    if (order.iicSignature) return order.iicSignature;
+    const {languageCode} = opts;
+    const tcrCode = order.fiscalTcrCode || config.tcrCode;
+    if (!order.nslf || !order.fiscalIssueDateTime) {
+        throw apiValidationException("fiscal_einvoice_not_fiscalized", "posOrderId", null, languageCode);
+    }
+    if (!tcrCode) throw apiValidationException("fiscal_tcr_not_registered", "", null, languageCode);
+    const {invOrdNum, totPrice} = posInvoiceTotals(order);
+    const iicInput = buildIicInput({
+        nipt: resolveNipt(config, languageCode, opts.companyVat),
+        issueDateTime: order.fiscalIssueDateTime,
+        invOrdNum: order.fiscalInvOrdNum || invOrdNum,
+        businessUnitCode: order.fiscalBusinessUnitCode || config.businessUnitCode,
+        tcrCode,
+        softCode: config.softCode,
+        totPrice,
+    });
+    const {iic, iicSignature} = getIIC(iicInput, config.certificateBase64, config.certificatePassword, languageCode);
+    if (iic !== order.nslf) throw apiValidationException("fiscal_iic_mismatch", "posOrderId", null, languageCode);
+    await posOrderService.updateOne({_id: order._id, company: nestedEntityToRef(order.company)}, {$set: {iicSignature}});
+    order.iicSignature = iicSignature;
+    return iicSignature;
+}
+
 export async function registerEinvoiceForPosOrder(
     order: IPosOrder,
     config: IFiscalConfig & FiscalCert,
     opts: {languageCode: string; companyVat?: string; companyName?: string; currency?: string},
 ): Promise<RegisterEinvoiceResult> {
-    const {nslf, nivf, iicSignature, fiscalizedAt} = order;
+    const {nslf, nivf, fiscalizedAt} = order;
     const issueDateTime = order.fiscalIssueDateTime || tiraneIsoNow();
-    if (!nslf || !nivf || !iicSignature) {
+    if (!nslf || !nivf) {
         throw apiValidationException("fiscal_einvoice_not_fiscalized", "posOrderId", null, opts.languageCode);
     }
     if (fiscalizedAt) {
@@ -514,15 +590,19 @@ export async function registerEinvoiceForPosOrder(
         }
     }
     if (order.eic) throw apiValidationException("fiscal_einvoice_exists", "posOrderId", null, opts.languageCode);
+    const billingReference = order.isRefund ? await refundedSaleEinvoiceReference(order, opts.languageCode) : undefined;
+    const iicSignature = await posOrderIicSignature(order, config, opts);
 
     const nipt = resolveNipt(config, opts.languageCode, opts.companyVat);
-    const totGross = roundToCurrency(Number(order.amountTotal));
-    const totVat = roundToCurrency(Number(order.amountTax));
+    // A refund's amounts are negative, as its fiscal invoice registered them; unit prices stay positive
+    const sign = order.isRefund ? -1 : 1;
+    const totGross = roundToCurrency(sign * Number(order.amountTotal));
+    const totVat = roundToCurrency(sign * Number(order.amountTax));
     const totNet = subtractMoney(totGross, totVat);
     const lines = order.lines.map(line => {
-        const qty = Number(line.quantity);
-        const pa = roundToCurrency(Number(line.priceTotal));
-        const tax = roundToCurrency(Number(line.taxAmount || 0));
+        const qty = sign * Number(line.quantity);
+        const pa = roundToCurrency(sign * Number(line.priceTotal));
+        const tax = roundToCurrency(sign * Number(line.taxAmount || 0));
         const net = subtractMoney(pa, tax);
         return {
             name: line.productName || "Item",
@@ -538,6 +618,7 @@ export async function registerEinvoiceForPosOrder(
     const ublUnsigned = buildUblInvoiceXml({
         invoiceNumber: order.fiscalInvNum || order.name,
         issueDate: issueDateTime.slice(0, 10),
+        ...(billingReference ? {documentType: "384", billingReference} : {}),
         currency: opts.currency || "ALL",
         nslf,
         iicSignature,
@@ -629,14 +710,17 @@ export async function fiscalizePosOrder(
     if (!config) throw apiValidationException("fiscal_config_missing", "fiscalConfigId", null, languageCode);
 
     // Claimed in one write, so two callers never send a sale at once, and a sale whose answer may be lost is never
-    // sent again: CIS has no lookup by IIC here, and a new send registers a second invoice (TD-B75)
+    // sent again: CIS has no lookup by IIC here, and a new send registers a second invoice (TD-B75). The issue time is
+    // part of the IIC, so it is stored with the claim: a sale whose answer is lost can still be signed again (TD-B77)
     const registeringAt = new Date();
+    const issueDateTime = tiraneIsoNow();
     const claim = await posOrderService.updateOne(
         {_id: order._id, company: companyId, fiscalRegisteringAt: null},
-        {$set: {fiscalRegisteringAt: registeringAt}},
+        {$set: {fiscalRegisteringAt: registeringAt, fiscalIssueDateTime: issueDateTime}},
     );
     if (!claim.matchedCount) throw apiValidationException("fiscal_registration_unconfirmed", "posOrderId", null, languageCode);
     order.fiscalRegisteringAt = registeringAt;
+    order.fiscalIssueDateTime = issueDateTime;
 
     let invoice: RegisterInvoiceResult;
     try {
@@ -644,11 +728,12 @@ export async function fiscalizePosOrder(
             languageCode,
             companyVat: opts.companyVat,
             companyName: opts.companyName,
+            issueDateTime,
         });
     } catch (error: unknown) {
         if (neverReachedCis(error)) {
             // The sale may be sent again. Should this write fail, the marker stays, which only asks for a manual check
-            await posOrderService.updateOne({_id: order._id, company: companyId}, {$unset: {fiscalRegisteringAt: 1}}).catch(() => undefined);
+            await posOrderService.updateOne({_id: order._id, company: companyId}, {$unset: {fiscalRegisteringAt: 1, fiscalIssueDateTime: 1}}).catch(() => undefined);
         }
         throw error;
     }
