@@ -22,6 +22,7 @@ export function providerProfileToDTO(profile: IProviderProfile, metrics?: Provid
             startTime: slot.startTime,
             endTime: slot.endTime,
         })),
+        timezone: profile.timezone || undefined,
         averageRating: metrics?.averageRating,
         reviewCount: metrics?.reviewCount,
         completionRate: metrics?.completionRate,

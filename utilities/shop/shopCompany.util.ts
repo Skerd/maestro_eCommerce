@@ -62,8 +62,8 @@ export function inPortalMarketplace<T>(marketplace: boolean, work: () => Promise
 
 /**
  * The references a portal marketplace purchase stores across companies (D104): the platform's cart and checkout name
- * each seller's products, stock and currency, and a seller's order keeps the buyer's portal address. Every other
- * reference must still point inside its record's company.
+ * each seller's products, stock and currency. A seller's order stores its own country and state rows for the buyer's
+ * address (D107). Every other reference must still point inside its record's company.
  */
 const PORTAL_MARKETPLACE_REFERENCES: ForeignReferenceAllowance = {
     reason: "a portal marketplace purchase: the platform's cart and checkout list every seller's products",
@@ -77,9 +77,6 @@ const PORTAL_MARKETPLACE_REFERENCES: ForeignReferenceAllowance = {
         "Checkout.reservations.warehouse",
         // The checkout is priced in its first line's seller's currency row (TD-B85).
         "Checkout.currency",
-        // A seller's order keeps the buyer's portal address as given, naming the platform's country row (TD-B88).
-        "ProductOrder.shippingAddress.country",
-        "ProductOrder.billingAddress.country",
     ],
 };
 

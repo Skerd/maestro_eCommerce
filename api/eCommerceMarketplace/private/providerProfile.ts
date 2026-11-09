@@ -21,9 +21,23 @@ import {
 import {providerProfilesToSelect} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMapper.select";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
+import {isValidTimeZone} from "@coreModule/utilities/time/timeWindows";
 
 const buildCreate = buildCreateDataFromSchemaDef(ProviderProfileSchemaDef);
 const buildUpdate = buildUpdateDataFromSchemaDef(ProviderProfileSchemaDef);
+
+/** The Zod contract can't compare fields, so the zone name and each window are checked here (D105). */
+function assertValidSchedule(data: {timezone?: string; availability?: {startTime?: string; endTime?: string}[]}, languageCode: string): void {
+    const zone = data.timezone?.trim();
+    if (zone && !isValidTimeZone(zone)) {
+        throw apiValidationException("provider_invalid_timezone", "", null, languageCode, [zone]);
+    }
+    for (const window of data.availability ?? []) {
+        if (window.startTime && window.endTime && window.endTime <= window.startTime) {
+            throw apiValidationException("provider_availability_end_before_start", "", null, languageCode);
+        }
+    }
+}
 
 export const basePath = "/api/eCommerceMarketplace/providerProfile";
 export const {router} = createCrudRouter<IProviderProfile, CreateProviderProfileFormType, EditProviderProfileFormType>({
@@ -51,9 +65,13 @@ export const {router} = createCrudRouter<IProviderProfile, CreateProviderProfile
         if (await providerProfileService.findOne({user, company: company._id}, {session, logger, languageCode}, null, "_id")) {
             throw apiValidationException("provider_profile_already_exists", null, null, languageCode);
         }
+        assertValidSchedule(params, languageCode);
         return {...buildCreate(params), user};
     },
-    buildUpdateData: buildUpdate,
+    buildUpdateData: (params, writeFields) => {
+        assertValidSchedule(params, params.languageCode);
+        return buildUpdate(params, writeFields);
+    },
     enrichSingle: async (doc, params) => {
         const metrics = await loadProviderProfileMetrics(doc.user._id, params.company._id, params);
         return providerProfileToDTO(doc, metrics);

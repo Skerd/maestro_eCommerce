@@ -10,6 +10,8 @@ export type ProviderProfileSeed = {
     bio: string;
     skills: string[];
     availability?: {dayOfWeek: number; startTime: string; endTime: string}[];
+    /** IANA zone of `availability`; omitted uses the company's zone (D105). */
+    timezone?: string;
 };
 
 const weekdayBusinessHours = [
@@ -35,6 +37,7 @@ export const defaultProviderProfileSeeds: readonly ProviderProfileSeed[] = [
             "Product Photography",
         ],
         availability: weekdayBusinessHours,
+        timezone: "Europe/Tirane",
     },
 ];
 
@@ -78,6 +81,7 @@ export async function createProviderProfiles(
                 bio: seed.bio,
                 skills: seed.skills,
                 availability: seed.availability ?? [],
+                ...(seed.timezone && {timezone: seed.timezone}),
                 createdBy: user._id,
             };
 

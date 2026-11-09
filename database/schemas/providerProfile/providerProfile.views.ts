@@ -1,5 +1,6 @@
 import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/viewConfig";
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
+import {PROVIDER_PROFILE_TIMEZONE_MAX} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
 
 const weekdayOptions = [
     {value: "0", label: "weekday.0"},
@@ -75,6 +76,16 @@ export const providerProfileSheetView: ViewConfig = {
                                 label: "completionRate",
                                 skipReadAccessGate: true,
                                 widgetProps: {icon: "#CheckCircle", format: "locale"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "timezone"},
+                            field: {
+                                name: "timezone",
+                                widget: "#DisplayCard",
+                                label: "timezone",
+                                widgetProps: {icon: "#Globe"},
                             },
                         },
                     ],
@@ -232,6 +243,17 @@ const providerProfileFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 removeTooltipKey: "form.skillsRemoveTooltip",
                             },
+                        },
+                    },
+                    {
+                        // The availability windows below are in this zone; empty uses the company's (D105).
+                        render: "#Field",
+                        field: {
+                            name: "timezone",
+                            widget: "#Input",
+                            label: "form.timezoneLabel",
+                            placeholder: "form.timezonePlaceholder",
+                            widgetProps: {maxLength: PROVIDER_PROFILE_TIMEZONE_MAX},
                         },
                     },
                 ],

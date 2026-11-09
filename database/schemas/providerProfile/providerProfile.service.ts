@@ -8,6 +8,8 @@ import { ObjectId } from "mongodb";
 import {BaseCrudService, CrudOptions} from "@coreModule/database/services/baseCrudService";
 import ProviderProfile, {IProviderProfile} from "./providerProfile";
 
+export type ProviderProfileSchedule = Pick<IProviderProfile, "availability" | "timezone">;
+
 export class ProviderProfileService extends BaseCrudService<IProviderProfile, typeof ProviderProfile> {
     constructor() {
         super(ProviderProfile, "ProviderProfile");
@@ -29,6 +31,19 @@ export class ProviderProfileService extends BaseCrudService<IProviderProfile, ty
         ).noDeleted();
         if (!profile?.stripeAccountId || !profile.stripePayoutsEnabled) return undefined;
         return profile.stripeAccountId;
+    }
+
+    /** The provider's availability windows and their zone as stored; null when the provider has no profile. */
+    async getSchedule(
+        providerUserId: ObjectId | string,
+        companyId: ObjectId,
+        opts: CrudOptions,
+    ): Promise<ProviderProfileSchedule | null> {
+        return ProviderProfile.findOne(
+            {user: new ObjectId(providerUserId.toString()), company: companyId},
+            {availability: 1, timezone: 1},
+            {session: opts.session},
+        ).noDeleted().lean<ProviderProfileSchedule>();
     }
 }
 

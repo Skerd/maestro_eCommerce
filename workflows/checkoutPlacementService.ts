@@ -5,9 +5,10 @@ import {mongooseInstance} from "@coreModule/connections/connectToMongoDb";
 import {flushAfterCommitTasks} from "@coreModule/utilities/middlewares/transactionUtils";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {userService} from "@coreModule/database/schemas/user/user.service";
+import {stateService} from "@coreModule/database/schemas/state/state.service";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
-import type {ICheckout} from "@eCommerceModule/database/schemas/checkout/checkout";
+import type {ICheckout, ICheckoutAddress} from "@eCommerceModule/database/schemas/checkout/checkout";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -32,6 +33,7 @@ import {
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
 import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {countryStateOfRow, sellerOwnCountryId} from "@eCommerceModule/utilities/services/zoneState";
 import {
     notifyMerchantsNewOrder,
     notifyProductOrderCustomer,
@@ -130,6 +132,28 @@ async function sellerCurrencyId(
     if (!currency?.abbreviation || (currency.company && idOf(currency.company).equals(sellerCompanyId))) return checkoutCurrencyId;
     const own = await currencyService.findOne({company: sellerCompanyId, abbreviation: currency.abbreviation}, {session: ctx.session}, undefined, "_id");
     return own?._id ?? checkoutCurrencyId;
+}
+
+/**
+ * The checkout address as the seller's order keeps it (D107): the country is the seller's own row with the same code,
+ * and a state given as a row id the name of the seller's state of that country with the same name or code (the shared
+ * tax and shipping mappers); a text state stays as given. A portal address names the platform's rows, which a seller's
+ * records may not reference (D104). Without a seller row the order keeps the text: no country, and the given state
+ * row's name, so it stays placeable.
+ */
+async function sellerOrderAddress(address: ICheckoutAddress, sellerCompanyId: ObjectId, ctx: PlacementCtx) {
+    const {firstName, lastName, phone, street, city, postalCode} = address;
+    const country = address.country ? await sellerOwnCountryId(idOf(address.country), sellerCompanyId, ctx.session) : undefined;
+    return {firstName, lastName, phone, street, city, postalCode, country, state: await sellerOrderState(address.state, country, ctx)};
+}
+
+async function sellerOrderState(state: string | undefined, sellerCountry: ObjectId | undefined, ctx: PlacementCtx): Promise<string | undefined> {
+    const value = state?.trim();
+    if (!value || !ObjectId.isValid(value) || new ObjectId(value).toString() !== value) return value || undefined;
+    const stateId = new ObjectId(value);
+    const own = sellerCountry ? await countryStateOfRow(sellerCountry, stateId, ctx.session) : undefined;
+    // `state` is text on the order, so the seller's panel shows the name of its own row (else the given row's)
+    return (await stateService.findOne({_id: own ? new ObjectId(own) : stateId}, {session: ctx.session}, undefined, "name"))?.name;
 }
 
 /**
@@ -387,6 +411,8 @@ export async function placeOrderFromCheckout(
         const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx, sellerCompanyId);
         const orderCurrency = await sellerCurrencyId(currency, idOf(checkout.currency), sellerCompanyId, ctx);
         const orderNumber = await generateOrderNumber(sellerCompanyId);
+        const shippingAddress = await sellerOrderAddress(checkout.shippingAddress, sellerCompanyId, ctx);
+        const billingAddress = checkout.billingAddress ? await sellerOrderAddress(checkout.billingAddress, sellerCompanyId, ctx) : shippingAddress;
         const subtotal = group?.subtotal ?? lines.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
         const shippingTotal = multiSeller ? (group?.shippingTotal ?? 0) : checkout.shippingTotal;
         const taxTotal = multiSeller ? (group?.taxTotal ?? 0) : checkout.taxTotal;
@@ -428,8 +454,8 @@ export async function placeOrderFromCheckout(
             })),
             currency: orderCurrency,
             currencyCode: currency?.abbreviation,
-            shippingAddress: checkout.shippingAddress,
-            billingAddress: checkout.billingAddress ?? checkout.shippingAddress,
+            shippingAddress,
+            billingAddress,
             shippingRate: group?.selectedShippingRate ?? checkout.selectedShippingRate,
             appliedDiscounts: multiSeller ? [] : (checkout.appliedDiscounts ?? []),
             taxBreakdown: multiSeller ? [] : (checkout.taxBreakdown ?? []),

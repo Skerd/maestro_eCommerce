@@ -20,6 +20,7 @@ import {bookingToDTO, bookingsToDTOArray} from "@eCommerceModule/utilities/mappe
 import {bookingsToSelect} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.select";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {asPortalBuyer, assertOwnerOrAdmin, isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {isWithinProviderAvailability, loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
 
 function assertValidBookingRange(startAt: Date, endAt: Date, languageCode: string): void {
     if (endAt <= startAt) {
@@ -27,7 +28,10 @@ function assertValidBookingRange(startAt: Date, endAt: Date, languageCode: strin
     }
 }
 
-/** A party books an active order once; the provider is taken from the order. */
+/**
+ * A party books an active order once, inside the provider's weekly availability (D105); the provider is taken from
+ * the order. The panel PUT and the buyer's `createMine` both run this.
+ */
 async function buildBookingCreate({order: orderRef, startAt, endAt, timezone, actionUserCtx, company, session, logger, languageCode}: CrudCreateParams<CreateBookingFormType>) {
     const opts = {session, logger, languageCode};
     const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
@@ -45,6 +49,10 @@ async function buildBookingCreate({order: orderRef, startAt, endAt, timezone, ac
     const startDate = new Date(startAt);
     const endDate = new Date(endAt);
     assertValidBookingRange(startDate, endDate, languageCode);
+    const availability = await loadProviderAvailability(order.provider._id, company._id, opts);
+    if (!isWithinProviderAvailability(availability, startDate, endDate)) {
+        throw apiValidationException("booking_outside_provider_availability", "", null, languageCode, [availability.timeZone]);
+    }
 
     return {
         order: order._id,

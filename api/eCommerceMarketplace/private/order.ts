@@ -39,6 +39,8 @@ import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMile
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {escrowTransactionService} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction.service";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
@@ -247,8 +249,9 @@ router.post(
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
         const orderCompanyId = order.company._id;
+        const providerId = nestedEntityToRef(order.provider);
         const scope = {order: order._id, company: orderCompanyId};
-        const [toBuyerDTO, deliveries, milestones, revisions, bookings, unpaidHold] = await Promise.all([
+        const [toBuyerDTO, deliveries, milestones, revisions, bookings, unpaidHold, providerAvailability] = await Promise.all([
             buyerOrderFlags([order._id], orderCompanyId, opts),
             orderDeliveryService.find(scope, opts, ["attachments"], undefined, {createdAt: -1}),
             orderMilestoneService.find(scope, opts, ["currency"], undefined, {orderIndex: 1}),
@@ -261,6 +264,8 @@ router.post(
                 stripeClientSecret: {$exists: true, $ne: ""},
                 gatewayStatus: {$in: ["pending", "ledger_only"]},
             }, {}, undefined, "stripeClientSecret"),
+            // The booking form shows when the session can be (D105); a provider whose user is gone has none to show
+            providerId ? loadProviderAvailability(providerId, orderCompanyId, opts) : undefined,
         ]);
 
         const escrowClientSecret = (unpaidHold as {stripeClientSecret?: string} | null)?.stripeClientSecret;
@@ -273,6 +278,7 @@ router.post(
                 milestones: orderMilestonesToDTO(milestones),
                 revisions: orderRevisionsToDTO(revisions),
                 bookings: bookingsToDTOArray(bookings),
+                ...(providerAvailability && {providerAvailability}),
             },
         };
     })),

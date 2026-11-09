@@ -188,10 +188,11 @@ router.post(
         };
         if (!isPortalZoneOrigin(origin)) filter.company = company._id;
 
+        // The address country is the seller's own row (D107); the storefront shows its name
         const order = await productOrderService.findOne(
             filter,
             {withDeleted: false, logger, languageCode},
-            ["items.product", "items.variant"],
+            ["items.product", "items.variant", "shippingAddress.country", "billingAddress.country"],
         );
 
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);

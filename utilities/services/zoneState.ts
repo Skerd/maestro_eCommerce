@@ -19,15 +19,23 @@ export async function resolveZoneState(countryId: ObjectId, state: string | unde
         return (await stateNamed(countryId, value, session)) ?? value;
     }
 
-    const stateId = new ObjectId(value);
-    if (await stateService.exists({_id: stateId, country: countryId}, {session})) return value;
+    return (await countryStateOfRow(countryId, new ObjectId(value), session)) ?? value;
+}
+
+/**
+ * `countryId`'s state for the state row `stateId`: that row when it is a state of `countryId`, else the country's
+ * state with the same name or code (a portal address names the platform's rows, a seller works with its own); else
+ * undefined. A seller's order stores it too (D107).
+ */
+export async function countryStateOfRow(countryId: ObjectId, stateId: ObjectId, session?: ClientSession): Promise<string | undefined> {
+    if (await stateService.exists({_id: stateId, country: countryId}, {session})) return String(stateId);
     // Another company's row is out of a tenant's reach, so this only maps inside the portal marketplace (D16)
     const given = await stateService.findOne({_id: stateId}, {session}, undefined, "name code");
-    if (!given) return value;
+    if (!given) return undefined;
     const byName = await stateNamed(countryId, given.name, session);
     if (byName) return byName;
     const byCode = given.code ? await stateService.findOne({country: countryId, code: given.code}, {session}, undefined, "_id") : null;
-    return byCode ? String(byCode._id) : value;
+    return byCode ? String(byCode._id) : undefined;
 }
 
 /** The id of `countryId`'s state called `name` (any case). */
@@ -48,9 +56,14 @@ async function stateNamed(countryId: ObjectId, name: string, session?: ClientSes
  * tenant's reach).
  */
 export async function sellerCountryId(countryId: ObjectId, companyId: ObjectId, session?: ClientSession): Promise<ObjectId> {
+    return (await sellerOwnCountryId(countryId, companyId, session)) ?? countryId;
+}
+
+/** The seller's own country row for `countryId` (itself, or the seller's row with its code); undefined when it has none. */
+export async function sellerOwnCountryId(countryId: ObjectId, companyId: ObjectId, session?: ClientSession): Promise<ObjectId | undefined> {
     if (await countryService.exists({_id: countryId, company: companyId}, {session})) return countryId;
     const given = await countryService.findOne({_id: countryId}, {session}, undefined, "code");
-    if (!given?.code) return countryId;
+    if (!given?.code) return undefined;
     const own = await countryService.findOne({company: companyId, code: given.code}, {session}, undefined, "_id");
-    return own?._id ?? countryId;
+    return own?._id;
 }

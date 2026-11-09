@@ -129,7 +129,12 @@ describe("portal marketplace purchase (D16)", () => {
     });
 
     /** Rings up both sellers' products on the apex and confirms cash on delivery; the confirm response. */
-    async function buyFromBothSellers(mug: {_id: ObjectId}, book: {_id: ObjectId}, idempotencyKey: string) {
+    async function buyFromBothSellers(
+        mug: {_id: ObjectId},
+        book: {_id: ObjectId},
+        idempotencyKey: string,
+        addresses: Record<string, unknown> = {shippingAddress: {...address, country: platformAlbania.toString()}},
+    ) {
         for (const product of [mug, book]) {
             const added = await call("put", "/api/eCommerce/cart/item", {productId: product._id.toString(), quantity: 2});
             expect([added.status, added.body.error_code]).toEqual([200, undefined]);
@@ -138,7 +143,7 @@ describe("portal marketplace purchase (D16)", () => {
         expect([init.status, init.body.error_code]).toEqual([200, undefined]);
         const checkoutId: string = init.body.data._id;
         for (const [path, body] of [
-            ["/api/eCommerce/checkout/address", {checkoutId, shippingAddress: {...address, country: platformAlbania.toString()}}],
+            ["/api/eCommerce/checkout/address", {checkoutId, ...addresses}],
             ["/api/eCommerce/checkout/shipping", {checkoutId, rateIndex: 0}],
             ["/api/eCommerce/checkout/payment", {checkoutId, paymentMethod: "cod"}],
         ] as const) {
@@ -175,6 +180,63 @@ describe("portal marketplace purchase (D16)", () => {
 
         expect(rated.body.data.availableShippingRates.map((rate: {name: string; price: number}) => [rate.name, rate.price])).toEqual([["Courier", 5]]);
         expect([shipped.status, shipped.body.data.shippingTotal, shipped.body.data.taxTotal, shipped.body.data.grandTotal]).toEqual([200, 5, 8, 53]);
+    });
+
+    /** Each company's own Tirana state (code TR) of its Albania row, named after the company: "Tirana (Alpha)". */
+    async function seedTirana(...companies: [ObjectId, string][]) {
+        return asCrossTenant("test setup", async () => {
+            const ids: Record<string, ObjectId> = {};
+            for (const [company, name] of companies) {
+                const albania = (await Country.findOne({company}))!._id;
+                ids[company.toString()] = (await State.collection.insertOne({name: `Tirana (${name})`, code: "TR", country: albania, company})).insertedId;
+            }
+            return ids;
+        });
+    }
+
+    // D107 (TD-B110): each seller's order stores its own country row and its own state's name (matched here by code)
+    // for the buyer's portal address, so the write passes the D104 reference check without an opt-out for the address.
+    it("stores each seller's own country row and state name on its order's addresses", async () => {
+        const mug = await seedSeller(sellerA, "Alpha", 10, 5, 10);
+        const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
+        const tirana = await seedTirana([platform, "Platform"], [sellerA, "Alpha"], [sellerB, "Beta"]);
+        const country = platformAlbania.toString();
+
+        await buyFromBothSellers(mug, book, "apex-checkout-8", {
+            shippingAddress: {...address, country, state: tirana[platform.toString()].toString()},
+            billingAddress: {...address, street: "Rruga 2", country, state: "Durrës"},
+        });
+
+        const orders = await asCrossTenant("test assertions", () => ProductOrder.find({}).sort({grandTotal: 1}));
+        const albaniaOf = async (company: ObjectId) => String((await asCrossTenant("test assertions", () => Country.findOne({company})))!._id);
+        expect(orders.map(order => [
+            String(order.shippingAddress.country), order.shippingAddress.state, String(order.billingAddress?.country), order.billingAddress?.state,
+        ])).toEqual([
+            [await albaniaOf(sellerA), "Tirana (Alpha)", await albaniaOf(sellerA), "Durrës"],
+            [await albaniaOf(sellerB), "Tirana (Beta)", await albaniaOf(sellerB), "Durrës"],
+        ]);
+    });
+
+    // D107: a seller without its own row for the country still gets the order; it keeps the address text, and the
+    // buyer's order detail on the apex shows the address with the seller's country.
+    it("places a seller's order without a country row of its own and shows the buyer the address", async () => {
+        const mug = await seedSeller(sellerA, "Alpha", 10, 5);
+        const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
+        const tirana = await seedTirana([platform, "Platform"], [sellerB, "Beta"]);
+
+        await buyFromBothSellers(mug, book, "apex-checkout-9", {
+            shippingAddress: {...address, postalCode: "1001", country: platformAlbania.toString(), state: tirana[platform.toString()].toString()},
+        });
+
+        const [noRow] = await asCrossTenant("test assertions", () => ProductOrder.find({company: sellerA}));
+        expect([noRow.shippingAddress.country, noRow.shippingAddress.state, noRow.shippingAddress.street]).toEqual([undefined, "Tirana (Platform)", "Rruga 1"]);
+        const mine = await call("post", "/api/eCommerce/productOrder/my", {page: 1, limit: 10});
+        const sellerBOrder = mine.body.data.find((order: {subtotal: number}) => order.subtotal === 40);
+        const single = await call("post", "/api/eCommerce/productOrder/mySingle", {_id: sellerBOrder._id});
+        const shown = single.body.data.shippingAddress;
+        expect([single.status, shown.street, shown.postalCode, shown.city, shown.country?.name, shown.state]).toEqual(
+            [200, "Rruga 1", "1001", "Tirane", "Albania", "Tirana (Beta)"],
+        );
     });
 
     // TD-B87: the buyer's account pages on the apex list their orders from every seller, and only theirs.

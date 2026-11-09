@@ -11,17 +11,14 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields} from "@coreModule/database/types/plugin-fields";
 import { addModelData } from "@coreModule/database/collections";
 import { validateSchemaDefAgainstMongoose } from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
-import { ProviderProfileSchemaDef } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
+import { PROVIDER_PROFILE_TIMEZONE_MAX, ProviderProfileSchemaDef } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.schema-def";
+import type { WeeklyHoursSlot } from "armonia/src/modules/core/helpers/weeklyHours.schema-def";
 import { MediaSimpleSnippet } from "@coreModule/database/schemas/media/media.snippets";
 import { SimpleUserSnippet } from "@coreModule/database/schemas/user/user.snippets";
 import { applyProviderProfileIndexes } from "./providerProfile.indexes";
 import { providerProfileViews } from "./providerProfile.views";
 
-export type IProviderAvailabilitySlot = {
-    dayOfWeek: number;
-    startTime: string;
-    endTime: string;
-};
+export type IProviderAvailabilitySlot = WeeklyHoursSlot;
 
 export interface IProviderProfile extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     user: IUser;
@@ -29,8 +26,10 @@ export interface IProviderProfile extends Document, IOwnershipPluginFields, ISof
     skills?: string[];
     bio?: string;
     portfolio?: IMedia[];
-    /** Weekly recurring availability windows. */
+    /** Weekly windows a booking must fall inside (D105), in `timezone`; empty means no restriction. */
     availability?: IProviderAvailabilitySlot[];
+    /** IANA zone of `availability`; unset means the company's zone (`companyTimeZone`, D91). */
+    timezone?: string;
     /** Stripe Connect Express account (payouts destination). System-managed via providerProfile actions. */
     stripeAccountId?: string;
     stripeChargesEnabled?: boolean;
@@ -91,6 +90,11 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
             ],
             default: [],
         } as any,
+        timezone: {
+            type: SchemaTypes.String,
+            trim: true,
+            maxlength: PROVIDER_PROFILE_TIMEZONE_MAX,
+        },
         stripeAccountId: {type: SchemaTypes.String, trim: true, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
         stripeChargesEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
         stripePayoutsEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
