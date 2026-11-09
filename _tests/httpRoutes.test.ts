@@ -34,7 +34,8 @@ import CustomerGroup from "@eCommerceModule/database/schemas/customerGroup/custo
 import CustomerGroupMember from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
-import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
+import Currency from "@coreModule/database/schemas/currency/currency";
+import {asCrossTenant, withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 
 const companyId = new ObjectId();
 /** The tests act on this company's data, as its requests and jobs do (D16). */
@@ -190,6 +191,30 @@ describe("PATCH writes (E-14)", {timeout: 30000}, () => {
 
         const response = await request(app).patch("/api/eCommerce/warehouse").set(callerHeader(admin)).send({_id: other._id.toString(), name: other.name, code: "MAIN"});
         expect([response.status, response.body.error_code]).toEqual([400, "warehouse_already_exists"]);
+    }));
+});
+
+describe("references stay inside the company (D104, TD-B89)", {timeout: 30000}, () => {
+    const seedCurrency = (company: ObjectId) => asCrossTenant("test fixture", () =>
+        Currency.create({name: "Euro", abbreviation: "EUR", symbol: "€", decimalPlaces: 2, company} as any));
+
+    it("refuses a product create or edit naming another company's currency and accepts its own", () => asCompany(async () => {
+        const own = await seedCurrency(companyId);
+        const foreign = await seedCurrency(new ObjectId());
+        const product = {title: "Ref check", slug: "ref-check", type: "physical", status: "active", price: 10};
+
+        const foreignCreate = await request(app).put("/api/eCommerce/product").set(callerHeader(admin)).send({...product, currency: foreign._id.toString()});
+        expect([foreignCreate.status, foreignCreate.body.error_code]).toEqual([403, "reference_outside_tenant"]);
+        expect(await Product.countDocuments({slug: "ref-check"})).toBe(0);
+
+        const ownCreate = await request(app).put("/api/eCommerce/product").set(callerHeader(admin)).send({...product, currency: own._id.toString()});
+        expect(ownCreate.status).toBe(200);
+        const created = await Product.findOne({slug: "ref-check"});
+        expect(created!.get("currency")!.toString()).toBe(own._id.toString());
+
+        const foreignEdit = await request(app).patch("/api/eCommerce/product").set(callerHeader(admin)).send({_id: created!._id.toString(), title: product.title, type: "physical", currency: foreign._id.toString()});
+        expect([foreignEdit.status, foreignEdit.body.error_code]).toEqual([403, "reference_outside_tenant"]);
+        expect((await Product.findById(created!._id))!.get("currency")!.toString()).toBe(own._id.toString());
     }));
 });
 

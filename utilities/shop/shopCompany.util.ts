@@ -1,7 +1,8 @@
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {resolveCompanyByOrigin, resolveSignupCompany} from "@coreModule/utilities/marketing/resolveCompanyByOrigin";
 import {isPortalApexOrigin, isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import {asCrossTenant, setRequestTenant} from "@coreModule/utilities/endpoints/tenantScope";
+import {allowForeignReferences, asCrossTenant, setRequestTenant} from "@coreModule/utilities/endpoints/tenantScope";
+import type {ForeignReferenceAllowance} from "@coreModule/database/plugins/tenantReferences";
 
 /**
  * Resolves the storefront tenant company from the request origin (public shop
@@ -54,8 +55,33 @@ export function inShopCatalog<T>(ctx: ShopContext, view: () => Promise<T>): Prom
  * `marketplace` is `isPortalPurchase(origin)` for a request, or `spansSellers(checkout)` for work after it.
  */
 export function inPortalMarketplace<T>(marketplace: boolean, work: () => Promise<T>): Promise<T> {
-    return marketplace ? asCrossTenant("a portal marketplace purchase buys from every listed seller", work) : work();
+    return marketplace
+        ? asCrossTenant("a portal marketplace purchase buys from every listed seller", () => allowForeignReferences(PORTAL_MARKETPLACE_REFERENCES, work))
+        : work();
 }
+
+/**
+ * The references a portal marketplace purchase stores across companies (D104): the platform's cart and checkout name
+ * each seller's products, stock and currency, and a seller's order keeps the buyer's portal address. Every other
+ * reference must still point inside its record's company.
+ */
+const PORTAL_MARKETPLACE_REFERENCES: ForeignReferenceAllowance = {
+    reason: "a portal marketplace purchase: the platform's cart and checkout list every seller's products",
+    fields: [
+        "Cart.items.product",
+        "Cart.items.variant",
+        "Checkout.items.product",
+        "Checkout.items.variant",
+        "Checkout.reservations.product",
+        "Checkout.reservations.variant",
+        "Checkout.reservations.warehouse",
+        // The checkout is priced in its first line's seller's currency row (TD-B85).
+        "Checkout.currency",
+        // A seller's order keeps the buyer's portal address as given, naming the platform's country row (TD-B88).
+        "ProductOrder.shippingAddress.country",
+        "ProductOrder.billingAddress.country",
+    ],
+};
 
 /** A request's cart or checkout is a portal marketplace purchase: it comes from the portal zone. */
 export function isPortalPurchase(origin: string | undefined): boolean {

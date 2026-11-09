@@ -278,7 +278,7 @@ const CheckoutSchema = new Schema<ICheckout>(
                 },
             },
         },
-        idempotencyKey: {type: SchemaTypes.String, required: true, unique: true},
+        idempotencyKey: {type: SchemaTypes.String, required: true},
         expiresAt: {type: SchemaTypes.Date, required: true},
     },
     {accessMode: "loose", timestamps: true},

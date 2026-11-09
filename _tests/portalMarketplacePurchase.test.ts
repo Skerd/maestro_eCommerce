@@ -37,10 +37,12 @@ import ListingPackage from "@eCommerceModule/database/schemas/listingPackage/lis
 import Order from "@eCommerceModule/database/schemas/order/order";
 import Review from "@eCommerceModule/database/schemas/review/review";
 import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
+import Booking from "@eCommerceModule/database/schemas/booking/booking";
 import DigitalDelivery from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery";
 import State from "@coreModule/database/schemas/state/state";
 import * as reviewRoute from "@eCommerceModule/api/eCommerceMarketplace/private/review";
 import * as disputeRoute from "@eCommerceModule/api/eCommerceMarketplace/private/dispute";
+import * as bookingRoute from "@eCommerceModule/api/eCommerceMarketplace/private/booking";
 import * as digitalDeliveryRoute from "@eCommerceModule/api/eCommerce/private/digitalDelivery";
 import * as taskRequestRoute from "@eCommerceModule/api/eCommerceMarketplace/private/taskRequest";
 import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
@@ -59,6 +61,7 @@ const app = appFor([
     {...serviceOrderRoute, module: "eCommerce"},
     {...reviewRoute, module: "eCommerce"},
     {...disputeRoute, module: "eCommerce"},
+    {...bookingRoute, module: "eCommerce"},
     {...digitalDeliveryRoute, module: "eCommerce"},
     {...taskRequestRoute, module: "eCommerce"},
 ]);
@@ -329,6 +332,39 @@ describe("portal marketplace purchase (D16)", () => {
             expect(String((await Review.findOne({order: completed}))!.company)).toBe(sellerA.toString());
             expect(String((await Dispute.findOne({order: active}))!.company)).toBe(sellerA.toString());
         });
+    });
+
+    // TD-B94: the buyer books a session on their own services order of another seller, from the apex.
+    it("lets the buyer book on their own active services order of another seller from the apex", async () => {
+        await seedSeller(sellerA, "Alpha", 10, 5);
+        const accepted = await seedServiceOrder("accepted");
+        const slot = {startAt: "2026-12-01T09:00:00.000Z", endAt: "2026-12-01T10:00:00.000Z", timezone: "Europe/Tirane"};
+
+        const booked = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: accepted.toString(), ...slot});
+
+        expect([booked.status, booked.body.error_code]).toEqual([200, undefined]);
+        const booking = (await asCrossTenant("test assertions", () => Booking.findOne({order: accepted})))!;
+        const order = (await storedOrder(accepted))!;
+        expect([String(booking.company), String(booking.provider), booking.startAt.toISOString(), booking.timezone])
+            .toEqual([sellerA.toString(), String(order.provider), slot.startAt, "Europe/Tirane"]);
+    });
+
+    it("refuses a booking on another buyer's order, on an order not yet accepted, and for an invalid slot", async () => {
+        await seedSeller(sellerA, "Alpha", 10, 5);
+        const accepted = await seedServiceOrder("accepted");
+        const pending = await seedServiceOrder("pending");
+        const slot = {startAt: "2026-12-01T09:00:00.000Z", endAt: "2026-12-01T10:00:00.000Z"};
+        const stranger = callerHeader({userId: new ObjectId().toString(), companyId: platform.toString()});
+
+        const notMine = await request(app).put("/api/eCommerceMarketplace/booking/createMine")
+            .set({...stranger, Origin: apex}).send({order: accepted.toString(), ...slot});
+        const notActive = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: pending.toString(), ...slot});
+        const backwards = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: accepted.toString(), startAt: slot.endAt, endAt: slot.startAt});
+
+        expect([notMine.status, notMine.body.error_code]).toEqual([400, "order_not_found"]);
+        expect([notActive.status, notActive.body.error_code]).toEqual([400, "booking_order_not_active"]);
+        expect(backwards.status).toBe(400);
+        expect(await asCrossTenant("test assertions", () => Booking.countDocuments({}))).toBe(0);
     });
 
     it("keeps seller-side actions and other buyers' orders inside the request's company", async () => {

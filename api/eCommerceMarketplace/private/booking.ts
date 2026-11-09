@@ -1,5 +1,10 @@
 import {ObjectId} from "mongodb";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, type CrudCreateParams} from "@coreModule/api/crudRouterFactory";
+import authMW from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createBookingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/booking/createBooking.form.validator";
@@ -14,12 +19,40 @@ import {orderService} from "@eCommerceModule/database/schemas/order/order.servic
 import {bookingToDTO, bookingsToDTOArray} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.dto";
 import {bookingsToSelect} from "@eCommerceModule/utilities/mappers/booking/bookingMapper.select";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
-import {assertOwnerOrAdmin, isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {asPortalBuyer, assertOwnerOrAdmin, isOrderParty, orderChildFilter} from "@eCommerceModule/utilities/services/marketplaceAccess";
 
 function assertValidBookingRange(startAt: Date, endAt: Date, languageCode: string): void {
     if (endAt <= startAt) {
         throw apiValidationException("invalid_booking_times", null, null, languageCode);
     }
+}
+
+/** A party books an active order once; the provider is taken from the order. */
+async function buildBookingCreate({order: orderRef, startAt, endAt, timezone, actionUserCtx, company, session, logger, languageCode}: CrudCreateParams<CreateBookingFormType>) {
+    const opts = {session, logger, languageCode};
+    const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
+
+    if (!isOrderParty(order, actionUserCtx.userId, "customer") && !isOrderParty(order, actionUserCtx.userId, "provider")) {
+        throw apiValidationException("only_order_parties_can_create_booking", null, null, languageCode);
+    }
+    if (order.status !== "accepted" && order.status !== "in_progress") {
+        throw apiValidationException("booking_order_not_active", null, null, languageCode);
+    }
+    if (await bookingService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
+        throw apiValidationException("order_already_has_booking", null, null, languageCode);
+    }
+
+    const startDate = new Date(startAt);
+    const endDate = new Date(endAt);
+    assertValidBookingRange(startDate, endDate, languageCode);
+
+    return {
+        order: order._id,
+        provider: order.provider._id,
+        startAt: startDate,
+        endAt: endDate,
+        timezone: timezone?.trim() || "UTC",
+    };
 }
 
 export const basePath = "/api/eCommerceMarketplace/booking";
@@ -41,33 +74,7 @@ export const {router} = createCrudRouter<IBooking, CreateBookingFormType, EditBo
         $and: [await orderChildFilter(company._id, actionUserCtx, {logger, languageCode})],
     }),
     extraSelectFilter: ({company, actionUserCtx, logger, languageCode}) => orderChildFilter(company._id, actionUserCtx, {logger, languageCode}),
-    /** A party books an active order once; the provider is taken from the order. */
-    buildCreateData: async ({order: orderRef, startAt, endAt, timezone, actionUserCtx, company, session, logger, languageCode}) => {
-        const opts = {session, logger, languageCode};
-        const order = await orderService.findOneOrThrow({_id: new ObjectId(orderRef), company: company._id}, opts);
-
-        if (!isOrderParty(order, actionUserCtx.userId, "customer") && !isOrderParty(order, actionUserCtx.userId, "provider")) {
-            throw apiValidationException("only_order_parties_can_create_booking", null, null, languageCode);
-        }
-        if (order.status !== "accepted" && order.status !== "in_progress") {
-            throw apiValidationException("booking_order_not_active", null, null, languageCode);
-        }
-        if (await bookingService.findOne({order: order._id, company: company._id}, opts, null, "_id")) {
-            throw apiValidationException("order_already_has_booking", null, null, languageCode);
-        }
-
-        const startDate = new Date(startAt);
-        const endDate = new Date(endAt);
-        assertValidBookingRange(startDate, endDate, languageCode);
-
-        return {
-            order: order._id,
-            provider: order.provider._id,
-            startAt: startDate,
-            endAt: endDate,
-            timezone: timezone?.trim() || "UTC",
-        };
-    },
+    buildCreateData: buildBookingCreate,
     /** Only the provider (or an admin) reschedules. */
     buildUpdateData: ({startAt, endAt, timezone, actionUserCtx, languageCode, existing}, writeFields) => {
         assertOwnerOrAdmin(existing.provider, actionUserCtx, languageCode);
@@ -95,3 +102,21 @@ export const {router} = createCrudRouter<IBooking, CreateBookingFormType, EditBo
     },
     rateLimits: {read: 60, write: 30, delete: 20},
 });
+
+/** Buyer self-service create (storefront account): the same rules as PUT, without the model permission. */
+router.put(
+    "/createMine",
+    authMW("private"),
+    rateLimiter({windowMs: 60000, max: 30}),
+    transactionHandler(),
+    validateFormZod(createBookingFormSchema),
+    // A buyer's own order bought on the portal is its seller's (D16)
+    asyncHandler(async (request: CrudCreateParams<CreateBookingFormType>) => asPortalBuyer(request, async () => request.order, async (params) => {
+        const {company, actionUserCtx, session, logger, languageCode} = params;
+        const created = await bookingService.create(
+            {...await buildBookingCreate(params), company: company._id},
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        return {data: {_id: created._id.toString()}};
+    })),
+);
