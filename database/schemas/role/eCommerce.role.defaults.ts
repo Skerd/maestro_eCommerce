@@ -26,6 +26,8 @@ const marketplaceOwn = [...marketplaceCatalogOwn, ...marketplaceDemandOwn];
 // The stock ledger and buyer-side records are written by the system, so they are only ever read
 const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
 const buyerRead = ["Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
+// Settling a sale CIS may not have registered (D98) stays with the till's supervisors (D99).
+const cisResolutionActions = ["posorders[action:recordFiscalCodes]", "posorders[action:resendFiscal]"];
 
 function unique(values: string[]): string[] {
     return [...new Set(values)];
@@ -37,6 +39,7 @@ function ecomRole(
     description: string,
     permissionGroups: string[],
     readPermissionGroups: string[],
+    excludedPermissions?: string[],
 ): DefaultRoleDefinition {
     return {
         name,
@@ -48,6 +51,7 @@ function ecomRole(
         canDelete: false,
         permissionGroups,
         readPermissionGroups,
+        ...(excludedPermissions ? {excludedPermissions} : {}),
     };
 }
 
@@ -72,6 +76,7 @@ export const eCommerceDefaultRoles: DefaultRoleDefinition[] = [
         "Sells and refunds at the till and runs the till session. Can look up the catalog and stock.",
         tillOwn,
         [...CATALOG_READ, "Inventories", "Warehouses", "Posconfigs", "Pospaymentmethods"],
+        cisResolutionActions,
     ),
     ecomRole(
         "Catalog Editor",
