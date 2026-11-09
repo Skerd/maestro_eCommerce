@@ -13,6 +13,7 @@ import {providerProfileService} from "@eCommerceModule/database/schemas/provider
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
+import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
 import {
     SHOP_LISTING_CARD_FIELDS,
     SHOP_LISTING_CARD_POPULATE,
@@ -55,7 +56,7 @@ router.post(
                 ? ctx.company._id
                 : (listing.company?._id ?? listing.company);
             const providerId = listing.provider._id ?? listing.provider;
-            const [packages, addOns, user, profile, metrics, related, promotions] = await Promise.all([
+            const [packages, addOns, user, profile, metrics, availability, related, promotions] = await Promise.all([
                 listingPackageService.find(
                     {listing: listing._id, company: sellerCompanyId},
                     {withDeleted: false},
@@ -71,8 +72,9 @@ router.post(
                     {"price.amount": 1},
                 ),
                 userService.findById(providerId, {}, undefined, "name surname createdAt"),
-                providerProfileService.findOne({user: providerId, company: sellerCompanyId}, {withDeleted: false}, undefined, "bio skills availability portfolio"),
+                providerProfileService.findOne({user: providerId, company: sellerCompanyId}, {withDeleted: false}, undefined, "bio skills portfolio"),
                 loadProviderProfileMetrics(providerId, sellerCompanyId, opts),
+                loadProviderAvailability(providerId, sellerCompanyId, opts),
                 listing.category
                     ? listingService.find({
                         company: sellerCompanyId,
@@ -84,7 +86,7 @@ router.post(
                 shopPromotionMap(sellerCompanyId, opts),
             ]);
 
-            const provider = user ? toShopProviderProfile(user, profile, metrics) : undefined;
+            const provider = user ? toShopProviderProfile(user, profile, availability, metrics) : undefined;
             return {
                 data: toShopListingDetail(
                     listing,

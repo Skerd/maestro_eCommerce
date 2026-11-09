@@ -210,7 +210,7 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         await ListingAddOn.collection.insertOne({listing, provider: providerId, name: "Express", price: {amount: 20, currency: currencyId}, deliveryDays: 0, company: companyId});
         await ProviderProfile.collection.insertOne({
             user: providerId, company: companyId, bio: "Ten years of walls", skills: ["Interior"],
-            availability: [{dayOfWeek: 1, startTime: "09:00", endTime: "17:00"}],
+            availability: [{dayOfWeek: 1, startTime: "09:00", endTime: "17:00"}], timezone: "Europe/Berlin",
             stripeAccountId: "acct_secret", stripePayoutsEnabled: true,
         });
 
@@ -219,6 +219,11 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         expect(res.body.data.packages).toMatchObject([{name: "Pack 180", price: 180, deliveryDays: 5}]);
         expect(res.body.data.addOns).toMatchObject([{name: "Express", price: 20}]);
         expect(res.body.data.provider).toMatchObject({name: "Pat Painter", bio: "Ten years of walls", skills: ["Interior"]});
+        // TD-F41: the windows carry the zone they are in
+        expect(res.body.data.provider).toMatchObject({
+            availability: [{dayOfWeek: 1, startTime: "09:00", endTime: "17:00"}],
+            availabilityTimeZone: "Europe/Berlin",
+        });
         expect(JSON.stringify(res.body)).not.toMatch(/acct_secret|stripe|pat@provider/);
 
         await Listing.collection.updateOne({_id: listing}, {$set: {status: "inactive"}});
@@ -234,6 +239,8 @@ describe("public marketplace catalog", {timeout: 30000}, () => {
         const page = await post("/api/eCommerceMarketplace/shopProvider", {id: providerId.toString()});
         expect(page.status).toBe(200);
         expect(page.body.data.provider.name).toBe("Pat Painter");
+        // No profile, no windows: no zone to show either
+        expect(page.body.data.provider.availabilityTimeZone).toBeUndefined();
         expect(page.body.data.listings).toHaveLength(1);
 
         const reviews = await post("/api/eCommerceMarketplace/shopMarketplaceReviews", {providerId: customerId.toString()});

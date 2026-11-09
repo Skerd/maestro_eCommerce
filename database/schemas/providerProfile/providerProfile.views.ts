@@ -311,7 +311,8 @@ const providerProfileFormNodes: ViewConfig["nodes"] = [
                                     label: "form.endTimeLabel",
                                     placeholder: "form.endTimePlaceholder",
                                     required: true,
-                                    widgetProps: {valueFormat: "HH:mm", timeOnly: true},
+                                    // 24:00 ends a window at midnight (WeeklyHoursSlotDef).
+                                    widgetProps: {valueFormat: "HH:mm", timeOnly: true, allowEndOfDay: true},
                                 },
                             },
                         ],

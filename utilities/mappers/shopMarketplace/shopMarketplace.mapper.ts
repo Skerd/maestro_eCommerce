@@ -12,6 +12,7 @@ import type {
     ShopProviderSummary,
     ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.types";
+import type {ProviderAvailability} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.dto";
 import {toShopCurrency, toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
 
 /** Populate paths for a listing card; the detail route adds packages and add-ons. */
@@ -119,20 +120,24 @@ function toShopListingAddOn(addOn: any): ShopListingAddOn {
     };
 }
 
-/** Public provider block: the profile's showcase fields, never its payout state. */
-export function toShopProviderProfile(user: any, profile: any, metrics?: ProviderProfileMetrics): ShopProviderProfile {
+/**
+ * Public provider block: the profile's showcase fields, never its payout state. The windows come with their resolved
+ * zone (`loadProviderAvailability`), so the shop can say which clock they are on.
+ */
+export function toShopProviderProfile(
+    user: any,
+    profile: any,
+    availability: ProviderAvailability,
+    metrics?: ProviderProfileMetrics,
+): ShopProviderProfile {
+    const hasWindows = availability.windows.length > 0;
     return {
         _id: user._id.toString(),
         name: [user.name, user.surname].filter(Boolean).join(" "),
         bio: profile?.bio || undefined,
         skills: profile?.skills?.length ? profile.skills : undefined,
-        availability: profile?.availability?.length
-            ? profile.availability.map((slot: any) => ({
-                  dayOfWeek: slot.dayOfWeek,
-                  startTime: slot.startTime,
-                  endTime: slot.endTime,
-              }))
-            : undefined,
+        availability: hasWindows ? availability.windows : undefined,
+        availabilityTimeZone: hasWindows ? availability.timeZone : undefined,
         portfolio: mediaIds(profile?.portfolio),
         averageRating: metrics?.reviewCount ? metrics.averageRating : undefined,
         reviewCount: metrics?.reviewCount || undefined,

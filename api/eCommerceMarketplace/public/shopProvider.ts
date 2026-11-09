@@ -11,6 +11,7 @@ import {providerProfileService} from "@eCommerceModule/database/schemas/provider
 import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
+import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
 import {
     SHOP_LISTING_CARD_FIELDS,
     SHOP_LISTING_CARD_POPULATE,
@@ -57,15 +58,16 @@ router.post(
                 throw apiValidationException("provider_not_found", null, null, languageCode);
             }
 
-            const [profile, metrics, promotions] = await Promise.all([
-                providerProfileService.findOne({user: providerId, company: sellerCompanyId}, {withDeleted: false}, undefined, "bio skills availability portfolio"),
+            const [profile, metrics, availability, promotions] = await Promise.all([
+                providerProfileService.findOne({user: providerId, company: sellerCompanyId}, {withDeleted: false}, undefined, "bio skills portfolio"),
                 loadProviderProfileMetrics(providerId, sellerCompanyId, opts),
+                loadProviderAvailability(providerId, sellerCompanyId, opts),
                 shopPromotionMap(ctx.mode === "tenant" ? ctx.company._id : sellerCompanyId, opts),
             ]);
 
             return {
                 data: {
-                    provider: toShopProviderProfile(user, profile, metrics),
+                    provider: toShopProviderProfile(user, profile, availability, metrics),
                     listings: listings.map((listing) => toShopListingCard(listing, promotions)),
                 },
             };
