@@ -12,7 +12,7 @@ let cisFailure: Error | undefined;
 /** The IIC every signing yields; its signature is a function of the input, as RSA PKCS#1 v1.5 signing is. */
 let signedIic = "IIC";
 const iicInputs: string[] = [];
-vi.mock("@eCommerceModule/utilities/fiscalization/fiscalSoap", async (importOriginal) => ({
+vi.mock("@financeModule/utilities/fiscalization/fiscalSoap", async (importOriginal) => ({
     ...(await importOriginal<object>()),
     getIIC: (input: string) => {
         iicInputs.push(input);
@@ -39,7 +39,7 @@ import Inventory from "@eCommerceModule/database/schemas/inventory/inventory";
 import Warehouse from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import TaxZone from "@eCommerceModule/database/schemas/taxZone/taxZone";
 import PosConfig from "@eCommerceModule/database/schemas/posConfig/posConfig";
-import FiscalConfig from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import FiscalConfig from "@financeModule/database/schemas/fiscalConfig/fiscalConfig";
 import Media from "@coreModule/database/schemas/media/media";
 import PosPaymentMethod from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
@@ -47,8 +47,9 @@ import ProductOrder from "@eCommerceModule/database/schemas/productOrder/product
 import {openPosSession, payAndFiscalizePosOrder, payPosOrder, refundPosOrder, sendPosOrderToCis} from "@eCommerceModule/workflows/posService";
 import PosSession from "@eCommerceModule/database/schemas/posSession/posSession";
 import PaymentTransaction from "@financeModule/database/schemas/paymentTransaction/paymentTransaction";
-import {registerPosInvoice, type FiscalCert} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
-import type {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {registerPosInvoice} from "@eCommerceModule/utilities/fiscalization/posFiscalization";
+import type {FiscalCert} from "@financeModule/utilities/fiscalization/fiscalizationService";
+import type {IFiscalConfig} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig";
 import {calculateLinesTax} from "@eCommerceModule/utilities/services/taxCalculationService";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";

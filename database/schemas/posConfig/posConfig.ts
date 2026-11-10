@@ -22,8 +22,8 @@ import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/curre
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
 import {PosPaymentMethodSimpleSnippet} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.snippets";
-import {FiscalConfigSimpleSnippet} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
-import {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {FiscalConfigSimpleSnippet} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
+import {IFiscalConfig} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig";
 import {PosConfigManagerUserSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {IWarehouse} from "@eCommerceModule/database/schemas/warehouse/warehouse";
 import {IPosPaymentMethod} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod";

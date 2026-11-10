@@ -16,7 +16,7 @@ import type {RefundPosOrderFormType} from "armonia/src/modules/eCommerce/api/eCo
 import {recordPosOrderFiscalCodesFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/resolvePosOrderFiscal.form.validator";
 import type {RecordPosOrderFiscalCodesFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/resolvePosOrderFiscal.form.validator";
 import {payAndFiscalizePosOrder, refundPosOrder, sendPosOrderToCis} from "@eCommerceModule/workflows/posService";
-import {fiscalConfigIdForPosConfig} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {fiscalConfigIdForPosConfig} from "@eCommerceModule/utilities/fiscalization/posFiscalization";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {deleteHeldPosOrder, holdPosOrder, reprintPosOrder} from "@eCommerceModule/workflows/posTillOps";
 import PosOrderModel from "./posOrder";

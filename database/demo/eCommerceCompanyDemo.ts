@@ -38,7 +38,7 @@ import {createPosPaymentMethods} from "@eCommerceModule/database/schemas/posPaym
 import {createPosConfigs} from "@eCommerceModule/database/schemas/posConfig/posConfig.defaults";
 import {createPosSessions} from "@eCommerceModule/database/schemas/posSession/posSession.defaults";
 import {createPosOrders} from "@eCommerceModule/database/schemas/posOrder/posOrder.defaults";
-import {createFiscalConfigs} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.defaults";
+import {createFiscalConfigs} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.defaults";
 
 export type SeedECommerceDemoResult = {
     products: CreateProductsResult;

@@ -9,7 +9,7 @@ import type {ObjectId} from "mongodb";
 import {CONSTANTS} from "@coreModule/environment";
 import {getLogger, type serverLogger} from "@coreModule/loggers/serverLog";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
-import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
+import {fiscalConfigService} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.service";
 import {posConfigService} from "@eCommerceModule/database/schemas/posConfig/posConfig.service";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {refToId} from "@eCommerceModule/workflows/posTillOps";

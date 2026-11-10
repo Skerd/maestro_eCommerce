@@ -1,53 +1,41 @@
 /**
- * Albanian CIS fiscalization + e-invoice orchestration.
- * Ported from fiskalizimi-develop/cp_fiscal (fiskalizo_fature / fiskalizo_ubl / RegisterTCR).
+ * Albanian CIS registration of till sales and their e-invoices. The fiscal config and the CIS client are finance's
+ * (D125); this file adds what only a POS order needs.
+ * Ported from fiskalizimi-develop/cp_fiscal (fiskalizo_fature / fiskalizo_ubl).
  */
 import {randomUUID} from "crypto";
-import type {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
-import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
+import type {IFiscalConfig} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig";
 import type {IPosOrder} from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {
     buildIicInput,
-    buildVerifyQrUrl,
     EINVOICE_SCHEMA,
     extractFault,
     extractNsText,
-    FISCALIZATION_SCHEMA,
     getEinvoiceRequestData,
-    getFiscalRequestData,
     getHeaderData,
     getIIC,
     registerRequest,
     signXml,
     tiraneIsoNow,
     type OrderedDict,
-} from "./fiscalSoap";
-import {buildUblInvoiceXml} from "./ublInvoice";
-import {addMoney, includedPercentOfMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, toMinor} from "armonia/src/modules/core/helpers/money";
-import {getGridFSStorage} from "@coreModule/utilities/gridfs/gridfsStorage";
-import type {IInvoice} from "@financeModule/database/schemas/invoice/invoice";
-import {decimalToNumber, nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+} from "@financeModule/utilities/fiscalization/fiscalSoap";
+import {buildUblInvoiceXml} from "@financeModule/utilities/fiscalization/ublInvoice";
+import {
+    loadFiscalConfigWithCert,
+    money,
+    registerFiscalInvoice,
+    resolveNipt,
+    roundRate,
+    type FiscalCert,
+    type FiscalRegisterOptions,
+    type RegisterInvoiceResult,
+} from "@financeModule/utilities/fiscalization/fiscalizationService";
+import {prorateMoney, roundToCurrency, subtractMoney} from "armonia/src/modules/core/helpers/money";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {ServerError} from "armonia/src/modules/core/types";
 import axios from "axios";
-import {localDateOf} from "@coreModule/utilities/time/timeWindows";
-
-
-/** CIS issue times are Albanian local time. */
-const FISCAL_TIME_ZONE = "Europe/Tirane";
-
-function money(n: number): string {
-    return Number.isFinite(n) ? roundToCurrency(n).toFixed(2) : n.toFixed(2);
-}
-
-
-/** A VAT rate in percent, not money: plain rounding to two places. */
-export function roundRate(percent: number): number {
-    return Math.round(percent * 100) / 100;
-}
-
-export type FiscalCert = {certificateBase64: string; certificatePassword: string};
 
 /** Fiscal config id stored on the till that owns a POS order. */
 export async function fiscalConfigIdForPosConfig(
@@ -66,53 +54,6 @@ export async function fiscalConfigIdForPosConfig(
     return String(ref);
 }
 
-async function pkcs12Base64(mediaRef: unknown): Promise<string | null> {
-    const mediaId = mediaRef && typeof mediaRef === "object" && "_id" in mediaRef
-        ? (mediaRef as {_id: unknown})._id
-        : mediaRef;
-    if (!mediaId) return null;
-    const MediaModel = (await import("@coreModule/database/schemas/media/media")).default;
-    const media = await MediaModel.findById(mediaId).select("fileId");
-    if (!media?.fileId) return null;
-    const buffer = await getGridFSStorage("en-US").getFileBuffer(media.fileId);
-    return buffer.toString("base64");
-}
-
-export async function loadFiscalConfigWithCert(
-    companyId: unknown,
-    fiscalConfigId?: string,
-): Promise<(IFiscalConfig & FiscalCert) | null> {
-    const filter: Record<string, unknown> = {
-        company: companyId,
-        isActive: true,
-    };
-    if (fiscalConfigId) filter._id = fiscalConfigId;
-    const doc = await fiscalConfigService.findLatestWithPassword(filter);
-    const mediaRef = doc?.certificate?.[0];
-    if (!doc || !mediaRef || !doc.certificatePassword) return null;
-    const certificateBase64 = await pkcs12Base64(mediaRef);
-    if (!certificateBase64) return null;
-    return Object.assign(doc.toObject(), {certificateBase64}) as IFiscalConfig & FiscalCert;
-}
-
-function resolveNipt(config: IFiscalConfig, languageCode: string, companyVat?: string): string {
-    const nipt = (config.nipt || companyVat || "").trim();
-    if (!nipt) throw apiValidationException("fiscal_nipt_missing", "", null, languageCode);
-    return nipt;
-}
-
-function assertReady(config: IFiscalConfig & FiscalCert, languageCode: string, companyVat?: string): string {
-    const nipt = resolveNipt(config, languageCode, companyVat);
-    if (!config.tcrCode) throw apiValidationException("fiscal_tcr_not_registered", "", null, languageCode);
-    if (!config.businessUnitCode || !config.softCode || !config.operatorCode) {
-        throw apiValidationException("fiscal_codes_missing", "", null, languageCode);
-    }
-    if (!config.fiscalizationUrl || !config.selfcareUrl) {
-        throw apiValidationException("fiscal_urls_missing", "", null, languageCode);
-    }
-    return nipt;
-}
-
 function payMethodType(paymentMethodType?: string): string {
     const t = (paymentMethodType || "").toLowerCase();
     if (t === "cash") return "BANKNOTE";
@@ -126,226 +67,6 @@ function invOrdFromOrderName(name: string): string {
     const last = parts[parts.length - 1] || name;
     const n = parseInt(last, 10);
     return Number.isFinite(n) ? String(n) : last.replace(/\D/g, "") || "1";
-}
-
-export type RegisterInvoiceResult = {
-    nslf: string;
-    nivf?: string;
-    iicSignature: string;
-    invOrdNum: string;
-    invNum: string;
-    issueDateTime: string;
-    qrVerifyUrl: string;
-    signedXml: string;
-    fault?: string;
-    tcrCode?: string;
-    operatorCode: string;
-    businessUnitCode: string;
-    typeOfInv: string;
-};
-
-/**
- * What a fiscal invoice registers: its order number, totals (negative for a refund),
- * payment methods and item rows, already in the CIS request shape.
- */
-export type FiscalInvoiceData = {
-    invOrdNum: string;
-    totPrice: number;
-    totTax: number;
-    payments: OrderedDict[];
-    items: OrderedDict[];
-    /** The invoice it corrects (CIS CorrectiveInv): its IIC and the issue time sent with it. */
-    corrective?: {iic: string; issueDateTime?: string};
-    /** The issue time to send, when the caller stored it before sending (TD-B77); now otherwise. */
-    issueDateTime?: string;
-};
-
-/** Who registers, and in which language rule failures answer. */
-export type FiscalRegisterOptions = {
-    languageCode: string;
-    companyVat?: string;
-    companyName?: string;
-    buyer?: {name: string; nipt?: string; address?: string; town?: string; country?: string; idType?: string};
-};
-
-/** Signs and registers one invoice with the CIS (fiskalizo_fature), for any document that sold something. */
-export async function registerFiscalInvoice(
-    data: FiscalInvoiceData,
-    config: IFiscalConfig & FiscalCert,
-    opts: FiscalRegisterOptions,
-): Promise<RegisterInvoiceResult> {
-    const nipt = assertReady(config, opts.languageCode, opts.companyVat);
-    const issueDateTime = data.issueDateTime ?? tiraneIsoNow();
-    const uuid = randomUUID();
-    const {invOrdNum, totPrice, totTax, items} = data;
-    // The invoice number's year is the issue time's, in Albanian time, not the server's clock
-    const year = localDateOf(new Date(issueDateTime), FISCAL_TIME_ZONE).slice(0, 4);
-    const invNum = `${invOrdNum}/${year}/${config.tcrCode}`;
-    const totWoVat = subtractMoney(totPrice, totTax);
-
-    const iicInput = buildIicInput({
-        nipt,
-        issueDateTime,
-        invOrdNum,
-        businessUnitCode: config.businessUnitCode,
-        tcrCode: config.tcrCode!,
-        softCode: config.softCode,
-        totPrice,
-    });
-    const {iic, iicSignature} = getIIC(iicInput, config.certificateBase64, config.certificatePassword, opts.languageCode);
-
-    const payments = data.payments.length ? data.payments : [{"1__Type": "OTHER", "2__Amt": money(totPrice)}];
-    const typeOfInv = payments.some(p => p["1__Type"] === "BANKNOTE") ? "CASH" : "NONCASH";
-
-    const sameTaxes: OrderedDict[] = [];
-    if (config.isVatRegistered && totTax !== 0 && totWoVat !== 0) {
-        const rate = roundRate((Math.abs(totTax) / Math.abs(totWoVat)) * 100);
-        sameTaxes.push({
-            "1__NumOfItems": String(items.length),
-            "2__PriceBefVAT": money(totWoVat),
-            "3__VATRate": money(rate),
-            "4__VATAmt": money(totTax),
-        });
-    }
-
-    const seller: OrderedDict = {
-        "1__IDType": "NUIS",
-        "2__IDNum": nipt,
-        "3__Name": config.sellerName || opts.companyName || "Seller",
-        "4__Address": config.sellerAddress || "N/A",
-        "5__Town": config.sellerTown || "Tirane",
-        "6__Country": config.sellerCountry || "ALB",
-    };
-
-    const invoiceData: OrderedDict = {
-        "1__TypeOfInv": typeOfInv,
-        "2__IsSimplifiedInv": "true",
-        "3__IssueDateTime": issueDateTime,
-        "4__InvNum": invNum,
-        "5__InvOrdNum": invOrdNum,
-        "6__TCRCode": config.tcrCode!,
-        "7__IsIssuerInVAT": config.isVatRegistered ? "true" : "false",
-        "8__TotPriceWoVAT": money(totWoVat),
-        "9__TotPrice": money(totPrice),
-        "10__OperatorCode": config.operatorCode,
-        "11__BusinUnitCode": config.businessUnitCode,
-        "12__SoftCode": config.softCode,
-        "13__IIC": iic,
-        "14__IICSignature": iicSignature,
-        "15__IsReverseCharge": "false",
-        "16__IsEinvoice": "true",
-        "18__PayMethods": {"1__PayMethod": payments},
-        "26__Seller": seller,
-        "30__Items": {"1__I": items},
-    };
-    if (config.isVatRegistered) {
-        invoiceData["20__TotVATAmt"] = money(totTax);
-    }
-    if (sameTaxes.length) {
-        invoiceData["31__SameTaxes"] = {"1__SameTax": sameTaxes};
-    }
-    if (opts.buyer?.nipt) {
-        invoiceData["27__Buyer"] = {
-            "1__IDType": opts.buyer.idType || "NUIS",
-            "2__IDNum": opts.buyer.nipt,
-            "3__Name": opts.buyer.name,
-            "4__Address": opts.buyer.address || "N/A",
-            "5__Town": opts.buyer.town || "Tirane",
-            "6__Country": opts.buyer.country || "ALB",
-        };
-    }
-
-    if (data.corrective) {
-        invoiceData["24__CorrectiveInv"] = {
-            "1__IICRef": data.corrective.iic,
-            "2__IssueDateTime": data.corrective.issueDateTime || issueDateTime,
-            "3__Type": "CORRECTIVE",
-        };
-    }
-
-    const header = getHeaderData(issueDateTime, uuid);
-    const request: OrderedDict = {
-        ...getFiscalRequestData(),
-        "5__Header": header,
-        "6__Invoice": invoiceData,
-    };
-
-    const response = await registerRequest(
-        config.fiscalizationUrl,
-        config.certificateBase64,
-        config.certificatePassword,
-        request,
-        "RegisterInvoiceRequest",
-        {languageCode: opts.languageCode, proxyUrl: config.proxyUrl || undefined},
-    );
-
-    const fault = extractFault(response.xml);
-    const fic = extractNsText(response.xml, "FIC", FISCALIZATION_SCHEMA);
-    const qrVerifyUrl = buildVerifyQrUrl({
-        selfcareUrl: config.selfcareUrl,
-        iic,
-        tin: nipt,
-        issueDateTime,
-        invOrdNum,
-        businessUnitCode: config.businessUnitCode,
-        tcrCode: config.tcrCode!,
-        softCode: config.softCode,
-        totPrice,
-    });
-
-    return {
-        nslf: iic,
-        nivf: fic,
-        iicSignature,
-        invOrdNum,
-        invNum,
-        issueDateTime,
-        qrVerifyUrl,
-        signedXml: response.signedXml,
-        fault,
-        tcrCode: config.tcrCode,
-        operatorCode: config.operatorCode,
-        businessUnitCode: config.businessUnitCode,
-        typeOfInv,
-    };
-}
-
-/**
- * A finance invoice (or credit note, whose lines are negative) as CIS invoice data.
- * Each line's VAT is its share of the invoice VAT, at the invoice's rate.
- */
-export function financeInvoiceFiscalData(invoice: Pick<IInvoice, "number" | "lines" | "vatRate" | "pricesIncludeVat" | "total" | "vatAmount">, correctiveIic?: string): FiscalInvoiceData {
-    const items: OrderedDict[] = invoice.lines.map((line) => {
-        const gross = invoice.pricesIncludeVat ? roundToCurrency(line.total) : addMoney(line.total, percentOfMoney(line.total, invoice.vatRate));
-        const tax = minorToNumber(includedPercentOfMinor(toMinor(gross), invoice.vatRate));
-        const net = subtractMoney(gross, tax);
-        const qty = Math.sign(decimalToNumber(line.total) || 1) * Math.abs(line.quantity || 1);
-        const row: OrderedDict = {
-            "1__N": line.description,
-            "2__C": line.description,
-            "3__U": "cope",
-            "4__Q": money(qty),
-            "5__UPB": money(Math.abs(net / qty)),
-            "6__UPA": money(Math.abs(gross / qty)),
-            "7__R": money(0),
-            "8__PB": money(net),
-            "9__PA": money(gross),
-        };
-        if (tax) {
-            row["10__VR"] = money(invoice.vatRate);
-            row["11__VA"] = money(tax);
-        }
-        return row;
-    });
-    const parts = invoice.number.split("-");
-    return {
-        invOrdNum: String(parseInt(parts[parts.length - 1], 10) || 1),
-        totPrice: roundToCurrency(invoice.total),
-        totTax: roundToCurrency(invoice.vatAmount),
-        payments: [],
-        items,
-        ...(correctiveIic ? {corrective: {iic: correctiveIic}} : {}),
-    };
 }
 
 /** What a till order registers as its order number and totals, negative for a refund; its IIC covers `totPrice`. */
@@ -433,102 +154,6 @@ export async function registerPosInvoice(
     });
 
     return registerFiscalInvoice({invOrdNum, totPrice, totTax, payments, items, corrective, issueDateTime: opts.issueDateTime}, config, opts);
-}
-
-export async function registerTcr(
-    config: IFiscalConfig & FiscalCert,
-    opts: {languageCode: string; companyVat?: string; validFrom?: string; validTo?: string},
-): Promise<{tcrCode?: string; fault?: string; signedXml: string}> {
-    const nipt = resolveNipt(config, opts.languageCode, opts.companyVat);
-    if (!config.tcrIntId || !config.maintainerCode) {
-        throw apiValidationException("fiscal_tcr_fields_missing", "fiscalConfigId", null, opts.languageCode);
-    }
-    const issueDateTime = tiraneIsoNow();
-    const header = getHeaderData(issueDateTime, randomUUID());
-    const validFrom = opts.validFrom || issueDateTime.slice(0, 10);
-
-    let tcrData: OrderedDict;
-    if (!config.tcrCode) {
-        tcrData = {
-            "1__IssuerNUIS": nipt,
-            "2__BusinUnitCode": config.businessUnitCode,
-            "3__TCRIntID": config.tcrIntId,
-            "4__SoftCode": config.softCode,
-            "5__MaintainerCode": config.maintainerCode,
-            "6__ValidFrom": validFrom,
-            "7__Type": config.tcrType || "REGULAR",
-        };
-        if (opts.validTo) tcrData["8__ValidTo"] = opts.validTo;
-    } else {
-        if (!opts.validTo) throw apiValidationException("fiscal_tcr_valid_to_required", "validTo", null, opts.languageCode);
-        tcrData = {
-            "1__IssuerNUIS": nipt,
-            "2__BusinUnitCode": config.businessUnitCode,
-            "3__TCRIntID": config.tcrIntId,
-            "4__ValidTo": opts.validTo,
-            "5__Type": config.tcrType || "REGULAR",
-        };
-    }
-
-    const request: OrderedDict = {
-        ...getFiscalRequestData(),
-        "5__Header": header,
-        "6__TCR": tcrData,
-    };
-    const response = await registerRequest(
-        config.fiscalizationUrl,
-        config.certificateBase64,
-        config.certificatePassword,
-        request,
-        "RegisterTCRRequest",
-        {languageCode: opts.languageCode, proxyUrl: config.proxyUrl || undefined},
-    );
-    const fault = extractFault(response.xml);
-    const tcrCode = extractNsText(response.xml, "TCRCode", FISCALIZATION_SCHEMA);
-    if (tcrCode) {
-        config.tcrCode = tcrCode;
-        await fiscalConfigService.updateOne({_id: config._id}, {$set: {tcrCode}});
-    }
-    return {tcrCode, fault, signedXml: response.signedXml};
-}
-
-export async function getTaxpayer(
-    config: IFiscalConfig & FiscalCert,
-    tin: string,
-    languageCode: string,
-): Promise<{raw: string; fault?: string; tin?: string; name?: string}> {
-    const issueDateTime = tiraneIsoNow();
-    const request: OrderedDict = {
-        ...getEinvoiceRequestData(),
-        "1__Header": getHeaderData(issueDateTime, randomUUID()),
-        "2__Filter": {"1__Tin": [{"1__@Tin": tin}]},
-    };
-    // Fix Filter structure to match Odoo: {'1__Tin': [filter]} where filter is tin string via @Tin
-    // Odoo: GetTaxpayersRequest['2__Filter'] = {'1__Tin': [filter]} and filter is the tin string used oddly.
-    // Looking again: {'1__Tin': [filter]} where filter = tin string — that would make list of strings.
-    // Actually: filter = {'@Tin': tin} or just the tin. Code says: {'1__Tin': [filter]} with filter from argument.
-    // In res_company: GetTaxpayersRequest['2__Filter'] = {'1__Tin': [filter]} and filter is the tin string.
-    // For list of strings, dict2xml would fail. Looking at call: get_taxpayer(filter) with filter being tin.
-    // I'll use attribute form: Tin="..." on Filter children.
-
-    const requestFixed: OrderedDict = {
-        ...getEinvoiceRequestData(),
-        "4__Header": getHeaderData(issueDateTime, randomUUID()),
-        "5__Filter": {"1__Tin": tin},
-    };
-    void request;
-    const response = await registerRequest(
-        config.einvoiceUrl,
-        config.certificateBase64,
-        config.certificatePassword,
-        requestFixed,
-        "GetTaxpayersRequest",
-        {languageCode, einvoice: true, proxyUrl: config.proxyUrl || undefined},
-    );
-    const fault = extractFault(response.xml);
-    const name = extractNsText(response.xml, "Name", EINVOICE_SCHEMA);
-    const foundTin = extractNsText(response.xml, "Tin", EINVOICE_SCHEMA) || tin;
-    return {raw: response.body, fault, tin: foundTin, name: name || undefined};
 }
 
 export type RegisterEinvoiceResult = {

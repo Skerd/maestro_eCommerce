@@ -20,7 +20,7 @@ import {
 import {assertPosTillMutable} from "@eCommerceModule/utilities/services/posKillSwitch";
 import {multiplyMoney, percentOfMoney, roundToCurrency, subtractMoney, sumMoney} from "armonia/src/modules/core/helpers/money";
 import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
-import {roundRate} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {roundRate} from "@financeModule/utilities/fiscalization/fiscalizationService";
 import {assertPosSellable, resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 
 type Ctx = {

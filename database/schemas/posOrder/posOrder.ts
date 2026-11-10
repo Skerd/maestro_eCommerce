@@ -29,7 +29,7 @@ import {PosOrderSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/pri
 import {applyPosOrderIndexes} from "./posOrder.indexes";
 import {posOrderViews} from "./posOrder.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
-import {IFiscalConfig} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig";
+import {IFiscalConfig} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig";
 import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import {POS_FISCAL_RESOLUTIONS, type PosFiscalResolution} from "armonia/src/modules/eCommerce/api/eCommerce/private/posOrder/posOrder.dto";

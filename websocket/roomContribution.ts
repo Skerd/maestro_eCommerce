@@ -45,7 +45,6 @@ export function registerECommerceRoomContributions(): void {
         taxZones_configurations: "Tax zones configurations",
         posConfigs_configurations: "POS configs configurations",
         posPaymentMethods_configurations: "POS payment methods configurations",
-        fiscalConfigs_configurations: "Fiscal configs configurations",
         cmsBlocks_configurations: "CMS blocks configurations",
         odooConnection_configurations: "Odoo connection",
         odooimport_configurations: "Odoo import",

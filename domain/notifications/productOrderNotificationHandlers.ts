@@ -64,6 +64,14 @@ const IMPORTANCE: Record<ProductOrderCode, NotificationImportance> = {
     [NotificationEventCodes.INVENTORY_LOW_STOCK]: NotificationImportance.HIGH,
 };
 
+/** Values for the code's translated message (`notificationTypes.json`, D117); `description` stays the English fallback. */
+function paramsFor(code: ProductOrderCode, p: Record<string, unknown>): Record<string, string | number> {
+    if (code === NotificationEventCodes.INVENTORY_LOW_STOCK) {
+        return {product: String(p.productTitle ?? ""), warehouse: String(p.warehouseName ?? ""), quantity: Number(p.availableQuantity ?? 0)};
+    }
+    return {order: String(p.orderNumber ?? "")};
+}
+
 function bindHandler(code: ProductOrderCode): void {
     notificationEventBus.on(code, async (event: NotificationEvent) => {
         const {receiverIds, payload} = event;
@@ -77,6 +85,7 @@ function bindHandler(code: ProductOrderCode): void {
                         company: new ObjectId(payload.companyId as string),
                         code,
                         description: DESCRIPTIONS[code](payload),
+                        params: paramsFor(code, payload),
                         content: {
                             orderId: payload.orderId,
                             orderNumber: payload.orderNumber,
@@ -133,6 +142,7 @@ export function registerAbandonedCartNotificationHandlers(): void {
                         company: new ObjectId(payload.companyId as string),
                         code: NotificationEventCodes.ABANDONED_CART,
                         description: `You left ${itemCount} item${itemCount === 1 ? "" : "s"} in your cart — complete your order`,
+                        params: {count: itemCount, variant: itemCount === 1 ? "one" : "other"},
                         content: {
                             cartId: payload.cartId,
                             itemCount,

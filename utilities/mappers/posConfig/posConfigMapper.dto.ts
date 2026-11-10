@@ -3,12 +3,12 @@ import type {PosConfig, PosConfigManagerUser} from "armonia/src/modules/eCommerc
 import type {CurrencySimple} from "armonia/src/modules/core/dto/currency.dto";
 import type {SimpleBlankUser} from "armonia/src/modules/core/dto/user.dto";
 import type {WarehouseSimple} from "armonia/src/modules/eCommerce/dto/warehouse.dto";
-import type {FiscalConfigSimple} from "armonia/src/modules/eCommerce/dto/fiscalConfig.dto";
+import type {FiscalConfigSimple} from "armonia/src/modules/finance/dto/fiscalConfig.dto";
 import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {WarehouseSimpleSnippet} from "@eCommerceModule/database/schemas/warehouse/warehouse.snippets";
-import {FiscalConfigSimpleSnippet} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
+import {FiscalConfigSimpleSnippet} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.snippets";
 import {PosConfigManagerUserSnippet} from "@eCommerceModule/database/schemas/posConfig/posConfig.snippets";
 import {
     mapLifeCycleToDTO,

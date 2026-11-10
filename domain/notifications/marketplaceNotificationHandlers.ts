@@ -82,6 +82,25 @@ const IMPORTANCE: Record<MarketplaceCode, NotificationImportance> = {
     [NotificationEventCodes.TASK_REQUEST_CREATED]: NotificationImportance.MEDIUM,
 };
 
+/** Values for the code's translated message (`notificationTypes.json`, D117); `description` stays the English fallback. */
+function paramsFor(code: MarketplaceCode, p: Record<string, unknown>): Record<string, string | number> {
+    switch (code) {
+        case NotificationEventCodes.BID_ACCEPTED:
+        case NotificationEventCodes.BID_REJECTED:
+        case NotificationEventCodes.TASK_REQUEST_CLOSED:
+        case NotificationEventCodes.TASK_REQUEST_CREATED:
+            return {task: String(p.taskRequestTitle ?? "")};
+        case NotificationEventCodes.ORDER_CREATED_FROM_LISTING:
+            return {listing: String(p.listingTitle ?? "")};
+        case NotificationEventCodes.ORDER_EXTENDED:
+            return {order: String(p.orderName ?? ""), days: Number(p.additionalDays ?? 0)};
+        case NotificationEventCodes.ORDER_MILESTONE_RELEASED:
+            return {order: String(p.orderName ?? ""), milestone: String(p.milestoneName ?? "")};
+        default:
+            return {order: String(p.orderName ?? "")};
+    }
+}
+
 function contentFor(code: MarketplaceCode, payload: Record<string, unknown>): Record<string, unknown> {
     switch (code) {
         case NotificationEventCodes.BID_ACCEPTED:
@@ -135,6 +154,7 @@ function bindHandler(code: MarketplaceCode): void {
                         company: new ObjectId(payload.companyId as string),
                         code,
                         description: DESCRIPTIONS[code](payload),
+                        params: paramsFor(code, payload),
                         content: contentFor(code, payload),
                         importance: IMPORTANCE[code],
                         category: NotificationCategory.SYSTEM,

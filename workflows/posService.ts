@@ -21,7 +21,7 @@ import PosOrder, {IPosOrder, type IPosOrderLine} from "@eCommerceModule/database
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
 import {productVariantService, variantOptionsLabel} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
-import {fiscalConfigService} from "@eCommerceModule/database/schemas/fiscalConfig/fiscalConfig.service";
+import {fiscalConfigService} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.service";
 import {inventoryMovementService} from "@eCommerceModule/database/schemas/inventoryMovement/inventoryMovement.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
@@ -51,7 +51,7 @@ import {posLineRefundTotal, posRefundAmount} from "armonia/src/modules/eCommerce
 import {POS_UNSELLABLE_TYPES} from "@eCommerceModule/utilities/services/posLinePrice";
 import {isStockTracked, trackedStockLines} from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {calculateInclusiveTax} from "@eCommerceModule/utilities/services/taxCalculationService";
-import {fiscalizePosOrder} from "@eCommerceModule/utilities/fiscalization/fiscalizationService";
+import {fiscalizePosOrder} from "@eCommerceModule/utilities/fiscalization/posFiscalization";
 import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 
 /** What a POS order DTO and receipt read. */
