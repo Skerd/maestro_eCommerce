@@ -99,6 +99,196 @@ export const providerProfileSheetView: ViewConfig = {
                 },
             ],
         },
+        // The provider's records (providerProfileHub), after when they work and before the profile text (UX-03).
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.providerProfile.sheet.listings.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (providerProfileHub).
+                    render: "#SheetGroup",
+                    dependent: "listings",
+                    dependentRuntimeOnly: true,
+                    props: {title: "listingsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "listings",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ListingCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // What the provider offers, at what price, and whether it is live.
+                                                icon: "#IconBriefcase",
+                                                label: "listingRow",
+                                                labelPath: "title",
+                                                valuePath: ["price", "status"],
+                                                valueLanguageKeyCategories: [null, "listingStatus"],
+                                                valueFormats: [{money: "priceCurrency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "listings",
+                                                linkedSheetWidget: "#ListingSheetView",
+                                                linkedSheetEntityProp: "listing",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.providerProfile.sheet.orders.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (providerProfileHub).
+                    render: "#SheetGroup",
+                    dependent: "orders",
+                    dependentRuntimeOnly: true,
+                    props: {title: "ordersGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "orders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who ordered, when, for how much and how it stands; the order number stays on the opened sheet.
+                                                icon: "#IconReceipt",
+                                                label: "orderRow",
+                                                labelPath: ["customer.name", "customer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "amount", "status"],
+                                                valueLanguageKeyCategories: [null, null, "orderStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "orders",
+                                                linkedSheetWidget: "#OrderSheetView",
+                                                linkedSheetEntityProp: "order",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.providerProfile.sheet.bids.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (providerProfileHub).
+                    render: "#SheetGroup",
+                    dependent: "bids",
+                    dependentRuntimeOnly: true,
+                    props: {title: "bidsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "bids",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#BidCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Which task request, when, the offered amount and how it stands.
+                                                icon: "#IconCoin",
+                                                label: "bidRow",
+                                                labelPath: "taskRequest.title",
+                                                valuePath: ["createdAt", "amount", "status"],
+                                                valueLanguageKeyCategories: [null, null, "bidStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "marketplacebids",
+                                                linkedSheetWidget: "#BidSheetView",
+                                                linkedSheetEntityProp: "bid",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.providerProfile.sheet.reviews.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (providerProfileHub).
+                    render: "#SheetGroup",
+                    dependent: "reviews",
+                    dependentRuntimeOnly: true,
+                    props: {title: "reviewsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "reviews",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ReviewCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who reviewed, when, the stars and what they wrote.
+                                                icon: "#IconStar",
+                                                label: "reviewRow",
+                                                labelPath: ["reviewer.name", "reviewer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "rating", "comment"],
+                                                valueFormats: ["date", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "reviews",
+                                                linkedSheetWidget: "#ReviewSheetView",
+                                                linkedSheetEntityProp: "review",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         {
             render: "#SheetGroup",
             props: {title: "bio"},

@@ -12,7 +12,7 @@ export const orderSheetView: ViewConfig = {
         showCloseButton: true,
     },
     // UX-03: status and next step sit in the header and the action menu; then amount and milestones, the work
-    // delivered, what the order came from, and Lifecycle last.
+    // delivered, its disputes, sessions and reviews, what the order came from, and Lifecycle last.
     nodes: [
         {
             render: "#SheetGroup",
@@ -207,6 +207,147 @@ export const orderSheetView: ViewConfig = {
                                                 linkedSheetModel: "orderrevisions",
                                                 linkedSheetWidget: "#OrderRevisionSheetView",
                                                 linkedSheetEntityProp: "revision",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.disputes.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (the single route, readOrderChildren).
+                    render: "#SheetGroup",
+                    dependent: "disputes",
+                    dependentRuntimeOnly: true,
+                    props: {title: "disputesGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "disputes",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#DisputeCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who opened it, when, how it stands and why.
+                                                icon: "#IconGavel",
+                                                label: "disputeRow",
+                                                labelPath: ["initiator.name", "initiator.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "status", "reason"],
+                                                valueLanguageKeyCategories: [null, "disputeStatus", null],
+                                                valueFormats: ["date", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "disputes",
+                                                linkedSheetWidget: "#DisputeSheetView",
+                                                linkedSheetEntityProp: "dispute",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.bookings.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (the single route, readOrderChildren).
+                    render: "#SheetGroup",
+                    dependent: "bookings",
+                    dependentRuntimeOnly: true,
+                    props: {title: "bookingsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "bookings",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#BookingCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // When the session is, and with whom.
+                                                icon: "#IconCalendarEvent",
+                                                label: "bookingRow",
+                                                labelPath: ["startAt", "endAt"],
+                                                labelFormat: "dateTime",
+                                                valuePath: ["provider.name", "provider.surname"],
+                                                joinSeparator: " ",
+                                                linkedSheetModel: "bookings",
+                                                linkedSheetWidget: "#BookingSheetView",
+                                                linkedSheetEntityProp: "booking",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.reviews.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (the single route, readOrderChildren).
+                    render: "#SheetGroup",
+                    dependent: "reviews",
+                    dependentRuntimeOnly: true,
+                    props: {title: "reviewsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "reviews",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ReviewCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who reviewed, when, the stars and what they wrote.
+                                                icon: "#IconStar",
+                                                label: "reviewRow",
+                                                labelPath: ["reviewer.name", "reviewer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "rating", "comment"],
+                                                valueFormats: ["date", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "reviews",
+                                                linkedSheetWidget: "#ReviewSheetView",
+                                                linkedSheetEntityProp: "review",
                                             },
                                         },
                                     },

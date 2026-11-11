@@ -28,6 +28,12 @@ import Listing, {type IListing} from "@eCommerceModule/database/schemas/listing/
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
+import {listingHub} from "@eCommerceModule/utilities/services/recordHubs";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+
+async function listingWithHub(doc: IListing, {company, actionUserCtx, languageCode}: Pick<AuthenticatedMWType, "company" | "actionUserCtx" | "logger" | "languageCode">) {
+    return {...listingToDTO(doc), ...(await listingHub(doc._id, {companyId: company._id, actionUserCtx, languageCode}))};
+}
 
 /** Provider must be the caller or another user in the same company. */
 async function assertProviderInCompany(
@@ -69,6 +75,10 @@ export const {router} = createCrudRouter<IListing, CreateListingFormType, EditLi
     toDTO: listingToDTO,
     toDTOArray: listingsToDTO,
     toSelect: listingsToSelect,
+    // The single read is the listing's hub: its orders, bookings, reviews and reports (UX-03); an edit returns it too,
+    // so the open sheet keeps its lists.
+    enrichSingle: (doc, params) => listingWithHub(doc, params),
+    enrichUpdate: (doc, params) => listingWithHub(doc, params),
     createMiddleware: [mediaUpload],
     editMiddleware: [mediaUpload],
     extraListFilter: async ({featuredOnly, company, logger, languageCode}) => {

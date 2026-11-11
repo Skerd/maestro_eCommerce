@@ -263,6 +263,55 @@ export const productSheetView: ViewConfig = {
                 },
             ],
         },
+        // The shop orders it is on (productHub), beside its stock (UX-03).
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.product.sheet.orders.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (productHub).
+                    render: "#SheetGroup",
+                    dependent: "orders",
+                    dependentRuntimeOnly: true,
+                    props: {title: "ordersGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "orders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ProductOrderCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who bought it, when, the order total and how it stands; the order number stays on the opened sheet.
+                                                icon: "#IconShoppingCart",
+                                                label: "orderRow",
+                                                labelPath: ["customer.name", "customer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "grandTotal", "status"],
+                                                valueLanguageKeyCategories: [null, null, "productOrderStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "productOrders",
+                                                linkedSheetWidget: "#ProductOrderSheetView",
+                                                linkedSheetEntityProp: "order",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         {
             render: "#SheetGroup",
             props: {title: "inventory", defaultOpen: false},

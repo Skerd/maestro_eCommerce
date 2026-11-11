@@ -15,6 +15,13 @@ import {productsToDTO, productToDTO} from "@eCommerceModule/utilities/mappers/pr
 import {productsToSelect} from "@eCommerceModule/utilities/mappers/product/productMapper.select";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
+import {productHub} from "@eCommerceModule/utilities/services/recordHubs";
+import type {IProduct} from "@eCommerceModule/database/schemas/product/product";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+
+async function productWithHub(doc: IProduct, {company, actionUserCtx, languageCode}: Pick<AuthenticatedMWType, "company" | "actionUserCtx" | "logger" | "languageCode">) {
+    return {...productToDTO(doc), ...(await productHub(doc._id, {companyId: company._id, actionUserCtx, languageCode}))};
+}
 
 const mediaUpload = mediaUploadMW({
     fields: {mainImage: 1, gallery: 20, documents: 20},
@@ -38,6 +45,10 @@ export const {router} = createCrudRouter({
     toDTO: productToDTO,
     toDTOArray: productsToDTO,
     toSelect: productsToSelect,
+    // The single read is the product's hub: the shop orders it is on (UX-03); an edit returns it too, so the open
+    // sheet keeps its list.
+    enrichSingle: (doc, params) => productWithHub(doc, params),
+    enrichUpdate: (doc, params) => productWithHub(doc, params),
     /** When `productOrderId` is posted, limit the picker to products on that order. */
     extraSelectFilter: async ({productOrderId, company, logger, languageCode}) => {
         if (productOrderId == null || productOrderId === "") return {};

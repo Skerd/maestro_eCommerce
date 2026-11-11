@@ -42,6 +42,11 @@ import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.u
 import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {escrowTransactionService} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction.service";
+import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
+import Booking from "@eCommerceModule/database/schemas/booking/booking";
+import Review from "@eCommerceModule/database/schemas/review/review";
+import {disputesToDTO} from "@eCommerceModule/utilities/mappers/dispute/disputeMapper.dto";
+import {reviewsToDTO} from "@eCommerceModule/utilities/mappers/review/reviewMapper.dto";
 
 const ACTIVE_DISPUTE_STATUSES = ["open", "under_review"];
 
@@ -146,18 +151,24 @@ export const {router} = createCrudRouter<IOrder>({
     },
     enrichSingle: async (doc, params) => {
         const {logger, languageCode, company} = params;
-        const [submittedIds, activeDisputeIds, deliveries, milestones, revisions] = await Promise.all([
+        const [submittedIds, activeDisputeIds, deliveries, milestones, revisions, disputes, bookings, reviews] = await Promise.all([
             ordersWithSubmittedDelivery([doc._id], company._id, {logger, languageCode}),
             ordersWithActiveDispute([doc._id], company._id, {logger, languageCode}),
             readOrderChildren(OrderDelivery, "orderdeliveries", orderDeliveryService, doc, params, {createdAt: -1}),
             readOrderChildren(OrderMilestone, "ordermilestones", orderMilestoneService, doc, params, {orderIndex: 1}),
             readOrderChildren(OrderRevision, "orderrevisions", orderRevisionService, doc, params, {createdAt: -1}),
+            readOrderChildren(Dispute, "disputes", disputeService, doc, params, {createdAt: -1}),
+            readOrderChildren(Booking, "bookings", bookingService, doc, params, {startAt: -1}),
+            readOrderChildren(Review, "reviews", reviewService, doc, params, {createdAt: -1}),
         ]);
         return {
             ...orderToDTO(doc, submittedIds.size > 0, activeDisputeIds.size > 0),
             ...(deliveries && {deliveries: orderDeliveriesToDTO(deliveries)}),
             ...(milestones && {milestones: orderMilestonesToDTO(milestones)}),
             ...(revisions && {revisions: orderRevisionsToDTO(revisions)}),
+            ...(disputes && {disputes: disputesToDTO(disputes)}),
+            ...(bookings && {bookings: bookingsToDTOArray(bookings)}),
+            ...(reviews && {reviews: reviewsToDTO(reviews)}),
         };
     },
     /** Admin only, and only once the order is final: an active order still holds escrow. */

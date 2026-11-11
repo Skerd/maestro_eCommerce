@@ -107,6 +107,103 @@ export const taskRequestSheetView: ViewConfig = {
             ],
         },
 
+        // Its bids and the order it led to (taskRequestHub), after the request's facts and before its text (UX-03).
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.taskRequest.sheet.bids.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (taskRequestHub).
+                    render: "#SheetGroup",
+                    dependent: "bids",
+                    dependentRuntimeOnly: true,
+                    props: {title: "bidsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "bids",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#BidCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who bid, when, the offered amount and how it stands.
+                                                icon: "#IconCoin",
+                                                label: "bidRow",
+                                                labelPath: ["bidder.name", "bidder.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "amount", "status"],
+                                                valueLanguageKeyCategories: [null, null, "bidStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "marketplacebids",
+                                                linkedSheetWidget: "#BidSheetView",
+                                                linkedSheetEntityProp: "bid",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.taskRequest.sheet.orders.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (taskRequestHub).
+                    render: "#SheetGroup",
+                    dependent: "orders",
+                    dependentRuntimeOnly: true,
+                    props: {title: "ordersGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "orders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who does the job, since when, for how much and how it stands.
+                                                icon: "#IconReceipt",
+                                                label: "orderRow",
+                                                labelPath: ["provider.name", "provider.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "amount", "status"],
+                                                valueLanguageKeyCategories: [null, null, "orderStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "orders",
+                                                linkedSheetWidget: "#OrderSheetView",
+                                                linkedSheetEntityProp: "order",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         {
             render: "#SheetGroup",
             dependent: "description",

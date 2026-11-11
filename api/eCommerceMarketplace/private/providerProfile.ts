@@ -1,5 +1,6 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {buildCreateDataFromSchemaDef, buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {
@@ -22,6 +23,19 @@ import {providerProfilesToSelect} from "@eCommerceModule/utilities/mappers/provi
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
 import {isValidTimeZone} from "@coreModule/utilities/time/timeWindows";
+import {providerProfileHub} from "@eCommerceModule/utilities/services/recordHubs";
+
+/** The profile with its metrics and, as its hub, the provider's listings, orders, bids and reviews (UX-03). */
+async function providerProfileWithHub(
+    doc: IProviderProfile,
+    {company, actionUserCtx, logger, languageCode}: Pick<AuthenticatedMWType, "company" | "actionUserCtx" | "logger" | "languageCode">,
+) {
+    const [metrics, hub] = await Promise.all([
+        loadProviderProfileMetrics(doc.user._id, company._id, {logger, languageCode}),
+        providerProfileHub(doc.user._id, {companyId: company._id, actionUserCtx, languageCode}),
+    ]);
+    return {...providerProfileToDTO(doc, metrics), ...hub};
+}
 
 const buildCreate = buildCreateDataFromSchemaDef(ProviderProfileSchemaDef);
 const buildUpdate = buildUpdateDataFromSchemaDef(ProviderProfileSchemaDef);
@@ -72,14 +86,8 @@ export const {router} = createCrudRouter<IProviderProfile, CreateProviderProfile
         assertValidSchedule(params, params.languageCode);
         return buildUpdate(params, writeFields);
     },
-    enrichSingle: async (doc, params) => {
-        const metrics = await loadProviderProfileMetrics(doc.user._id, params.company._id, params);
-        return providerProfileToDTO(doc, metrics);
-    },
-    enrichUpdate: async (doc, params) => {
-        const metrics = await loadProviderProfileMetrics(doc.user._id, params.company._id, params);
-        return providerProfileToDTO(doc, metrics);
-    },
+    enrichSingle: (doc, params) => providerProfileWithHub(doc, params),
+    enrichUpdate: (doc, params) => providerProfileWithHub(doc, params),
     overrideRestoreHandler: restoreUnlessKeyTaken({
         model: ProviderProfile,
         service: providerProfileService,

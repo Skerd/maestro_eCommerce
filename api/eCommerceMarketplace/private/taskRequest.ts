@@ -35,6 +35,7 @@ import type {SelectResponse} from "armonia/src/modules/core/types/shared.types";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
+import {taskRequestHub} from "@eCommerceModule/utilities/services/recordHubs";
 
 const mediaUpload = mediaUploadMW({
     fields: {
@@ -58,6 +59,18 @@ async function liveBidCounts(taskRequestIds: ObjectId[], companyId: ObjectId, op
         opts,
     );
     return new Map(counts.map((row: {_id: ObjectId; count: number}) => [row._id.toString(), row.count]));
+}
+
+/** The request with its live bid count and, as its hub, its bids and the order it led to (UX-03). */
+async function taskRequestWithHub(
+    doc: ITaskRequest,
+    {company, actionUserCtx, logger, languageCode}: Pick<AuthenticatedMWType, "company" | "actionUserCtx" | "logger" | "languageCode">,
+) {
+    const [bidCount, hub] = await Promise.all([
+        bidService.count({taskRequest: doc._id, company: company._id}, {logger, languageCode}),
+        taskRequestHub(doc._id, {companyId: company._id, actionUserCtx, languageCode}),
+    ]);
+    return {...taskRequestToDTO(doc, bidCount), ...hub};
 }
 
 /** The caller posts the request; it opens now and expires on the standard window. */
@@ -122,14 +135,8 @@ export const {router} = createCrudRouter<ITaskRequest, CreateTaskRequestFormType
         const counts = await liveBidCounts(docs.map((doc) => doc._id), company._id, {logger, languageCode});
         return taskRequestsToDTO(docs, counts);
     },
-    enrichSingle: async (doc, params) => {
-        const {logger, languageCode, company} = params;
-        return taskRequestToDTO(doc, await bidService.count({taskRequest: doc._id, company: company._id}, {logger, languageCode}));
-    },
-    enrichUpdate: async (doc, params) => {
-        const {logger, languageCode, company} = params;
-        return taskRequestToDTO(doc, await bidService.count({taskRequest: doc._id, company: company._id}, {logger, languageCode}));
-    },
+    enrichSingle: (doc, params) => taskRequestWithHub(doc, params),
+    enrichUpdate: (doc, params) => taskRequestWithHub(doc, params),
     buildCreateData: buildTaskRequestCreate,
     buildUpdateData: (params, writeFields) => {
         assertOwnerOrAdmin(params.existing.requester, params.actionUserCtx, params.languageCode);

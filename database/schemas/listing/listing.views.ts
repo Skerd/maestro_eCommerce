@@ -202,6 +202,196 @@ export const listingSheetView: ViewConfig = {
                 },
             ],
         },
+        // The listing's records (listingHub), after what it sells and before its description (UX-03).
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.listing.sheet.orders.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (listingHub).
+                    render: "#SheetGroup",
+                    dependent: "orders",
+                    dependentRuntimeOnly: true,
+                    props: {title: "ordersGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "orders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who ordered, when, for how much and how it stands; the order number stays on the opened sheet.
+                                                icon: "#IconReceipt",
+                                                label: "orderRow",
+                                                labelPath: ["customer.name", "customer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "amount", "status"],
+                                                valueLanguageKeyCategories: [null, null, "orderStatus"],
+                                                valueFormats: ["date", {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "orders",
+                                                linkedSheetWidget: "#OrderSheetView",
+                                                linkedSheetEntityProp: "order",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.listing.sheet.bookings.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (listingHub).
+                    render: "#SheetGroup",
+                    dependent: "bookings",
+                    dependentRuntimeOnly: true,
+                    props: {title: "bookingsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "bookings",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#BookingCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // When the session is, and for whom.
+                                                icon: "#IconCalendarEvent",
+                                                label: "bookingRow",
+                                                labelPath: ["startAt", "endAt"],
+                                                labelFormat: "dateTime",
+                                                valuePath: ["order.customer.name", "order.customer.surname"],
+                                                joinSeparator: " ",
+                                                linkedSheetModel: "bookings",
+                                                linkedSheetWidget: "#BookingSheetView",
+                                                linkedSheetEntityProp: "booking",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.listing.sheet.reviews.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (listingHub).
+                    render: "#SheetGroup",
+                    dependent: "reviews",
+                    dependentRuntimeOnly: true,
+                    props: {title: "reviewsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "reviews",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ReviewCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who reviewed, when, the stars and what they wrote.
+                                                icon: "#IconStar",
+                                                label: "reviewRow",
+                                                labelPath: ["reviewer.name", "reviewer.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "rating", "comment"],
+                                                valueFormats: ["date", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "reviews",
+                                                linkedSheetWidget: "#ReviewSheetView",
+                                                linkedSheetEntityProp: "review",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.listing.sheet.flags.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    // Read with the caller's own grants on that model; absent when they may not read it (listingHub).
+                    render: "#SheetGroup",
+                    dependent: "flags",
+                    dependentRuntimeOnly: true,
+                    props: {title: "flagsGroup", titleActions: "#ReferencesViewModeToggle", defaultOpen: false},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "flags",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ListingFlagCard",
+                                            pageSize: 4,
+                                            columns: 2,
+                                            compactRow: {
+                                                // Who reported it, when, why, and whether it was dealt with.
+                                                icon: "#IconFlag",
+                                                label: "flagRow",
+                                                labelPath: ["user.name", "user.surname"],
+                                                labelJoinSeparator: " ",
+                                                valuePath: ["createdAt", "reason", "status"],
+                                                valueLanguageKeyCategories: [null, "listingFlagReason", "listingFlagStatus"],
+                                                valueFormats: ["date", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "listingflags",
+                                                linkedSheetWidget: "#ListingFlagSheetView",
+                                                linkedSheetEntityProp: "listingFlag",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         {
             render: "#SheetGroup",
             props: {title: "description"},
