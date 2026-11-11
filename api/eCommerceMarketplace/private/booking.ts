@@ -9,6 +9,10 @@ import {assertCanDelete} from "@coreModule/database/relationsRegistry";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {createBookingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/booking/createBooking.form.validator";
 import {editBookingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/booking/editBooking.form.validator";
+import {bookingListFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/booking/bookingList.form.validator";
+import type {BookingWhen} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/booking/booking.constants";
+import {companyTodayOf, companyTimeZoneOf} from "@coreModule/utilities/time/companyTimeZone";
+import {localDayInterval} from "@coreModule/utilities/time/timeWindows";
 import type {
     CreateBookingFormType,
     EditBookingFormType,
@@ -26,6 +30,16 @@ function assertValidBookingRange(startAt: Date, endAt: Date, languageCode: strin
     if (endAt <= startAt) {
         throw apiValidationException("invalid_booking_times", null, null, languageCode);
     }
+}
+
+/** The "When" quick filter: under way or still to come, on the company's today (GLB-09), or over. */
+async function whenFilter(when: BookingWhen | undefined, companyId: ObjectId): Promise<Record<string, unknown>> {
+    if (!when) return {};
+    const now = new Date();
+    if (when === "upcoming") return {endAt: {$gt: now}};
+    if (when === "past") return {endAt: {$lte: now}};
+    const day = localDayInterval(await companyTodayOf(companyId, {now}), await companyTimeZoneOf(companyId));
+    return {startAt: {$gte: day.start, $lt: day.end}};
 }
 
 /**
@@ -59,7 +73,8 @@ async function buildBookingCreate({order: orderRef, startAt, endAt, timezone, ac
         provider: order.provider._id,
         startAt: startDate,
         endAt: endDate,
-        timezone: timezone?.trim() || "UTC",
+        // The zone the provider's hours are checked in (their own, else the company's, GLB-09)
+        timezone: timezone?.trim() || availability.timeZone,
     };
 }
 
@@ -69,7 +84,9 @@ export const {router} = createCrudRouter<IBooking, CreateBookingFormType, EditBo
     model: Booking,
     service: bookingService,
     entityName: "Booking",
-    defaultSort: {startAt: 1},
+    // Latest first, so what is still to come leads the list; "When" narrows it (UX-12).
+    defaultSort: {startAt: -1},
+    listSchema: bookingListFormSchema,
     selectProjection: "_id startAt",
     selectSort: {startAt: 1},
     createSchema: createBookingFormSchema,
@@ -81,6 +98,7 @@ export const {router} = createCrudRouter<IBooking, CreateBookingFormType, EditBo
         company: company._id,
         $and: [await orderChildFilter(company._id, actionUserCtx, {logger, languageCode})],
     }),
+    extraListFilter: ({company, when}) => whenFilter(when, company._id),
     extraSelectFilter: ({company, actionUserCtx, logger, languageCode}) => orderChildFilter(company._id, actionUserCtx, {logger, languageCode}),
     buildCreateData: buildBookingCreate,
     /** Only the provider (or an admin) reschedules. */

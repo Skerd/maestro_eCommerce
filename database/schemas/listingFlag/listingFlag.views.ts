@@ -14,6 +14,7 @@ export const listingFlagSheetView: ViewConfig = {
     },
     nodes: [
         {
+            // Status, listing and reason are in the header (UX-01); the listing card is kept for its link.
             render: "#SheetGroup",
             props: {title: "overview"},
             children: [
@@ -23,6 +24,7 @@ export const listingFlagSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "listing",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -41,26 +43,7 @@ export const listingFlagSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "status_values", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "reason"},
-                            field: {
-                                name: "reason",
-                                widget: "#DisplayCard",
-                                label: "reason",
-                                widgetProps: {icon: "#Flag", languageKeyCategory: "reason_values", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "user",
                             permissions: {read: "user"},
                             field: {
                                 name: "user",
@@ -131,6 +114,100 @@ export const listingFlagSheetView: ViewConfig = {
     ],
 };
 
+const reasonOptions = [
+    {value: "inappropriate", label: "form.reason_values.inappropriate"},
+    {value: "spam", label: "form.reason_values.spam"},
+    {value: "misleading", label: "form.reason_values.misleading"},
+    {value: "other", label: "form.reason_values.other"},
+];
+
+const listingFlagCreateFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.reportSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingLabel",
+                            placeholder: "form.listingPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "reason",
+                            widget: "#SimpleSelect",
+                            label: "form.reasonLabel",
+                            placeholder: "form.reasonPlaceholder",
+                            required: true,
+                            widgetProps: {options: reasonOptions, className: "grow w-full"},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "comment",
+                    widget: "#Textarea",
+                    label: "form.commentLabel",
+                    placeholder: "form.commentPlaceholder",
+                    widgetProps: {className: "min-h-[100px] max-h-[200px] resize-none overflow-y-auto"},
+                },
+            },
+        ],
+    },
+];
+
+/** The listing is fixed once reported; only the reason and the details change. */
+const listingFlagEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.reportSectionTitle"},
+        permissions: {readAny: ["reason", "comment"], writeAny: ["reason", "comment"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "reason", write: "reason"},
+                        field: {
+                            name: "reason",
+                            widget: "#SimpleSelect",
+                            label: "form.reasonLabel",
+                            placeholder: "form.reasonPlaceholder",
+                            required: true,
+                            widgetProps: {options: reasonOptions, className: "grow w-full"},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                permissions: {read: "comment", write: "comment"},
+                field: {
+                    name: "comment",
+                    widget: "#Textarea",
+                    label: "form.commentLabel",
+                    placeholder: "form.commentPlaceholder",
+                    widgetProps: {className: "min-h-[100px] max-h-[200px] resize-none overflow-y-auto"},
+                },
+            },
+        ],
+    },
+];
+
 export const listingFlagCreateFormView: ViewConfig = {
     model: "listingflags",
     viewType: "form",
@@ -138,53 +215,7 @@ export const listingFlagCreateFormView: ViewConfig = {
     accessModel: "listingflags",
     apiUrl: "/api/eCommerceMarketplace/listingFlag",
     method: "PUT",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 1},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "listing",
-                        widget: "#ApiSelect",
-                        label: "form.listingLabel",
-                        placeholder: "form.listingPlaceholder",
-                        required: true,
-                        widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "reason",
-                        widget: "#SimpleSelect",
-                        label: "form.reasonLabel",
-                        placeholder: "form.reasonPlaceholder",
-                        required: true,
-                        widgetProps: {
-                            options: [
-                                {value: "inappropriate", label: "form.reason_values.inappropriate"},
-                                {value: "spam", label: "form.reason_values.spam"},
-                                {value: "misleading", label: "form.reason_values.misleading"},
-                                {value: "other", label: "form.reason_values.other"},
-                            ],
-                        },
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "comment",
-                        widget: "#Textarea",
-                        label: "form.commentLabel",
-                        placeholder: "form.commentPlaceholder",
-                        widgetProps: {className: "min-h-[100px] max-h-[200px] resize-none overflow-y-auto"},
-                    },
-                },
-            ],
-        },
-    ],
+    nodes: listingFlagCreateFormNodes,
 };
 
 export const listingFlagEditFormView: ViewConfig = {
@@ -194,51 +225,7 @@ export const listingFlagEditFormView: ViewConfig = {
     accessModel: "listingflags",
     apiUrl: "/api/eCommerceMarketplace/listingFlag",
     method: "PATCH",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 1},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "_id",
-                        widget: "#Input",
-                        required: true,
-                        widgetProps: {type: "hidden"},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "reason",
-                        widget: "#SimpleSelect",
-                        label: "form.reasonLabel",
-                        placeholder: "form.reasonPlaceholder",
-                        required: true,
-                        widgetProps: {
-                            options: [
-                                {value: "inappropriate", label: "form.reason_values.inappropriate"},
-                                {value: "spam", label: "form.reason_values.spam"},
-                                {value: "misleading", label: "form.reason_values.misleading"},
-                                {value: "other", label: "form.reason_values.other"},
-                            ],
-                        },
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "comment",
-                        widget: "#Textarea",
-                        label: "form.commentLabel",
-                        placeholder: "form.commentPlaceholder",
-                        widgetProps: {className: "min-h-[100px] max-h-[200px] resize-none overflow-y-auto"},
-                    },
-                },
-            ],
-        },
-    ],
+    nodes: listingFlagEditFormNodes,
 };
 
 export const listingFlagViews: ViewConfig[] = [

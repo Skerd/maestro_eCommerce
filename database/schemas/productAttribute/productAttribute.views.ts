@@ -21,18 +21,6 @@ export const productAttributeSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {render: "#DisplayCard", permissions: {read: "name"}, field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#Tag"}}},
-                        {render: "#DisplayCard", permissions: {read: "position"}, field: {name: "position", widget: "#DisplayCard", label: "position", widgetProps: {icon: "#Hash", type: "number"}}},
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isVisibleOnProductPage"},
-                            field: {
-                                name: "isVisibleOnProductPage",
-                                widget: "#DisplayCard",
-                                label: "isVisibleOnProductPage",
-                                widgetProps: {icon: "#IconEye", type: "boolean"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "isUsedForVariants"},
@@ -51,6 +39,7 @@ export const productAttributeSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "values",
                             permissions: {read: "values"},
                             field: {
                                 name: "values",
@@ -69,52 +58,53 @@ export const productAttributeSheetView: ViewConfig = {
 
 const productAttributeCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
-                }
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "isUsedForVariants",
+                            widget: "#Switch",
+                            label: "form.isUsedForVariantsLabel",
+                        },
+                    },
+                ],
             },
             {
                 render: "#Field",
                 field: {
-                    name: "position",
-                    widget: "#Input",
-                    label: "form.positionLabel",
-                    placeholder: "form.positionPlaceholder",
+                    name: "values",
+                    widget: "#StringArrayInput",
+                    label: "form.valuesLabel",
+                    placeholder: "form.valuesPlaceholder",
                     widgetProps: {
-                        type: "number",
-                        min: 0
-                    }
-                }
+                        removeTooltipKey: "form.removeValue",
+                        maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+                        maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
+                    },
+                },
             },
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "values",
-            widget: "#StringArrayInput",
-            label: "form.valuesLabel",
-            placeholder: "form.valuesPlaceholder",
-            widgetProps: {
-                removeTooltipKey: "form.removeValue",
-                maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
-                maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
-            },
-        },
-    },
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
         children: [
             {
                 render: "#FormGrid",
@@ -124,17 +114,20 @@ const productAttributeCreateFormNodes: ViewConfig["nodes"] = [
                         render: "#Field",
                         field: {
                             name: "isVisibleOnProductPage",
-                            widget: "#Switch", label: "form.isVisibleOnProductPageLabel"
-                        }
+                            widget: "#Switch",
+                            label: "form.isVisibleOnProductPageLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
-                            name: "isUsedForVariants",
-                            widget: "#Switch",
-                            label: "form.isUsedForVariantsLabel"
-                        }
-                    }
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
                 ],
             },
         ],
@@ -143,52 +136,9 @@ const productAttributeCreateFormNodes: ViewConfig["nodes"] = [
 
 const productAttributeEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
-                }, permissions: {read: "name", write: "name"}
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "position",
-                    widget: "#Input",
-                    label: "form.positionLabel",
-                    placeholder: "form.positionPlaceholder",
-                    widgetProps: {
-                        type: "number",
-                        min: 0
-                    }
-                }, permissions: {read: "position", write: "position"}
-            },
-        ],
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "values",
-            widget: "#StringArrayInput",
-            label: "form.valuesLabel",
-            placeholder: "form.valuesPlaceholder",
-            widgetProps: {
-                removeTooltipKey: "form.removeValue",
-                maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
-                maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
-            },
-        }, permissions: {read: "values", write: "values"},
-    },
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
+        permissions: {readAny: ["name", "isUsedForVariants", "values"], writeAny: ["name", "isUsedForVariants", "values"]},
         children: [
             {
                 render: "#FormGrid",
@@ -196,19 +146,73 @@ const productAttributeEditFormNodes: ViewConfig["nodes"] = [
                 children: [
                     {
                         render: "#Field",
+                        permissions: {read: "name", write: "name"},
                         field: {
-                            name: "isVisibleOnProductPage",
-                            widget: "#Switch", label: "form.isVisibleOnProductPageLabel"
-                        }, permissions: {read: "isVisibleOnProductPage", write: "isVisibleOnProductPage"}
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: PRODUCT_ATTRIBUTE_NAME_MAX},
+                        },
                     },
                     {
                         render: "#Field",
+                        permissions: {read: "isUsedForVariants", write: "isUsedForVariants"},
                         field: {
                             name: "isUsedForVariants",
                             widget: "#Switch",
-                            label: "form.isUsedForVariantsLabel"
-                        }, permissions: {read: "isUsedForVariants", write: "isUsedForVariants"}
-                    }
+                            label: "form.isUsedForVariantsLabel",
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                permissions: {read: "values", write: "values"},
+                field: {
+                    name: "values",
+                    widget: "#StringArrayInput",
+                    label: "form.valuesLabel",
+                    placeholder: "form.valuesPlaceholder",
+                    widgetProps: {
+                        removeTooltipKey: "form.removeValue",
+                        maxItems: PRODUCT_ATTRIBUTE_VALUES_MAX_ITEMS,
+                        maxLength: PRODUCT_ATTRIBUTE_VALUE_MAX,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["isVisibleOnProductPage", "position"], writeAny: ["isVisibleOnProductPage", "position"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "isVisibleOnProductPage", write: "isVisibleOnProductPage"},
+                        field: {
+                            name: "isVisibleOnProductPage",
+                            widget: "#Switch",
+                            label: "form.isVisibleOnProductPageLabel",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "position", write: "position"},
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
                 ],
             },
         ],

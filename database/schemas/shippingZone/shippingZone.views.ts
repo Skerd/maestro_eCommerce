@@ -17,44 +17,9 @@ export const shippingZoneSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {title: "overview"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {
-                                    icon: "#IconTruckDelivery"
-                                }
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    type: "boolean"
-                                },
-                            },
-                        }
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
             props: {title: "geography"},
+            dependentAny: ["countries", "states", "postalCodePatterns"],
+            dependentRuntimeOnly: true,
             children: [
                 {
                     render: "#SheetGrid",
@@ -62,6 +27,7 @@ export const shippingZoneSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "postalCodePatterns",
                             permissions: {read: "postalCodePatterns"},
                             field: {
                                 name: "postalCodePatterns",
@@ -293,7 +259,8 @@ const shippingZoneRateRepeaterProps = {
     arrayField: "rates",
     defaultItem: {
         name: "",
-        type: "flat",
+        // No rate type is preselected: the shop picks how the rate is charged (UX-06).
+        type: "",
         price: 0,
         carrier: "",
         estimatedDeliveryDays: undefined,
@@ -360,7 +327,7 @@ const shippingZoneRateRepeaterProps = {
                         widget: "#Input",
                         label: "form.estimatedDeliveryDaysLabel",
                         placeholder: "form.estimatedDeliveryDaysPlaceholder",
-                        widgetProps: {type: "number", min: 0},
+                        widgetProps: {type: "number", min: 0, step: 1},
                     },
                 },
             ],

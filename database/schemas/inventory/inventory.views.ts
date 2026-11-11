@@ -73,6 +73,7 @@ export const inventorySheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "reorderPoint",
                             permissions: {read: "reorderPoint"},
                             field: {
                                 name: "reorderPoint",
@@ -83,22 +84,13 @@ export const inventorySheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "reorderQuantity",
                             permissions: {read: "reorderQuantity"},
                             field: {
                                 name: "reorderQuantity",
                                 widget: "#DisplayCard",
                                 label: "reorderQuantity",
                                 widgetProps: {icon: "#IconPackage", type: "number"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "lowStockAlertSent"},
-                            field: {
-                                name: "lowStockAlertSent",
-                                widget: "#DisplayCard",
-                                label: "lowStockAlertSent",
-                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
                             },
                         },
                     ],
@@ -133,6 +125,7 @@ export const inventorySheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "variant",
                             permissions: {read: "variant"},
                             field: {
                                 name: "variant",
@@ -242,7 +235,7 @@ export const inventoryCreateFormView: ViewConfig = {
                                 widget: "#Input",
                                 label: "form.quantityOnHandLabel",
                                 placeholder: "form.quantityOnHandPlaceholder",
-                                widgetProps: {type: "number", min: 0},
+                                widgetProps: {type: "number", min: 0, step: 1},
                             },
                         },
                         {
@@ -252,7 +245,7 @@ export const inventoryCreateFormView: ViewConfig = {
                                 widget: "#Input",
                                 label: "form.reorderPointLabel",
                                 placeholder: "form.reorderPointPlaceholder",
-                                widgetProps: {type: "number", min: 0},
+                                widgetProps: {type: "number", min: 0, step: 1},
                             },
                         },
                         {
@@ -262,7 +255,7 @@ export const inventoryCreateFormView: ViewConfig = {
                                 widget: "#Input",
                                 label: "form.reorderQuantityLabel",
                                 placeholder: "form.reorderQuantityPlaceholder",
-                                widgetProps: {type: "number", min: 0},
+                                widgetProps: {type: "number", min: 0, step: 1},
                             },
                         },
                     ],
@@ -283,6 +276,7 @@ export const inventoryEditFormView: ViewConfig = {
         {
             render: "#TitleWithCollapse",
             props: {title: "form.assignmentSectionTitle", defaultOpen: true},
+            // Read-only: a stock row's product, variant and warehouse are fixed once created.
             permissions: {readAny: ["product", "variant", "warehouse"]},
             children: [
                 {
@@ -298,7 +292,7 @@ export const inventoryEditFormView: ViewConfig = {
                                 label: "form.productLabel",
                                 placeholder: "form.productPlaceholder",
                                 skipWriteAccessGate: true,
-                                widgetProps: productSelectProps,
+                                widgetProps: {...productSelectProps, disabled: true},
                             },
                         },
                         {
@@ -310,7 +304,7 @@ export const inventoryEditFormView: ViewConfig = {
                                 label: "form.variantLabel",
                                 placeholder: "form.variantPlaceholder",
                                 skipWriteAccessGate: true,
-                                widgetProps: variantSelectProps,
+                                widgetProps: {...variantSelectProps, disabled: true},
                             },
                         },
                         {
@@ -322,7 +316,7 @@ export const inventoryEditFormView: ViewConfig = {
                                 label: "form.warehouseLabel",
                                 placeholder: "form.warehousePlaceholder",
                                 skipWriteAccessGate: true,
-                                widgetProps: warehouseSelectProps,
+                                widgetProps: {...warehouseSelectProps, disabled: true},
                             },
                         },
                     ],
@@ -332,7 +326,7 @@ export const inventoryEditFormView: ViewConfig = {
         {
             render: "#TitleWithCollapse",
             props: {title: "form.stockSectionTitle"},
-            permissions: {writeAny: ["reorderPoint", "reorderQuantity"]},
+            permissions: {readAny: ["reorderPoint", "reorderQuantity"], writeAny: ["reorderPoint", "reorderQuantity"]},
             children: [
                 {
                     render: "#FormGrid",
@@ -346,7 +340,7 @@ export const inventoryEditFormView: ViewConfig = {
                                 widget: "#Input",
                                 label: "form.reorderPointLabel",
                                 placeholder: "form.reorderPointPlaceholder",
-                                widgetProps: {type: "number", min: 0},
+                                widgetProps: {type: "number", min: 0, step: 1},
                             },
                         },
                         {
@@ -357,7 +351,7 @@ export const inventoryEditFormView: ViewConfig = {
                                 widget: "#Input",
                                 label: "form.reorderQuantityLabel",
                                 placeholder: "form.reorderQuantityPlaceholder",
-                                widgetProps: {type: "number", min: 0},
+                                widgetProps: {type: "number", min: 0, step: 1},
                             },
                         },
                     ],

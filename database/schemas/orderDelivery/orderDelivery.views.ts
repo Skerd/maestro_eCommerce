@@ -27,25 +27,17 @@ export const orderDeliverySheetView: ViewConfig = {
                                 name: "order",
                                 widget: "#DisplayCard",
                                 label: "order",
+                                // The order by what was bought, not its status or number (UX-03).
                                 widgetProps: {
                                     icon: "#Package",
-                                    valuePath: ["order.status"],
+                                    valuePath: ["order.listing.title", "order.taskRequest.title", "order.name"],
+                                    pickFirstTruthyValuePath: true,
                                     linkedRefPath: "order",
                                     linkedSheetModel: "orders",
                                     linkedSheetWidget: "#OrderSheetView",
                                     linkedSheetEntityProp: "order",
-                                    linkedSheetValueField: "status",
+                                    linkedSheetValueField: "listing.title",
                                 },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "orderDeliveryStatus", type: "enum"},
                             },
                         },
                     ],
@@ -54,6 +46,7 @@ export const orderDeliverySheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
+            dependent: "message",
             props: {title: "message"},
             children: [
                 {
@@ -69,6 +62,7 @@ export const orderDeliverySheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
+            dependent: "attachments",
             props: {title: "attachments"},
             children: [
                 {

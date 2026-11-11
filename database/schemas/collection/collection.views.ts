@@ -51,25 +51,12 @@ export const collectionSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {
-                title: "overview",
-                defaultOpen: true,
-            },
+            props: {title: "overview", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#IconTag"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "type"},
@@ -81,42 +68,6 @@ export const collectionSheetView: ViewConfig = {
                                     icon: "#Tag",
                                     languageKeyCategory: "collectionType",
                                     type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "slug"},
-                            field: {
-                                name: "slug",
-                                widget: "#DisplayCard",
-                                label: "slug",
-                                widgetProps: {icon: "#IconLink"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isVisible"},
-                            field: {
-                                name: "isVisible",
-                                widget: "#DisplayCard",
-                                label: "isVisible",
-                                widgetProps: {
-                                    icon: "#IconEye",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "position"},
-                            field: {
-                                name: "position",
-                                widget: "#DisplayCard",
-                                label: "position",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    type: "number",
                                 },
                             },
                         },
@@ -141,10 +92,8 @@ export const collectionSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {
-                title: "content",
-                defaultOpen: false,
-            },
+            props: {title: "content", defaultOpen: true},
+            dependentAny: ["description"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -152,6 +101,7 @@ export const collectionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "description",
                             permissions: {read: "description"},
                             field: {
                                 name: "description",
@@ -344,10 +294,8 @@ export const collectionSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {
-                title: "seo",
-                defaultOpen: false,
-            },
+            props: {title: "seo", defaultOpen: false},
+            dependentAny: ["seoTitle", "seoDescription"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -355,6 +303,7 @@ export const collectionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "seoTitle",
                             permissions: {read: "seoTitle"},
                             field: {
                                 name: "seoTitle",
@@ -365,6 +314,7 @@ export const collectionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "seoDescription",
                             permissions: {read: "seoDescription"},
                             field: {
                                 name: "seoDescription",
@@ -414,19 +364,6 @@ const collectionCreateFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 options: collectionTypeOptions,
                                 className: "grow w-full",
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "position",
-                            widget: "#Input",
-                            label: "form.positionLabel",
-                            placeholder: "form.positionPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
                             },
                         },
                     },
@@ -628,6 +565,32 @@ const collectionCreateFormNodes: ViewConfig["nodes"] = [
             },
         ],
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
 const collectionEditFormNodes: ViewConfig["nodes"] = [
@@ -638,7 +601,8 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
             defaultOpen: true,
         },
         permissions: {
-            writeAny: ["name", "type", "position", "description"],
+            readAny: ["name", "type", "description"],
+            writeAny: ["name", "type", "description"],
         },
         children: [
             {
@@ -671,20 +635,6 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
                         },
                         permissions: {read: "type", write: "type"},
                     },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "position",
-                            widget: "#Input",
-                            label: "form.positionLabel",
-                            placeholder: "form.positionPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                        permissions: {read: "position", write: "position"},
-                    },
                 ],
             },
             {
@@ -706,7 +656,7 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.mediaSectionTitle"},
-        permissions: {writeAny: ["mainImage"]},
+        permissions: {readAny: ["mainImage"], writeAny: ["mainImage"]},
         children: [
             {
                 render: "#Field",
@@ -736,7 +686,7 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
                     title: "form.manualSectionTitle",
                     defaultOpen: true,
                 },
-                permissions: {writeAny: ["products"]},
+                permissions: {readAny: ["products"], writeAny: ["products"]},
                 children: [
                     {
                         render: "#Field",
@@ -782,7 +732,7 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
                     title: "form.dynamicSectionTitle",
                     defaultOpen: true,
                 },
-                permissions: {writeAny: ["ruleCondition", "rules"]},
+                permissions: {readAny: ["ruleCondition", "rules"], writeAny: ["ruleCondition", "rules"]},
                 children: [
                     {
                         render: "#Field",
@@ -876,7 +826,7 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.seoSectionTitle"},
-        permissions: {writeAny: ["seoTitle", "seoDescription"]},
+        permissions: {readAny: ["seoTitle", "seoDescription"], writeAny: ["seoTitle", "seoDescription"]},
         children: [
             {
                 render: "#Field",
@@ -902,6 +852,34 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
                     },
                 },
                 permissions: {read: "seoDescription", write: "seoDescription"},
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["position"], writeAny: ["position"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                        permissions: {read: "position", write: "position"},
+                    },
+                ],
             },
         ],
     },

@@ -22,12 +22,34 @@ export const bidSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "status"},
+                            permissions: {read: "taskRequest"},
                             field: {
-                                name: "status",
+                                name: "taskRequest",
                                 widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "bidStatus"},
+                                label: "taskRequest",
+                                widgetProps: {
+                                    icon: "#Briefcase",
+                                    valuePath: ["taskRequest.title"],
+                                    linkedRefPath: "taskRequest",
+                                    linkedSheetModel: "taskRequests",
+                                    linkedSheetWidget: "#TaskRequestSheetView",
+                                    linkedSheetEntityProp: "entity",
+                                    linkedSheetValueField: "title",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "bidder"},
+                            field: {
+                                name: "bidder",
+                                widget: "#DisplayCard",
+                                label: "bidder",
+                                widgetProps: {
+                                    icon: "#User",
+                                    valuePath: ["bidder.name", "bidder.surname"],
+                                    joinSeparator: " ",
+                                },
                             },
                         },
                         {
@@ -60,38 +82,6 @@ export const bidSheetView: ViewConfig = {
                                 widgetProps: {icon: "#Calendar"},
                             },
                         },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "taskRequest"},
-                            field: {
-                                name: "taskRequest",
-                                widget: "#DisplayCard",
-                                label: "taskRequest",
-                                widgetProps: {
-                                    icon: "#Briefcase",
-                                    valuePath: ["taskRequest.title"],
-                                    linkedRefPath: "taskRequest",
-                                    linkedSheetModel: "taskRequests",
-                                    linkedSheetWidget: "#TaskRequestSheetView",
-                                    linkedSheetEntityProp: "entity",
-                                    linkedSheetValueField: "title",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "bidder"},
-                            field: {
-                                name: "bidder",
-                                widget: "#DisplayCard",
-                                label: "bidder",
-                                widgetProps: {
-                                    icon: "#User",
-                                    valuePath: ["bidder.name", "bidder.surname"],
-                                    joinSeparator: " ",
-                                },
-                            },
-                        },
                     ],
                 },
             ],
@@ -121,56 +111,83 @@ export const bidSheetView: ViewConfig = {
     ],
 };
 
-const bidCreateFields: ViewConfig["nodes"] = [
+const bidCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 3},
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.taskRequest"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "taskRequest",
-                    widget: "#ApiSelect",
-                    label: "form.taskRequestIdLabel",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerceMarketplace/taskRequest/select",
-                        postBody: {activeOnly: true},
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "taskRequest",
+                            widget: "#ApiSelect",
+                            label: "form.taskRequestIdLabel",
+                            placeholder: "form.taskRequestIdPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerceMarketplace/taskRequest/select",
+                                postBody: {activeOnly: true},
+                            },
+                        },
                     },
-                },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.offer"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "amount",
+                            widget: "#Input",
+                            label: "form.amountLabel",
+                            placeholder: "form.amountPlaceholder",
+                            // The bid takes the task request's currency (UX-07).
+                            description: "form.amountCurrencyDescription",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
             {
-                render: "#Field",
-                field: {
-                    name: "amount",
-                    widget: "#Input",
-                    label: "form.amountLabel",
-                    placeholder: "form.amountPlaceholder",
-                    required: true,
-                    widgetProps: {type: "number", min: 0, step: "any"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "deliveryDays",
-                    widget: "#Input",
-                    label: "form.deliveryDaysLabel",
-                    placeholder: "form.deliveryDaysPlaceholder",
-                    required: true,
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "proposal",
-                    widget: "#Textarea",
-                    label: "form.proposalLabel",
-                    placeholder: "form.proposalPlaceholder",
-                    required: true,
-                    widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "proposal",
+                            widget: "#Textarea",
+                            label: "form.proposalLabel",
+                            placeholder: "form.proposalPlaceholder",
+                            required: true,
+                            widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -183,7 +200,7 @@ export const bidCreateFormView: ViewConfig = {
     accessModel: "marketplacebids",
     apiUrl: "/api/eCommerceMarketplace/bid",
     method: "PUT",
-    nodes: bidCreateFields,
+    nodes: bidCreateFormNodes,
 };
 
 export const bidViews: ViewConfig[] = [bidSheetView, bidCreateFormView];

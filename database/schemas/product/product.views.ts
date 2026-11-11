@@ -27,8 +27,50 @@ export const productSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 3},
                     children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "price",
+                            permissions: {read: "price"},
+                            field: {
+                                name: "price",
+                                widget: "#DisplayCard",
+                                label: "price",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "price"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "compareAtPrice",
+                            permissions: {read: "compareAtPrice"},
+                            field: {
+                                name: "compareAtPrice",
+                                widget: "#DisplayCard",
+                                label: "compareAtPrice",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "compareAtPrice"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
+                            },
+                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "type"},
@@ -45,12 +87,68 @@ export const productSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "slug"},
+                            permissions: {read: "availableForSale"},
                             field: {
-                                name: "slug",
+                                name: "availableForSale",
                                 widget: "#DisplayCard",
-                                label: "slug",
-                                widgetProps: {icon: "#IconLink"},
+                                label: "availableForSale",
+                                widgetProps: {
+                                    icon: "#IconShoppingCart",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "featured",
+                            permissions: {read: "featured"},
+                            field: {
+                                name: "featured",
+                                widget: "#DisplayCard",
+                                label: "featured",
+                                widgetProps: {
+                                    icon: "#IconStar",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "publishedAt",
+                            permissions: {read: "publishedAt"},
+                            field: {
+                                name: "publishedAt",
+                                widget: "#DisplayCard",
+                                label: "publishedAt",
+                                widgetProps: {
+                                    icon: "#IconCalendar",
+                                    format: "dateTime",
+                                    type: "dateTime",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "brand",
+                            permissions: {read: "brand"},
+                            field: {
+                                name: "brand",
+                                widget: "#DisplayCard",
+                                label: "brand",
+                                widgetProps: {icon: "#IconTag"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "vendor",
+                            permissions: {read: "vendor"},
+                            field: {
+                                name: "vendor",
+                                widget: "#DisplayCard",
+                                label: "vendor",
+                                widgetProps: {icon: "#IconBuilding"},
                             },
                         },
                     ],
@@ -61,6 +159,22 @@ export const productSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "shortDescription",
+                            permissions: {read: "shortDescription"},
+                            field: {
+                                name: "shortDescription",
+                                widget: "#DisplayCard",
+                                label: "shortDescription",
+                                widgetProps: {
+                                    icon: "#IconAlignLeft",
+                                    expandable: true,
+                                    maxLength: 250,
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "description",
                             permissions: {read: "description"},
                             field: {
                                 name: "description",
@@ -75,234 +189,187 @@ export const productSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "shortDescription"},
-                            field: {
-                                name: "shortDescription",
-                                widget: "#DisplayCard",
-                                label: "shortDescription",
-                                widgetProps: {
-                                    icon: "#IconAlignLeft",
-                                    expandable: true,
-                                    maxLength: 250,
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "content", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 1},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "highlights"},
-                            field: {
-                                name: "highlights",
-                                widget: "#DisplayCard",
-                                label: "highlights",
-                                widgetProps: {icon: "#IconList", valueType: "stringBadgeList"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "careInstructions"},
-                            field: {
-                                name: "careInstructions",
-                                widget: "#DisplayCard",
-                                label: "careInstructions",
-                                widgetProps: {
-                                    icon: "#IconInfoCircle",
-                                    expandable: true,
-                                    maxLength: 250,
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "warranty"},
-                            field: {
-                                name: "warranty",
-                                widget: "#DisplayCard",
-                                label: "warranty",
-                                widgetProps: {
-                                    icon: "#IconShieldCheck",
-                                    expandable: true,
-                                    maxLength: 250,
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "faqs", defaultOpen: false},
-            permissions: {read: "faqs"},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
-                    children: [
-                        {
-                            render: "#ExpandableText",
-                            permissions: {read: "faqs"},
-                            field: {
-                                name: "faqs",
-                                widget: "#ExpandableText",
-                                widgetProps: {className: "text-sm", valueType: "faqBlock"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Identifiers
-        {
-            render: "#SheetGroup",
-            props: {title: "identifiers", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "sku"},
-                            field: {
-                                name: "sku",
-                                widget: "#DisplayCard",
-                                label: "sku",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "barcode"},
-                            field: {
-                                name: "barcode",
-                                widget: "#DisplayCard",
-                                label: "barcode",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "gtin"},
-                            field: {
-                                name: "gtin",
-                                widget: "#DisplayCard",
-                                label: "gtin",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "upc"},
-                            field: {
-                                name: "upc",
-                                widget: "#DisplayCard",
-                                label: "upc",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "ean"},
-                            field: {
-                                name: "ean",
-                                widget: "#DisplayCard",
-                                label: "ean",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isbn"},
-                            field: {
-                                name: "isbn",
-                                widget: "#DisplayCard",
-                                label: "isbn",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "mpn"},
-                            field: {
-                                name: "mpn",
-                                widget: "#DisplayCard",
-                                label: "mpn",
-                                widgetProps: {icon: "#IconBarcode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "hsCode"},
-                            field: {
-                                name: "hsCode",
-                                widget: "#DisplayCard",
-                                label: "hsCode",
-                                widgetProps: {icon: "#IconWorld"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "countryOfOrigin"},
-                            field: {
-                                name: "countryOfOrigin",
-                                widget: "#DisplayCard",
-                                label: "countryOfOrigin",
-                                widgetProps: {icon: "#IconWorld"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Organization
-        {
-            render: "#SheetGroup",
-            props: {title: "organization", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "brand"},
-                            field: {
-                                name: "brand",
-                                widget: "#DisplayCard",
-                                label: "brand",
-                                widgetProps: {icon: "#IconTag"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "vendor"},
-                            field: {
-                                name: "vendor",
-                                widget: "#DisplayCard",
-                                label: "vendor",
-                                widgetProps: {icon: "#IconBuilding"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "tags",
                             permissions: {read: "tags"},
                             field: {
                                 name: "tags",
                                 widget: "#DisplayCard",
                                 label: "tags",
                                 widgetProps: {icon: "#IconTags", valueType: "stringBadgeList"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "badges",
+                            permissions: {read: "badges"},
+                            field: {
+                                name: "badges",
+                                widget: "#DisplayCard",
+                                label: "badges",
+                                widgetProps: {icon: "#IconAward", valueType: "stringBadgeList"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "product.sheet.inventories.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    dependent: "inventories",
+                    permissions: {read: "inventories"},
+                    props: {
+                        title: "inventories",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "inventories"},
+                                    field: {
+                                        name: "inventories",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#InventoryCard",
+                                            itemDataProp: "inventory",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconBuildingWarehouse",
+                                                label: "inventoryRow",
+                                                valuePath: ["warehouse.name", "quantityOnHand"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "inventories",
+                                                linkedSheetWidget: "#InventorySheetView",
+                                                linkedSheetEntityProp: "inventory",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "inventory", defaultOpen: false},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "trackInventory"},
+                            field: {
+                                name: "trackInventory",
+                                widget: "#DisplayCard",
+                                label: "trackInventory",
+                                widgetProps: {
+                                    icon: "#IconToggleRight",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "allowBackorder",
+                            permissions: {read: "allowBackorder"},
+                            field: {
+                                name: "allowBackorder",
+                                widget: "#DisplayCard",
+                                label: "allowBackorder",
+                                widgetProps: {
+                                    icon: "#IconPackageOff",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "lowStockThreshold",
+                            permissions: {read: "lowStockThreshold"},
+                            field: {
+                                name: "lowStockThreshold",
+                                widget: "#DisplayCard",
+                                label: "lowStockThreshold",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "safetyStock",
+                            permissions: {read: "safetyStock"},
+                            field: {
+                                name: "safetyStock",
+                                widget: "#DisplayCard",
+                                label: "safetyStock",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "backorderLimit",
+                            permissions: {read: "backorderLimit"},
+                            field: {
+                                name: "backorderLimit",
+                                widget: "#DisplayCard",
+                                label: "backorderLimit",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "preorderEnabled",
+                            permissions: {read: "preorderEnabled"},
+                            field: {
+                                name: "preorderEnabled",
+                                widget: "#DisplayCard",
+                                label: "preorderEnabled",
+                                widgetProps: {
+                                    icon: "#IconClock",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "preorderAvailableAt",
+                            permissions: {read: "preorderAvailableAt"},
+                            field: {
+                                name: "preorderAvailableAt",
+                                widget: "#DisplayCard",
+                                label: "preorderAvailableAt",
+                                widgetProps: {
+                                    icon: "#IconCalendar",
+                                    format: "dateTime",
+                                    type: "dateTime",
+                                },
                             },
                         },
                     ],
@@ -323,6 +390,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "categories",
                     permissions: {read: "categories"},
                     children: [
                         {
@@ -371,6 +439,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "collections",
                     permissions: {read: "collections"},
                     children: [
                         {
@@ -405,507 +474,93 @@ export const productSheetView: ViewConfig = {
                 },
             ],
         },
-        // Pricing
         {
-            render: "#SheetGroup",
-            props: {title: "pricing", defaultOpen: false},
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "product.sheet.variants.listDisplay",
+                defaultMode: "compact",
+            },
             children: [
                 {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
+                    render: "#SheetGroup",
+                    dependentAny: ["variants", "defaultVariant"],
+                    permissions: {readAny: ["variants", "defaultVariant", "variantCount"]},
+                    props: {
+                        title: "productVariants",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
                     children: [
                         {
-                            render: "#DisplayCard",
-                            permissions: {read: "price"},
-                            field: {
-                                name: "price",
-                                widget: "#DisplayCard",
-                                label: "price",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    valuePath: ["currency.symbol", "price"],
-                                    joinSeparator: " ",
-                                    type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
+                            render: "#SheetGrid",
+                            props: {columns: 2},
+                            children: [
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "defaultVariant",
+                                    permissions: {read: "defaultVariant"},
+                                    field: {
+                                        name: "defaultVariant",
+                                        widget: "#DisplayCard",
+                                        label: "defaultVariant",
+                                        widgetProps: {
+                                            icon: "#IconPackage",
+                                            parent: "defaultVariant",
+                                            valuePath: ["sku"],
+                                            linkedRefPath: "defaultVariant",
+                                            linkedSheetModel: "productVariants",
+                                            linkedSheetWidget: "#ProductVariantSheetView",
+                                            linkedSheetEntityProp: "entity",
+                                        },
+                                    },
                                 },
-                            },
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "variantCount",
+                                    permissions: {read: "variantCount"},
+                                    field: {
+                                        name: "variantCount",
+                                        widget: "#DisplayCard",
+                                        label: "variantCount",
+                                        widgetProps: {icon: "#Hash"},
+                                    },
+                                },
+                            ],
                         },
                         {
-                            render: "#DisplayCard",
-                            permissions: {read: "compareAtPrice"},
-                            field: {
-                                name: "compareAtPrice",
-                                widget: "#DisplayCard",
-                                label: "compareAtPrice",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    valuePath: ["currency.symbol", "compareAtPrice"],
-                                    joinSeparator: " ",
-                                    type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
+                            dependent: "variants",
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "variants"},
+                                    field: {
+                                        name: "variants",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ProductVariantCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconBarcode",
+                                                label: "productVariant",
+                                                valuePath: ["sku", "status"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "productVariants",
+                                                linkedSheetWidget: "#ProductVariantSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
                                 },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "costPrice"},
-                            field: {
-                                name: "costPrice",
-                                widget: "#DisplayCard",
-                                label: "costPrice",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    valuePath: ["currency.symbol", "costPrice"],
-                                    joinSeparator: " ",
-                                    type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "msrp"},
-                            field: {
-                                name: "msrp",
-                                widget: "#DisplayCard",
-                                label: "msrp",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    type: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "saleStartsAt"},
-                            field: {
-                                name: "saleStartsAt",
-                                widget: "#DisplayCard",
-                                label: "saleStartsAt",
-                                widgetProps: {
-                                    icon: "#IconCalendar",
-                                    format: "dateTime",
-                                    type: "dateTime",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "saleEndsAt"},
-                            field: {
-                                name: "saleEndsAt",
-                                widget: "#DisplayCard",
-                                label: "saleEndsAt",
-                                widgetProps: {
-                                    icon: "#IconCalendar",
-                                    format: "dateTime",
-                                    type: "dateTime",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "taxable"},
-                            field: {
-                                name: "taxable",
-                                widget: "#DisplayCard",
-                                label: "taxable",
-                                widgetProps: {
-                                    icon: "#IconReceiptTax",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "taxClass"},
-                            field: {
-                                name: "taxClass",
-                                widget: "#DisplayCard",
-                                label: "taxClass",
-                                widgetProps: {icon: "#IconReceiptTax"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "minOrderQty"},
-                            field: {
-                                name: "minOrderQty",
-                                widget: "#DisplayCard",
-                                label: "minOrderQty",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "maxOrderQty"},
-                            field: {
-                                name: "maxOrderQty",
-                                widget: "#DisplayCard",
-                                label: "maxOrderQty",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "stepQty"},
-                            field: {
-                                name: "stepQty",
-                                widget: "#DisplayCard",
-                                label: "stepQty",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
+                            ],
                         },
                     ],
                 },
             ],
         },
-        // Shipping / physical
-        {
-            render: "#SheetGroup",
-            props: {title: "shipping", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "weight"},
-                            field: {
-                                name: "weight",
-                                widget: "#DisplayCard",
-                                label: "weight",
-                                widgetProps: {
-                                    icon: "#IconWeight",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "weightUnit"},
-                            field: {
-                                name: "weightUnit",
-                                widget: "#DisplayCard",
-                                label: "weightUnit",
-                                widgetProps: {
-                                    icon: "#IconWeight",
-                                    languageKeyCategory: "weightUnits",
-                                    type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "dimensions"},
-                            field: {
-                                name: "dimensions.length",
-                                widget: "#DisplayCard",
-                                label: "dimensionLength",
-                                widgetProps: {
-                                    icon: "#IconRuler",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "dimensions"},
-                            field: {
-                                name: "dimensions.width",
-                                widget: "#DisplayCard",
-                                label: "dimensionWidth",
-                                widgetProps: {
-                                    icon: "#IconRuler",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "dimensions"},
-                            field: {
-                                name: "dimensions.height",
-                                widget: "#DisplayCard",
-                                label: "dimensionHeight",
-                                widgetProps: {
-                                    icon: "#IconRuler",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "dimensionUnit"},
-                            field: {
-                                name: "dimensionUnit",
-                                widget: "#DisplayCard",
-                                label: "dimensionUnit",
-                                widgetProps: {
-                                    icon: "#IconRuler",
-                                    languageKeyCategory: "dimensionUnits",
-                                    type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "volumetricWeight"},
-                            field: {
-                                name: "volumetricWeight",
-                                widget: "#DisplayCard",
-                                label: "volumetricWeight",
-                                widgetProps: {
-                                    icon: "#IconWeight",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingClass"},
-                            field: {
-                                name: "shippingClass",
-                                widget: "#DisplayCard",
-                                label: "shippingClass",
-                                widgetProps: {icon: "#IconTruckDelivery"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isHazmat"},
-                            field: {
-                                name: "isHazmat",
-                                widget: "#DisplayCard",
-                                label: "isHazmat",
-                                widgetProps: {
-                                    icon: "#IconAlertTriangle",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "requiresShipping"},
-                            field: {
-                                name: "requiresShipping",
-                                widget: "#DisplayCard",
-                                label: "requiresShipping",
-                                widgetProps: {
-                                    icon: "#IconTruckDelivery",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Inventory hints
-        {
-            render: "#SheetGroup",
-            props: {title: "inventory", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "trackInventory"},
-                            field: {
-                                name: "trackInventory",
-                                widget: "#DisplayCard",
-                                label: "trackInventory",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "allowBackorder"},
-                            field: {
-                                name: "allowBackorder",
-                                widget: "#DisplayCard",
-                                label: "allowBackorder",
-                                widgetProps: {
-                                    icon: "#IconPackageOff",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "lowStockThreshold"},
-                            field: {
-                                name: "lowStockThreshold",
-                                widget: "#DisplayCard",
-                                label: "lowStockThreshold",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "safetyStock"},
-                            field: {
-                                name: "safetyStock",
-                                widget: "#DisplayCard",
-                                label: "safetyStock",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "backorderLimit"},
-                            field: {
-                                name: "backorderLimit",
-                                widget: "#DisplayCard",
-                                label: "backorderLimit",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "preorderEnabled"},
-                            field: {
-                                name: "preorderEnabled",
-                                widget: "#DisplayCard",
-                                label: "preorderEnabled",
-                                widgetProps: {
-                                    icon: "#IconClock",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "preorderAvailableAt"},
-                            field: {
-                                name: "preorderAvailableAt",
-                                widget: "#DisplayCard",
-                                label: "preorderAvailableAt",
-                                widgetProps: {
-                                    icon: "#IconCalendar",
-                                    format: "dateTime",
-                                    type: "dateTime",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "availableForSale"},
-                            field: {
-                                name: "availableForSale",
-                                widget: "#DisplayCard",
-                                label: "availableForSale",
-                                widgetProps: {
-                                    icon: "#IconShoppingCart",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Media
-        {
-            render: "#SheetGroup",
-            props: {title: "media", defaultOpen: false},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50 max-w-full space-y-4"},
-                    children: [
-                        {
-                            render: "#GalleryCarousel",
-                            permissions: {readAny: ["mainImage", "gallery"]},
-                            field: {
-                                name: "mainImage",
-                                widget: "#GalleryCarousel",
-                                label: "images",
-                                widgetProps: {
-                                    icon: "#IconPhoto",
-                                    imageGalleryField: "gallery",
-                                    showThumbnails: false,
-                                    allowFullScreen: false,
-                                    coverAfterFirst: false,
-                                    showPreviews: true,
-                                    previewLocation: "right",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "videoUrls"},
-                            field: {
-                                name: "videoUrls",
-                                widget: "#DisplayCard",
-                                label: "videoUrls",
-                                widgetProps: {icon: "#IconVideo", valueType: "stringBadgeList"},
-                            },
-                        },
-                        {
-                            render: "#SheetMediaFilesStrip",
-                            permissions: {read: "documents"},
-                            field: {
-                                name: "documents",
-                                widget: "#SheetMediaFilesStrip",
-                                label: "documents",
-                                widgetProps: {
-                                    icon: "#IconFileText",
-                                    canDownload: true,
-                                    canRemove: false,
-                                    isBig: false,
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Variants / options
         {
             render: "#ReferencesViewModeScope",
             props: {
@@ -920,6 +575,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "variantOptions",
                     permissions: {read: "variantOptions"},
                     children: [
                         {
@@ -956,7 +612,67 @@ export const productSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "variants", defaultOpen: false},
+            props: {title: "media", defaultOpen: false},
+            dependentAny: ["mainImage", "gallery", "videoUrls", "documents"],
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50 max-w-full space-y-4"},
+                    children: [
+                        {
+                            render: "#GalleryCarousel",
+                            dependentAny: ["mainImage", "gallery"],
+                            permissions: {readAny: ["mainImage", "gallery"]},
+                            field: {
+                                name: "mainImage",
+                                widget: "#GalleryCarousel",
+                                label: "images",
+                                widgetProps: {
+                                    icon: "#IconPhoto",
+                                    imageGalleryField: "gallery",
+                                    showThumbnails: false,
+                                    allowFullScreen: false,
+                                    coverAfterFirst: false,
+                                    showPreviews: true,
+                                    previewLocation: "right",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "videoUrls",
+                            permissions: {read: "videoUrls"},
+                            field: {
+                                name: "videoUrls",
+                                widget: "#DisplayCard",
+                                label: "videoUrls",
+                                widgetProps: {icon: "#IconVideo", valueType: "stringBadgeList"},
+                            },
+                        },
+                        {
+                            render: "#SheetMediaFilesStrip",
+                            dependent: "documents",
+                            permissions: {read: "documents"},
+                            field: {
+                                name: "documents",
+                                widget: "#SheetMediaFilesStrip",
+                                label: "documents",
+                                widgetProps: {
+                                    icon: "#IconFileText",
+                                    canDownload: true,
+                                    canRemove: false,
+                                    isBig: false,
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "pricing", defaultOpen: false},
+            dependentAny: ["costPrice", "msrp", "saleStartsAt", "saleEndsAt", "taxable", "taxClass", "minOrderQty", "maxOrderQty", "stepQty"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -964,50 +680,141 @@ export const productSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "hasVariants"},
+                            dependent: "costPrice",
+                            permissions: {read: "costPrice"},
                             field: {
-                                name: "hasVariants",
+                                name: "costPrice",
                                 widget: "#DisplayCard",
-                                label: "hasVariants",
+                                label: "costPrice",
                                 widgetProps: {
-                                    icon: "#IconToggleRight",
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "costPrice"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "msrp",
+                            permissions: {read: "msrp"},
+                            field: {
+                                name: "msrp",
+                                widget: "#DisplayCard",
+                                label: "msrp",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    type: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "saleStartsAt",
+                            permissions: {read: "saleStartsAt"},
+                            field: {
+                                name: "saleStartsAt",
+                                widget: "#DisplayCard",
+                                label: "saleStartsAt",
+                                widgetProps: {
+                                    icon: "#IconCalendar",
+                                    format: "dateTime",
+                                    type: "dateTime",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "saleEndsAt",
+                            permissions: {read: "saleEndsAt"},
+                            field: {
+                                name: "saleEndsAt",
+                                widget: "#DisplayCard",
+                                label: "saleEndsAt",
+                                widgetProps: {
+                                    icon: "#IconCalendar",
+                                    format: "dateTime",
+                                    type: "dateTime",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "taxable"},
+                            field: {
+                                name: "taxable",
+                                widget: "#DisplayCard",
+                                label: "taxable",
+                                widgetProps: {
+                                    icon: "#IconReceiptTax",
                                     valueType: "boolean",
+                                    type: "boolean",
                                 },
                             },
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "defaultVariant"},
+                            dependent: "taxClass",
+                            permissions: {read: "taxClass"},
                             field: {
-                                name: "defaultVariant",
+                                name: "taxClass",
                                 widget: "#DisplayCard",
-                                label: "defaultVariant",
+                                label: "taxClass",
+                                widgetProps: {icon: "#IconReceiptTax"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "minOrderQty",
+                            permissions: {read: "minOrderQty"},
+                            field: {
+                                name: "minOrderQty",
+                                widget: "#DisplayCard",
+                                label: "minOrderQty",
                                 widgetProps: {
-                                    icon: "#IconPackage",
-                                    parent: "defaultVariant",
-                                    valuePath: ["sku"],
-                                    linkedRefPath: "defaultVariant",
-                                    linkedSheetModel: "productVariants",
-                                    linkedSheetWidget: "#ProductVariantSheetView",
-                                    linkedSheetEntityProp: "entity",
+                                    icon: "#Hash",
+                                    format: "locale",
                                 },
                             },
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "variantCount"},
+                            dependent: "maxOrderQty",
+                            permissions: {read: "maxOrderQty"},
                             field: {
-                                name: "variantCount",
+                                name: "maxOrderQty",
                                 widget: "#DisplayCard",
-                                label: "variantCount",
-                                widgetProps: {icon: "#Hash"},
+                                label: "maxOrderQty",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "stepQty",
+                            permissions: {read: "stepQty"},
+                            field: {
+                                name: "stepQty",
+                                widget: "#DisplayCard",
+                                label: "stepQty",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
                             },
                         },
                     ],
                 },
             ],
         },
-        // Bundles (type "bundle")
         {
             render: "#ReferencesViewModeScope",
             props: {
@@ -1022,6 +829,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "bundleComponents",
                     permissions: {read: "bundleComponents"},
                     children: [
                         {
@@ -1068,10 +876,10 @@ export const productSheetView: ViewConfig = {
                 },
             ],
         },
-        // Digital delivery (type "digital")
         {
             render: "#SheetGroup",
             props: {title: "digitalDelivery", defaultOpen: false},
+            dependentAny: ["downloadLimit", "downloadExpiryDays"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -1079,6 +887,7 @@ export const productSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "downloadLimit",
                             permissions: {read: "downloadLimit"},
                             field: {
                                 name: "downloadLimit",
@@ -1092,6 +901,7 @@ export const productSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "downloadExpiryDays",
                             permissions: {read: "downloadExpiryDays"},
                             field: {
                                 name: "downloadExpiryDays",
@@ -1107,7 +917,421 @@ export const productSheetView: ViewConfig = {
                 },
             ],
         },
-        // Merchandising
+        {
+            render: "#SheetGroup",
+            props: {title: "identifiers", defaultOpen: false},
+            dependentAny: ["barcode", "gtin", "upc", "ean", "isbn", "mpn", "hsCode", "countryOfOrigin"],
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "barcode",
+                            permissions: {read: "barcode"},
+                            field: {
+                                name: "barcode",
+                                widget: "#DisplayCard",
+                                label: "barcode",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "gtin",
+                            permissions: {read: "gtin"},
+                            field: {
+                                name: "gtin",
+                                widget: "#DisplayCard",
+                                label: "gtin",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "upc",
+                            permissions: {read: "upc"},
+                            field: {
+                                name: "upc",
+                                widget: "#DisplayCard",
+                                label: "upc",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "ean",
+                            permissions: {read: "ean"},
+                            field: {
+                                name: "ean",
+                                widget: "#DisplayCard",
+                                label: "ean",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "isbn",
+                            permissions: {read: "isbn"},
+                            field: {
+                                name: "isbn",
+                                widget: "#DisplayCard",
+                                label: "isbn",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "mpn",
+                            permissions: {read: "mpn"},
+                            field: {
+                                name: "mpn",
+                                widget: "#DisplayCard",
+                                label: "mpn",
+                                widgetProps: {icon: "#IconBarcode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "hsCode",
+                            permissions: {read: "hsCode"},
+                            field: {
+                                name: "hsCode",
+                                widget: "#DisplayCard",
+                                label: "hsCode",
+                                widgetProps: {icon: "#IconWorld"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "countryOfOrigin",
+                            permissions: {read: "countryOfOrigin"},
+                            field: {
+                                name: "countryOfOrigin",
+                                widget: "#DisplayCard",
+                                label: "countryOfOrigin",
+                                widgetProps: {icon: "#IconWorld"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "shipping", defaultOpen: false},
+            dependentAny: ["weight", "dimensions.length", "dimensions.width", "dimensions.height", "volumetricWeight", "shippingClass", "isHazmat", "requiresShipping"],
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "weight",
+                            permissions: {read: "weight"},
+                            field: {
+                                name: "weight",
+                                widget: "#DisplayCard",
+                                label: "weight",
+                                widgetProps: {
+                                    icon: "#IconWeight",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "weight",
+                            permissions: {read: "weightUnit"},
+                            field: {
+                                name: "weightUnit",
+                                widget: "#DisplayCard",
+                                label: "weightUnit",
+                                widgetProps: {
+                                    icon: "#IconWeight",
+                                    languageKeyCategory: "weightUnits",
+                                    type: "enum",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "dimensions.length",
+                            permissions: {read: "dimensions"},
+                            field: {
+                                name: "dimensions.length",
+                                widget: "#DisplayCard",
+                                label: "dimensionLength",
+                                widgetProps: {
+                                    icon: "#IconRuler",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "dimensions.width",
+                            permissions: {read: "dimensions"},
+                            field: {
+                                name: "dimensions.width",
+                                widget: "#DisplayCard",
+                                label: "dimensionWidth",
+                                widgetProps: {
+                                    icon: "#IconRuler",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "dimensions.height",
+                            permissions: {read: "dimensions"},
+                            field: {
+                                name: "dimensions.height",
+                                widget: "#DisplayCard",
+                                label: "dimensionHeight",
+                                widgetProps: {
+                                    icon: "#IconRuler",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "dimensions.length",
+                            permissions: {read: "dimensionUnit"},
+                            field: {
+                                name: "dimensionUnit",
+                                widget: "#DisplayCard",
+                                label: "dimensionUnit",
+                                widgetProps: {
+                                    icon: "#IconRuler",
+                                    languageKeyCategory: "dimensionUnits",
+                                    type: "enum",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "volumetricWeight",
+                            permissions: {read: "volumetricWeight"},
+                            field: {
+                                name: "volumetricWeight",
+                                widget: "#DisplayCard",
+                                label: "volumetricWeight",
+                                widgetProps: {
+                                    icon: "#IconWeight",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingClass",
+                            permissions: {read: "shippingClass"},
+                            field: {
+                                name: "shippingClass",
+                                widget: "#DisplayCard",
+                                label: "shippingClass",
+                                widgetProps: {icon: "#IconTruckDelivery"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "isHazmat",
+                            permissions: {read: "isHazmat"},
+                            field: {
+                                name: "isHazmat",
+                                widget: "#DisplayCard",
+                                label: "isHazmat",
+                                widgetProps: {
+                                    icon: "#IconAlertTriangle",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "requiresShipping"},
+                            field: {
+                                name: "requiresShipping",
+                                widget: "#DisplayCard",
+                                label: "requiresShipping",
+                                widgetProps: {
+                                    icon: "#IconTruckDelivery",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "content", defaultOpen: false},
+            dependentAny: ["highlights", "careInstructions", "warranty", "faqs"],
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "highlights",
+                            permissions: {read: "highlights"},
+                            field: {
+                                name: "highlights",
+                                widget: "#DisplayCard",
+                                label: "highlights",
+                                widgetProps: {icon: "#IconList", valueType: "stringBadgeList"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "careInstructions",
+                            permissions: {read: "careInstructions"},
+                            field: {
+                                name: "careInstructions",
+                                widget: "#DisplayCard",
+                                label: "careInstructions",
+                                widgetProps: {
+                                    icon: "#IconInfoCircle",
+                                    expandable: true,
+                                    maxLength: 250,
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "warranty",
+                            permissions: {read: "warranty"},
+                            field: {
+                                name: "warranty",
+                                widget: "#DisplayCard",
+                                label: "warranty",
+                                widgetProps: {
+                                    icon: "#IconShieldCheck",
+                                    expandable: true,
+                                    maxLength: 250,
+                                },
+                            },
+                        },
+                    ],
+                },
+                {
+                    render: "div",
+                    dependent: "faqs",
+                    permissions: {read: "faqs"},
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "faqs"},
+                            field: {
+                                name: "faqs",
+                                widget: "#ExpandableText",
+                                widgetProps: {className: "text-sm", valueType: "faqBlock"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "product.sheet.attributes.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "attributes",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    dependent: "attributes",
+                    permissions: {read: "attributes"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    permissions: {read: "attributes"},
+                                    field: {
+                                        name: "attributes",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 8,
+                                            entityCards: true,
+                                            columns: 2,
+                                            compactSummaryFields: ["name", "values"],
+                                            fields: [
+                                                {name: "name", type: "text", className: "text-sm font-medium", labelKey: "name"},
+                                                {name: "values", type: "text", className: "text-sm", labelKey: "attributeValues"},
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "product.sheet.specifications.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "specifications",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    dependent: "specifications",
+                    permissions: {read: "specifications"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    permissions: {read: "specifications"},
+                                    field: {
+                                        name: "specifications",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 8,
+                                            entityCards: true,
+                                            columns: 2,
+                                            compactSummaryFields: ["label", "value"],
+                                            fields: [
+                                                {name: "label", type: "text", className: "text-sm font-medium", labelKey: "specLabel"},
+                                                {name: "value", type: "text", className: "text-sm", labelKey: "specValue"},
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         {
             render: "#ReferencesViewModeScope",
             props: {
@@ -1122,6 +1346,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "relatedProducts",
                     permissions: {read: "relatedProducts"},
                     children: [
                         {
@@ -1171,6 +1396,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "upsells",
                     permissions: {read: "upsells"},
                     children: [
                         {
@@ -1220,6 +1446,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "crossSells",
                     permissions: {read: "crossSells"},
                     children: [
                         {
@@ -1269,6 +1496,7 @@ export const productSheetView: ViewConfig = {
                         titleActions: "#ReferencesViewModeToggle",
                         defaultOpen: false,
                     },
+                    dependent: "frequentlyBoughtTogether",
                     permissions: {read: "frequentlyBoughtTogether"},
                     children: [
                         {
@@ -1305,453 +1533,6 @@ export const productSheetView: ViewConfig = {
             ],
         },
         {
-            render: "#SheetGroup",
-            props: {title: "merchandising", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "featured"},
-                            field: {
-                                name: "featured",
-                                widget: "#DisplayCard",
-                                label: "featured",
-                                widgetProps: {
-                                    icon: "#IconStar",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "badges"},
-                            field: {
-                                name: "badges",
-                                widget: "#DisplayCard",
-                                label: "badges",
-                                widgetProps: {icon: "#IconAward", valueType: "stringBadgeList"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Ratings (system-computed, denormalized)
-        {
-            render: "#SheetGroup",
-            props: {title: "ratings", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "ratingAverage"},
-                            field: {
-                                name: "ratingAverage",
-                                widget: "#DisplayCard",
-                                label: "ratingAverage",
-                                widgetProps: {
-                                    icon: "#IconStar",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "ratingCount"},
-                            field: {
-                                name: "ratingCount",
-                                widget: "#DisplayCard",
-                                label: "ratingCount",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "reviewCount"},
-                            field: {
-                                name: "reviewCount",
-                                widget: "#DisplayCard",
-                                label: "reviewCount",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Publishing
-        {
-            render: "#SheetGroup",
-            props: {title: "publishing", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {
-                                    icon: "#Tag",
-                                    languageKeyCategory: "productStatus",
-                                    type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "publishedAt"},
-                            field: {
-                                name: "publishedAt",
-                                widget: "#DisplayCard",
-                                label: "publishedAt",
-                                widgetProps: {
-                                    icon: "#IconCalendar",
-                                    format: "dateTime",
-                                    type: "dateTime",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "product.sheet.attributes.listDisplay",
-                defaultMode: "cards",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "attributes",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: false,
-                    },
-                    permissions: {read: "attributes"},
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#SheetEmbeddedItemsList",
-                                    permissions: {read: "attributes"},
-                                    field: {
-                                        name: "attributes",
-                                        widget: "#SheetEmbeddedItemsList",
-                                        widgetProps: {
-                                            pageSize: 8,
-                                            entityCards: true,
-                                            columns: 2,
-                                            compactSummaryFields: ["name", "values"],
-                                            fields: [
-                                                {name: "name", type: "text", className: "text-sm font-medium", labelKey: "name"},
-                                                {name: "values", type: "text", className: "text-sm", labelKey: "attributeValues"},
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "product.sheet.specifications.listDisplay",
-                defaultMode: "cards",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "specifications",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: false,
-                    },
-                    permissions: {read: "specifications"},
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#SheetEmbeddedItemsList",
-                                    permissions: {read: "specifications"},
-                                    field: {
-                                        name: "specifications",
-                                        widget: "#SheetEmbeddedItemsList",
-                                        widgetProps: {
-                                            pageSize: 8,
-                                            entityCards: true,
-                                            columns: 2,
-                                            compactSummaryFields: ["label", "value"],
-                                            fields: [
-                                                {name: "label", type: "text", className: "text-sm font-medium", labelKey: "specLabel"},
-                                                {name: "value", type: "text", className: "text-sm", labelKey: "specValue"},
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "seo", defaultOpen: false},
-            permissions: {read: "seo"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.metaTitle",
-                                widget: "#DisplayCard",
-                                label: "seoMetaTitle",
-                                widgetProps: {icon: "#IconSeo"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.metaDescription",
-                                widget: "#DisplayCard",
-                                label: "seoMetaDescription",
-                                widgetProps: {icon: "#IconAlignLeft"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo.metaKeywords"},
-                            field: {
-                                name: "seo.metaKeywords",
-                                widget: "#DisplayCard",
-                                label: "seoMetaKeywords",
-                                widgetProps: {icon: "#IconTags", valueType: "stringBadgeList"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.canonicalUrl",
-                                widget: "#DisplayCard",
-                                label: "seoCanonicalUrl",
-                                widgetProps: {icon: "#IconLink"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.openGraphTitle",
-                                widget: "#DisplayCard",
-                                label: "seoOpenGraphTitle",
-                                widgetProps: {icon: "#IconShare"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.openGraphDescription",
-                                widget: "#DisplayCard",
-                                label: "seoOpenGraphDescription",
-                                widgetProps: {icon: "#IconAlignLeft"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.twitterCard",
-                                widget: "#DisplayCard",
-                                label: "seoTwitterCard",
-                                widgetProps: {
-                                    icon: "#IconBrandX",
-                                    languageKeyCategory: "twitterCard",
-                                    type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.structuredDataType",
-                                widget: "#DisplayCard",
-                                label: "seoStructuredDataType",
-                                widgetProps: {icon: "#IconCode"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.sitemapInclude",
-                                widget: "#DisplayCard",
-                                label: "seoSitemapInclude",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.sitemapPriority",
-                                widget: "#DisplayCard",
-                                label: "seoSitemapPriority",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "seo"},
-                            field: {
-                                name: "seo.noIndex",
-                                widget: "#DisplayCard",
-                                label: "seoNoIndex",
-                                widgetProps: {
-                                    icon: "#IconEyeOff",
-                                    valueType: "boolean",
-                                    type: "boolean",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "product.sheet.variants.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    permissions: {read: "variants"},
-                    props: {
-                        title: "productVariants",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: false,
-                    },
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "variants"},
-                                    field: {
-                                        name: "variants",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ProductVariantCard",
-                                            itemDataProp: "entity",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconBarcode",
-                                                label: "productVariant",
-                                                valuePath: ["sku", "status"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "productVariants",
-                                                linkedSheetWidget: "#ProductVariantSheetView",
-                                                linkedSheetEntityProp: "entity",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "product.sheet.inventories.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    permissions: {read: "inventories"},
-                    props: {
-                        title: "inventories",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: false,
-                    },
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "inventories"},
-                                    field: {
-                                        name: "inventories",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#InventoryCard",
-                                            itemDataProp: "inventory",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconBuildingWarehouse",
-                                                label: "inventoryRow",
-                                                valuePath: ["warehouse.name", "quantityOnHand"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "inventories",
-                                                linkedSheetWidget: "#InventorySheetView",
-                                                linkedSheetEntityProp: "inventory",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
             render: "#ReferencesViewModeScope",
             props: {
                 storageKey: "product.sheet.reviews.listDisplay",
@@ -1760,7 +1541,8 @@ export const productSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGroup",
-                    permissions: {read: "reviews"},
+                    dependentAny: ["reviews", "reviewCount", "ratingCount"],
+                    permissions: {readAny: ["reviews", "ratingAverage", "ratingCount", "reviewCount"]},
                     props: {
                         title: "reviews",
                         titleActions: "#ReferencesViewModeToggle",
@@ -1768,6 +1550,49 @@ export const productSheetView: ViewConfig = {
                     },
                     children: [
                         {
+                            render: "#SheetGrid",
+                            props: {columns: 3},
+                            children: [
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "ratingAverage",
+                                    permissions: {read: "ratingAverage"},
+                                    field: {
+                                        name: "ratingAverage",
+                                        widget: "#DisplayCard",
+                                        label: "ratingAverage",
+                                        widgetProps: {
+                                            icon: "#IconStar",
+                                            format: "locale",
+                                        },
+                                    },
+                                },
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "ratingCount",
+                                    permissions: {read: "ratingCount"},
+                                    field: {
+                                        name: "ratingCount",
+                                        widget: "#DisplayCard",
+                                        label: "ratingCount",
+                                        widgetProps: {icon: "#Hash"},
+                                    },
+                                },
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "reviewCount",
+                                    permissions: {read: "reviewCount"},
+                                    field: {
+                                        name: "reviewCount",
+                                        widget: "#DisplayCard",
+                                        label: "reviewCount",
+                                        widgetProps: {icon: "#Hash"},
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            dependent: "reviews",
                             render: "div",
                             props: {className: "rounded-lg bg-muted/30 border border-border/50"},
                             children: [
@@ -1795,6 +1620,155 @@ export const productSheetView: ViewConfig = {
                                     },
                                 },
                             ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "seo", defaultOpen: false},
+            dependentAny: ["seo.metaTitle", "seo.metaDescription", "seo.metaKeywords", "seo.canonicalUrl", "seo.openGraphTitle", "seo.openGraphDescription", "seo.twitterCard", "seo.structuredDataType", "seo.sitemapPriority", "seo.noIndex"],
+            permissions: {read: "seo"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.metaTitle",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.metaTitle",
+                                widget: "#DisplayCard",
+                                label: "seoMetaTitle",
+                                widgetProps: {icon: "#IconSeo"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.metaDescription",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.metaDescription",
+                                widget: "#DisplayCard",
+                                label: "seoMetaDescription",
+                                widgetProps: {icon: "#IconAlignLeft"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.metaKeywords",
+                            permissions: {read: "seo.metaKeywords"},
+                            field: {
+                                name: "seo.metaKeywords",
+                                widget: "#DisplayCard",
+                                label: "seoMetaKeywords",
+                                widgetProps: {icon: "#IconTags", valueType: "stringBadgeList"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.canonicalUrl",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.canonicalUrl",
+                                widget: "#DisplayCard",
+                                label: "seoCanonicalUrl",
+                                widgetProps: {icon: "#IconLink"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.openGraphTitle",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.openGraphTitle",
+                                widget: "#DisplayCard",
+                                label: "seoOpenGraphTitle",
+                                widgetProps: {icon: "#IconShare"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.openGraphDescription",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.openGraphDescription",
+                                widget: "#DisplayCard",
+                                label: "seoOpenGraphDescription",
+                                widgetProps: {icon: "#IconAlignLeft"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.twitterCard",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.twitterCard",
+                                widget: "#DisplayCard",
+                                label: "seoTwitterCard",
+                                widgetProps: {
+                                    icon: "#IconBrandX",
+                                    languageKeyCategory: "twitterCard",
+                                    type: "enum",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.structuredDataType",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.structuredDataType",
+                                widget: "#DisplayCard",
+                                label: "seoStructuredDataType",
+                                widgetProps: {icon: "#IconCode"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.sitemapInclude",
+                                widget: "#DisplayCard",
+                                label: "seoSitemapInclude",
+                                widgetProps: {
+                                    icon: "#IconToggleRight",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.sitemapPriority",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.sitemapPriority",
+                                widget: "#DisplayCard",
+                                label: "seoSitemapPriority",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    format: "locale",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "seo.noIndex",
+                            permissions: {read: "seo"},
+                            field: {
+                                name: "seo.noIndex",
+                                widget: "#DisplayCard",
+                                label: "seoNoIndex",
+                                widgetProps: {
+                                    icon: "#IconEyeOff",
+                                    valueType: "boolean",
+                                    type: "boolean",
+                                },
+                            },
                         },
                     ],
                 },
@@ -1868,16 +1842,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "publishedAt",
-                            widget: "#DateInput",
-                            label: "form.publishedAtLabel",
-                            placeholder: "form.publishedAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
                             name: "brand",
                             widget: "#Input",
                             label: "form.brandLabel",
@@ -1938,6 +1902,73 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     },
                 },
             },
+        ],
+    },
+
+    // ── Media ──────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.mediaSectionTitle"},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "mainImage",
+                    widget: "#MediaField",
+                    label: "form.mainImageLabel",
+                    widgetProps: {
+                        mediaType: "image",
+                        mode: "single",
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "gallery",
+                    widget: "#MediaField",
+                    label: "form.galleryLabel",
+                    widgetProps: {
+                        mediaType: "image",
+                        mode: "multiple",
+                        maxCount: 20,
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "documents",
+                    widget: "#MediaField",
+                    label: "form.documentsLabel",
+                    widgetProps: {
+                        mediaType: "file",
+                        mode: "multiple",
+                        maxCount: 20,
+                    },
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "videoUrls",
+                    widget: "#StringArrayInput",
+                    label: "form.videoUrlsLabel",
+                    placeholder: "form.videoUrlPlaceholder",
+                    widgetProps: {
+                        removeTooltipKey: "form.removeVideoUrl",
+                        maxLength: PRODUCT_URL_MAX,
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Pricing ────────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        children: [
             {
                 render: "#FormGrid",
                 props: {columns: 3},
@@ -1945,17 +1976,256 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "featured",
-                            widget: "#Switch",
-                            label: "form.featuredLabel",
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                normalizeEmptyToUndefined: true,
+                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
+                            },
                         },
                     },
                     {
                         render: "#Field",
                         field: {
-                            name: "availableForSale",
+                            name: "price",
+                            widget: "#Input",
+                            label: "form.priceLabel",
+                            placeholder: "form.pricePlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "compareAtPrice",
+                            widget: "#Input",
+                            label: "form.compareAtPriceLabel",
+                            placeholder: "form.compareAtPricePlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "costPrice",
+                            widget: "#Input",
+                            label: "form.costPriceLabel",
+                            placeholder: "form.costPricePlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "msrp",
+                            widget: "#Input",
+                            label: "form.msrpLabel",
+                            placeholder: "form.msrpPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "saleStartsAt",
+                            widget: "#DateInput",
+                            label: "form.saleStartsAtLabel",
+                            placeholder: "form.saleStartsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "saleEndsAt",
+                            widget: "#DateInput",
+                            label: "form.saleEndsAtLabel",
+                            placeholder: "form.saleEndsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "minOrderQty",
+                            widget: "#Input",
+                            label: "form.minOrderQtyLabel",
+                            placeholder: "form.minOrderQtyPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "maxOrderQty",
+                            widget: "#Input",
+                            label: "form.maxOrderQtyLabel",
+                            placeholder: "form.maxOrderQtyPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "stepQty",
+                            widget: "#Input",
+                            label: "form.stepQtyLabel",
+                            placeholder: "form.stepQtyPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "taxClass",
+                            widget: "#Input",
+                            label: "form.taxClassLabel",
+                            placeholder: "form.taxClassPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "taxable",
                             widget: "#Switch",
-                            label: "form.availableForSaleLabel",
+                            label: "form.taxableLabel",
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+
+    // ── Inventory ──────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.inventorySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "lowStockThreshold",
+                            widget: "#Input",
+                            label: "form.lowStockThresholdLabel",
+                            placeholder: "form.lowStockThresholdPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "safetyStock",
+                            widget: "#Input",
+                            label: "form.safetyStockLabel",
+                            placeholder: "form.safetyStockPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "backorderLimit",
+                            widget: "#Input",
+                            label: "form.backorderLimitLabel",
+                            placeholder: "form.backorderLimitPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0,
+                                step: 1,
+                            },
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "trackInventory",
+                            widget: "#Switch",
+                            label: "form.trackInventoryLabel",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "allowBackorder",
+                            widget: "#Switch",
+                            label: "form.allowBackorderLabel",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "preorderEnabled",
+                            widget: "#Switch",
+                            label: "form.preorderEnabledLabel",
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#FormWhenFieldValueIn",
+                props: {watchField: "preorderEnabled", whenValues: ["true"], clearFields: ["preorderAvailableAt"]},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "preorderAvailableAt",
+                            widget: "#DateInput",
+                            label: "form.preorderAvailableAtLabel",
+                            placeholder: "form.preorderAvailableAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                 ],
@@ -2067,152 +2337,45 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
         ],
     },
 
-    // ── Pricing ────────────────────────────────────────────────
+    // ── Organization ───────────────────────────────────────────
     {
         render: "#TitleWithCollapse",
-        props: {title: "form.pricingSectionTitle"},
+        props: {title: "form.organizationSectionTitle"},
         children: [
             {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            placeholder: "form.currencyPlaceholder",
-                            widgetProps: {
-                                apiUrl: "/api/finance/currency/select",
-                                method: "GET",
-                                normalizeEmptyToUndefined: true,
-                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "price",
-                            widget: "#Input",
-                            label: "form.priceLabel",
-                            placeholder: "form.pricePlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "compareAtPrice",
-                            widget: "#Input",
-                            label: "form.compareAtPriceLabel",
-                            placeholder: "form.compareAtPricePlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "costPrice",
-                            widget: "#Input",
-                            label: "form.costPriceLabel",
-                            placeholder: "form.costPricePlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "msrp",
-                            widget: "#Input",
-                            label: "form.msrpLabel",
-                            placeholder: "form.msrpPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "saleStartsAt",
-                            widget: "#DateInput",
-                            label: "form.saleStartsAtLabel",
-                            placeholder: "form.saleStartsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "saleEndsAt",
-                            widget: "#DateInput",
-                            label: "form.saleEndsAtLabel",
-                            placeholder: "form.saleEndsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "minOrderQty",
-                            widget: "#Input",
-                            label: "form.minOrderQtyLabel",
-                            placeholder: "form.minOrderQtyPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "maxOrderQty",
-                            widget: "#Input",
-                            label: "form.maxOrderQtyLabel",
-                            placeholder: "form.maxOrderQtyPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "stepQty",
-                            widget: "#Input",
-                            label: "form.stepQtyLabel",
-                            placeholder: "form.stepQtyPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "taxClass",
-                            widget: "#Input",
-                            label: "form.taxClassLabel",
-                            placeholder: "form.taxClassPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
-                    },
-                ],
+                render: "#Field",
+                field: {
+                    name: "categories",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.categoriesLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                },
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "collections",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.collectionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
+                },
+            },
+        ],
+    },
+
+    // ── Variants & options ─────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.variantsSectionTitle"},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "variantOptions",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.variantOptionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
+                },
             },
             {
                 render: "#FormGrid",
@@ -2221,9 +2384,9 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "taxable",
+                            name: "hasVariants",
                             widget: "#Switch",
-                            label: "form.taxableLabel",
+                            label: "form.hasVariantsLabel",
                         },
                     },
                 ],
@@ -2231,99 +2394,106 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
         ],
     },
 
-    // ── Inventory ──────────────────────────────────────────────
+    // ── Bundle components (type "bundle") ─────────────────────
     {
-        render: "#TitleWithCollapse",
-        props: {title: "form.inventorySectionTitle"},
+        render: "#FormWhenFieldValueIn",
+        props: {watchField: "type", whenValues: ["bundle"]},
         children: [
             {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "lowStockThreshold",
-                            widget: "#Input",
-                            label: "form.lowStockThresholdLabel",
-                            placeholder: "form.lowStockThresholdPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
+                render: "#Field",
+                field: {
+                    name: "bundleComponents",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.bundleComponentsSectionTitle",
+                        arrayField: "bundleComponents",
+                        defaultItem: {product: "", quantity: 1},
+                        addLabel: "form.bundleComponentAddRow",
+                        removeLabel: "form.bundleComponentRemoveRow",
+                        rowTitleFields: ["quantity"],
+                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "#FormGrid",
+                                props: {columns: 3},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "product",
+                                            widget: "#ApiSelect",
+                                            label: "form.bundleComponentProductLabel",
+                                            placeholder: "form.bundleComponentProductPlaceholder",
+                                            required: true,
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                        },
+                                    },
+                                    {
+                                        render: "#Field",
+                                        field: {
+                                            name: "quantity",
+                                            widget: "#Input",
+                                            label: "form.bundleComponentQuantityLabel",
+                                            placeholder: "form.bundleComponentQuantityPlaceholder",
+                                            required: true,
+                                            widgetProps: {
+                                                type: "number",
+                                                min: 1,
+                                                step: 1,
+                                            },
+                                        },
+                                    },
+                                ],
                             },
-                        },
+                        ],
                     },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "safetyStock",
-                            widget: "#Input",
-                            label: "form.safetyStockLabel",
-                            placeholder: "form.safetyStockPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "backorderLimit",
-                            widget: "#Input",
-                            label: "form.backorderLimitLabel",
-                            placeholder: "form.backorderLimitPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0,
-                            },
-                        },
-                    },
-                ],
+                },
             },
+        ],
+    },
+
+    // ── Digital delivery (type "digital") ──────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        props: {watchField: "type", whenValues: ["digital"]},
+        children: [
             {
-                render: "#FormGrid",
-                props: {columns: 3},
+                render: "#TitleWithCollapse",
+                props: {title: "form.digitalDeliverySectionTitle"},
                 children: [
                     {
-                        render: "#Field",
-                        field: {
-                            name: "trackInventory",
-                            widget: "#Switch",
-                            label: "form.trackInventoryLabel",
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "allowBackorder",
-                            widget: "#Switch",
-                            label: "form.allowBackorderLabel",
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "preorderEnabled",
-                            widget: "#Switch",
-                            label: "form.preorderEnabledLabel",
-                        },
-                    },
-                ],
-            },
-            {
-                render: "#FormWhenFieldValueIn",
-                props: {watchField: "preorderEnabled", whenValues: ["true"], clearFields: ["preorderAvailableAt"]},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "preorderAvailableAt",
-                            widget: "#DateInput",
-                            label: "form.preorderAvailableAtLabel",
-                            placeholder: "form.preorderAvailableAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
+                        render: "#FormGrid",
+                        props: {columns: 3},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "downloadLimit",
+                                    widget: "#Input",
+                                    label: "form.downloadLimitLabel",
+                                    placeholder: "form.downloadLimitPlaceholder",
+                                    widgetProps: {
+                                        type: "number",
+                                        min: 1,
+                                        step: 1,
+                                    },
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "downloadExpiryDays",
+                                    widget: "#Input",
+                                    label: "form.downloadExpiryDaysLabel",
+                                    placeholder: "form.downloadExpiryDaysPlaceholder",
+                                    widgetProps: {
+                                        type: "number",
+                                        min: 1,
+                                        step: 1,
+                                    },
+                                },
+                            },
+                        ],
                     },
                 ],
             },
@@ -2463,219 +2633,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                         },
                     },
                 ],
-            },
-        ],
-    },
-
-    // ── Organization ───────────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.organizationSectionTitle"},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "categories",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "collections",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.collectionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
-                },
-            },
-        ],
-    },
-
-    // ── Variants & options ─────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.variantsSectionTitle"},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "variantOptions",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.variantOptionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
-                },
-            },
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "hasVariants",
-                            widget: "#Switch",
-                            label: "form.hasVariantsLabel",
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-
-    // ── Bundle components (type "bundle") ─────────────────────
-    {
-        render: "#FormWhenFieldValueIn",
-        props: {watchField: "type", whenValues: ["bundle"]},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "bundleComponents",
-                    widget: "#FormRepeater",
-                    widgetProps: {
-                        title: "form.bundleComponentsSectionTitle",
-                        arrayField: "bundleComponents",
-                        defaultItem: {product: "", quantity: 1},
-                        addLabel: "form.bundleComponentAddRow",
-                        removeLabel: "form.bundleComponentRemoveRow",
-                        rowTitleFields: ["quantity"],
-                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
-                        rowTemplate: [
-                            {
-                                render: "#FormGrid",
-                                props: {columns: 3},
-                                children: [
-                                    {
-                                        render: "#Field",
-                                        field: {
-                                            name: "product",
-                                            widget: "#ApiSelect",
-                                            label: "form.bundleComponentProductLabel",
-                                            placeholder: "form.bundleComponentProductPlaceholder",
-                                            required: true,
-                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
-                                        },
-                                    },
-                                    {
-                                        render: "#Field",
-                                        field: {
-                                            name: "quantity",
-                                            widget: "#Input",
-                                            label: "form.bundleComponentQuantityLabel",
-                                            placeholder: "form.bundleComponentQuantityPlaceholder",
-                                            required: true,
-                                            widgetProps: {
-                                                type: "number",
-                                                min: 1,
-                                            },
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                },
-            },
-        ],
-    },
-
-    // ── Digital delivery (type "digital") ──────────────────────
-    {
-        render: "#FormWhenFieldValueIn",
-        props: {watchField: "type", whenValues: ["digital"]},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "downloadLimit",
-                            widget: "#Input",
-                            label: "form.downloadLimitLabel",
-                            placeholder: "form.downloadLimitPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 1,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "downloadExpiryDays",
-                            widget: "#Input",
-                            label: "form.downloadExpiryDaysLabel",
-                            placeholder: "form.downloadExpiryDaysPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 1,
-                            },
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-
-    // ── Media ──────────────────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.mediaSectionTitle"},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "mainImage",
-                    widget: "#MediaField",
-                    label: "form.mainImageLabel",
-                    widgetProps: {
-                        mediaType: "image",
-                        mode: "single",
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "gallery",
-                    widget: "#MediaField",
-                    label: "form.galleryLabel",
-                    widgetProps: {
-                        mediaType: "image",
-                        mode: "multiple",
-                        maxCount: 20,
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "documents",
-                    widget: "#MediaField",
-                    label: "form.documentsLabel",
-                    widgetProps: {
-                        mediaType: "file",
-                        mode: "multiple",
-                        maxCount: 20,
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "videoUrls",
-                    widget: "#StringArrayInput",
-                    label: "form.videoUrlsLabel",
-                    placeholder: "form.videoUrlPlaceholder",
-                    widgetProps: {
-                        removeTooltipKey: "form.removeVideoUrl",
-                        maxLength: PRODUCT_URL_MAX,
-                    },
-                },
             },
         ],
     },
@@ -3111,6 +3068,46 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
         ],
     },
 
+    // ── Visibility ─────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "publishedAt",
+                            widget: "#DateInput",
+                            label: "form.publishedAtLabel",
+                            placeholder: "form.publishedAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "featured",
+                            widget: "#Switch",
+                            label: "form.featuredLabel",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "availableForSale",
+                            widget: "#Switch",
+                            label: "form.availableForSaleLabel",
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+
 ];
 
 const productEditFormNodes: ViewConfig["nodes"] = [
@@ -3118,7 +3115,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.generalSectionTitle", defaultOpen: true},
-        permissions: {writeAny: ["title","type","publishedAt","brand","vendor","featured","availableForSale","shortDescription","description","tags"]},
+        permissions: {readAny: ["title","type","brand","vendor","shortDescription","description","tags"], writeAny: ["title","type","brand","vendor","shortDescription","description","tags"]},
         children: [
             {
                 render: "#FormGrid",
@@ -3149,17 +3146,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                                 options: productTypeOptions,
                                 className: "grow w-full",
                             },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "publishedAt", write: "publishedAt"},
-                        field: {
-                            name: "publishedAt",
-                            widget: "#DateInput",
-                            label: "form.publishedAtLabel",
-                            placeholder: "form.publishedAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
                         },
                     },
                     {
@@ -3230,143 +3216,69 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     },
                 },
             },
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "featured", write: "featured"},
-                        field: {
-                            name: "featured",
-                            widget: "#Switch",
-                            label: "form.featuredLabel",
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "availableForSale", write: "availableForSale"},
-                        field: {
-                            name: "availableForSale",
-                            widget: "#Switch",
-                            label: "form.availableForSaleLabel",
-                        },
-                    },
-                ],
-            },
         ],
     },
 
-    // ── Identifiers ────────────────────────────────────────────
+    // ── Media ──────────────────────────────────────────────────
     {
         render: "#TitleWithCollapse",
-        props: {title: "form.identifiersSectionTitle"},
-        permissions: {writeAny: ["sku","barcode","gtin","upc","ean","isbn","mpn","hsCode","countryOfOrigin"]},
+        props: {title: "form.mediaSectionTitle"},
+        permissions: {readAny: ["mainImage","gallery","documents","videoUrls"], writeAny: ["mainImage","gallery","documents","videoUrls"]},
         children: [
             {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "sku", write: "sku"},
-                        field: {
-                            name: "sku",
-                            widget: "#Input",
-                            label: "form.skuLabel",
-                            placeholder: "form.skuPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_SKU_MAX},
-                        },
+                render: "#Field",
+                permissions: {read: "mainImage", write: "mainImage"},
+                field: {
+                    name: "mainImage",
+                    widget: "#MediaField",
+                    label: "form.mainImageLabel",
+                    widgetProps: {
+                        mediaType: "image",
+                        mode: "single",
                     },
-                    {
-                        render: "#Field",
-                        permissions: {read: "barcode", write: "barcode"},
-                        field: {
-                            name: "barcode",
-                            widget: "#Input",
-                            label: "form.barcodeLabel",
-                            placeholder: "form.barcodePlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "gallery", write: "gallery"},
+                field: {
+                    name: "gallery",
+                    widget: "#MediaField",
+                    label: "form.galleryLabel",
+                    widgetProps: {
+                        mediaType: "image",
+                        mode: "multiple",
+                        maxCount: 20,
                     },
-                    {
-                        render: "#Field",
-                        permissions: {read: "gtin", write: "gtin"},
-                        field: {
-                            name: "gtin",
-                            widget: "#Input",
-                            label: "form.gtinLabel",
-                            placeholder: "form.gtinPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "documents", write: "documents"},
+                field: {
+                    name: "documents",
+                    widget: "#MediaField",
+                    label: "form.documentsLabel",
+                    widgetProps: {
+                        mediaType: "file",
+                        mode: "multiple",
+                        maxCount: 20,
                     },
-                    {
-                        render: "#Field",
-                        permissions: {read: "upc", write: "upc"},
-                        field: {
-                            name: "upc",
-                            widget: "#Input",
-                            label: "form.upcLabel",
-                            placeholder: "form.upcPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "videoUrls", write: "videoUrls"},
+                field: {
+                    name: "videoUrls",
+                    widget: "#StringArrayInput",
+                    label: "form.videoUrlsLabel",
+                    placeholder: "form.videoUrlPlaceholder",
+                    widgetProps: {
+                        removeTooltipKey: "form.removeVideoUrl",
+                        maxLength: PRODUCT_URL_MAX,
                     },
-                    {
-                        render: "#Field",
-                        permissions: {read: "ean", write: "ean"},
-                        field: {
-                            name: "ean",
-                            widget: "#Input",
-                            label: "form.eanLabel",
-                            placeholder: "form.eanPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "isbn", write: "isbn"},
-                        field: {
-                            name: "isbn",
-                            widget: "#Input",
-                            label: "form.isbnLabel",
-                            placeholder: "form.isbnPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "mpn", write: "mpn"},
-                        field: {
-                            name: "mpn",
-                            widget: "#Input",
-                            label: "form.mpnLabel",
-                            placeholder: "form.mpnPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "hsCode", write: "hsCode"},
-                        field: {
-                            name: "hsCode",
-                            widget: "#Input",
-                            label: "form.hsCodeLabel",
-                            placeholder: "form.hsCodePlaceholder",
-                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "countryOfOrigin", write: "countryOfOrigin"},
-                        field: {
-                            name: "countryOfOrigin",
-                            widget: "#Input",
-                            label: "form.countryOfOriginLabel",
-                            placeholder: "form.countryOfOriginPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_TITLE_MAX},
-                        },
-                    },
-                ],
+                },
             },
         ],
     },
@@ -3375,7 +3287,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.pricingSectionTitle"},
-        permissions: {writeAny: ["price","compareAtPrice","costPrice","msrp","currency","saleStartsAt","saleEndsAt","minOrderQty","maxOrderQty","stepQty","taxable","taxClass"]},
+        permissions: {readAny: ["price","compareAtPrice","costPrice","msrp","currency","saleStartsAt","saleEndsAt","minOrderQty","maxOrderQty","stepQty","taxable","taxClass"], writeAny: ["price","compareAtPrice","costPrice","msrp","currency","saleStartsAt","saleEndsAt","minOrderQty","maxOrderQty","stepQty","taxable","taxClass"]},
         children: [
             {
                 render: "#FormGrid",
@@ -3486,6 +3398,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3500,6 +3413,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3514,6 +3428,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3552,7 +3467,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.inventorySectionTitle"},
-        permissions: {writeAny: ["trackInventory","allowBackorder","lowStockThreshold","safetyStock","backorderLimit","preorderEnabled","preorderAvailableAt"]},
+        permissions: {readAny: ["trackInventory","allowBackorder","lowStockThreshold","safetyStock","backorderLimit","preorderEnabled","preorderAvailableAt"], writeAny: ["trackInventory","allowBackorder","lowStockThreshold","safetyStock","backorderLimit","preorderEnabled","preorderAvailableAt"]},
         children: [
             {
                 render: "#FormGrid",
@@ -3569,6 +3484,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3583,6 +3499,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3597,6 +3514,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
+                                step: 1,
                             },
                         },
                     },
@@ -3655,11 +3573,301 @@ const productEditFormNodes: ViewConfig["nodes"] = [
         ],
     },
 
+    // ── Identifiers ────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.identifiersSectionTitle"},
+        permissions: {readAny: ["sku","barcode","gtin","upc","ean","isbn","mpn","hsCode","countryOfOrigin"], writeAny: ["sku","barcode","gtin","upc","ean","isbn","mpn","hsCode","countryOfOrigin"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "sku", write: "sku"},
+                        field: {
+                            name: "sku",
+                            widget: "#Input",
+                            label: "form.skuLabel",
+                            placeholder: "form.skuPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_SKU_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "barcode", write: "barcode"},
+                        field: {
+                            name: "barcode",
+                            widget: "#Input",
+                            label: "form.barcodeLabel",
+                            placeholder: "form.barcodePlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "gtin", write: "gtin"},
+                        field: {
+                            name: "gtin",
+                            widget: "#Input",
+                            label: "form.gtinLabel",
+                            placeholder: "form.gtinPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "upc", write: "upc"},
+                        field: {
+                            name: "upc",
+                            widget: "#Input",
+                            label: "form.upcLabel",
+                            placeholder: "form.upcPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "ean", write: "ean"},
+                        field: {
+                            name: "ean",
+                            widget: "#Input",
+                            label: "form.eanLabel",
+                            placeholder: "form.eanPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "isbn", write: "isbn"},
+                        field: {
+                            name: "isbn",
+                            widget: "#Input",
+                            label: "form.isbnLabel",
+                            placeholder: "form.isbnPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "mpn", write: "mpn"},
+                        field: {
+                            name: "mpn",
+                            widget: "#Input",
+                            label: "form.mpnLabel",
+                            placeholder: "form.mpnPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "hsCode", write: "hsCode"},
+                        field: {
+                            name: "hsCode",
+                            widget: "#Input",
+                            label: "form.hsCodeLabel",
+                            placeholder: "form.hsCodePlaceholder",
+                            widgetProps: {maxLength: PRODUCT_CODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "countryOfOrigin", write: "countryOfOrigin"},
+                        field: {
+                            name: "countryOfOrigin",
+                            widget: "#Input",
+                            label: "form.countryOfOriginLabel",
+                            placeholder: "form.countryOfOriginPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_TITLE_MAX},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+
+    // ── Organization ───────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.organizationSectionTitle"},
+        permissions: {readAny: ["categories","collections"], writeAny: ["categories","collections"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "categories", write: "categories"},
+                field: {
+                    name: "categories",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.categoriesLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                },
+            },
+            {
+                render: "#Field",
+                permissions: {read: "collections", write: "collections"},
+                field: {
+                    name: "collections",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.collectionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
+                },
+            },
+        ],
+    },
+
+    // ── Variants & options ─────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.variantsSectionTitle"},
+        permissions: {readAny: ["hasVariants","variantOptions"], writeAny: ["hasVariants","variantOptions"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "variantOptions", write: "variantOptions"},
+                field: {
+                    name: "variantOptions",
+                    widget: "#ObjectIdChipsInput",
+                    label: "form.variantOptionsLabel",
+                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
+                },
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "hasVariants", write: "hasVariants"},
+                        field: {
+                            name: "hasVariants",
+                            widget: "#Switch",
+                            label: "form.hasVariantsLabel",
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+
+    // ── Bundle components (type "bundle") ─────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        permissions: {readAny: ["bundleComponents"], writeAny: ["bundleComponents"]},
+        props: {watchField: "type", whenValues: ["bundle"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "bundleComponents", write: "bundleComponents"},
+                field: {
+                    name: "bundleComponents",
+                    widget: "#FormRepeater",
+                    widgetProps: {
+                        title: "form.bundleComponentsSectionTitle",
+                        arrayField: "bundleComponents",
+                        defaultItem: {product: "", quantity: 1},
+                        addLabel: "form.bundleComponentAddRow",
+                        removeLabel: "form.bundleComponentRemoveRow",
+                        rowTitleFields: ["quantity"],
+                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
+                        rowTemplate: [
+                            {
+                                render: "#FormGrid",
+                                props: {columns: 3},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "bundleComponents", write: "bundleComponents"},
+                                        field: {
+                                            name: "product",
+                                            widget: "#ApiSelect",
+                                            label: "form.bundleComponentProductLabel",
+                                            placeholder: "form.bundleComponentProductPlaceholder",
+                                            required: true,
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                        },
+                                    },
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "bundleComponents", write: "bundleComponents"},
+                                        field: {
+                                            name: "quantity",
+                                            widget: "#Input",
+                                            label: "form.bundleComponentQuantityLabel",
+                                            placeholder: "form.bundleComponentQuantityPlaceholder",
+                                            required: true,
+                                            widgetProps: {
+                                                type: "number",
+                                                min: 1,
+                                                step: 1,
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        ],
+    },
+
+    // ── Digital delivery (type "digital") ──────────────────────
+    {
+        render: "#FormWhenFieldValueIn",
+        permissions: {readAny: ["downloadLimit", "downloadExpiryDays"], writeAny: ["downloadLimit", "downloadExpiryDays"]},
+        props: {watchField: "type", whenValues: ["digital"]},
+        children: [
+            {
+                render: "#TitleWithCollapse",
+                props: {title: "form.digitalDeliverySectionTitle"},
+                children: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 3},
+                        children: [
+                            {
+                                render: "#Field",
+                                permissions: {read: "downloadLimit", write: "downloadLimit"},
+                                field: {
+                                    name: "downloadLimit",
+                                    widget: "#Input",
+                                    label: "form.downloadLimitLabel",
+                                    placeholder: "form.downloadLimitPlaceholder",
+                                    widgetProps: {
+                                        type: "number",
+                                        min: 1,
+                                        step: 1,
+                                    },
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                permissions: {read: "downloadExpiryDays", write: "downloadExpiryDays"},
+                                field: {
+                                    name: "downloadExpiryDays",
+                                    widget: "#Input",
+                                    label: "form.downloadExpiryDaysLabel",
+                                    placeholder: "form.downloadExpiryDaysPlaceholder",
+                                    widgetProps: {
+                                        type: "number",
+                                        min: 1,
+                                        step: 1,
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+
     // ── Shipping ───────────────────────────────────────────────
     {
         render: "#TitleWithCollapse",
         props: {title: "form.shippingSectionTitle"},
-        permissions: {writeAny: ["weight","weightUnit","dimensions.length","dimensions.width","dimensions.height","dimensionUnit","volumetricWeight","shippingClass","isHazmat","requiresShipping"]},
+        permissions: {readAny: ["weight","weightUnit","dimensions.length","dimensions.width","dimensions.height","dimensionUnit","volumetricWeight","shippingClass","isHazmat","requiresShipping"], writeAny: ["weight","weightUnit","dimensions.length","dimensions.width","dimensions.height","dimensionUnit","volumetricWeight","shippingClass","isHazmat","requiresShipping"]},
         children: [
             {
                 render: "#FormGrid",
@@ -3803,242 +4011,11 @@ const productEditFormNodes: ViewConfig["nodes"] = [
         ],
     },
 
-    // ── Organization ───────────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.organizationSectionTitle"},
-        permissions: {writeAny: ["categories","collections"]},
-        children: [
-            {
-                render: "#Field",
-                permissions: {read: "categories", write: "categories"},
-                field: {
-                    name: "categories",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "collections", write: "collections"},
-                field: {
-                    name: "collections",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.collectionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
-                },
-            },
-        ],
-    },
-
-    // ── Variants & options ─────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.variantsSectionTitle"},
-        permissions: {writeAny: ["hasVariants","variantOptions"]},
-        children: [
-            {
-                render: "#Field",
-                permissions: {read: "variantOptions", write: "variantOptions"},
-                field: {
-                    name: "variantOptions",
-                    widget: "#ObjectIdChipsInput",
-                    label: "form.variantOptionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
-                },
-            },
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "hasVariants", write: "hasVariants"},
-                        field: {
-                            name: "hasVariants",
-                            widget: "#Switch",
-                            label: "form.hasVariantsLabel",
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-
-    // ── Bundle components (type "bundle") ─────────────────────
-    {
-        render: "#FormWhenFieldValueIn",
-        permissions: {readAny: ["bundleComponents"], writeAny: ["bundleComponents"]},
-        props: {watchField: "type", whenValues: ["bundle"]},
-        children: [
-            {
-                render: "#Field",
-                permissions: {read: "bundleComponents", write: "bundleComponents"},
-                field: {
-                    name: "bundleComponents",
-                    widget: "#FormRepeater",
-                    widgetProps: {
-                        title: "form.bundleComponentsSectionTitle",
-                        arrayField: "bundleComponents",
-                        defaultItem: {product: "", quantity: 1},
-                        addLabel: "form.bundleComponentAddRow",
-                        removeLabel: "form.bundleComponentRemoveRow",
-                        rowTitleFields: ["quantity"],
-                        rowTitlePlaceholder: "form.bundleComponentRowTitle",
-                        rowTemplate: [
-                            {
-                                render: "#FormGrid",
-                                props: {columns: 3},
-                                children: [
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "bundleComponents", write: "bundleComponents"},
-                                        field: {
-                                            name: "product",
-                                            widget: "#ApiSelect",
-                                            label: "form.bundleComponentProductLabel",
-                                            placeholder: "form.bundleComponentProductPlaceholder",
-                                            required: true,
-                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
-                                        },
-                                    },
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "bundleComponents", write: "bundleComponents"},
-                                        field: {
-                                            name: "quantity",
-                                            widget: "#Input",
-                                            label: "form.bundleComponentQuantityLabel",
-                                            placeholder: "form.bundleComponentQuantityPlaceholder",
-                                            required: true,
-                                            widgetProps: {
-                                                type: "number",
-                                                min: 1,
-                                            },
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                },
-            },
-        ],
-    },
-
-    // ── Digital delivery (type "digital") ──────────────────────
-    {
-        render: "#FormWhenFieldValueIn",
-        permissions: {readAny: ["downloadLimit", "downloadExpiryDays"], writeAny: ["downloadLimit", "downloadExpiryDays"]},
-        props: {watchField: "type", whenValues: ["digital"]},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "downloadLimit", write: "downloadLimit"},
-                        field: {
-                            name: "downloadLimit",
-                            widget: "#Input",
-                            label: "form.downloadLimitLabel",
-                            placeholder: "form.downloadLimitPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 1,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "downloadExpiryDays", write: "downloadExpiryDays"},
-                        field: {
-                            name: "downloadExpiryDays",
-                            widget: "#Input",
-                            label: "form.downloadExpiryDaysLabel",
-                            placeholder: "form.downloadExpiryDaysPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 1,
-                            },
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-
-    // ── Media ──────────────────────────────────────────────────
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.mediaSectionTitle"},
-        permissions: {writeAny: ["mainImage","gallery","documents","videoUrls"]},
-        children: [
-            {
-                render: "#Field",
-                permissions: {read: "mainImage", write: "mainImage"},
-                field: {
-                    name: "mainImage",
-                    widget: "#MediaField",
-                    label: "form.mainImageLabel",
-                    widgetProps: {
-                        mediaType: "image",
-                        mode: "single",
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "gallery", write: "gallery"},
-                field: {
-                    name: "gallery",
-                    widget: "#MediaField",
-                    label: "form.galleryLabel",
-                    widgetProps: {
-                        mediaType: "image",
-                        mode: "multiple",
-                        maxCount: 20,
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "documents", write: "documents"},
-                field: {
-                    name: "documents",
-                    widget: "#MediaField",
-                    label: "form.documentsLabel",
-                    widgetProps: {
-                        mediaType: "file",
-                        mode: "multiple",
-                        maxCount: 20,
-                    },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "videoUrls", write: "videoUrls"},
-                field: {
-                    name: "videoUrls",
-                    widget: "#StringArrayInput",
-                    label: "form.videoUrlsLabel",
-                    placeholder: "form.videoUrlPlaceholder",
-                    widgetProps: {
-                        removeTooltipKey: "form.removeVideoUrl",
-                        maxLength: PRODUCT_URL_MAX,
-                    },
-                },
-            },
-        ],
-    },
-
     // ── Content ────────────────────────────────────────────────
     {
         render: "#TitleWithCollapse",
         props: {title: "form.contentSectionTitle"},
-        permissions: {writeAny: ["highlights","careInstructions","warranty","faqs"]},
+        permissions: {readAny: ["highlights","careInstructions","warranty","faqs"], writeAny: ["highlights","careInstructions","warranty","faqs"]},
         children: [
             {
                 render: "#Field",
@@ -4140,7 +4117,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.attributesSectionTitle"},
-        permissions: {writeAny: ["attributes","specifications"]},
+        permissions: {readAny: ["attributes","specifications"], writeAny: ["attributes","specifications"]},
         children: [
             {
                 render: "#Field",
@@ -4249,7 +4226,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.merchandisingSectionTitle"},
-        permissions: {writeAny: ["relatedProducts","upsells","crossSells","frequentlyBoughtTogether","badges"]},
+        permissions: {readAny: ["relatedProducts","upsells","crossSells","frequentlyBoughtTogether","badges"], writeAny: ["relatedProducts","upsells","crossSells","frequentlyBoughtTogether","badges"]},
         children: [
             {
                 render: "#Field",
@@ -4344,7 +4321,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.seoSectionTitle"},
-        permissions: {writeAny: ["seo.metaTitle","seo.canonicalUrl","seo.openGraphTitle","seo.structuredDataType","seo.twitterCard","seo.sitemapPriority","seo.sitemapInclude","seo.noIndex","seo.metaDescription","seo.openGraphDescription","seo.metaKeywords"]},
+        permissions: {readAny: ["seo.metaTitle","seo.canonicalUrl","seo.openGraphTitle","seo.structuredDataType","seo.twitterCard","seo.sitemapPriority","seo.sitemapInclude","seo.noIndex","seo.metaDescription","seo.openGraphDescription","seo.metaKeywords"], writeAny: ["seo.metaTitle","seo.canonicalUrl","seo.openGraphTitle","seo.structuredDataType","seo.twitterCard","seo.sitemapPriority","seo.sitemapInclude","seo.noIndex","seo.metaDescription","seo.openGraphDescription","seo.metaKeywords"]},
         children: [
             {
                 render: "#FormGrid",
@@ -4490,6 +4467,50 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             name: "seo.noIndex",
                             widget: "#Switch",
                             label: "form.seoNoIndexLabel",
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+
+    // ── Visibility ─────────────────────────────────────────────
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["publishedAt", "availableForSale", "featured"], writeAny: ["publishedAt", "availableForSale", "featured"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "publishedAt", write: "publishedAt"},
+                        field: {
+                            name: "publishedAt",
+                            widget: "#DateInput",
+                            label: "form.publishedAtLabel",
+                            placeholder: "form.publishedAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "featured", write: "featured"},
+                        field: {
+                            name: "featured",
+                            widget: "#Switch",
+                            label: "form.featuredLabel",
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "availableForSale", write: "availableForSale"},
+                        field: {
+                            name: "availableForSale",
+                            widget: "#Switch",
+                            label: "form.availableForSaleLabel",
                         },
                     },
                 ],

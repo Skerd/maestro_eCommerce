@@ -51,8 +51,8 @@ const BookingSchema = new Schema<IBooking>(
         },
         timezone: {
             type: SchemaTypes.String,
+            // The provider's zone at booking time (set by the create route), not a typed value.
             required: true,
-            default: "UTC",
             trim: true,
             dynamicTableConfiguration: {hideColumn: true},
         },

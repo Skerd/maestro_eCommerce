@@ -13,6 +13,7 @@ export const reviewSheetView: ViewConfig = {
     },
     nodes: [
         {
+            // The rating is in the header with what was reviewed (UX-01); the cards link the order and listing.
             render: "#SheetGroup",
             props: {title: "overview"},
             children: [
@@ -22,6 +23,7 @@ export const reviewSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "order",
                             permissions: {read: "order"},
                             field: {
                                 name: "order",
@@ -29,12 +31,7 @@ export const reviewSheetView: ViewConfig = {
                                 label: "order",
                                 widgetProps: {
                                     icon: "#Package",
-                                    valuePath: [
-                                        "order.listing.title",
-                                        "order.taskRequest.title",
-                                        "order.name",
-                                        "order._id",
-                                    ],
+                                    valuePath: ["order.listing.title", "order.taskRequest.title", "order.name"],
                                     pickFirstTruthyValuePath: true,
                                     linkedRefPath: "order",
                                     linkedSheetModel: "orders",
@@ -46,6 +43,7 @@ export const reviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "reviewer",
                             permissions: {read: "reviewer"},
                             field: {
                                 name: "reviewer",
@@ -61,16 +59,7 @@ export const reviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "rating"},
-                            field: {
-                                name: "rating",
-                                widget: "#DisplayCard",
-                                label: "rating",
-                                widgetProps: {icon: "#Star"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "listing",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -78,10 +67,10 @@ export const reviewSheetView: ViewConfig = {
                                 label: "listing",
                                 widgetProps: {
                                     icon: "#LayoutList",
-                                    valuePath: ["listing.title", "listing._id"],
-                                    pickFirstTruthyValuePath: true,
+                                    valuePath: ["listing.title"],
                                     linkedRefPath: "listing",
                                     linkedSheetModel: "listings",
+                                    linkedSheetWidget: "#ListingSheetView",
                                     linkedSheetEntityProp: "listing",
                                     linkedSheetValueField: "title",
                                 },
@@ -95,6 +84,7 @@ export const reviewSheetView: ViewConfig = {
             render: "#SheetGroup",
             props: {title: "comment"},
             dependent: "comment",
+            permissions: {read: "comment"},
             children: [
                 {
                     render: "div",
@@ -118,6 +108,65 @@ export const reviewSheetView: ViewConfig = {
     ],
 };
 
+const ratingOptions = [
+    {value: "5", label: "form.ratingValues.5"},
+    {value: "4", label: "form.ratingValues.4"},
+    {value: "3", label: "form.ratingValues.3"},
+    {value: "2", label: "form.ratingValues.2"},
+    {value: "1", label: "form.ratingValues.1"},
+];
+
+/** Reviews are never edited: the reviewer owns the words, so there is no edit form. */
+const reviewCreateFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.reviewSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#ApiSelect",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerceMarketplace/order/select",
+                                postBody: {status: "completed", forReview: true},
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "rating",
+                            widget: "#SimpleSelect",
+                            label: "form.ratingLabel",
+                            placeholder: "form.ratingPlaceholder",
+                            required: true,
+                            widgetProps: {options: ratingOptions, className: "grow w-full"},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "comment",
+                    widget: "#Textarea",
+                    label: "form.commentLabel",
+                    placeholder: "form.commentPlaceholder",
+                    widgetProps: {className: "min-h-[120px]"},
+                },
+            },
+        ],
+    },
+];
+
 export const reviewCreateFormView: ViewConfig = {
     model: "reviews",
     viewType: "form",
@@ -125,46 +174,7 @@ export const reviewCreateFormView: ViewConfig = {
     accessModel: "reviews",
     apiUrl: "/api/eCommerceMarketplace/review",
     method: "PUT",
-    nodes: [
-        {
-            render: "#FormGrid",
-            props: {columns: 1},
-            children: [
-                {
-                    render: "#Field",
-                    field: {
-                        name: "order",
-                        widget: "#ApiSelect",
-                        label: "form.orderLabel",
-                        required: true,
-                        widgetProps: {
-                            apiUrl: "/api/eCommerceMarketplace/order/select",
-                            postBody: {status: "completed", forReview: true},
-                        },
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "rating",
-                        widget: "#Input",
-                        label: "form.ratingLabel",
-                        required: true,
-                        widgetProps: {type: "number", min: 1, max: 5, step: 1},
-                    },
-                },
-                {
-                    render: "#Field",
-                    field: {
-                        name: "comment",
-                        widget: "#Textarea",
-                        label: "form.commentLabel",
-                        widgetProps: {className: "min-h-[120px]"},
-                    },
-                },
-            ],
-        },
-    ],
+    nodes: reviewCreateFormNodes,
 };
 
 export const reviewViews: ViewConfig[] = [reviewSheetView, reviewCreateFormView];

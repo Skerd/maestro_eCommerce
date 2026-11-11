@@ -16,53 +16,6 @@ export const taxZoneSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
-            props: {title: "overview"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {
-                                    icon: "#IconReceiptTax"
-                                }
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "priority"},
-                            field: {
-                                name: "priority",
-                                widget: "#DisplayCard",
-                                label: "priority",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    type: "number"
-                                }
-                            },
-                        }
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
             props: {title: "geography"},
             children: [
                 {
@@ -90,6 +43,21 @@ export const taxZoneSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "priority",
+                            permissions: {read: "priority"},
+                            field: {
+                                name: "priority",
+                                widget: "#DisplayCard",
+                                label: "priority",
+                                widgetProps: {
+                                    icon: "#Hash",
+                                    type: "number"
+                                }
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "postalCodePatterns",
                             permissions: {read: "postalCodePatterns"},
                             field: {
                                 name: "postalCodePatterns",
@@ -250,31 +218,6 @@ const taxZoneCreateFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "priority",
-                            widget: "#Input",
-                            label: "form.priorityLabel",
-                            placeholder: "form.priorityPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.geographySectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 1},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
                             name: "country",
                             widget: "#ApiSelect",
                             label: "form.countryLabel",
@@ -291,6 +234,12 @@ const taxZoneCreateFormNodes: ViewConfig["nodes"] = [
                     },
                 ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.geographySectionTitle", defaultOpen: true},
+        children: [
             {
                 render: "#Field",
                 field: {
@@ -403,6 +352,29 @@ const taxZoneCreateFormNodes: ViewConfig["nodes"] = [
             },
         },
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "priority",
+                            widget: "#Input",
+                            label: "form.priorityLabel",
+                            placeholder: "form.priorityPlaceholder",
+                            description: "form.priorityDescription",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
 const taxZoneEditFormNodes: ViewConfig["nodes"] = [
@@ -410,8 +382,8 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.generalSectionTitle", defaultOpen: true},
         permissions: {
-            readAny: ["name", "priority"],
-            writeAny: ["name", "priority"],
+            readAny: ["name", "country"],
+            writeAny: ["name", "country"],
         },
         children: [
             {
@@ -432,36 +404,6 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
                     },
                     {
                         render: "#Field",
-                        permissions: {read: "priority", write: "priority"},
-                        field: {
-                            name: "priority",
-                            widget: "#Input",
-                            label: "form.priorityLabel",
-                            placeholder: "form.priorityPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.geographySectionTitle", defaultOpen: true},
-        permissions: {
-            readAny: ["country", "states", "postalCodePatterns"],
-            writeAny: ["country", "states", "postalCodePatterns"],
-        },
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 1},
-                children: [
-                    {
-                        render: "#Field",
                         permissions: {read: "country", write: "country"},
                         field: {
                             name: "country",
@@ -480,6 +422,16 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
                     },
                 ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.geographySectionTitle", defaultOpen: true},
+        permissions: {
+            readAny: ["states", "postalCodePatterns"],
+            writeAny: ["states", "postalCodePatterns"],
+        },
+        children: [
             {
                 render: "#Field",
                 permissions: {read: "states", write: "states"},
@@ -594,6 +546,31 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
                 ],
             },
         },
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["priority"], writeAny: ["priority"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "priority", write: "priority"},
+                        field: {
+                            name: "priority",
+                            widget: "#Input",
+                            label: "form.priorityLabel",
+                            placeholder: "form.priorityPlaceholder",
+                            description: "form.priorityDescription",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
     },
 ];
 

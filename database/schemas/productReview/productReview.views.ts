@@ -38,12 +38,57 @@ export const productReviewSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "title"},
+                            dependent: "product",
+                            permissions: {read: "product"},
                             field: {
-                                name: "title",
+                                name: "product",
                                 widget: "#DisplayCard",
-                                label: "title",
-                                widgetProps: {icon: "#IconTag"},
+                                label: "product",
+                                widgetProps: {
+                                    icon: "#IconPackage",
+                                    parent: "product",
+                                    valuePath: ["title"],
+                                    linkedRefPath: "product",
+                                    linkedSheetModel: "products",
+                                    linkedSheetWidget: "#ProductSheetView",
+                                    linkedSheetEntityProp: "product",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "reviewer",
+                            permissions: {read: "reviewer"},
+                            field: {
+                                name: "reviewer",
+                                widget: "#DisplayCard",
+                                label: "reviewer",
+                                widgetProps: {
+                                    icon: "#IconUser",
+                                    parent: "reviewer",
+                                    valuePath: ["name", "surname"],
+                                    joinSeparator: " ",
+                                    type: "user",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "order",
+                            permissions: {read: "order"},
+                            field: {
+                                name: "order",
+                                widget: "#DisplayCard",
+                                label: "order",
+                                widgetProps: {
+                                    icon: "#IconShoppingCart",
+                                    parent: "order",
+                                    valuePath: ["orderNumber"],
+                                    linkedRefPath: "order",
+                                    linkedSheetModel: "productOrders",
+                                    linkedSheetWidget: "#ProductOrderSheetView",
+                                    linkedSheetEntityProp: "order",
+                                },
                             },
                         },
                     ],
@@ -72,189 +117,157 @@ export const productReviewSheetView: ViewConfig = {
                 },
             ],
         },
-        {
-            render: "#SheetGroup",
-            props: {title: "related", defaultOpen: true},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "order",
-                                widgetProps: {
-                                    icon: "#IconShoppingCart",
-                                    parent: "order",
-                                    valuePath: ["orderNumber"],
-                                    linkedRefPath: "order",
-                                    linkedSheetModel: "productOrders",
-                                    linkedSheetWidget: "#ProductOrderSheetView",
-                                    linkedSheetEntityProp: "order",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "product"},
-                            field: {
-                                name: "product",
-                                widget: "#DisplayCard",
-                                label: "product",
-                                widgetProps: {
-                                    icon: "#IconPackage",
-                                    parent: "product",
-                                    valuePath: ["title"],
-                                    linkedRefPath: "product",
-                                    linkedSheetModel: "products",
-                                    linkedSheetWidget: "#ProductSheetView",
-                                    linkedSheetEntityProp: "product",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "reviewer"},
-                            field: {
-                                name: "reviewer",
-                                widget: "#DisplayCard",
-                                label: "reviewer",
-                                widgetProps: {
-                                    icon: "#IconUser",
-                                    parent: "reviewer",
-                                    valuePath: ["name", "surname"],
-                                    joinSeparator: " ",
-                                    type: "user",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
         lifecycleSheetGroup,
     ],
 };
 
+const ratingOptions = [
+    {value: 5, label: "★★★★★ 5"},
+    {value: 4, label: "★★★★ 4"},
+    {value: 3, label: "★★★ 3"},
+    {value: 2, label: "★★ 2"},
+    {value: 1, label: "★ 1"},
+];
+
 const productReviewCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.purchaseSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#ApiSelect",
-                    label: "form.orderLabel",
-                    placeholder: "form.orderPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/productOrder/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                        cascadeClearFormFields: ["product"],
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#ApiSelect",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/productOrder/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                                cascadeClearFormFields: ["product"],
+                            },
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "product",
-                    widget: "#ApiSelect",
-                    label: "form.productLabel",
-                    placeholder: "form.productPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                        enableWhenFormFieldsNonEmpty: ["order"],
-                        postBodyFromFormField: {field: "order", paramName: "productOrderId"},
-                        remountKeyFormField: "order",
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "product",
+                            widget: "#ApiSelect",
+                            label: "form.productLabel",
+                            placeholder: "form.productPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/product/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                                enableWhenFormFieldsNonEmpty: ["order"],
+                                postBodyFromFormField: {field: "order", paramName: "productOrderId"},
+                                remountKeyFormField: "order",
+                            },
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "rating",
-                    widget: "#Input",
-                    label: "form.ratingLabel",
-                    placeholder: "form.ratingPlaceholder",
-                    required: true,
-                    widgetProps: {type: "number", min: 1, max: 5, step: 1},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "title",
-                    widget: "#Input",
-                    label: "form.titleLabel",
-                    placeholder: "form.titlePlaceholder",
-                    widgetProps: {maxLength: PRODUCT_REVIEW_TITLE_MAX},
-                },
+                ],
             },
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "comment",
-            widget: "#Textarea",
-            label: "form.commentLabel",
-            placeholder: "form.commentPlaceholder",
-            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: PRODUCT_REVIEW_COMMENT_MAX},
-        },
+        render: "#TitleWithCollapse",
+        props: {title: "form.reviewSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "rating",
+                            widget: "#SimpleSelect",
+                            label: "form.ratingLabel",
+                            placeholder: "form.ratingPlaceholder",
+                            required: true,
+                            widgetProps: {options: ratingOptions, className: "grow w-full"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "title",
+                            widget: "#Input",
+                            label: "form.titleLabel",
+                            placeholder: "form.titlePlaceholder",
+                            widgetProps: {maxLength: PRODUCT_REVIEW_TITLE_MAX},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "comment",
+                    widget: "#Textarea",
+                    label: "form.commentLabel",
+                    placeholder: "form.commentPlaceholder",
+                    widgetProps: {rows: 4, className: textareaScrollClass, maxLength: PRODUCT_REVIEW_COMMENT_MAX},
+                },
+            },
+        ],
     },
 ];
 
 const productReviewEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
-        permissions: {writeAny: ["rating", "title", "comment"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.reviewSectionTitle"},
+        permissions: {readAny: ["rating", "title", "comment"], writeAny: ["rating", "title", "comment"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "rating", write: "rating"},
-                field: {
-                    name: "rating",
-                    widget: "#Input",
-                    label: "form.ratingLabel",
-                    placeholder: "form.ratingPlaceholder",
-                    required: true,
-                    widgetProps: {type: "number", min: 1, max: 5, step: 1},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "rating", write: "rating"},
+                        field: {
+                            name: "rating",
+                            widget: "#SimpleSelect",
+                            label: "form.ratingLabel",
+                            placeholder: "form.ratingPlaceholder",
+                            required: true,
+                            widgetProps: {options: ratingOptions, className: "grow w-full"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "title", write: "title"},
+                        field: {
+                            name: "title",
+                            widget: "#Input",
+                            label: "form.titleLabel",
+                            placeholder: "form.titlePlaceholder",
+                            widgetProps: {maxLength: PRODUCT_REVIEW_TITLE_MAX},
+                        },
+                    },
+                ],
             },
             {
                 render: "#Field",
-                permissions: {read: "title", write: "title"},
+                permissions: {read: "comment", write: "comment"},
                 field: {
-                    name: "title",
-                    widget: "#Input",
-                    label: "form.titleLabel",
-                    placeholder: "form.titlePlaceholder",
-                    widgetProps: {maxLength: PRODUCT_REVIEW_TITLE_MAX},
+                    name: "comment",
+                    widget: "#Textarea",
+                    label: "form.commentLabel",
+                    placeholder: "form.commentPlaceholder",
+                    widgetProps: {rows: 4, className: textareaScrollClass, maxLength: PRODUCT_REVIEW_COMMENT_MAX},
                 },
             },
         ],
-    },
-    {
-        render: "#Field",
-        permissions: {read: "comment", write: "comment"},
-        field: {
-            name: "comment",
-            widget: "#Textarea",
-            label: "form.commentLabel",
-            placeholder: "form.commentPlaceholder",
-            widgetProps: {rows: 4, className: textareaScrollClass, maxLength: PRODUCT_REVIEW_COMMENT_MAX},
-        },
     },
 ];
 

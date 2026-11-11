@@ -19,18 +19,8 @@ export const customerGroupSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 3},
+                    props: {columns: 2},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Tag"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "memberCount"},
@@ -41,16 +31,6 @@ export const customerGroupSheetView: ViewConfig = {
                                 widgetProps: {icon: "#IconUsers", type: "number"},
                             },
                         },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isDefault"},
-                            field: {
-                                name: "isDefault",
-                                widget: "#DisplayCard",
-                                label: "isDefault",
-                                widgetProps: {icon: "#IconStar", type: "boolean"},
-                            },
-                        },
                     ],
                 },
                 {
@@ -59,6 +39,7 @@ export const customerGroupSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "description",
                             permissions: {read: "description"},
                             field: {
                                 name: "description",
@@ -81,19 +62,25 @@ export const customerGroupSheetView: ViewConfig = {
 
 const customerGroupCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: CUSTOMER_GROUP_NAME_MAX},
-                }
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: CUSTOMER_GROUP_NAME_MAX},
+                        },
+                    },
+                ],
             },
             {
                 render: "#Field",
@@ -114,21 +101,27 @@ const customerGroupCreateFormNodes: ViewConfig["nodes"] = [
 
 const customerGroupEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
-        permissions: {writeAny: ["name", "description"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
+        permissions: {readAny: ["name", "description"], writeAny: ["name", "description"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "name", write: "name"},
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: CUSTOMER_GROUP_NAME_MAX},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: CUSTOMER_GROUP_NAME_MAX},
+                        },
+                    },
+                ],
             },
             {
                 render: "#Field",

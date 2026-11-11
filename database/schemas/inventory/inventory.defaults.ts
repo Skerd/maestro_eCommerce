@@ -21,7 +21,9 @@ export type CreateInventoriesResult = {
 
 /**
  * Seeds on-hand stock for tee variants and simple tracked products.
- * Idempotent on `{company, product, variant?, warehouse}`.
+ * Idempotent on `{company, product, variant?, warehouse}`. Stock levels are set only when a row is
+ * created: a later run keeps what the demo sales, counts and transfers made of them, so the stock
+ * still matches its movements.
  */
 export async function createInventories(
     parentLogger: serverLogger,
@@ -56,8 +58,6 @@ export async function createInventories(
                     product: variableProduct._id,
                     variant: variant._id,
                     warehouse: warehouseId,
-                    quantityOnHand: combo.stock,
-                    quantityReserved: i === 0 ? 1 : 0,
                     reorderPoint: 5,
                     reorderQuantity: 20,
                     company: company._id,
@@ -70,7 +70,7 @@ export async function createInventories(
                     warehouse: warehouseId,
                 });
                 if (!inv) {
-                    inv = await Inventory.create(invPayload);
+                    inv = await Inventory.create({...invPayload, quantityOnHand: combo.stock, quantityReserved: i === 0 ? 1 : 0});
                 } else {
                     inv.set(invPayload);
                     await inv.save();
@@ -112,15 +112,13 @@ export async function createInventories(
             const invPayload = {
                 product: product._id,
                 warehouse: warehouseId,
-                quantityOnHand: seed.stock ?? 0,
-                quantityReserved: seed.reserved ?? 0,
                 reorderPoint: 5,
                 reorderQuantity: 25,
                 company: company._id,
                 createdBy: company.createdBy,
             };
             if (!inv) {
-                inv = await Inventory.create(invPayload);
+                inv = await Inventory.create({...invPayload, quantityOnHand: seed.stock ?? 0, quantityReserved: seed.reserved ?? 0});
             } else {
                 inv.set(invPayload);
                 await inv.save();

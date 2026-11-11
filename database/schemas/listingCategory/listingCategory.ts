@@ -1,5 +1,3 @@
-import * as crypto from "crypto";
-import slugify from "slugify";
 import { Document, model, Schema, SchemaTypes } from "mongoose";
 import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
@@ -10,6 +8,7 @@ import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields}
 import { ICompany } from "@coreModule/database/schemas/company/company";
 import { applyListingCategoryIndexes } from "./listingCategory.indexes";
 import { addModelData } from "@coreModule/database/collections";
+import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
 import { listingCategoryViews } from "./listingCategory.views";
 import { ListingCategorySimpleSnippet } from "@eCommerceModule/database/schemas/listingCategory/listingCategory.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -58,15 +57,13 @@ const ListingCategorySchema = new Schema<IListingCategory>(
     }
 );
 
-// Auto-generate unique slug on create: LCAT-{name}-{XXXXXXXX} (sticky after create).
-ListingCategorySchema.pre("save", function (next) {
-    const category = this as unknown as IListingCategory;
-    if (category.isNew && !category.slug) {
-        const namePart = slugify(category.name || "category", {lower: true}) || "category";
-        const randomPart = crypto.randomBytes(4).toString("hex");
-        category.slug = `LCAT-${namePart}-${randomPart}`.toUpperCase();
-    }
-    next();
+// The slug comes from the name on create, unique per company (UX-05), and stays fixed after so shop links keep working.
+ListingCategorySchema.pre("save", async function () {
+    if (!this.isNew || this.slug) return;
+    // An unpopulated ObjectId answers `_id` with itself; a missing company fails validation right after.
+    const companyId = this.company?._id;
+    if (!companyId) return;
+    this.slug = await generateUniqueSlug(this.name || "category", this.constructor, companyId);
 });
 
 ownershipPlugin(ListingCategorySchema);

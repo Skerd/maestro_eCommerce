@@ -23,39 +23,6 @@ export const bookingSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "order",
-                                widgetProps: {
-                                    icon: "#Package",
-                                    valuePath: ["order.status", "order._id"],
-                                    joinSeparator: " · ",
-                                    linkedRefPath: "order",
-                                    linkedSheetModel: "orders",
-                                    linkedSheetWidget: "#OrderSheetView",
-                                    linkedSheetEntityProp: "order",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "provider"},
-                            field: {
-                                name: "provider",
-                                widget: "#DisplayCard",
-                                label: "provider",
-                                widgetProps: {
-                                    icon: "#User",
-                                    valuePath: ["provider.name", "provider.surname"],
-                                    joinSeparator: " ",
-                                    type: "user",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "startAt"},
                             field: {
                                 name: "startAt",
@@ -76,12 +43,37 @@ export const bookingSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "timezone"},
+                            permissions: {read: "order"},
                             field: {
-                                name: "timezone",
+                                name: "order",
                                 widget: "#DisplayCard",
-                                label: "timezone",
-                                widgetProps: {icon: "#Globe"},
+                                label: "order",
+                                // The order by what was bought, not its number (UX-03).
+                                widgetProps: {
+                                    icon: "#Package",
+                                    valuePath: ["order.listing.title", "order.taskRequest.title", "order.name"],
+                                    pickFirstTruthyValuePath: true,
+                                    linkedRefPath: "order",
+                                    linkedSheetModel: "orders",
+                                    linkedSheetWidget: "#OrderSheetView",
+                                    linkedSheetEntityProp: "order",
+                                    linkedSheetValueField: "listing.title",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "provider"},
+                            field: {
+                                name: "provider",
+                                widget: "#DisplayCard",
+                                label: "provider",
+                                widgetProps: {
+                                    icon: "#User",
+                                    valuePath: ["provider.name", "provider.surname"],
+                                    joinSeparator: " ",
+                                    type: "user",
+                                },
                             },
                         },
                     ],
@@ -92,53 +84,62 @@ export const bookingSheetView: ViewConfig = {
     ],
 };
 
-const bookingFormFields: ViewConfig["nodes"] = [
+// The booking's time zone is the provider's (set by the server), so the form only asks for the order and the times.
+const bookingCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.order"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#ApiSelect",
-                    label: "form.orderLabel",
-                    required: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#ApiSelect",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.schedule"},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "startAt",
-                    widget: "#Input",
-                    label: "form.startAtLabel",
-                    placeholder: "form.startAtPlaceholder",
-                    required: true,
-                    widgetProps: {type: "datetime-local"},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "startAt",
+                            widget: "#DateInput",
+                            label: "form.startAtLabel",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "endAt",
+                            widget: "#DateInput",
+                            label: "form.endAtLabel",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm", minDateField: "startAt"},
+                        },
+                    },
+                ],
             },
-            {
-                render: "#Field",
-                field: {
-                    name: "endAt",
-                    widget: "#Input",
-                    label: "form.endAtLabel",
-                    placeholder: "form.endAtPlaceholder",
-                    required: true,
-                    widgetProps: {type: "datetime-local"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "timezone",
-                    widget: "#Input",
-                    label: "form.timezoneLabel",
-                    placeholder: "form.timezonePlaceholder",
-                    widgetProps: {},
-                },
-            },
+            {render: "#FormAlert", props: {message: "form.providerHoursHint"}},
         ],
     },
 ];
@@ -150,7 +151,7 @@ export const bookingCreateFormView: ViewConfig = {
     accessModel: "bookings",
     apiUrl: "/api/eCommerceMarketplace/booking",
     method: "PUT",
-    nodes: bookingFormFields,
+    nodes: bookingCreateFormNodes,
 };
 
 export const bookingViews: ViewConfig[] = [bookingSheetView, bookingCreateFormView];

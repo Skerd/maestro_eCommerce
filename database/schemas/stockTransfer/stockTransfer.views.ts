@@ -8,124 +8,22 @@ const warehouseSelectProps = {
     normalizeEmptyToUndefined: true,
 };
 
-const warehouseCard = (name: "fromWarehouse" | "toWarehouse") => ({
-    render: "#DisplayCard",
-    permissions: {read: name},
-    field: {
-        name,
-        widget: "#DisplayCard",
-        label: name,
-        widgetProps: {
-            icon: "#IconBuildingWarehouse",
-            parent: name,
-            valuePath: ["name"],
-            linkedRefPath: name,
-            linkedSheetModel: "warehouses",
-            linkedSheetWidget: "#WarehouseSheetView",
-            linkedSheetEntityProp: "warehouse",
-        },
-    },
-});
+const productSelectProps = {
+    apiUrl: "/api/eCommerce/product/select",
+    method: "POST",
+    normalizeEmptyToUndefined: true,
+    cascadeClearFormFields: ["variant"],
+};
 
-/** Product → variant per line; the variant picker lists the row's product's variants. */
-const linesRepeater = (permissions?: {read: string; write: string}) => ({
-    render: "#Field",
-    ...(permissions ? {permissions} : {}),
-    field: {
-        name: "lines",
-        widget: "#FormRepeater",
-        widgetProps: {
-            title: "form.linesSectionTitle",
-            arrayField: "lines",
-            defaultItem: {product: "", quantity: 1},
-            addLabel: "form.lineAddRow",
-            removeLabel: "form.lineRemoveRow",
-            rowTitleFields: ["product"],
-            rowTitlePlaceholder: "form.lineRowTitle",
-            rowTemplate: [
-                {
-                    render: "#FormGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "product",
-                                widget: "#ApiSelect",
-                                label: "form.productLabel",
-                                placeholder: "form.productPlaceholder",
-                                required: true,
-                                widgetProps: {
-                                    apiUrl: "/api/eCommerce/product/select",
-                                    method: "POST",
-                                    normalizeEmptyToUndefined: true,
-                                    cascadeClearFormFields: ["variant"],
-                                },
-                            },
-                        },
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "variant",
-                                widget: "#ApiSelect",
-                                label: "form.variantLabel",
-                                placeholder: "form.variantPlaceholder",
-                                widgetProps: {
-                                    apiUrl: "/api/eCommerce/productVariant/select",
-                                    method: "POST",
-                                    normalizeEmptyToUndefined: true,
-                                    postBodyFromFormFields: [{field: "product", paramName: "product"}],
-                                },
-                            },
-                        },
-                        {
-                            render: "#Field",
-                            field: {
-                                name: "quantity",
-                                widget: "#Input",
-                                label: "form.quantityLabel",
-                                required: true,
-                                widgetProps: {type: "number", min: 0, step: "any"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-    },
-});
+/** The variant picker lists the row's product's variants. */
+const variantSelectProps = {
+    apiUrl: "/api/eCommerce/productVariant/select",
+    method: "POST",
+    normalizeEmptyToUndefined: true,
+    postBodyFromFormFields: [{field: "product", paramName: "product"}],
+};
 
-const noteField = (permissions?: {read: string; write: string}) => ({
-    render: "#Field",
-    ...(permissions ? {permissions} : {}),
-    field: {
-        name: "note",
-        widget: "#Textarea",
-        label: "form.noteLabel",
-        placeholder: "form.notePlaceholder",
-        widgetProps: {rows: 3, className: "field-sizing-fixed max-h-56 min-h-16 overflow-y-auto", maxLength: STOCK_TRANSFER_NOTE_MAX},
-    },
-});
-
-const warehouseFields = (withPermissions: boolean): ViewConfig["nodes"] => [
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
-        ...(withPermissions ? {permissions: {writeAny: ["fromWarehouse", "toWarehouse"]}} : {}),
-        children: (["fromWarehouse", "toWarehouse"] as const).map(name => ({
-            render: "#Field",
-            ...(withPermissions ? {permissions: {read: name, write: name}} : {}),
-            field: {
-                name,
-                widget: "#ApiSelect",
-                label: `form.${name}Label`,
-                placeholder: `form.${name}Placeholder`,
-                required: true,
-                widgetProps: warehouseSelectProps,
-            },
-        })),
-    },
-];
+const noteWidgetProps = {rows: 3, className: "field-sizing-fixed max-h-56 min-h-16 overflow-y-auto", maxLength: STOCK_TRANSFER_NOTE_MAX};
 
 export const stockTransferSheetView: ViewConfig = {
     model: "stockTransfers",
@@ -142,20 +40,45 @@ export const stockTransferSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        warehouseCard("fromWarehouse"),
-                        warehouseCard("toWarehouse"),
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "status"},
+                            permissions: {read: "fromWarehouse"},
                             field: {
-                                name: "status",
+                                name: "fromWarehouse",
                                 widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "stockTransferStatus", type: "enum"},
+                                label: "fromWarehouse",
+                                widgetProps: {
+                                    icon: "#IconBuildingWarehouse",
+                                    parent: "fromWarehouse",
+                                    valuePath: ["name"],
+                                    linkedRefPath: "fromWarehouse",
+                                    linkedSheetModel: "warehouses",
+                                    linkedSheetWidget: "#WarehouseSheetView",
+                                    linkedSheetEntityProp: "warehouse",
+                                },
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            permissions: {read: "toWarehouse"},
+                            field: {
+                                name: "toWarehouse",
+                                widget: "#DisplayCard",
+                                label: "toWarehouse",
+                                widgetProps: {
+                                    icon: "#IconBuildingWarehouse",
+                                    parent: "toWarehouse",
+                                    valuePath: ["name"],
+                                    linkedRefPath: "toWarehouse",
+                                    linkedSheetModel: "warehouses",
+                                    linkedSheetWidget: "#WarehouseSheetView",
+                                    linkedSheetEntityProp: "warehouse",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "doneAt",
                             permissions: {read: "doneAt"},
                             field: {
                                 name: "doneAt",
@@ -166,22 +89,13 @@ export const stockTransferSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "doneBy",
                             permissions: {read: "doneBy"},
                             field: {
                                 name: "doneBy",
                                 widget: "#DisplayCard",
                                 label: "doneBy",
                                 widgetProps: {icon: "#IconUser", parent: "doneBy", valuePath: ["name"], type: "user"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "note"},
-                            field: {
-                                name: "note",
-                                widget: "#DisplayCard",
-                                label: "note",
-                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                     ],
@@ -195,6 +109,7 @@ export const stockTransferSheetView: ViewConfig = {
                 {
                     render: "#SheetGroup",
                     props: {title: "lines", titleActions: "#ReferencesViewModeToggle", defaultOpen: true},
+                    dependent: "lines",
                     permissions: {read: "lines"},
                     children: [
                         {
@@ -217,8 +132,7 @@ export const stockTransferSheetView: ViewConfig = {
                                                     name: "product",
                                                     type: "linkedRef",
                                                     className: "text-sm font-medium",
-                                                    valuePath: ["title", "sku"],
-                                                    joinSeparator: " · ",
+                                                    valuePath: ["title"],
                                                     labelKey: "lineProduct",
                                                     linkedSheetModel: "products",
                                                     linkedSheetWidget: "#ProductSheetView",
@@ -247,9 +161,253 @@ export const stockTransferSheetView: ViewConfig = {
                 },
             ],
         },
+        {
+            render: "#SheetGroup",
+            props: {title: "note", defaultOpen: true},
+            dependent: "note",
+            permissions: {read: "note"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "note"},
+                            field: {name: "note", widget: "#ExpandableText", widgetProps: {className: "text-sm whitespace-pre-wrap"}},
+                        },
+                    ],
+                },
+            ],
+        },
         lifecycleSheetGroup,
     ],
 };
+
+/** From where to where, what moves, then any remark. */
+const stockTransferCreateFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.routeSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "fromWarehouse",
+                            widget: "#ApiSelect",
+                            label: "form.fromWarehouseLabel",
+                            placeholder: "form.fromWarehousePlaceholder",
+                            required: true,
+                            widgetProps: warehouseSelectProps,
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "toWarehouse",
+                            widget: "#ApiSelect",
+                            label: "form.toWarehouseLabel",
+                            placeholder: "form.toWarehousePlaceholder",
+                            required: true,
+                            widgetProps: warehouseSelectProps,
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        field: {
+            name: "lines",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.linesSectionTitle",
+                arrayField: "lines",
+                defaultItem: {product: "", quantity: 1},
+                addLabel: "form.lineAddRow",
+                removeLabel: "form.lineRemoveRow",
+                rowTitleFields: ["product"],
+                rowTitlePlaceholder: "form.lineRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 3},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "product",
+                                    widget: "#ApiSelect",
+                                    label: "form.productLabel",
+                                    placeholder: "form.productPlaceholder",
+                                    required: true,
+                                    widgetProps: productSelectProps,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "variant",
+                                    widget: "#ApiSelect",
+                                    label: "form.variantLabel",
+                                    placeholder: "form.variantPlaceholder",
+                                    widgetProps: variantSelectProps,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "quantity",
+                                    widget: "#Input",
+                                    label: "form.quantityLabel",
+                                    required: true,
+                                    // Stock may be kept in fractions (kg, m), so no whole-number step.
+                                    widgetProps: {type: "number", min: 0, step: "any"},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.noteSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "note",
+                    widget: "#Textarea",
+                    label: "form.noteLabel",
+                    placeholder: "form.notePlaceholder",
+                    widgetProps: noteWidgetProps,
+                },
+            },
+        ],
+    },
+];
+
+const stockTransferEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.routeSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["fromWarehouse", "toWarehouse"], writeAny: ["fromWarehouse", "toWarehouse"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "fromWarehouse", write: "fromWarehouse"},
+                        field: {
+                            name: "fromWarehouse",
+                            widget: "#ApiSelect",
+                            label: "form.fromWarehouseLabel",
+                            placeholder: "form.fromWarehousePlaceholder",
+                            required: true,
+                            widgetProps: warehouseSelectProps,
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "toWarehouse", write: "toWarehouse"},
+                        field: {
+                            name: "toWarehouse",
+                            widget: "#ApiSelect",
+                            label: "form.toWarehouseLabel",
+                            placeholder: "form.toWarehousePlaceholder",
+                            required: true,
+                            widgetProps: warehouseSelectProps,
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        permissions: {read: "lines", write: "lines"},
+        field: {
+            name: "lines",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.linesSectionTitle",
+                arrayField: "lines",
+                defaultItem: {product: "", quantity: 1},
+                addLabel: "form.lineAddRow",
+                removeLabel: "form.lineRemoveRow",
+                rowTitleFields: ["product"],
+                rowTitlePlaceholder: "form.lineRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 3},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "product",
+                                    widget: "#ApiSelect",
+                                    label: "form.productLabel",
+                                    placeholder: "form.productPlaceholder",
+                                    required: true,
+                                    widgetProps: productSelectProps,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "variant",
+                                    widget: "#ApiSelect",
+                                    label: "form.variantLabel",
+                                    placeholder: "form.variantPlaceholder",
+                                    widgetProps: variantSelectProps,
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "quantity",
+                                    widget: "#Input",
+                                    label: "form.quantityLabel",
+                                    required: true,
+                                    // Stock may be kept in fractions (kg, m), so no whole-number step.
+                                    widgetProps: {type: "number", min: 0, step: "any"},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.noteSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["note"], writeAny: ["note"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "note", write: "note"},
+                field: {
+                    name: "note",
+                    widget: "#Textarea",
+                    label: "form.noteLabel",
+                    placeholder: "form.notePlaceholder",
+                    widgetProps: noteWidgetProps,
+                },
+            },
+        ],
+    },
+];
 
 export const stockTransferCreateFormView: ViewConfig = {
     model: "stockTransfers",
@@ -258,7 +416,7 @@ export const stockTransferCreateFormView: ViewConfig = {
     accessModel: "stockTransfers",
     apiUrl: "/api/eCommerce/stockTransfer",
     method: "PUT",
-    nodes: [...warehouseFields(false), noteField(), linesRepeater()],
+    nodes: stockTransferCreateFormNodes,
 };
 
 export const stockTransferEditFormView: ViewConfig = {
@@ -268,11 +426,7 @@ export const stockTransferEditFormView: ViewConfig = {
     accessModel: "stockTransfers",
     apiUrl: "/api/eCommerce/stockTransfer",
     method: "PATCH",
-    nodes: [
-        ...warehouseFields(true),
-        noteField({read: "note", write: "note"}),
-        linesRepeater({read: "lines", write: "lines"}),
-    ],
+    nodes: stockTransferEditFormNodes,
 };
 
 export const stockTransferViews: ViewConfig[] = [stockTransferSheetView, stockTransferCreateFormView, stockTransferEditFormView];

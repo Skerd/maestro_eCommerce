@@ -26,6 +26,8 @@ export const customerAddressSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "customer",
+                            permissions: {read: "customer"},
                             field: {
                                 name: "customer",
                                 widget: "#DisplayCard",
@@ -41,15 +43,8 @@ export const customerAddressSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            field: {
-                                name: "type",
-                                widget: "#DisplayCard",
-                                label: "type",
-                                widgetProps: {icon: "#IconTruck", languageKeyCategory: "addressType", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "label",
+                            permissions: {read: "label"},
                             field: {
                                 name: "label",
                                 widget: "#DisplayCard",
@@ -59,37 +54,8 @@ export const customerAddressSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            field: {
-                                name: "isDefault",
-                                widget: "#DisplayCard",
-                                label: "isDefault",
-                                widgetProps: {
-                                    icon: "#IconStar",
-                                    valueType: "boolean",
-                                    type: "boolean"
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            field: {
-                                name: "firstName",
-                                widget: "#DisplayCard",
-                                label: "firstName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            field: {
-                                name: "lastName",
-                                widget: "#DisplayCard",
-                                label: "lastName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "email",
+                            permissions: {read: "email"},
                             field: {
                                 name: "email",
                                 widget: "#DisplayCard",
@@ -99,6 +65,8 @@ export const customerAddressSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "phone",
+                            permissions: {read: "phone"},
                             field: {
                                 name: "phone",
                                 widget: "#DisplayCard",
@@ -376,7 +344,10 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.recipientSectionTitle"},
-        permissions: {writeAny: ["customer", "type", "label", "firstName", "lastName", "email", "phone"]},
+        permissions: {
+            readAny: ["customer", "type", "label", "firstName", "lastName", "email", "phone"],
+            writeAny: ["customer", "type", "label", "firstName", "lastName", "email", "phone"],
+        },
         children: [
             {
                 render: "#FormGrid",

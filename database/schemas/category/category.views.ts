@@ -16,6 +16,7 @@ export const categorySheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "overview"},
+            dependentAny: ["parent"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -23,36 +24,7 @@ export const categorySheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Tag"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "slug"},
-                            field: {
-                                name: "slug",
-                                widget: "#DisplayCard",
-                                label: "slug",
-                                widgetProps: {icon: "#IconInfoCircle"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "order",
-                                widgetProps: {icon: "#Hash", type: "number"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "parent",
                             permissions: {read: "parent"},
                             field: {
                                 name: "parent.name",
@@ -78,42 +50,60 @@ export const categorySheetView: ViewConfig = {
 /** Create/edit: slug is generated server-side from name and is not editable. */
 const categoryCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: CATEGORY_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "parent",
-                    widget: "#ApiSelect",
-                    label: "form.parentCategoryLabel",
-                    placeholder: "form.parentCategoryPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/category/select",
-                        normalizeEmptyToUndefined: true,
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
                     },
-                },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "parent",
+                            widget: "#ApiSelect",
+                            label: "form.parentCategoryLabel",
+                            placeholder: "form.parentCategoryPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/category/select",
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#Input",
-                    label: "form.orderLabel",
-                    placeholder: "form.orderPlaceholder",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -121,44 +111,67 @@ const categoryCreateFormNodes: ViewConfig["nodes"] = [
 
 const categoryEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle"},
+        permissions: {readAny: ["name", "parent"], writeAny: ["name", "parent"]},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: CATEGORY_NAME_MAX},
-                }, permissions: {read: "name", write: "name"},
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "parent",
-                    widget: "#ApiSelect",
-                    label: "form.parentCategoryLabel",
-                    placeholder: "form.parentCategoryPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/category/select",
-                        normalizeEmptyToUndefined: true,
-                        postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
-                        remountKeyFormField: "_id",
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
                     },
-                }, permissions: {read: "parent", write: "parent"},
+                    {
+                        render: "#Field",
+                        permissions: {read: "parent", write: "parent"},
+                        field: {
+                            name: "parent",
+                            widget: "#ApiSelect",
+                            label: "form.parentCategoryLabel",
+                            placeholder: "form.parentCategoryPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/category/select",
+                                normalizeEmptyToUndefined: true,
+                                postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
+                                remountKeyFormField: "_id",
+                            },
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["order"], writeAny: ["order"]},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#Input",
-                    label: "form.orderLabel",
-                    placeholder: "form.orderPlaceholder",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                }, permissions: {read: "order", write: "order"},
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "order", write: "order"},
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },

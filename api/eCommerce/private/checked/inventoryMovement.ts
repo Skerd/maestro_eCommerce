@@ -9,6 +9,8 @@ import {
 } from "@eCommerceModule/utilities/mappers/inventoryMovement/inventoryMovementMapper.dto";
 import {inventoryMovementsToSelect} from "@eCommerceModule/utilities/mappers/inventoryMovement/inventoryMovementMapper.select";
 import {withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
+import {inventoryMovementListFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/inventoryMovement/inventoryMovementList.form.validator";
+import {recentWhenFilter} from "@eCommerceModule/utilities/services/recentWhenFilter";
 
 export const basePath = "/api/eCommerce/inventoryMovement";
 
@@ -20,6 +22,9 @@ export const {router} = createCrudRouter({
     service: inventoryMovementService,
     entityName: "Inventory movement",
     defaultSort: {occurredAt: -1, createdAt: -1},
+    listSchema: inventoryMovementListFormSchema,
+    // "When" quick filter (validated by the list schema) as a range on the company's calendar.
+    extraListFilter: (params) => recentWhenFilter(params.when, params.company._id, "occurredAt"),
     createSchema: validateSingleForm,
     editSchema: validateSingleForm,
     toDTO: inventoryMovementToDTO,

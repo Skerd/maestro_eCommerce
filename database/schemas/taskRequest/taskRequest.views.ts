@@ -18,34 +18,8 @@ export const taskRequestSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: { columns: 1 },
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: { read: "title" },
-                            field: {
-                                name: "title",
-                                widget: "#DisplayCard",
-                                label: "title",
-                                widgetProps: { icon: "#Tag" },
-                            },
-                        },
-                    ]
-                },
-                {
-                    render: "#SheetGrid",
                     props: { columns: 2 },
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: { read: "status" },
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: { icon: "#Tag", languageKeyCategory: "taskRequestStatus" },
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: { read: "category" },
@@ -125,7 +99,7 @@ export const taskRequestSheetView: ViewConfig = {
                                 name: "expiresAt",
                                 widget: "#DisplayCard",
                                 label: "expiresAt",
-                                widgetProps: { icon: "#Calendar", format: "date" },
+                                widgetProps: { icon: "#Calendar", format: "date", type: "date" },
                             },
                         },
                     ],
@@ -135,144 +109,7 @@ export const taskRequestSheetView: ViewConfig = {
 
         {
             render: "#SheetGroup",
-            props: { title: "address" },
-            children: [
-                {
-                    render: "div",
-                    props: { className: "space-y-2" },
-                    children: [
-                        {
-                            render: "#SheetGrid",
-                            props: { columns: 3 },
-                            children: [
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.country.name",
-                                        widget: "#DisplayCard",
-                                        label: "country",
-                                        widgetProps: {
-                                            icon: "#Globe",
-                                            flagCodePath: "address.country.code",
-                                            linkedRefPath: "address.country",
-                                            linkedSheetModel: "countries",
-                                            linkedSheetWidget: "#CountrySheetView",
-                                            linkedSheetEntityProp: "country",
-                                        },
-                                    },
-                                },
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.state.name",
-                                        widget: "#DisplayCard",
-                                        label: "state",
-                                        widgetProps: {
-                                            icon: "#MapPin",
-                                            linkedRefPath: "address.state",
-                                            linkedSheetModel: "states",
-                                            linkedSheetWidget: "#StateSheetView",
-                                            linkedSheetEntityProp: "state",
-                                        },
-                                    },
-                                },
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.city.name",
-                                        widget: "#DisplayCard",
-                                        label: "city",
-                                        widgetProps: {
-                                            icon: "#Building",
-                                            linkedRefPath: "address.city",
-                                            linkedSheetModel: "cities",
-                                            linkedSheetWidget: "#CitySheetView",
-                                            linkedSheetEntityProp: "city",
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                        {
-                            render: "#SheetGrid",
-                            props: { columns: 1 },
-                            children: [
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.street",
-                                        widget: "#DisplayCard",
-                                        label: "street",
-                                        widgetProps: { icon: "#MapPin" },
-                                    },
-                                },
-                            ],
-                        },
-                        {
-                            render: "#SheetGrid",
-                            props: { columns: 3 },
-                            children: [
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.postalCode",
-                                        widget: "#DisplayCard",
-                                        label: "postalCode",
-                                        widgetProps: { icon: "#Mail" },
-                                    },
-                                },
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.latitude",
-                                        widget: "#DisplayCard",
-                                        label: "latitude",
-                                        widgetProps: { icon: "#IconMapPin", format: "locale" },
-                                    },
-                                },
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address.longitude",
-                                        widget: "#DisplayCard",
-                                        label: "longitude",
-                                        widgetProps: { icon: "#IconMapPin", format: "locale" },
-                                    },
-                                },
-                            ],
-                        },
-                        {
-                            render: "div",
-                            props: { className: "w-full pt-2" },
-                            children: [
-                                {
-                                    render: "#SheetLocationMap",
-                                    permissions: { read: "address" },
-                                    field: {
-                                        name: "address",
-                                        widget: "#SheetLocationMap",
-                                        widgetProps: {
-                                            latitudeField: "address.latitude",
-                                            longitudeField: "address.longitude",
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-
-        {
-            render: "#SheetGroup",
+            dependent: "description",
             props: { title: "description" },
             children: [
                 {
@@ -322,70 +159,150 @@ export const taskRequestSheetView: ViewConfig = {
                 },
             ],
         },
+        {
+            render: "#SheetGroup",
+            props: { title: "address" },
+            children: [
+                {
+                    render: "div",
+                    props: { className: "space-y-2" },
+                    children: [
+                        {
+                            render: "#SheetGrid",
+                            props: { columns: 3 },
+                            children: [
+                                {
+                                    render: "#DisplayCard",
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address.country.name",
+                                        widget: "#DisplayCard",
+                                        label: "country",
+                                        widgetProps: {
+                                            icon: "#Globe",
+                                            flagCodePath: "address.country.code",
+                                            linkedRefPath: "address.country",
+                                            linkedSheetModel: "countries",
+                                            linkedSheetWidget: "#CountrySheetView",
+                                            linkedSheetEntityProp: "country",
+                                        },
+                                    },
+                                },
+                                {
+                                    render: "#DisplayCard",
+                                    dependent: "address.state",
+                                    dependentRuntimeOnly: true,
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address.state.name",
+                                        widget: "#DisplayCard",
+                                        label: "state",
+                                        widgetProps: {
+                                            icon: "#MapPin",
+                                            linkedRefPath: "address.state",
+                                            linkedSheetModel: "states",
+                                            linkedSheetWidget: "#StateSheetView",
+                                            linkedSheetEntityProp: "state",
+                                        },
+                                    },
+                                },
+                                {
+                                    render: "#DisplayCard",
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address.city.name",
+                                        widget: "#DisplayCard",
+                                        label: "city",
+                                        widgetProps: {
+                                            icon: "#Building",
+                                            linkedRefPath: "address.city",
+                                            linkedSheetModel: "cities",
+                                            linkedSheetWidget: "#CitySheetView",
+                                            linkedSheetEntityProp: "city",
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            render: "#SheetGrid",
+                            props: { columns: 2 },
+                            children: [
+                                {
+                                    render: "#DisplayCard",
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address.street",
+                                        widget: "#DisplayCard",
+                                        label: "street",
+                                        widgetProps: { icon: "#MapPin" },
+                                    },
+                                },
+                                {
+                                    render: "#DisplayCard",
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address.postalCode",
+                                        widget: "#DisplayCard",
+                                        label: "postalCode",
+                                        widgetProps: { icon: "#Mail" },
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            render: "div",
+                            props: { className: "w-full pt-2" },
+                            children: [
+                                {
+                                    render: "#SheetLocationMap",
+                                    permissions: { read: "address" },
+                                    field: {
+                                        name: "address",
+                                        widget: "#SheetLocationMap",
+                                        widgetProps: {
+                                            latitudeField: "address.latitude",
+                                            longitudeField: "address.longitude",
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
         lifecycleSheetGroup,
     ],
 };
 
-/** Same shape as `edificeAddressWithMapLabels` in `edifice.views.ts` (keys under `form.*` via task request form JSON). */
-const taskRequestAddressWithMapLabels = {
-    country: "form.countryLabel",
-    countryPlaceholder: "form.countryPlaceholder",
-    state: "form.stateLabel",
-    statePlaceholder: "form.statePlaceholder",
-    city: "form.cityLabel",
-    cityPlaceholder: "form.cityPlaceholder",
-    street: "form.streetLabel",
-    streetPlaceholder: "form.streetPlaceholder",
-    postalCode: "form.postalCodeLabel",
-    postalCodePlaceholder: "form.postalCodePlaceholder",
-    latitude: "form.latitudeLabel",
-    latitudePlaceholder: "form.latitudePlaceholder",
-    longitude: "form.longitudeLabel",
-    longitudePlaceholder: "form.longitudePlaceholder",
-};
-
-const taskRequestFormFields: ViewConfig["nodes"] = [
+// Separate create and edit trees (VC-02): edit carries the field ACL; create carries none.
+const taskRequestCreateFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
-        props: { title: "form.section.general" },
+        props: {title: "form.section.general"},
         children: [
             {
                 render: "#FormGrid",
-                props: { columns: 2 },
+                props: {columns: 2},
                 children: [
                     {
                         render: "#Field",
-                        field: {
-                            name: "title",
-                            widget: "#Input",
-                            label: "form.titleLabel",
-                            required: true,
-                        },
+                        field: {name: "title", widget: "#Input", label: "form.titleLabel", placeholder: "form.titlePlaceholder", required: true},
                     },
                     {
                         render: "#Field",
-                        field: {
-                            name: "category",
-                            widget: "#ApiSelect",
-                            label: "form.categoryLabel",
-                            widgetProps: { apiUrl: "/api/eCommerceMarketplace/listingCategory/select" },
-                        },
+                        field: {name: "category", widget: "#ApiSelect", label: "form.categoryLabel", placeholder: "form.categoryPlaceholder", required: true, widgetProps: {apiUrl: "/api/eCommerceMarketplace/listingCategory/select"}},
                     },
                 ],
             },
             {
                 render: "#FormGrid",
-                props: { columns: 1 },
+                props: {columns: 1},
                 children: [
                     {
                         render: "#Field",
-                        field: {
-                            name: "description",
-                            widget: "#Textarea",
-                            label: "form.descriptionLabel",
-                            placeholder: "form.descriptionPlaceholder",
-                            widgetProps: { className: "resize-none max-h-[250px] overflow-y-auto" },
-                        },
+                        field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"}},
                     },
                 ],
             },
@@ -393,38 +310,23 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
     },
     {
         render: "#TitleWithCollapse",
-        props: { title: "form.section.budget" },
+        props: {title: "form.section.budget"},
         children: [
             {
                 render: "#FormGrid",
-                props: { columns: 3 },
+                props: {columns: 3},
                 children: [
                     {
                         render: "#Field",
-                        field: {
-                            name: "budgetMin",
-                            widget: "#Input",
-                            label: "form.budgetMinLabel",
-                            widgetProps: { type: "number", min: 0, step: "any" },
-                        },
+                        field: {name: "currency", widget: "#ApiSelect", label: "form.currencyLabel", placeholder: "form.currencyPlaceholder", description: "form.currencyDescription", required: true, widgetProps: {apiUrl: "/api/finance/currency/select"}},
                     },
                     {
                         render: "#Field",
-                        field: {
-                            name: "budgetMax",
-                            widget: "#Input",
-                            label: "form.budgetMaxLabel",
-                            widgetProps: { type: "number", min: 0, step: "any" },
-                        },
+                        field: {name: "budgetMin", widget: "#Input", label: "form.budgetMinLabel", placeholder: "form.budgetMinPlaceholder", required: true, widgetProps: {type: "number", min: 0, step: "any"}},
                     },
                     {
                         render: "#Field",
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            widgetProps: { apiUrl: "/api/finance/currency/select" },
-                        },
+                        field: {name: "budgetMax", widget: "#Input", label: "form.budgetMaxLabel", placeholder: "form.budgetMaxPlaceholder", required: true, widgetProps: {type: "number", min: 0, step: "any"}},
                     },
                 ],
             },
@@ -432,7 +334,7 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
     },
     {
         render: "#TitleWithCollapse",
-        props: { title: "address" },
+        props: {title: "form.section.address"},
         children: [
             {
                 render: "div",
@@ -453,6 +355,7 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
                                             widget: "#ApiSelect",
                                             label: "form.countryLabel",
                                             placeholder: "form.countryPlaceholder",
+                                            required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/country/select",
                                                 method: "POST",
@@ -485,6 +388,7 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
                                             widget: "#ApiSelect",
                                             label: "form.cityLabel",
                                             placeholder: "form.cityPlaceholder",
+                                            required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/city/select",
                                                 method: "POST",
@@ -505,11 +409,224 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
                                 children: [
                                     {
                                         render: "#Field",
-                                        field: {name: "address.street", widget: "#Input", label: "form.streetLabel", placeholder: "form.streetPlaceholder"},
+                                        field: {name: "address.street", widget: "#Input", label: "form.streetLabel", placeholder: "form.streetPlaceholder", required: true},
                                     },
                                     {
                                         render: "#Field",
-                                        field: {name: "address.postalCode", widget: "#Input", label: "form.postalCodeLabel", placeholder: "form.postalCodePlaceholder"},
+                                        field: {name: "address.postalCode", widget: "#Input", label: "form.postalCodeLabel", placeholder: "form.postalCodePlaceholder", required: true},
+                                    },
+                                ],
+                            },
+                            {
+                                // The pin fills these; typing stays possible because they are required and a missing pin must show its error.
+                                render: "#FormGrid",
+                                props: {columns: 2, className: "gap-6"},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        field: {name: "address.latitude", widget: "#Input", label: "form.latitudeLabel", placeholder: "form.latitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
+                                    },
+                                    {
+                                        render: "#Field",
+                                        field: {name: "address.longitude", widget: "#Input", label: "form.longitudeLabel", placeholder: "form.longitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
+                                    },
+                                ],
+                            },
+                            {render: "#FormAlert", props: {message: "form.addressPrivacyAlert"}},
+                        ],
+                    },
+                    {
+                        render: "div",
+                        props: {className: "flex flex-col lg:col-span-1 w-full min-h-[220px] h-[220px] lg:h-full lg:min-h-[220px]"},
+                        children: [
+                        {
+                            render: "#Field",
+                            field: {
+                                    name: "_addressMap",
+                                    widget: "#FormMapPinPicker",
+                                    skipWriteAccessGate: true,
+                                    widgetProps: {fieldPrefix: "address", latField: "latitude", lngField: "longitude"},
+                                },
+                        },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.images"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {name: "mainImage", widget: "#MediaField", label: "form.mainImageLabel", required: true, widgetProps: {mediaType: "image", mode: "single"}},
+                    },
+                    {
+                        render: "#Field",
+                        field: {name: "imageGallery", widget: "#MediaField", label: "form.imageGalleryLabel", widgetProps: {mediaType: "image", mode: "multiple", maxCount: 8}},
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.video", defaultOpen: false},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {name: "videoGallery", widget: "#MediaField", label: "form.videoGalleryLabel", widgetProps: {mediaType: "video", mode: "multiple", maxCount: 3}},
+                    },
+                ],
+            },
+        ],
+    },
+];
+
+const taskRequestEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.general"},
+        permissions: {readAny: ["title", "category", "description"], writeAny: ["title", "category", "description"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "title", write: "title"},
+                        field: {name: "title", widget: "#Input", label: "form.titleLabel", placeholder: "form.titlePlaceholder", required: true},
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "category", write: "category"},
+                        field: {name: "category", widget: "#ApiSelect", label: "form.categoryLabel", placeholder: "form.categoryPlaceholder", required: true, widgetProps: {apiUrl: "/api/eCommerceMarketplace/listingCategory/select"}},
+                    },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "description", write: "description"},
+                        field: {name: "description", widget: "#Textarea", label: "form.descriptionLabel", placeholder: "form.descriptionPlaceholder", widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"}},
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.budget"},
+        permissions: {readAny: ["currency", "budgetMin", "budgetMax"], writeAny: ["currency", "budgetMin", "budgetMax"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "currency", write: "currency"},
+                        field: {name: "currency", widget: "#ApiSelect", label: "form.currencyLabel", placeholder: "form.currencyPlaceholder", description: "form.currencyDescription", required: true, widgetProps: {apiUrl: "/api/finance/currency/select"}},
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "budgetMin", write: "budgetMin"},
+                        field: {name: "budgetMin", widget: "#Input", label: "form.budgetMinLabel", placeholder: "form.budgetMinPlaceholder", required: true, widgetProps: {type: "number", min: 0, step: "any"}},
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "budgetMax", write: "budgetMax"},
+                        field: {name: "budgetMax", widget: "#Input", label: "form.budgetMaxLabel", placeholder: "form.budgetMaxPlaceholder", required: true, widgetProps: {type: "number", min: 0, step: "any"}},
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.address"},
+        permissions: {readAny: ["address"], writeAny: ["address"]},
+        children: [
+            {
+                render: "div",
+                props: {className: "grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch"},
+                children: [
+                    {
+                        render: "div",
+                        props: {className: "lg:col-span-2 space-y-6 min-w-0"},
+                        children: [
+                            {
+                                render: "#FormGrid",
+                                props: {columns: 3, className: "gap-6"},
+                                children: [
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "address", write: "address"},
+                                        field: {
+                                            name: "address.country",
+                                            widget: "#ApiSelect",
+                                            label: "form.countryLabel",
+                                            placeholder: "form.countryPlaceholder",
+                                            required: true,
+                                            widgetProps: {
+                                                apiUrl: "/api/auxiliary/country/select",
+                                                method: "POST",
+                                                pageSize: 50,
+                                                cascadeClearFormFields: ["address.state", "address.city"],
+                                            },
+                                        },
+                                    },
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "address", write: "address"},
+                                        field: {
+                                            name: "address.state",
+                                            widget: "#ApiSelect",
+                                            label: "form.stateLabel",
+                                            placeholder: "form.statePlaceholder",
+                                            widgetProps: {
+                                                apiUrl: "/api/auxiliary/state/select",
+                                                method: "POST",
+                                                pageSize: 50,
+                                                postBodyFromFormFields: [{field: "address.country", paramName: "country"}],
+                                                enableWhenFormFieldsNonEmpty: ["address.country"],
+                                                cascadeClearFormFields: ["address.city"],
+                                            },
+                                        },
+                                    },
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "address", write: "address"},
+                                        field: {
+                                            name: "address.city",
+                                            widget: "#ApiSelect",
+                                            label: "form.cityLabel",
+                                            placeholder: "form.cityPlaceholder",
+                                            required: true,
+                                            widgetProps: {
+                                                apiUrl: "/api/auxiliary/city/select",
+                                                method: "POST",
+                                                pageSize: 50,
+                                                postBodyFromFormFields: [
+                                                    {field: "address.country", paramName: "country"},
+                                                    {field: "address.state", paramName: "state"},
+                                                ],
+                                                enableWhenFormFieldsNonEmpty: ["address.country"],
+                                            },
+                                        },
                                     },
                                 ],
                             },
@@ -519,72 +636,74 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
                                 children: [
                                     {
                                         render: "#Field",
-                                        field: {name: "address.latitude", widget: "#Input", label: "form.latitudeLabel", placeholder: "form.latitudePlaceholder", widgetProps: {type: "number", step: "0.000001"}},
+                                        permissions: {read: "address", write: "address"},
+                                        field: {name: "address.street", widget: "#Input", label: "form.streetLabel", placeholder: "form.streetPlaceholder", required: true},
                                     },
                                     {
                                         render: "#Field",
-                                        field: {name: "address.longitude", widget: "#Input", label: "form.longitudeLabel", placeholder: "form.longitudePlaceholder", widgetProps: {type: "number", step: "0.000001"}},
+                                        permissions: {read: "address", write: "address"},
+                                        field: {name: "address.postalCode", widget: "#Input", label: "form.postalCodeLabel", placeholder: "form.postalCodePlaceholder", required: true},
                                     },
                                 ],
                             },
                             {
+                                // The pin fills these; typing stays possible because they are required and a missing pin must show its error.
                                 render: "#FormGrid",
-                                props: {columns: 1},
+                                props: {columns: 2, className: "gap-6"},
                                 children: [
                                     {
-                                        render: "#FormAlert",
-                                        props: {message: "form.addressPrivacyAlert"},
+                                        render: "#Field",
+                                        permissions: {read: "address", write: "address"},
+                                        field: {name: "address.latitude", widget: "#Input", label: "form.latitudeLabel", placeholder: "form.latitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
+                                    },
+                                    {
+                                        render: "#Field",
+                                        permissions: {read: "address", write: "address"},
+                                        field: {name: "address.longitude", widget: "#Input", label: "form.longitudeLabel", placeholder: "form.longitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
                                     },
                                 ],
-                            }
+                            },
+                            {render: "#FormAlert", props: {message: "form.addressPrivacyAlert"}},
                         ],
                     },
                     {
                         render: "div",
                         props: {className: "flex flex-col lg:col-span-1 w-full min-h-[220px] h-[220px] lg:h-full lg:min-h-[220px]"},
                         children: [
-                            {
-                                render: "#Field",
-                                field: {
+                        {
+                            render: "#Field",
+                            permissions: {read: "address", write: "address"},
+                            field: {
                                     name: "_addressMap",
                                     widget: "#FormMapPinPicker",
                                     skipWriteAccessGate: true,
-                                    widgetProps: {fieldPrefix: "address", latField: "latitude", lngField: "longitude", defaultLat: 41.3275, defaultLng: 19.8189},
+                                    widgetProps: {fieldPrefix: "address", latField: "latitude", lngField: "longitude"},
                                 },
-                            },
+                        },
                         ],
                     },
                 ],
             },
         ],
     },
-
     {
         render: "#TitleWithCollapse",
-        props: { title: "form.section.images" },
-        permissions: { write: "mainImage" },
+        props: {title: "form.section.images"},
+        permissions: {readAny: ["mainImage", "imageGallery"], writeAny: ["mainImage", "imageGallery"]},
         children: [
             {
                 render: "#FormGrid",
-                props: { columns: 1 },
+                props: {columns: 1},
                 children: [
                     {
                         render: "#Field",
-                        field: {
-                            name: "mainImage",
-                            widget: "#MediaField",
-                            label: "form.mainImageLabel",
-                            widgetProps: { mediaType: "image", mode: "single" },
-                        },
+                        permissions: {read: "mainImage", write: "mainImage"},
+                        field: {name: "mainImage", widget: "#MediaField", label: "form.mainImageLabel", required: true, widgetProps: {mediaType: "image", mode: "single"}},
                     },
                     {
                         render: "#Field",
-                        field: {
-                            name: "imageGallery",
-                            widget: "#MediaField",
-                            label: "form.imageGalleryLabel",
-                            widgetProps: { mediaType: "image", mode: "multiple", maxCount: 8 },
-                        },
+                        permissions: {read: "imageGallery", write: "imageGallery"},
+                        field: {name: "imageGallery", widget: "#MediaField", label: "form.imageGalleryLabel", widgetProps: {mediaType: "image", mode: "multiple", maxCount: 8}},
                     },
                 ],
             },
@@ -592,17 +711,19 @@ const taskRequestFormFields: ViewConfig["nodes"] = [
     },
     {
         render: "#TitleWithCollapse",
-        props: { title: "form.section.video" },
-        permissions: { write: "videoGallery" },
+        props: {title: "form.section.video", defaultOpen: false},
+        permissions: {readAny: ["videoGallery"], writeAny: ["videoGallery"]},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "videoGallery",
-                    widget: "#MediaField",
-                    label: "form.videoGalleryLabel",
-                    widgetProps: { mediaType: "video", mode: "multiple", maxCount: 3 },
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "videoGallery", write: "videoGallery"},
+                        field: {name: "videoGallery", widget: "#MediaField", label: "form.videoGalleryLabel", widgetProps: {mediaType: "video", mode: "multiple", maxCount: 3}},
+                    },
+                ],
             },
         ],
     },
@@ -615,7 +736,7 @@ export const taskRequestCreateFormView: ViewConfig = {
     accessModel: "taskRequests",
     apiUrl: "/api/eCommerceMarketplace/taskRequest",
     method: "PUT",
-    nodes: taskRequestFormFields,
+    nodes: taskRequestCreateFormNodes,
 };
 
 export const taskRequestEditFormView: ViewConfig = {
@@ -625,7 +746,7 @@ export const taskRequestEditFormView: ViewConfig = {
     accessModel: "taskRequests",
     apiUrl: "/api/eCommerceMarketplace/taskRequest",
     method: "PATCH",
-    nodes: taskRequestFormFields,
+    nodes: taskRequestEditFormNodes,
 };
 
 export const taskRequestViews: ViewConfig[] = [taskRequestSheetView, taskRequestCreateFormView, taskRequestEditFormView];

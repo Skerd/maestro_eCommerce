@@ -18,7 +18,7 @@ export const {router} = createCrudRouter({
     service: cmsBlockService,
     entityName: "CmsBlock",
     selectSearchField: "title",
-    defaultSort: {createdAt: -1},
+    defaultSort: {position: 1, createdAt: -1},
     createSchema: createCmsBlockFormSchema,
     editSchema: editCmsBlockFormSchema,
     toDTO: cmsBlockToDTO,

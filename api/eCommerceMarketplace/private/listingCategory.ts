@@ -38,7 +38,7 @@ export const {router} = createCrudRouter<IListingCategory, CreateListingCategory
     entityName: "ListingCategory",
     selectSearchField: "name",
     selectSort: {order: 1, name: 1},
-    defaultSort: {order: 1},
+    defaultSort: {order: 1, name: 1},
     createSchema: createListingCategoryFormSchema,
     editSchema: editListingCategoryFormSchema,
     selectSchema: listingCategorySelectFormSchema,

@@ -82,9 +82,10 @@ export function productOrderToDTO(order: IProductOrder): ProductOrder {
                     code: appliedDiscount.code ?? discount.code,
                 },
                 amount: appliedDiscount.amount,
+                currency,
             };
         }),
-        taxBreakdown: order.taxBreakdown,
+        taxBreakdown: order.taxBreakdown?.map((tax) => ({name: tax.name, rate: tax.rate, amount: tax.amount, currency})),
         shippingRate: order.shippingRate,
         notes: order.notes,
         internalNotes: order.internalNotes,

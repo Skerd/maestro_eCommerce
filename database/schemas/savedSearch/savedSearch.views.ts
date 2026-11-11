@@ -22,7 +22,9 @@ export const savedSearchSheetView: ViewConfig = {
     nodes: [
         {
             render: "#SheetGroup",
+            // The name is the sheet title (UX-03).
             props: {title: "overview", defaultOpen: true},
+            dependent: "customer",
             children: [
                 {
                     render: "#SheetGrid",
@@ -30,11 +32,7 @@ export const savedSearchSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {name: "name", widget: "#DisplayCard", label: "name", widgetProps: {icon: "#Tag"}},
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "customer",
                             permissions: {read: "customer"},
                             field: {
                                 name: "customer",
@@ -55,6 +53,7 @@ export const savedSearchSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "filters", defaultOpen: true},
+            dependentAny: ["categoryIds", "collectionId", "priceMin", "priceMax", "sort"],
             permissions: {readAny: ["categoryIds", "collectionId", "priceMin", "priceMax", "sort"]},
             children: [
                 {
@@ -63,6 +62,7 @@ export const savedSearchSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "collectionId",
                             permissions: {read: "collectionId"},
                             field: {
                                 name: "collectionId",
@@ -77,18 +77,21 @@ export const savedSearchSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "priceMin",
                             permissions: {read: "priceMin"},
                             field: {name: "priceMin", widget: "#DisplayCard", label: "priceMin", widgetProps: {icon: "#IconCash", format: "locale", valuePath: ["currency.symbol", "priceMin"], joinSeparator: " ", type: "currency", linkedRefPath: "currency", linkedSheetModel: "currencies", linkedSheetWidget: "#CurrencySheetView", linkedSheetEntityProp: "currency"}},
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "priceMax",
                             permissions: {read: "priceMax"},
                             field: {name: "priceMax", widget: "#DisplayCard", label: "priceMax", widgetProps: {icon: "#IconCash", format: "locale", valuePath: ["currency.symbol", "priceMax"], joinSeparator: " ", type: "currency", linkedRefPath: "currency", linkedSheetModel: "currencies", linkedSheetWidget: "#CurrencySheetView", linkedSheetEntityProp: "currency"}},
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "sort",
                             permissions: {read: "sort"},
-                            field: {name: "sort", widget: "#DisplayCard", label: "sort", widgetProps: {icon: "#Hash"}},
+                            field: {name: "sort", widget: "#DisplayCard", label: "sort", widgetProps: {icon: "#IconArrowsSort", type: "enum", languageKeyCategory: "sortValues"}},
                         },
                     ],
                 },
@@ -108,6 +111,7 @@ export const savedSearchSheetView: ViewConfig = {
                                 // Nested under filters — avoid a second CollapsibleContent (overflow:hidden clips cards).
                                 collapsible: false,
                             },
+                            dependent: "categoryIds",
                             permissions: {read: "categoryIds"},
                             children: [
                                 {
@@ -150,36 +154,42 @@ export const savedSearchSheetView: ViewConfig = {
 
 const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
         children: [
             {
-                render: "#Field",
-                props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
-                field: {
-                    name: "customer",
-                    widget: "#ApiSelect",
-                    label: "form.customerLabel",
-                    placeholder: "form.customerPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/company/users/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                        defaultOptionsFormExtraKey: "customerDefaultOptions",
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
+                        field: {
+                            name: "customer",
+                            widget: "#ApiSelect",
+                            label: "form.customerLabel",
+                            placeholder: "form.customerPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                                defaultOptionsFormExtraKey: "customerDefaultOptions",
+                            },
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: SAVED_SEARCH_NAME_MAX},
-                },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: SAVED_SEARCH_NAME_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -264,39 +274,45 @@ const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
 
 const savedSearchEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
-        permissions: {writeAny: ["customer", "name"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
+        permissions: {readAny: ["customer", "name"], writeAny: ["customer", "name"]},
         children: [
             {
-                render: "#Field",
-                props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
-                permissions: {read: "customer", write: "customer"},
-                field: {
-                    name: "customer",
-                    widget: "#ApiSelect",
-                    label: "form.customerLabel",
-                    placeholder: "form.customerPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/company/users/select",
-                        method: "POST",
-                        normalizeEmptyToUndefined: true,
-                        defaultOptionsFormExtraKey: "customerDefaultOptions",
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        props: {skipRenderWhenFormExtraTruthy: "lockCustomer"},
+                        permissions: {read: "customer", write: "customer"},
+                        field: {
+                            name: "customer",
+                            widget: "#ApiSelect",
+                            label: "form.customerLabel",
+                            placeholder: "form.customerPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                                defaultOptionsFormExtraKey: "customerDefaultOptions",
+                            },
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "name", write: "name"},
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: SAVED_SEARCH_NAME_MAX},
-                },
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: SAVED_SEARCH_NAME_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },

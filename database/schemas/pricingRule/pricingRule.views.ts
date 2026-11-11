@@ -19,18 +19,6 @@ export const pricingRuleSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {
-                                    icon: "#Tag"
-                                }
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
@@ -40,19 +28,6 @@ export const pricingRuleSheetView: ViewConfig = {
                                     icon: "#IconTag",
                                     languageKeyCategory: "pricingRuleType",
                                     type: "enum"
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    type: "boolean"
                                 },
                             },
                         },
@@ -338,6 +313,7 @@ export const pricingRuleSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "schedule"},
+            dependentAny: ["startsAt", "endsAt"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -345,6 +321,7 @@ export const pricingRuleSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "startsAt",
                             permissions: {read: "startsAt"},
                             field: {
                                 name: "startsAt",
@@ -358,6 +335,7 @@ export const pricingRuleSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "endsAt",
                             permissions: {read: "endsAt"},
                             field: {
                                 name: "endsAt",
@@ -376,6 +354,7 @@ export const pricingRuleSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "limits"},
+            dependentAny: ["minimumOrderAmount", "minimumQuantity"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -383,6 +362,7 @@ export const pricingRuleSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "minimumOrderAmount",
                             permissions: {read: "minimumOrderAmount"},
                             field: {
                                 name: "minimumOrderAmount",
@@ -403,6 +383,7 @@ export const pricingRuleSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "minimumQuantity",
                             permissions: {read: "minimumQuantity"},
                             field: {
                                 name: "minimumQuantity",
@@ -488,83 +469,8 @@ const pricingRuleCreateFormNodes: ViewConfig["nodes"] = [
                             label: "form.valueLabel",
                             placeholder: "form.valuePlaceholder",
                             description: "form.valueDescription",
-                            widgetProps: {type: "number", min: 0},
+                            widgetProps: {type: "number", min: 0, step: "any"},
                             required: true,
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "priority",
-                            widget: "#Input",
-                            label: "form.priorityLabel",
-                            placeholder: "form.priorityPlaceholder",
-                            widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "startsAt",
-                            widget: "#DateInput",
-                            label: "form.startsAtLabel",
-                            placeholder: "form.startsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "endsAt",
-                            widget: "#DateInput",
-                            label: "form.endsAtLabel",
-                            placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.limitsSectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "minimumOrderAmount",
-                            widget: "#Input",
-                            label: "form.minimumOrderAmountLabel",
-                            placeholder: "form.minimumOrderAmountPlaceholder",
-                            description: "form.shopAmountDescription",
-                            widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "minimumQuantity",
-                            widget: "#Input",
-                            label: "form.minimumQuantityLabel",
-                            placeholder: "form.minimumQuantityPlaceholder",
-                            widgetProps: {type: "number", min: 0},
                         },
                     },
                 ],
@@ -701,6 +607,94 @@ const pricingRuleCreateFormNodes: ViewConfig["nodes"] = [
             },
         ],
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "startsAt",
+                            widget: "#DateInput",
+                            label: "form.startsAtLabel",
+                            placeholder: "form.startsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "endsAt",
+                            widget: "#DateInput",
+                            label: "form.endsAtLabel",
+                            placeholder: "form.endsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.limitsSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "minimumOrderAmount",
+                            widget: "#Input",
+                            label: "form.minimumOrderAmountLabel",
+                            placeholder: "form.minimumOrderAmountPlaceholder",
+                            description: "form.shopAmountDescription",
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "minimumQuantity",
+                            widget: "#Input",
+                            label: "form.minimumQuantityLabel",
+                            placeholder: "form.minimumQuantityPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "priority",
+                            widget: "#Input",
+                            label: "form.priorityLabel",
+                            placeholder: "form.priorityPlaceholder",
+                            description: "form.priorityDescription",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
 const pricingRuleEditFormNodes: ViewConfig["nodes"] = [
@@ -708,8 +702,8 @@ const pricingRuleEditFormNodes: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.generalSectionTitle", defaultOpen: true},
         permissions: {
-            readAny: ["name", "type", "appliesTo", "value", "priority"],
-            writeAny: ["name", "type", "appliesTo", "value", "priority"],
+            readAny: ["name", "type", "appliesTo", "value"],
+            writeAny: ["name", "type", "appliesTo", "value"],
         },
         children: [
             {
@@ -778,96 +772,8 @@ const pricingRuleEditFormNodes: ViewConfig["nodes"] = [
                             label: "form.valueLabel",
                             placeholder: "form.valuePlaceholder",
                             description: "form.valueDescription",
-                            widgetProps: {type: "number", min: 0},
+                            widgetProps: {type: "number", min: 0, step: "any"},
                             required: true,
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "priority", write: "priority"},
-                        field: {
-                            name: "priority",
-                            widget: "#Input",
-                            label: "form.priorityLabel",
-                            placeholder: "form.priorityPlaceholder",
-                            widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
-        permissions: {
-            readAny: ["startsAt", "endsAt"],
-            writeAny: ["startsAt", "endsAt"],
-        },
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "startsAt", write: "startsAt"},
-                        field: {
-                            name: "startsAt",
-                            widget: "#DateInput",
-                            label: "form.startsAtLabel",
-                            placeholder: "form.startsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "endsAt", write: "endsAt"},
-                        field: {
-                            name: "endsAt",
-                            widget: "#DateInput",
-                            label: "form.endsAtLabel",
-                            placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.limitsSectionTitle", defaultOpen: true},
-        permissions: {
-            readAny: ["minimumOrderAmount", "minimumQuantity"],
-            writeAny: ["minimumOrderAmount", "minimumQuantity"],
-        },
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "minimumOrderAmount", write: "minimumOrderAmount"},
-                        field: {
-                            name: "minimumOrderAmount",
-                            widget: "#Input",
-                            label: "form.minimumOrderAmountLabel",
-                            placeholder: "form.minimumOrderAmountPlaceholder",
-                            description: "form.shopAmountDescription",
-                            widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "minimumQuantity", write: "minimumQuantity"},
-                        field: {
-                            name: "minimumQuantity",
-                            widget: "#Input",
-                            label: "form.minimumQuantityLabel",
-                            placeholder: "form.minimumQuantityPlaceholder",
-                            widgetProps: {type: "number", min: 0},
                         },
                     },
                 ],
@@ -1013,6 +919,108 @@ const pricingRuleEditFormNodes: ViewConfig["nodes"] = [
                         labelRefFormExtraKey: "customerGroups",
                     },
                 },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
+        permissions: {
+            readAny: ["startsAt", "endsAt"],
+            writeAny: ["startsAt", "endsAt"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "startsAt", write: "startsAt"},
+                        field: {
+                            name: "startsAt",
+                            widget: "#DateInput",
+                            label: "form.startsAtLabel",
+                            placeholder: "form.startsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "endsAt", write: "endsAt"},
+                        field: {
+                            name: "endsAt",
+                            widget: "#DateInput",
+                            label: "form.endsAtLabel",
+                            placeholder: "form.endsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.limitsSectionTitle", defaultOpen: true},
+        permissions: {
+            readAny: ["minimumOrderAmount", "minimumQuantity"],
+            writeAny: ["minimumOrderAmount", "minimumQuantity"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "minimumOrderAmount", write: "minimumOrderAmount"},
+                        field: {
+                            name: "minimumOrderAmount",
+                            widget: "#Input",
+                            label: "form.minimumOrderAmountLabel",
+                            placeholder: "form.minimumOrderAmountPlaceholder",
+                            description: "form.shopAmountDescription",
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "minimumQuantity", write: "minimumQuantity"},
+                        field: {
+                            name: "minimumQuantity",
+                            widget: "#Input",
+                            label: "form.minimumQuantityLabel",
+                            placeholder: "form.minimumQuantityPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle", defaultOpen: true},
+        permissions: {readAny: ["priority"], writeAny: ["priority"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "priority", write: "priority"},
+                        field: {
+                            name: "priority",
+                            widget: "#Input",
+                            label: "form.priorityLabel",
+                            placeholder: "form.priorityPlaceholder",
+                            description: "form.priorityDescription",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },

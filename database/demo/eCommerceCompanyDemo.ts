@@ -39,6 +39,7 @@ import {createPosConfigs} from "@eCommerceModule/database/schemas/posConfig/posC
 import {createPosSessions} from "@eCommerceModule/database/schemas/posSession/posSession.defaults";
 import {createPosOrders} from "@eCommerceModule/database/schemas/posOrder/posOrder.defaults";
 import {createFiscalConfigs} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.defaults";
+import {seedECommerceStateCoverage} from "./eCommerceStateCoverage.demo";
 
 export type SeedECommerceDemoResult = {
     products: CreateProductsResult;
@@ -125,7 +126,18 @@ export async function seedECommerceDemoData(
         products,
         cashierId,
         demoUserId,
+        currency._id,
     );
+    // Every state of returns, till shifts and sales, stock movements, counts and transfers (P10.10)
+    await seedECommerceStateCoverage(logger, company, {
+        currencyId: currency._id,
+        cashierId,
+        products,
+        warehouses,
+        posConfig,
+        posMethods,
+        orders,
+    });
     const warehouseIds: Record<string, Types.ObjectId> = {};
     for (const [key, doc] of Object.entries(warehouses.bySeedKey)) {
         warehouseIds[key] = doc._id;

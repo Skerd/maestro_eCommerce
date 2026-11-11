@@ -13,69 +13,8 @@ export const warehouseSheetView: ViewConfig = {
     accessModel: "warehouses",
     apiUrl: "/api/eCommerce/warehouse",
     header: {titleField: "name", subtitleKey: "warehouseSubtitle", showCloseButton: true},
+    // Name, code and the inactive/default exceptions are in the header (UX-01, UX-02).
     nodes: [
-        {
-            render: "#SheetGroup",
-            props: {title: "overview"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {
-                                    icon: "#IconBuildingWarehouse"
-                                }
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "code"},
-                            field: {
-                                name: "code",
-                                widget: "#DisplayCard",
-                                label: "code",
-                                widgetProps: {
-                                    icon: "#Hash"
-                                }
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isDefault"},
-                            field: {
-                                name: "isDefault",
-                                widget: "#DisplayCard",
-                                label: "isDefault",
-                                widgetProps: {
-                                    icon: "#IconStar",
-                                    type: "boolean"
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    type: "boolean"
-                                },
-                            },
-                        }
-                    ],
-                },
-            ],
-        },
         {
             render: "#SheetGroup",
             props: {title: "address"},
@@ -98,30 +37,36 @@ export const warehouseSheetView: ViewConfig = {
 
 const warehouseCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: WAREHOUSE_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "code",
-                    widget: "#Input",
-                    label: "form.codeLabel",
-                    placeholder: "form.codePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: WAREHOUSE_CODE_MAX},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: WAREHOUSE_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "code",
+                            widget: "#Input",
+                            label: "form.codeLabel",
+                            placeholder: "form.codePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: WAREHOUSE_CODE_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -261,8 +206,6 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
                                         fieldPrefix: "address",
                                         latField: "latitude",
                                         lngField: "longitude",
-                                        defaultLat: 41.3275,
-                                        defaultLng: 19.8189,
                                     },
                                 },
                             },
@@ -276,33 +219,39 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
 
 const warehouseEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
-        permissions: {writeAny: ["name", "code"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
+        permissions: {readAny: ["name", "code"], writeAny: ["name", "code"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "name", write: "name"},
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: WAREHOUSE_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "code", write: "code"},
-                field: {
-                    name: "code",
-                    widget: "#Input",
-                    label: "form.codeLabel",
-                    placeholder: "form.codePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: WAREHOUSE_CODE_MAX},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: WAREHOUSE_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "code", write: "code"},
+                        field: {
+                            name: "code",
+                            widget: "#Input",
+                            label: "form.codeLabel",
+                            placeholder: "form.codePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: WAREHOUSE_CODE_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -454,8 +403,6 @@ const warehouseEditFormNodes: ViewConfig["nodes"] = [
                                         fieldPrefix: "address",
                                         latField: "latitude",
                                         lngField: "longitude",
-                                        defaultLat: 41.3275,
-                                        defaultLng: 19.8189,
                                     },
                                 },
                             },

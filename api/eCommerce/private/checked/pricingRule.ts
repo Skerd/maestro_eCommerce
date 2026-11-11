@@ -22,7 +22,7 @@ export const {router} = createCrudRouter({
     service: pricingRuleService,
     entityName: "PricingRule",
     selectSearchField: "name",
-    defaultSort: {priority: -1},
+    defaultSort: {createdAt: -1},
     createSchema: createPricingRuleFormSchema,
     editSchema: editPricingRuleFormSchema,
     toDTO: pricingRuleToDTO,

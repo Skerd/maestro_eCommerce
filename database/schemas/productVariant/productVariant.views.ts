@@ -19,7 +19,7 @@ export const productVariantSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 3},
                     children: [
                         {
                             render: "#DisplayCard",
@@ -43,88 +43,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "sku"},
-                            field: {
-                                name: "sku",
-                                widget: "#DisplayCard",
-                                label: "sku",
-                                widgetProps: {
-                                    icon: "#IconBarcode"
-                                }
-                            },
-                        }
-                    ],
-                },
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 4},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "barcode"},
-                            field: {
-                                name: "barcode",
-                                widget: "#DisplayCard",
-                                label: "barcode",
-                                widgetProps: {
-                                    icon: "#IconBarcode"
-                                }
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {
-                                    icon: "#Tag",
-                                    languageKeyCategory: "variantStatus",
-                                    type: "enum"
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "order",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    type: "number"
-                                }
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "trackInventory"},
-                            field: {
-                                name: "trackInventory",
-                                widget: "#DisplayCard",
-                                label: "trackInventory",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    type: "boolean"
-                                },
-                            },
-                        }
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "pricing"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 4},
-                    children: [
-                        {
-                            render: "#DisplayCard",
+                            dependent: "price",
                             permissions: {read: "price"},
                             field: {
                                 name: "price",
@@ -145,6 +64,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "compareAtPrice",
                             permissions: {read: "compareAtPrice"},
                             field: {
                                 name: "compareAtPrice",
@@ -165,6 +85,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "costPrice",
                             permissions: {read: "costPrice"},
                             field: {
                                 name: "costPrice",
@@ -183,6 +104,64 @@ export const productVariantSheetView: ViewConfig = {
                                 },
                             },
                         },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "barcode",
+                            permissions: {read: "barcode"},
+                            field: {
+                                name: "barcode",
+                                widget: "#DisplayCard",
+                                label: "barcode",
+                                widgetProps: {
+                                    icon: "#IconBarcode"
+                                }
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "trackInventory"},
+                            field: {
+                                name: "trackInventory",
+                                widget: "#DisplayCard",
+                                label: "trackInventory",
+                                widgetProps: {
+                                    icon: "#IconToggleRight",
+                                    type: "boolean"
+                                },
+                            },
+                        }
+                                            ],
+                                        },
+                                    ],
+                                },
+                                {
+                                    render: "#SheetGroup",
+                                    props: {title: "pricing"},
+                                    children: [
+                                        {
+                                            render: "#SheetGrid",
+                                            props: {columns: 4},
+                                            children: [
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "price"},
+                            field: {
+                                name: "price",
+                                widget: "#DisplayCard",
+                                label: "price",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "price"],
+                                    joinSeparator: " ",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                    type: "currency",
+                                },
+                            },
+                        },
                     ],
                 },
             ],
@@ -190,6 +169,7 @@ export const productVariantSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "physical"},
+            dependentAny: ["weight", "dimensions.length", "dimensions.width", "dimensions.height"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -197,6 +177,7 @@ export const productVariantSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "weight",
                             permissions: {read: "weight"},
                             field: {
                                 name: "weight",
@@ -210,6 +191,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "dimensions.length",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.length",
@@ -223,6 +205,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "dimensions.width",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.width",
@@ -236,6 +219,7 @@ export const productVariantSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "dimensions.height",
                             permissions: {read: "dimensions"},
                             field: {
                                 name: "dimensions.height",
@@ -368,22 +352,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "status",
-                            widget: "#Select",
-                            label: "form.statusLabel",
-                            placeholder: "form.statusPlaceholder",
-                            widgetProps: {
-                                options: [
-                                    {value: "active", label: "form.variantStatus.active"},
-                                    {value: "inactive", label: "form.variantStatus.inactive"}
-                                ],
-                                className: "grow w-full"
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
                             name: "sku",
                             widget: "#Input",
                             label: "form.skuLabel",
@@ -404,18 +372,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "order",
-                            widget: "#Input",
-                            label: "form.orderLabel",
-                            placeholder: "form.orderPlaceholder",
-                            widgetProps: {
-                                type: "number", min: 0
-                            }
-                        }
-                    },
-                    {
-                        render: "#Field",
-                        field: {
                             name: "trackInventory",
                             widget: "#Checkbox",
                             label: "form.trackInventoryLabel"
@@ -424,6 +380,57 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                 ],
             },
         ],
+    },
+    {
+        render: "#Field",
+        field: {
+            name: "attributeCombination",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.attributesSectionTitle",
+                arrayField: "attributeCombination",
+                defaultItem: {attribute: "", value: ""},
+                addLabel: "form.attributeAddRow",
+                removeLabel: "form.attributeRemoveRow",
+                rowTitleFields: ["value"],
+                rowTitlePlaceholder: "form.attributeRowTitle",
+                rowTemplate: [
+                    {
+                        render: "#FormGrid",
+                        props: {columns: 2},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "attribute",
+                                    widget: "#ApiSelect",
+                                    label: "form.attributeLabel",
+                                    placeholder: "form.attributePlaceholder",
+                                    required: true,
+                                    widgetProps: {
+                                        apiUrl: "/api/eCommerce/productAttribute/select",
+                                        method: "POST",
+                                        pageSize: 50,
+                                        normalizeEmptyToUndefined: true,
+                                    },
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "value",
+                                    widget: "#Input",
+                                    label: "form.valueLabel",
+                                    placeholder: "form.valuePlaceholder",
+                                    required: true,
+                                    widgetProps: {maxLength: PRODUCT_VARIANT_ATTRIBUTE_VALUE_MAX},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
     },
     {
         render: "#TitleWithCollapse",
@@ -571,7 +578,112 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
         ],
     },
     {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "status",
+                            widget: "#Select",
+                            label: "form.statusLabel",
+                            placeholder: "form.statusPlaceholder",
+                            widgetProps: {
+                                options: [
+                                    {value: "active", label: "form.variantStatus.active"},
+                                    {value: "inactive", label: "form.variantStatus.inactive"}
+                                ],
+                                className: "grow w-full"
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {
+                                type: "number", min: 0, step: 1
+                            }
+                        }
+                    },
+                ],
+            },
+        ],
+    },
+];
+
+const productVariantEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.generalSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["product", "sku", "barcode", "trackInventory"], writeAny: ["product", "sku", "barcode", "trackInventory"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "product", write: "product"},
+                        field: {
+                            name: "product",
+                            widget: "#ApiSelect",
+                            label: "form.productLabel",
+                            placeholder: "form.productPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/product/select",
+                                method: "POST",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "sku", write: "sku"},
+                        field: {
+                            name: "sku",
+                            widget: "#Input",
+                            label: "form.skuLabel",
+                            placeholder: "form.skuPlaceholder",
+                            widgetProps: {maxLength: PRODUCT_VARIANT_SKU_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "barcode", write: "barcode"},
+                        field: {
+                            name: "barcode",
+                            widget: "#Input",
+                            label: "form.barcodeLabel",
+                            placeholder: "form.barcodePlaceholder",
+                            widgetProps: {maxLength: PRODUCT_VARIANT_BARCODE_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "trackInventory", write: "trackInventory"},
+                        field: {
+                            name: "trackInventory",
+                            widget: "#Checkbox",
+                            label: "form.trackInventoryLabel",
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
         render: "#Field",
+        permissions: {read: "attributeCombination", write: "attributeCombination"},
         field: {
             name: "attributeCombination",
             widget: "#FormRepeater",
@@ -621,102 +733,10 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
             },
         },
     },
-];
-
-const productVariantEditFormNodes: ViewConfig["nodes"] = [
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.generalSectionTitle", defaultOpen: true},
-        permissions: {writeAny: ["product", "status", "sku", "barcode", "order", "trackInventory"]},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 2},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "product", write: "product"},
-                        field: {
-                            name: "product",
-                            widget: "#ApiSelect",
-                            label: "form.productLabel",
-                            placeholder: "form.productPlaceholder",
-                            required: true,
-                            widgetProps: {
-                                apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
-                                pageSize: 50,
-                                normalizeEmptyToUndefined: true,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "status", write: "status"},
-                        field: {
-                            name: "status",
-                            widget: "#Select",
-                            label: "form.statusLabel",
-                            placeholder: "form.statusPlaceholder",
-                            widgetProps: {
-                                options: [
-                                    {value: "active", label: "form.variantStatus.active"},
-                                    {value: "inactive", label: "form.variantStatus.inactive"},
-                                ],
-                                className: "grow w-full",
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "sku", write: "sku"},
-                        field: {
-                            name: "sku",
-                            widget: "#Input",
-                            label: "form.skuLabel",
-                            placeholder: "form.skuPlaceholder",
-                            widgetProps: {maxLength: PRODUCT_VARIANT_SKU_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "barcode", write: "barcode"},
-                        field: {
-                            name: "barcode",
-                            widget: "#Input",
-                            label: "form.barcodeLabel",
-                            placeholder: "form.barcodePlaceholder",
-                            widgetProps: {maxLength: PRODUCT_VARIANT_BARCODE_MAX},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "order", write: "order"},
-                        field: {
-                            name: "order",
-                            widget: "#Input",
-                            label: "form.orderLabel",
-                            placeholder: "form.orderPlaceholder",
-                            widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "trackInventory", write: "trackInventory"},
-                        field: {
-                            name: "trackInventory",
-                            widget: "#Checkbox",
-                            label: "form.trackInventoryLabel",
-                        },
-                    },
-                ],
-            },
-        ],
-    },
     {
         render: "#TitleWithCollapse",
         props: {title: "form.pricingSectionTitle", defaultOpen: true},
-        permissions: {writeAny: ["price", "compareAtPrice", "costPrice", "currency"]},
+        permissions: {readAny: ["price", "compareAtPrice", "costPrice", "currency"], writeAny: ["price", "compareAtPrice", "costPrice", "currency"]},
         children: [
             {
                 render: "#FormGrid",
@@ -778,7 +798,7 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.physicalSectionTitle", defaultOpen: true},
-        permissions: {writeAny: ["weight", "dimensions"]},
+        permissions: {readAny: ["weight", "dimensions"], writeAny: ["weight", "dimensions"]},
         children: [
             {
                 render: "#FormGrid",
@@ -835,7 +855,7 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.mediaSectionTitle", defaultOpen: true},
-        permissions: {writeAny: ["mainImage"]},
+        permissions: {readAny: ["mainImage"], writeAny: ["mainImage"]},
         children: [
             {
                 render: "#Field",
@@ -850,56 +870,45 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
         ],
     },
     {
-        render: "#Field",
-        permissions: {read: "attributeCombination", write: "attributeCombination"},
-        field: {
-            name: "attributeCombination",
-            widget: "#FormRepeater",
-            widgetProps: {
-                title: "form.attributesSectionTitle",
-                arrayField: "attributeCombination",
-                defaultItem: {attribute: "", value: ""},
-                addLabel: "form.attributeAddRow",
-                removeLabel: "form.attributeRemoveRow",
-                rowTitleFields: ["value"],
-                rowTitlePlaceholder: "form.attributeRowTitle",
-                rowTemplate: [
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["status", "order"], writeAny: ["status", "order"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
                     {
-                        render: "#FormGrid",
-                        props: {columns: 2},
-                        children: [
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "attribute",
-                                    widget: "#ApiSelect",
-                                    label: "form.attributeLabel",
-                                    placeholder: "form.attributePlaceholder",
-                                    required: true,
-                                    widgetProps: {
-                                        apiUrl: "/api/eCommerce/productAttribute/select",
-                                        method: "POST",
-                                        pageSize: 50,
-                                        normalizeEmptyToUndefined: true,
-                                    },
-                                },
+                        render: "#Field",
+                        permissions: {read: "status", write: "status"},
+                        field: {
+                            name: "status",
+                            widget: "#Select",
+                            label: "form.statusLabel",
+                            placeholder: "form.statusPlaceholder",
+                            widgetProps: {
+                                options: [
+                                    {value: "active", label: "form.variantStatus.active"},
+                                    {value: "inactive", label: "form.variantStatus.inactive"},
+                                ],
+                                className: "grow w-full",
                             },
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "value",
-                                    widget: "#Input",
-                                    label: "form.valueLabel",
-                                    placeholder: "form.valuePlaceholder",
-                                    required: true,
-                                    widgetProps: {maxLength: PRODUCT_VARIANT_ATTRIBUTE_VALUE_MAX},
-                                },
-                            },
-                        ],
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "order", write: "order"},
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
                     },
                 ],
             },
-        },
+        ],
     },
 ];
 

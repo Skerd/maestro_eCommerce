@@ -22,16 +22,6 @@ export const promotionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Tag"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -40,7 +30,7 @@ export const promotionSheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#LayoutList",
                                     parent: "listing",
-                                    valuePath: ["name", "status"],
+                                    valuePath: ["title", "status"],
                                     joinSeparator: " · ",
                                     languageKeyCategoriesByPath: {status: "listingStatus"},
                                     linkedRefPath: "listing",
@@ -66,25 +56,12 @@ export const promotionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "lifecycleStatus"},
-                            field: {
-                                name: "lifecycleStatus",
-                                widget: "#DisplayCard",
-                                label: "lifecycleStatus",
-                                widgetProps: {
-                                    icon: "#PlayerPause",
-                                    languageKeyCategory: "lifecycleStatuses", type: "enum",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "startAt"},
                             field: {
                                 name: "startAt",
                                 widget: "#DisplayCard",
                                 label: "startAt",
-                                widgetProps: {icon: "#Calendar"},
+                                widgetProps: {icon: "#Calendar", type: "dateTime"},
                             },
                         },
                         {
@@ -94,7 +71,7 @@ export const promotionSheetView: ViewConfig = {
                                 name: "endAt",
                                 widget: "#DisplayCard",
                                 label: "endAt",
-                                widgetProps: {icon: "#Calendar"},
+                                widgetProps: {icon: "#Calendar", type: "dateTime"},
                             },
                         },
                     ],
@@ -129,63 +106,81 @@ export const promotionSheetView: ViewConfig = {
     ],
 };
 
-const promotionFormFields: ViewConfig["nodes"] = [
+const promotionCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.promotionSectionTitle", defaultOpen: true},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "listing",
-                    widget: "#ApiSelect",
-                    label: "form.listingLabel",
-                    placeholder: "form.listingPlaceholder",
-                    required: true,
-                    widgetProps: {
-                        apiUrl: "/api/eCommerceMarketplace/listing/select",
-                        postBody: {activeOnly: true},
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingLabel",
+                            placeholder: "form.listingPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerceMarketplace/listing/select",
+                                postBody: {activeOnly: true},
+                            },
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "type",
-                    widget: "#SimpleSelect",
-                    label: "form.promotionTypeLabel",
-                    placeholder: "form.promotionTypePlaceholder",
-                    required: true,
-                    widgetProps: {
-                        options: [
-                            {value: "featured", label: "form.promotionTypeFeatured"},
-                            {value: "sponsored", label: "form.promotionTypeSponsored"},
-                        ],
-                        className: "grow w-full",
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "type",
+                            widget: "#SimpleSelect",
+                            label: "form.promotionTypeLabel",
+                            placeholder: "form.promotionTypePlaceholder",
+                            required: true,
+                            widgetProps: {
+                                options: [
+                                    {value: "featured", label: "form.promotionTypeFeatured"},
+                                    {value: "sponsored", label: "form.promotionTypeSponsored"},
+                                ],
+                                className: "grow w-full",
+                            },
+                        },
                     },
-                },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "startAt",
-                    widget: "#DateInput",
-                    label: "form.startAtLabel",
-                    placeholder: "form.startAtPlaceholder",
-                    required: true,
-                    widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "endAt",
-                    widget: "#DateInput",
-                    label: "form.endAtLabel",
-                    placeholder: "form.endAtPlaceholder",
-                    required: true,
-                    widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "startAt",
+                            widget: "#DateInput",
+                            label: "form.startAtLabel",
+                            placeholder: "form.startAtPlaceholder",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "endAt",
+                            widget: "#DateInput",
+                            label: "form.endAtLabel",
+                            placeholder: "form.endAtPlaceholder",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm", minDateField: "startAt"},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -198,7 +193,7 @@ export const promotionCreateFormView: ViewConfig = {
     accessModel: "promotions",
     apiUrl: "/api/eCommerceMarketplace/promotion",
     method: "PUT",
-    nodes: promotionFormFields
+    nodes: promotionCreateFormNodes
 };
 
 export const promotionViews: ViewConfig[] = [promotionSheetView, promotionCreateFormView];

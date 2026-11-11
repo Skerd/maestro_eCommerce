@@ -47,7 +47,7 @@ export const {router} = createCrudRouter({
     entityName: "ProductCategory",
     selectSearchField: "name",
     selectSort: {order: 1, name: 1},
-    defaultSort: {order: 1},
+    defaultSort: {order: 1, name: 1},
     createSchema: createCategoryFormSchema,
     editSchema: editCategoryFormSchema,
     selectSchema: categorySelectFormSchema,

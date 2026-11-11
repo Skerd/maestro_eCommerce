@@ -10,6 +10,31 @@ export const posOrderSheetView: ViewConfig = {
     header: {titleField: "name", subtitleKey: "posOrderSubtitle", showCloseButton: true},
     nodes: [
         {
+            // Not registered with the tax authority: the thing to act on comes first (UX-03).
+            render: "#SheetGroup",
+            props: {title: "fiscalProblem", titleIcon: "#IconAlertTriangle", titleIconClassName: "text-red-600 dark:text-red-400", defaultOpen: true},
+            dependent: "fiscalError",
+            permissions: {read: "fiscalError"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 1},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "fiscalError"},
+                            field: {
+                                name: "fiscalError",
+                                widget: "#DisplayCard",
+                                label: "fiscalError",
+                                widgetProps: {icon: "#IconAlertTriangle", expandable: true, maxLength: 250},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
             render: "#SheetGroup",
             props: {title: "overview", defaultOpen: true},
             children: [
@@ -17,26 +42,6 @@ export const posOrderSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "state"},
-                            field: {
-                                name: "state",
-                                widget: "#DisplayCard",
-                                label: "state",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "posOrderState", type: "enum"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "session"},
@@ -91,6 +96,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "customer",
                             permissions: {read: "customer"},
                             field: {
                                 name: "customer",
@@ -107,26 +113,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "customerName"},
-                            field: {
-                                name: "customerName",
-                                widget: "#DisplayCard",
-                                label: "customerName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isRefund"},
-                            field: {
-                                name: "isRefund",
-                                widget: "#DisplayCard",
-                                label: "isRefund",
-                                widgetProps: {icon: "#IconToggleRight", valueType: "boolean", type: "boolean"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "productOrder",
                             permissions: {read: "productOrder"},
                             field: {
                                 name: "productOrder",
@@ -145,6 +132,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "refundOf",
                             permissions: {read: "refundOf"},
                             field: {
                                 name: "refundOf",
@@ -161,249 +149,6 @@ export const posOrderSheetView: ViewConfig = {
                                 },
                             },
                         }
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "posOrder.sheet.lines.listDisplay",
-                defaultMode: "cards",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "lines",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "lines",
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#SheetEmbeddedItemsList",
-                                    field: {
-                                        name: "lines",
-                                        widget: "#SheetEmbeddedItemsList",
-                                        widgetProps: {
-                                            pageSize: 5,
-                                            entityCards: true,
-                                            columns: 2,
-                                            compactSummaryFields: ["productName", "quantity", "priceTotal"],
-                                            fields: [
-                                                {
-                                                    name: "productName",
-                                                    type: "text",
-                                                    icon: "#IconPackage",
-                                                },
-                                                {
-                                                    name: "product",
-                                                    type: "linkedRef",
-                                                    className: "text-sm font-medium",
-                                                    valuePath: ["title", "sku"],
-                                                    joinSeparator: " · ",
-                                                    labelKey: "itemProduct",
-                                                    linkedSheetModel: "products",
-                                                    linkedSheetWidget: "#ProductSheetView",
-                                                    linkedSheetEntityProp: "product",
-                                                    icon: "#IconPackage",
-                                                },
-                                                {
-                                                    name: "productSku",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "itemSku",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "barcode",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "itemBarcode",
-                                                    icon: "#IconTag",
-                                                },
-                                                {
-                                                    name: "quantity",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemQuantity",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "quantityRefunded",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemQuantityRefunded",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "unitPrice",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemUnitPrice",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                                {
-                                                    name: "discountPercent",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemDiscountPercent",
-                                                    icon: "#IconPercentage",
-                                                },
-                                                {
-                                                    name: "discountAmount",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemDiscountAmount",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                                {
-                                                    name: "priceSubtotal",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemPriceSubtotal",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                                {
-                                                    name: "taxAmount",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemTaxAmount",
-                                                    currencyField: "currency",
-                                                    icon: "#IconReceipt",
-                                                },
-                                                {
-                                                    name: "priceTotal",
-                                                    type: "text",
-                                                    className: "text-sm font-medium",
-                                                    labelKey: "itemPriceTotal",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                                {
-                                                    name: "currency",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    valuePath: ["symbol", "abbreviation"],
-                                                    joinSeparator: " ",
-                                                    labelKey: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "posOrder.sheet.payments.listDisplay",
-                defaultMode: "cards",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "payments",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "payments",
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#SheetEmbeddedItemsList",
-                                    field: {
-                                        name: "payments",
-                                        widget: "#SheetEmbeddedItemsList",
-                                        widgetProps: {
-                                            pageSize: 5,
-                                            entityCards: true,
-                                            columns: 3,
-                                            compactSummaryFields: ["paymentMethodName", "amount"],
-                                            fields: [
-                                                {
-                                                    name: "paymentMethodName",
-                                                    type: "text",
-                                                    icon: "#IconCreditCard",
-                                                },
-                                                {
-                                                    name: "paymentMethod",
-                                                    type: "linkedRef",
-                                                    className: "text-sm font-medium",
-                                                    valuePath: ["name"],
-                                                    labelKey: "paymentMethod",
-                                                    linkedSheetModel: "posPaymentMethods",
-                                                    linkedSheetWidget: "#PosPaymentMethodSheetView",
-                                                    linkedSheetEntityProp: "entity",
-                                                    icon: "#IconCreditCard",
-                                                },
-                                                {
-                                                    name: "paymentMethodType",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "paymentMethodType",
-                                                    icon: "#Tag",
-                                                },
-                                                {
-                                                    name: "amount",
-                                                    type: "text",
-                                                    className: "text-sm font-medium",
-                                                    labelKey: "paymentAmount",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCurrencyDollar",
-                                                },
-                                                {
-                                                    name: "paymentDate",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    format: "dateTime",
-                                                    labelKey: "paymentDate",
-                                                    icon: "#IconClock",
-                                                },
-                                                {
-                                                    name: "terminalAuthCode",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "terminalAuthCode",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "terminalReference",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "terminalReference",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "terminalId",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "terminalId",
-                                                    icon: "#Hash",
-                                                },
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
                     ],
                 },
             ],
@@ -458,6 +203,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "discountTotal",
                             permissions: {read: "discountTotal"},
                             field: {
                                 name: "discountTotal",
@@ -478,6 +224,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "orderDiscountPercent",
                             permissions: {read: "orderDiscountPercent"},
                             field: {
                                 name: "orderDiscountPercent",
@@ -508,6 +255,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "amountReturn",
                             permissions: {read: "amountReturn"},
                             field: {
                                 name: "amountReturn",
@@ -528,6 +276,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "amountRefunded",
                             permissions: {read: "amountRefunded"},
                             field: {
                                 name: "amountRefunded",
@@ -551,9 +300,142 @@ export const posOrderSheetView: ViewConfig = {
             ],
         },
         {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "posOrder.sheet.lines.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "lines",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "lines",
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    field: {
+                                        name: "lines",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            entityCards: true,
+                                            columns: 2,
+                                            compactSummaryFields: ["productName", "quantity", "priceTotal"],
+                                            // What was sold, how many, at what price; SKU and barcode stay on the product (UX-03).
+                                            fields: [
+                                                {
+                                                    name: "productName",
+                                                    type: "text",
+                                                    icon: "#IconPackage",
+                                                },
+                                                {
+                                                    name: "quantity",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "itemQuantity",
+                                                    icon: "#Hash",
+                                                },
+                                                {
+                                                    name: "unitPrice",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "itemUnitPrice",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
+                                                },
+                                                {
+                                                    name: "priceTotal",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                    labelKey: "itemPriceTotal",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "posOrder.sheet.payments.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "payments",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "payments",
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    field: {
+                                        name: "payments",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            entityCards: true,
+                                            columns: 3,
+                                            compactSummaryFields: ["paymentMethodName", "amount"],
+                                            // Method, amount and time; terminal internals stay on the terminal's own records (UX-03).
+                                            fields: [
+                                                {
+                                                    name: "paymentMethodName",
+                                                    type: "text",
+                                                    icon: "#IconCreditCard",
+                                                },
+                                                {
+                                                    name: "amount",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                    labelKey: "paymentAmount",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCurrencyDollar",
+                                                },
+                                                {
+                                                    name: "paymentDate",
+                                                    type: "text",
+                                                    className: "text-xs text-muted-foreground",
+                                                    format: "dateTime",
+                                                    labelKey: "paymentDate",
+                                                    icon: "#IconClock",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
             render: "#SheetGroup",
             props: {title: "fiscalization", defaultOpen: false},
-            dependentAny: ["nslf", "nivf", "fiscalInvNum", "fiscalError", "fiscalResolution"],
+            dependentAny: ["nslf", "nivf", "fiscalInvNum", "fiscalResolution"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -561,6 +443,7 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "nslf",
                             permissions: {read: "nslf"},
                             field: {
                                 name: "nslf",
@@ -571,6 +454,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "nivf",
                             permissions: {read: "nivf"},
                             field: {
                                 name: "nivf",
@@ -581,6 +465,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "eic",
                             permissions: {read: "eic"},
                             field: {
                                 name: "eic",
@@ -591,6 +476,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalInvNum",
                             permissions: {read: "fiscalInvNum"},
                             field: {
                                 name: "fiscalInvNum",
@@ -601,6 +487,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalInvOrdNum",
                             permissions: {read: "fiscalInvOrdNum"},
                             field: {
                                 name: "fiscalInvOrdNum",
@@ -611,6 +498,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalTypeOfInv",
                             permissions: {read: "fiscalTypeOfInv"},
                             field: {
                                 name: "fiscalTypeOfInv",
@@ -621,6 +509,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalTcrCode",
                             permissions: {read: "fiscalTcrCode"},
                             field: {
                                 name: "fiscalTcrCode",
@@ -631,6 +520,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalOperatorCode",
                             permissions: {read: "fiscalOperatorCode"},
                             field: {
                                 name: "fiscalOperatorCode",
@@ -641,6 +531,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalBusinessUnitCode",
                             permissions: {read: "fiscalBusinessUnitCode"},
                             field: {
                                 name: "fiscalBusinessUnitCode",
@@ -651,6 +542,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalIssueDateTime",
                             permissions: {read: "fiscalIssueDateTime"},
                             field: {
                                 name: "fiscalIssueDateTime",
@@ -661,6 +553,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalizedAt",
                             permissions: {read: "fiscalizedAt"},
                             field: {
                                 name: "fiscalizedAt",
@@ -671,6 +564,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "einvoiceAt",
                             permissions: {read: "einvoiceAt"},
                             field: {
                                 name: "einvoiceAt",
@@ -681,6 +575,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "qrVerifyUrl",
                             permissions: {read: "qrVerifyUrl"},
                             field: {
                                 name: "qrVerifyUrl",
@@ -691,16 +586,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "fiscalError"},
-                            field: {
-                                name: "fiscalError",
-                                widget: "#DisplayCard",
-                                label: "fiscalError",
-                                widgetProps: {icon: "#IconAlertTriangle", expandable: true, maxLength: 250},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "fiscalResolution",
                             permissions: {read: "fiscalResolution"},
                             field: {
                                 name: "fiscalResolution",
@@ -711,6 +597,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalResolvedBy",
                             permissions: {read: "fiscalResolvedBy"},
                             field: {
                                 name: "fiscalResolvedBy",
@@ -727,6 +614,7 @@ export const posOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalResolvedAt",
                             permissions: {read: "fiscalResolvedAt"},
                             field: {
                                 name: "fiscalResolvedAt",
@@ -741,7 +629,9 @@ export const posOrderSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "notes", defaultOpen: false},
+            props: {title: "notes", defaultOpen: true},
+            dependent: "note",
+            permissions: {read: "note"},
             children: [
                 {
                     render: "#SheetGrid",
@@ -749,22 +639,13 @@ export const posOrderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "note",
                             permissions: {read: "note"},
                             field: {
                                 name: "note",
                                 widget: "#DisplayCard",
                                 label: "note",
                                 widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "clientRequestId"},
-                            field: {
-                                name: "clientRequestId",
-                                widget: "#DisplayCard",
-                                label: "clientRequestId",
-                                widgetProps: {icon: "#Hash"},
                             },
                         },
                     ],

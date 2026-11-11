@@ -13,6 +13,7 @@ export const listingAddOnSheetView: ViewConfig = {
     },
     nodes: [
         {
+            // The name is the sheet title (UX-03).
             render: "#SheetGroup",
             props: {title: "overview"},
             children: [
@@ -22,16 +23,38 @@ export const listingAddOnSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
+                            permissions: {read: "price"},
                             field: {
-                                name: "name",
+                                name: "price.amount",
                                 widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#IconLabel"},
+                                label: "priceAmount",
+                                widgetProps: {
+                                    icon: "#DollarSign",
+                                    format: "locale",
+                                    valuePath: ["price.currency.symbol", "price.amount"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "price.currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "deliveryDays",
+                            permissions: {read: "deliveryDays"},
+                            field: {
+                                name: "deliveryDays",
+                                widget: "#DisplayCard",
+                                label: "deliveryDays",
+                                widgetProps: {icon: "#Clock", format: "locale"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "listing",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -50,6 +73,7 @@ export const listingAddOnSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "provider",
                             permissions: {read: "provider"},
                             field: {
                                 name: "provider",
@@ -59,32 +83,8 @@ export const listingAddOnSheetView: ViewConfig = {
                                     icon: "#User",
                                     valuePath: ["provider.name", "provider.surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "price"},
-                            field: {
-                                name: "price.amount",
-                                widget: "#DisplayCard",
-                                label: "priceAmount",
-                                widgetProps: {
-                                    icon: "#DollarSign",
-                                    valuePath: ["price.currency.symbol", "price.amount"],
-                                    joinSeparator: " ",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "deliveryDays"},
-                            field: {
-                                name: "deliveryDays",
-                                widget: "#DisplayCard",
-                                label: "deliveryDays",
-                                widgetProps: {icon: "#Clock", format: "locale"},
                             },
                         },
                     ],
@@ -95,104 +95,169 @@ export const listingAddOnSheetView: ViewConfig = {
     ],
 };
 
-/** Parent listing: chosen on create, shown read-only on edit (a row never moves between listings). */
-const listingAddOnListingCreateRow: ViewConfig["nodes"] = [
+/** The parent listing is picked on create and shown read-only on edit: an add-on never moves between listings. */
+const listingAddOnCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "listing",
-                    widget: "#ApiSelect",
-                    label: "form.listingIdLabel",
-                    required: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingIdLabel",
+                            placeholder: "form.listingIdPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "price.currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "price.amount",
+                            widget: "#Input",
+                            label: "form.priceAmountLabel",
+                            placeholder: "form.priceAmountPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },
 ];
 
-const listingAddOnListingEditRow: ViewConfig["nodes"] = [
+const listingAddOnEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
+        permissions: {readAny: ["listing", "name"], writeAny: ["name"]},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "listing",
-                    widget: "#ApiSelect",
-                    label: "form.listingIdLabel",
-                    skipWriteAccessGate: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
-                },
-                permissions: {read: "listing"},
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "listing"},
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingIdLabel",
+                            disabled: true,
+                            skipWriteAccessGate: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
+                    },
+                ],
             },
         ],
     },
-];
-
-const listingAddOnFormFields: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        permissions: {readAny: ["price", "deliveryDays"], writeAny: ["price", "deliveryDays"]},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    required: true,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "price.amount",
-                    widget: "#Input",
-                    label: "form.priceAmountLabel",
-                    required: true,
-                    widgetProps: {type: "number", min: 0, step: "any"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "price.currency",
-                    widget: "#ApiSelect",
-                    label: "form.currencyLabel",
-                    placeholder: "form.currencyPlaceholder",
-                    required: false,
-                    widgetProps: {apiUrl: "/api/finance/currency/select"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "deliveryDays",
-                    widget: "#Input",
-                    label: "form.deliveryDaysLabel",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "price", write: "price"},
+                        field: {
+                            name: "price.currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "price", write: "price"},
+                        field: {
+                            name: "price.amount",
+                            widget: "#Input",
+                            label: "form.priceAmountLabel",
+                            placeholder: "form.priceAmountPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "deliveryDays", write: "deliveryDays"},
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
-    },
-];
-
-const listingAddOnEditExtra: ViewConfig["nodes"] = [
-    {
-        render: "#Field",
-        field: {
-            name: "_id",
-            widget: "#Input",
-            label: "form.idLabel",
-            required: true,
-            widgetProps: {type: "hidden"},
-        },
     },
 ];
 
@@ -203,7 +268,7 @@ export const listingAddOnCreateFormView: ViewConfig = {
     accessModel: "listingaddons",
     apiUrl: "/api/eCommerceMarketplace/listingAddOn",
     method: "PUT",
-    nodes: [...listingAddOnListingCreateRow, ...listingAddOnFormFields],
+    nodes: listingAddOnCreateFormNodes,
 };
 
 export const listingAddOnEditFormView: ViewConfig = {
@@ -213,7 +278,7 @@ export const listingAddOnEditFormView: ViewConfig = {
     accessModel: "listingaddons",
     apiUrl: "/api/eCommerceMarketplace/listingAddOn",
     method: "PATCH",
-    nodes: [...listingAddOnEditExtra, ...listingAddOnListingEditRow, ...listingAddOnFormFields],
+    nodes: listingAddOnEditFormNodes,
 };
 
 export const listingAddOnViews: ViewConfig[] = [

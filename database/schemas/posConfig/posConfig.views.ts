@@ -22,51 +22,10 @@ export const posConfigSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#IconTag"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", type: "boolean"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "pausedAt"},
-                            field: {
-                                name: "isPaused",
-                                widget: "#DisplayCard",
-                                label: "isPaused",
-                                skipReadAccessGate: true,
-                                widgetProps: {icon: "#IconPlayerPause", type: "boolean"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "pausedAt"},
-                            dependent: "isCompanyPaused",
-                            field: {
-                                name: "isCompanyPaused",
-                                widget: "#DisplayCard",
-                                label: "isCompanyPaused",
-                                skipReadAccessGate: true,
-                                widgetProps: {icon: "#IconBuilding", type: "boolean"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "pauseReason"},
-                            dependent: "isCompanyPaused",
+                            // Computed by the route, so checked on the loaded record only.
+                            dependent: "companyPauseReason",
+                            dependentRuntimeOnly: true,
                             field: {
                                 name: "companyPauseReason",
                                 widget: "#DisplayCard",
@@ -77,6 +36,7 @@ export const posConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "pauseReason",
                             permissions: {read: "pauseReason"},
                             field: {
                                 name: "pauseReason",
@@ -87,6 +47,7 @@ export const posConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "currency",
                             permissions: {read: "currency"},
                             field: {
                                 name: "currency",
@@ -106,6 +67,7 @@ export const posConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "fiscalConfig",
                             permissions: {read: "fiscalConfig"},
                             field: {
                                 name: "fiscalConfig",
@@ -221,6 +183,7 @@ export const posConfigSheetView: ViewConfig = {
                                                 icon: "#IconCreditCard",
                                                 label: "paymentMethod",
                                                 valuePath: ["name", "type"],
+                                                valueLanguageKeyCategories: [null, "paymentType"],
                                                 joinSeparator: " · ",
                                                 linkedSheetModel: "posPaymentMethods",
                                                 linkedSheetWidget: "#PosPaymentMethodSheetView",
@@ -299,7 +262,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "ifaceBarcodeScanner",
                                 widget: "#DisplayCard",
                                 label: "ifaceBarcodeScanner",
-                                widgetProps: {icon: "#IconBarcode"}
+                                widgetProps: {icon: "#IconBarcode", type: "boolean"}
                             }
                         },
                         {
@@ -309,7 +272,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "ifaceCashControl",
                                 widget: "#DisplayCard",
                                 label: "ifaceCashControl",
-                                widgetProps: {icon: "#IconCash"}
+                                widgetProps: {icon: "#IconCash", type: "boolean"}
                             }
                         },
                         {
@@ -319,7 +282,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "allowDiscount",
                                 widget: "#DisplayCard",
                                 label: "allowDiscount",
-                                widgetProps: {icon: "#IconPercentage"}
+                                widgetProps: {icon: "#IconPercentage", type: "boolean"}
                             }
                         },
                         {
@@ -329,7 +292,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "allowQuantityChange",
                                 widget: "#DisplayCard",
                                 label: "allowQuantityChange",
-                                widgetProps: {icon: "#Hash"}
+                                widgetProps: {icon: "#Hash", type: "boolean"}
                             }
                         },
                         {
@@ -339,7 +302,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "allowOversell",
                                 widget: "#DisplayCard",
                                 label: "allowOversell",
-                                widgetProps: {icon: "#IconPackageOff"}
+                                widgetProps: {icon: "#IconPackageOff", type: "boolean"}
                             }
                         },
                     ],
@@ -361,7 +324,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "pinForDiscount",
                                 widget: "#DisplayCard",
                                 label: "pinForDiscount",
-                                widgetProps: {icon: "#IconLock"}
+                                widgetProps: {icon: "#IconLock", type: "boolean"}
                             }
                         },
                         {
@@ -371,7 +334,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "pinForCashOut",
                                 widget: "#DisplayCard",
                                 label: "pinForCashOut",
-                                widgetProps: {icon: "#IconCashBanknote"}
+                                widgetProps: {icon: "#IconCashBanknote", type: "boolean"}
                             }
                         },
                         {
@@ -381,7 +344,7 @@ export const posConfigSheetView: ViewConfig = {
                                 name: "pinForRefund",
                                 widget: "#DisplayCard",
                                 label: "pinForRefund",
-                                widgetProps: {icon: "#IconReceiptRefund"}
+                                widgetProps: {icon: "#IconReceiptRefund", type: "boolean"}
                             }
                         },
                     ],
@@ -391,6 +354,8 @@ export const posConfigSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "receipt"},
+            dependentAny: ["receiptHeader", "receiptFooter"],
+            permissions: {readAny: ["receiptHeader", "receiptFooter"]},
             children: [
                 {
                     render: "#SheetGrid",
@@ -398,6 +363,7 @@ export const posConfigSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "receiptHeader",
                             permissions: {read: "receiptHeader"},
                             field: {
                                 name: "receiptHeader",
@@ -408,6 +374,7 @@ export const posConfigSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "receiptFooter",
                             permissions: {read: "receiptFooter"},
                             field: {
                                 name: "receiptFooter",
@@ -424,113 +391,141 @@ export const posConfigSheetView: ViewConfig = {
     ],
 };
 
+/** Name and money first, then where it sells from and how it is paid, who approves, till rules, receipt text (UX-04). */
 const posConfigCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 3},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle", defaultOpen: true},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: POS_CONFIG_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "currency",
-                    widget: "#ApiSelect",
-                    label: "form.currencyLabel",
-                    placeholder: "form.currencyPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/finance/currency/select",
-                        method: "GET",
-                        pageSize: 50,
-                        normalizeEmptyToUndefined: true,
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: POS_CONFIG_NAME_MAX},
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "fiscalConfig",
-                    widget: "#ApiSelect",
-                    label: "form.fiscalConfigLabel",
-                    placeholder: "form.fiscalConfigPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/finance/fiscalConfig/select",
-                        method: "POST",
-                        pageSize: 50,
-                        normalizeEmptyToUndefined: true,
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
                     },
-                },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "fiscalConfig",
+                            widget: "#ApiSelect",
+                            label: "form.fiscalConfigLabel",
+                            placeholder: "form.fiscalConfigPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/fiscalConfig/select",
+                                method: "POST",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                ],
             },
         ],
     },
     {
-        render: "#Field",
-        field: {
-            name: "warehouses",
-            widget: "#ObjectIdChipsInput",
-            label: "form.warehousesLabel",
-            required: true,
-            widgetProps: {
-                apiUrl: "/api/eCommerce/warehouse/select",
-                method: "POST",
-                placeholderKey: "form.selectWarehouse",
-                removeTooltipKey: "form.removeWarehouse",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "warehouses",
+        render: "#TitleWithCollapse",
+        props: {title: "form.sellingSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "warehouses",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.warehousesLabel",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/warehouse/select",
+                                method: "POST",
+                                placeholderKey: "form.selectWarehouse",
+                                removeTooltipKey: "form.removeWarehouse",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "warehouses",
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "paymentMethods",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.paymentMethodsLabel",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/posPaymentMethod/select",
+                                method: "POST",
+                                placeholderKey: "form.selectPaymentMethod",
+                                removeTooltipKey: "form.removePaymentMethod",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "paymentMethods",
+                            },
+                        },
+                    },
+                ],
             },
-        },
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "paymentMethods",
-            widget: "#ObjectIdChipsInput",
-            label: "form.paymentMethodsLabel",
-            required: true,
-            widgetProps: {
-                apiUrl: "/api/eCommerce/posPaymentMethod/select",
-                method: "POST",
-                placeholderKey: "form.selectPaymentMethod",
-                removeTooltipKey: "form.removePaymentMethod",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "paymentMethods",
-            },
-        },
-    },
-    {
-        render: "#Field",
-        field: {
-            name: "managers",
-            widget: "#ObjectIdChipsInput",
-            label: "form.managersLabel",
-            widgetProps: {
-                apiUrl: "/api/company/users/select",
-                method: "POST",
-                placeholderKey: "form.selectManager",
-                removeTooltipKey: "form.removeManager",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "managers",
-            },
-        },
+        ],
     },
     {
         render: "#TitleWithCollapse",
-        props: {
-            title: "form.tillOptionsSectionTitle",
-            defaultOpen: true,
-        },
+        props: {title: "form.managersSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "managers",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.managersLabel",
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                placeholderKey: "form.selectManager",
+                                removeTooltipKey: "form.removeManager",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "managers",
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.tillOptionsSectionTitle", defaultOpen: true},
         children: [
             {
                 render: "#FormGrid",
@@ -541,40 +536,40 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "ifaceBarcodeScanner",
                             widget: "#Switch",
-                            label: "form.ifaceBarcodeScannerLabel"
-                        }
+                            label: "form.ifaceBarcodeScannerLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "ifaceCashControl",
                             widget: "#Switch",
-                            label: "form.ifaceCashControlLabel"
-                        }
+                            label: "form.ifaceCashControlLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "allowDiscount",
                             widget: "#Switch",
-                            label: "form.allowDiscountLabel"
-                        }
+                            label: "form.allowDiscountLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "allowQuantityChange",
                             widget: "#Switch",
-                            label: "form.allowQuantityChangeLabel"
-                        }
+                            label: "form.allowQuantityChangeLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "allowOversell",
                             widget: "#Switch",
-                            label: "form.allowOversellLabel"
-                        }
+                            label: "form.allowOversellLabel",
+                        },
                     },
                 ],
             },
@@ -587,52 +582,58 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "pinForDiscount",
                             widget: "#Switch",
-                            label: "form.pinForDiscountLabel"
-                        }
+                            label: "form.pinForDiscountLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "pinForCashOut",
                             widget: "#Switch",
-                            label: "form.pinForCashOutLabel"
-                        }
+                            label: "form.pinForCashOutLabel",
+                        },
                     },
                     {
                         render: "#Field",
                         field: {
                             name: "pinForRefund",
                             widget: "#Switch",
-                            label: "form.pinForRefundLabel"
-                        }
+                            label: "form.pinForRefundLabel",
+                        },
                     },
                 ],
             },
         ],
     },
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.receiptSectionTitle", defaultOpen: true},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "receiptHeader",
-                    widget: "#Textarea",
-                    label: "form.receiptHeaderLabel",
-                    placeholder: "form.receiptHeaderPlaceholder",
-                    widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "receiptFooter",
-                    widget: "#Textarea",
-                    label: "form.receiptFooterLabel",
-                    placeholder: "form.receiptFooterPlaceholder",
-                    widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "receiptHeader",
+                            widget: "#Textarea",
+                            label: "form.receiptHeaderLabel",
+                            placeholder: "form.receiptHeaderPlaceholder",
+                            widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "receiptFooter",
+                            widget: "#Textarea",
+                            label: "form.receiptFooterLabel",
+                            placeholder: "form.receiptFooterPlaceholder",
+                            widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -640,130 +641,148 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
 
 const posConfigEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 3},
-        permissions: {writeAny: ["name", "currency", "fiscalConfig"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["name", "currency", "fiscalConfig"], writeAny: ["name", "currency", "fiscalConfig"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "name", write: "name"},
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: POS_CONFIG_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "currency", write: "currency"},
-                field: {
-                    name: "currency",
-                    widget: "#ApiSelect",
-                    label: "form.currencyLabel",
-                    placeholder: "form.currencyPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/finance/currency/select",
-                        method: "GET",
-                        pageSize: 50,
-                        normalizeEmptyToUndefined: true,
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: POS_CONFIG_NAME_MAX},
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "fiscalConfig", write: "fiscalConfig"},
-                field: {
-                    name: "fiscalConfig",
-                    widget: "#ApiSelect",
-                    label: "form.fiscalConfigLabel",
-                    placeholder: "form.fiscalConfigPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/finance/fiscalConfig/select",
-                        method: "POST",
-                        pageSize: 50,
-                        normalizeEmptyToUndefined: true,
+                    {
+                        render: "#Field",
+                        permissions: {read: "currency", write: "currency"},
+                        field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
                     },
-                },
+                    {
+                        render: "#Field",
+                        permissions: {read: "fiscalConfig", write: "fiscalConfig"},
+                        field: {
+                            name: "fiscalConfig",
+                            widget: "#ApiSelect",
+                            label: "form.fiscalConfigLabel",
+                            placeholder: "form.fiscalConfigPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/fiscalConfig/select",
+                                method: "POST",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                ],
             },
         ],
     },
     {
-        render: "#Field",
-        permissions: {read: "warehouses", write: "warehouses"},
-        field: {
-            name: "warehouses",
-            widget: "#ObjectIdChipsInput",
-            label: "form.warehousesLabel",
-            required: true,
-            widgetProps: {
-                apiUrl: "/api/eCommerce/warehouse/select",
-                method: "POST",
-                placeholderKey: "form.selectWarehouse",
-                removeTooltipKey: "form.removeWarehouse",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "warehouses",
+        render: "#TitleWithCollapse",
+        props: {title: "form.sellingSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["warehouses", "paymentMethods"], writeAny: ["warehouses", "paymentMethods"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "warehouses", write: "warehouses"},
+                        field: {
+                            name: "warehouses",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.warehousesLabel",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/warehouse/select",
+                                method: "POST",
+                                placeholderKey: "form.selectWarehouse",
+                                removeTooltipKey: "form.removeWarehouse",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "warehouses",
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "paymentMethods", write: "paymentMethods"},
+                        field: {
+                            name: "paymentMethods",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.paymentMethodsLabel",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/eCommerce/posPaymentMethod/select",
+                                method: "POST",
+                                placeholderKey: "form.selectPaymentMethod",
+                                removeTooltipKey: "form.removePaymentMethod",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "paymentMethods",
+                            },
+                        },
+                    },
+                ],
             },
-        },
-    },
-    {
-        render: "#Field",
-        permissions: {read: "paymentMethods", write: "paymentMethods"},
-        field: {
-            name: "paymentMethods",
-            widget: "#ObjectIdChipsInput",
-            label: "form.paymentMethodsLabel",
-            required: true,
-            widgetProps: {
-                apiUrl: "/api/eCommerce/posPaymentMethod/select",
-                method: "POST",
-                placeholderKey: "form.selectPaymentMethod",
-                removeTooltipKey: "form.removePaymentMethod",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "paymentMethods",
-            },
-        },
-    },
-    {
-        render: "#Field",
-        permissions: {read: "managers", write: "managers"},
-        field: {
-            name: "managers",
-            widget: "#ObjectIdChipsInput",
-            label: "form.managersLabel",
-            widgetProps: {
-                apiUrl: "/api/company/users/select",
-                method: "POST",
-                placeholderKey: "form.selectManager",
-                removeTooltipKey: "form.removeManager",
-                selectPageSizeCreate: 50,
-                selectPageSizeEdit: 200,
-                labelRefFormExtraKey: "managers",
-            },
-        },
+        ],
     },
     {
         render: "#TitleWithCollapse",
-        props: {
-            title: "form.tillOptionsSectionTitle",
-            defaultOpen: true,
-        },
-        permissions: {
-            writeAny: [
-                "ifaceBarcodeScanner",
-                "ifaceCashControl",
-                "allowDiscount",
-                "allowQuantityChange",
-                "allowOversell",
-                "pinForDiscount",
-                "pinForCashOut",
-                "pinForRefund",
-            ],
-        },
+        props: {title: "form.managersSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["managers"], writeAny: ["managers"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "managers", write: "managers"},
+                        field: {
+                            name: "managers",
+                            widget: "#ObjectIdChipsInput",
+                            label: "form.managersLabel",
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                placeholderKey: "form.selectManager",
+                                removeTooltipKey: "form.removeManager",
+                                selectPageSizeCreate: 50,
+                                selectPageSizeEdit: 200,
+                                labelRefFormExtraKey: "managers",
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.tillOptionsSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["ifaceBarcodeScanner", "ifaceCashControl", "allowDiscount", "allowQuantityChange", "allowOversell", "pinForDiscount", "pinForCashOut", "pinForRefund"], writeAny: ["ifaceBarcodeScanner", "ifaceCashControl", "allowDiscount", "allowQuantityChange", "allowOversell", "pinForDiscount", "pinForCashOut", "pinForRefund"]},
         children: [
             {
                 render: "#FormGrid",
@@ -775,8 +794,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "ifaceBarcodeScanner",
                             widget: "#Switch",
-                            label: "form.ifaceBarcodeScannerLabel"
-                        }
+                            label: "form.ifaceBarcodeScannerLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -784,8 +803,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "ifaceCashControl",
                             widget: "#Switch",
-                            label: "form.ifaceCashControlLabel"
-                        }
+                            label: "form.ifaceCashControlLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -793,8 +812,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "allowDiscount",
                             widget: "#Switch",
-                            label: "form.allowDiscountLabel"
-                        }
+                            label: "form.allowDiscountLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -802,8 +821,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "allowQuantityChange",
                             widget: "#Switch",
-                            label: "form.allowQuantityChangeLabel"
-                        }
+                            label: "form.allowQuantityChangeLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -811,8 +830,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "allowOversell",
                             widget: "#Switch",
-                            label: "form.allowOversellLabel"
-                        }
+                            label: "form.allowOversellLabel",
+                        },
                     },
                 ],
             },
@@ -826,8 +845,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "pinForDiscount",
                             widget: "#Switch",
-                            label: "form.pinForDiscountLabel"
-                        }
+                            label: "form.pinForDiscountLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -835,8 +854,8 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "pinForCashOut",
                             widget: "#Switch",
-                            label: "form.pinForCashOutLabel"
-                        }
+                            label: "form.pinForCashOutLabel",
+                        },
                     },
                     {
                         render: "#Field",
@@ -844,39 +863,45 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                         field: {
                             name: "pinForRefund",
                             widget: "#Switch",
-                            label: "form.pinForRefundLabel"
-                        }
+                            label: "form.pinForRefundLabel",
+                        },
                     },
                 ],
             },
         ],
     },
     {
-        render: "#FormGrid",
-        props: {columns: 1},
-        permissions: {writeAny: ["receiptHeader", "receiptFooter"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.receiptSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["receiptHeader", "receiptFooter"], writeAny: ["receiptHeader", "receiptFooter"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "receiptHeader", write: "receiptHeader"},
-                field: {
-                    name: "receiptHeader",
-                    widget: "#Textarea",
-                    label: "form.receiptHeaderLabel",
-                    placeholder: "form.receiptHeaderPlaceholder",
-                    widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "receiptFooter", write: "receiptFooter"},
-                field: {
-                    name: "receiptFooter",
-                    widget: "#Textarea",
-                    label: "form.receiptFooterLabel",
-                    placeholder: "form.receiptFooterPlaceholder",
-                    widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "receiptHeader", write: "receiptHeader"},
+                        field: {
+                            name: "receiptHeader",
+                            widget: "#Textarea",
+                            label: "form.receiptHeaderLabel",
+                            placeholder: "form.receiptHeaderPlaceholder",
+                            widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "receiptFooter", write: "receiptFooter"},
+                        field: {
+                            name: "receiptFooter",
+                            widget: "#Textarea",
+                            label: "form.receiptFooterLabel",
+                            placeholder: "form.receiptFooterPlaceholder",
+                            widgetProps: {maxLength: POS_CONFIG_RECEIPT_MAX},
+                        },
+                    },
+                ],
             },
         ],
     },

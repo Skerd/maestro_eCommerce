@@ -13,8 +13,10 @@ export const listingCategorySheetView: ViewConfig = {
     },
     nodes: [
         {
+            // Name is the title and slug/order are technical (UX-03): only the parent is left to show.
             render: "#SheetGroup",
             props: {title: "overview"},
+            dependent: "parentListingCategory",
             children: [
                 {
                     render: "#SheetGrid",
@@ -22,36 +24,7 @@ export const listingCategorySheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Tag"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "slug"},
-                            field: {
-                                name: "slug",
-                                widget: "#DisplayCard",
-                                label: "slug",
-                                widgetProps: {icon: "#IconInfoCircle"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "order",
-                                widgetProps: {icon: "#Hash", type: "number"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "parentListingCategory",
                             permissions: {read: "parentListingCategory"},
                             field: {
                                 name: "parentListingCategory.name",
@@ -74,44 +47,62 @@ export const listingCategorySheetView: ViewConfig = {
     ],
 };
 
-/** Create/edit: slug is auto-generated on create (LCAT-{name}-{XXXXXXXX}) and is not editable. */
+/** The slug is generated from the name on create (unique per company) and is never typed (UX-05). */
 const categoryCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "parentListingCategory",
-                    widget: "#ApiSelect",
-                    label: "form.parentListingCategoryLabel",
-                    placeholder: "form.parentListingCategoryPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerceMarketplace/listingCategory/select",
-                        normalizeEmptyToUndefined: true,
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
                     },
-                },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "parentListingCategory",
+                            widget: "#ApiSelect",
+                            label: "form.parentListingCategoryLabel",
+                            placeholder: "form.parentListingCategoryPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/eCommerceMarketplace/listingCategory/select",
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#Input",
-                    label: "form.orderLabel",
-                    placeholder: "form.orderPlaceholder",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -119,43 +110,66 @@ const categoryCreateFormNodes: ViewConfig["nodes"] = [
 
 const categoryEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 2},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
+        permissions: {readAny: ["name", "parentListingCategory"], writeAny: ["name", "parentListingCategory"]},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "parentListingCategory",
-                    widget: "#ApiSelect",
-                    label: "form.parentListingCategoryLabel",
-                    placeholder: "form.parentListingCategoryPlaceholder",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerceMarketplace/listingCategory/select",
-                        normalizeEmptyToUndefined: true,
-                        postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
-                        remountKeyFormField: "_id",
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
                     },
-                },
+                    {
+                        render: "#Field",
+                        permissions: {read: "parentListingCategory", write: "parentListingCategory"},
+                        field: {
+                            name: "parentListingCategory",
+                            widget: "#ApiSelect",
+                            label: "form.parentListingCategoryLabel",
+                            placeholder: "form.parentListingCategoryPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/eCommerceMarketplace/listingCategory/select",
+                                normalizeEmptyToUndefined: true,
+                                postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
+                                remountKeyFormField: "_id",
+                            },
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["order"], writeAny: ["order"]},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#Input",
-                    label: "form.orderLabel",
-                    placeholder: "form.orderPlaceholder",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "order", write: "order"},
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
             },
         ],
     },

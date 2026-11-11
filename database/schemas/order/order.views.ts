@@ -11,6 +11,8 @@ export const orderSheetView: ViewConfig = {
         subtitleKey: "order",
         showCloseButton: true,
     },
+    // UX-03: status and next step sit in the header and the action menu; then amount and milestones, the work
+    // delivered, what the order came from, and Lifecycle last.
     nodes: [
         {
             render: "#SheetGroup",
@@ -20,16 +22,6 @@ export const orderSheetView: ViewConfig = {
                     render: "#SheetGrid",
                     props: {columns: 2},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "orderStatus", type: "enum"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "amount"},
@@ -43,11 +35,18 @@ export const orderSheetView: ViewConfig = {
                                     valuePath: ["currency.symbol", "amount"],
                                     joinSeparator: " ",
                                     type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
                                 },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "deliveryDueDate",
+                            permissions: {read: "deliveryDueDate"},
+                            field: {
+                                name: "deliveryDueDate",
+                                widget: "#DisplayCard",
+                                label: "deliveryDueDate",
+                                widgetProps: {icon: "#Calendar", format: "date", type: "date"},
                             },
                         },
                         {
@@ -80,15 +79,139 @@ export const orderSheetView: ViewConfig = {
                                 },
                             },
                         },
+                    ],
+                },
+            ],
+        },
+        // The related lists are loaded by the single route for the order's parties (see readOrderChildren).
+        {
+            // Cards or one line each, the reader's choice (remembered per list).
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.milestones.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    render: "#SheetGroup",
+                    dependent: "milestones",
+                    dependentRuntimeOnly: true,
+                    props: {title: "milestones", titleActions: "#ReferencesViewModeToggle"},
+                    children: [
                         {
-                            render: "#DisplayCard",
-                            permissions: {read: "deliveryDueDate"},
-                            field: {
-                                name: "deliveryDueDate",
-                                widget: "#DisplayCard",
-                                label: "deliveryDueDate",
-                                widgetProps: {icon: "#Calendar", format: "date", type: "date"},
-                            },
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "milestones",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderMilestoneCard",
+                                            itemDataProp: "milestone",
+                                            pageSize: 3,
+                                            compactRow: {
+                                                icon: "#IconFlag",
+                                                label: "milestone",
+                                                labelPath: "name",
+                                                valuePath: ["amount", "status"],
+                                                valueFormats: [{money: "currency"}, null],
+                                                valueLanguageKeyCategories: [null, "orderMilestoneStatus"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "ordermilestones",
+                                                linkedSheetWidget: "#OrderMilestoneSheetView",
+                                                linkedSheetEntityProp: "milestone",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.deliveries.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    render: "#SheetGroup",
+                    dependent: "deliveries",
+                    dependentRuntimeOnly: true,
+                    props: {title: "deliveries", titleActions: "#ReferencesViewModeToggle"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "deliveries",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderDeliveryCard",
+                                            itemDataProp: "delivery",
+                                            pageSize: 3,
+                                            compactRow: {
+                                                icon: "#IconPackageExport",
+                                                label: "delivery",
+                                                labelPath: "createdAt",
+                                                labelFormat: "dateTime",
+                                                valuePath: ["status", "message"],
+                                                valueLanguageKeyCategories: ["orderDeliveryStatus", null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "orderdeliveries",
+                                                linkedSheetWidget: "#OrderDeliverySheetView",
+                                                linkedSheetEntityProp: "delivery",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {storageKey: "eCommerce.order.sheet.revisions.listDisplay", defaultMode: "compact"},
+            children: [
+                {
+                    render: "#SheetGroup",
+                    dependent: "revisions",
+                    dependentRuntimeOnly: true,
+                    props: {title: "revisions", titleActions: "#ReferencesViewModeToggle"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "revisions",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#OrderRevisionCard",
+                                            itemDataProp: "revision",
+                                            pageSize: 3,
+                                            compactRow: {
+                                                icon: "#IconRefresh",
+                                                label: "revision",
+                                                labelPath: "createdAt",
+                                                labelFormat: "dateTime",
+                                                valuePath: ["status", "reason"],
+                                                valueLanguageKeyCategories: ["orderRevisionStatus", null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "orderrevisions",
+                                                linkedSheetWidget: "#OrderRevisionSheetView",
+                                                linkedSheetEntityProp: "revision",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },
@@ -96,6 +219,7 @@ export const orderSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
+            dependentAny: ["listing", "taskRequest", "bid"],
             props: {title: "references"},
             children: [
                 {
@@ -104,6 +228,7 @@ export const orderSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "listing",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -122,6 +247,7 @@ export const orderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "taskRequest",
                             permissions: {read: "taskRequest"},
                             field: {
                                 name: "taskRequest",
@@ -140,14 +266,19 @@ export const orderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "bid",
                             permissions: {read: "bid"},
                             field: {
                                 name: "bid",
                                 widget: "#DisplayCard",
                                 label: "bid",
+                                // The winning bid by what it offered, not its BID- code (UX-03).
                                 widgetProps: {
                                     icon: "#FileText",
-                                    valuePath: ["bid.name"],
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "bid.amount"],
+                                    joinSeparator: " ",
+                                    type: "currency",
                                     linkedRefPath: "bid",
                                     linkedSheetModel: "marketplacebids",
                                     linkedSheetWidget: "#BidSheetView",
@@ -178,73 +309,6 @@ export const orderSheetView: ViewConfig = {
                                 widget: "#ExpandableText",
                                 label: "note",
                                 widgetProps: {className: "text-sm"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        // Loaded by the single route for the order's parties (see readOrderChildren)
-        {
-            render: "#SheetGroup",
-            dependentAny: ["deliveries"],
-            dependentRuntimeOnly: true,
-            props: {title: "deliveries"},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                    children: [
-                        {
-                            render: "#ReferencesRender",
-                            field: {
-                                name: "deliveries",
-                                widget: "#ReferencesRender",
-                                widgetProps: {cardWidget: "#OrderDeliveryCard", itemDataProp: "delivery", pageSize: 3},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            dependentAny: ["milestones"],
-            dependentRuntimeOnly: true,
-            props: {title: "milestones"},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                    children: [
-                        {
-                            render: "#ReferencesRender",
-                            field: {
-                                name: "milestones",
-                                widget: "#ReferencesRender",
-                                widgetProps: {cardWidget: "#OrderMilestoneCard", itemDataProp: "milestone", pageSize: 3},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            dependentAny: ["revisions"],
-            dependentRuntimeOnly: true,
-            props: {title: "revisions"},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                    children: [
-                        {
-                            render: "#ReferencesRender",
-                            field: {
-                                name: "revisions",
-                                widget: "#ReferencesRender",
-                                widgetProps: {cardWidget: "#OrderRevisionCard", itemDataProp: "revision", pageSize: 3},
                             },
                         },
                     ],

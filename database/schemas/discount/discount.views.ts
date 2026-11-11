@@ -27,11 +27,6 @@ export const discountSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "code"},
-                            field: {name: "code", widget: "#DisplayCard", label: "code", widgetProps: {icon: "#IconTag"}},
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
@@ -40,16 +35,6 @@ export const discountSheetView: ViewConfig = {
                                 widgetProps: {icon: "#Tag", languageKeyCategory: "discountType", type: "enum"},
                             },
                         },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
-                            },
-                        }
                     ],
                 },
             ],
@@ -264,158 +249,6 @@ export const discountSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "schedule"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "startsAt"},
-                            field: {
-                                name: "startsAt",
-                                widget: "#DisplayCard",
-                                label: "startsAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "endsAt"},
-                            field: {
-                                name: "endsAt",
-                                widget: "#DisplayCard",
-                                label: "endsAt",
-                                widgetProps: {icon: "#Calendar", format: "dateTime"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "limits"},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 3},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "usageCount"},
-                            field: {
-                                name: "usageCount",
-                                widget: "#DisplayCard",
-                                label: "usageCount",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "usageLimit"},
-                            field: {
-                                name: "usageLimit",
-                                widget: "#DisplayCard",
-                                label: "usageLimit",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "usageLimitPerCustomer"},
-                            field: {
-                                name: "usageLimitPerCustomer",
-                                widget: "#DisplayCard",
-                                label: "usageLimitPerCustomer",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "minimumOrderAmount"},
-                            field: {
-                                name: "minimumOrderAmount",
-                                widget: "#DisplayCard",
-                                label: "minimumOrderAmount",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    valuePath: ["currency.symbol", "minimumOrderAmount"],
-                                    joinSeparator: " ",
-                                    type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "minimumQuantity"},
-                            field: {
-                                name: "minimumQuantity",
-                                widget: "#DisplayCard",
-                                label: "minimumQuantity",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "discounts.sheet.customerGroups.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "customerGroups",
-                        titleActions: "#ReferencesViewModeToggle",
-                    },
-                    dependent: "customerGroups",
-                    permissions: {read: "customerGroups"},
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "customerGroups"},
-                                    field: {
-                                        name: "customerGroupRefs",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#CustomerGroupCard",
-                                            itemDataProp: "customerGroup",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconUsers",
-                                                label: "customerGroup",
-                                                valuePath: ["name"],
-                                                linkedSheetModel: "customerGroups",
-                                                linkedSheetWidget: "#CustomerGroupSheetView",
-                                                linkedSheetEntityProp: "customerGroup",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
             props: {title: "buyXGetY"},
             dependent: "buyXGetY",
             children: [
@@ -490,6 +323,163 @@ export const discountSheetView: ViewConfig = {
                                             },
                                         },
                                     ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "schedule"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "startsAt"},
+                            field: {
+                                name: "startsAt",
+                                widget: "#DisplayCard",
+                                label: "startsAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "endsAt",
+                            permissions: {read: "endsAt"},
+                            field: {
+                                name: "endsAt",
+                                widget: "#DisplayCard",
+                                label: "endsAt",
+                                widgetProps: {icon: "#Calendar", format: "dateTime"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "limits"},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            permissions: {read: "usageCount"},
+                            field: {
+                                name: "usageCount",
+                                widget: "#DisplayCard",
+                                label: "usageCount",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "usageLimit",
+                            permissions: {read: "usageLimit"},
+                            field: {
+                                name: "usageLimit",
+                                widget: "#DisplayCard",
+                                label: "usageLimit",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "usageLimitPerCustomer",
+                            permissions: {read: "usageLimitPerCustomer"},
+                            field: {
+                                name: "usageLimitPerCustomer",
+                                widget: "#DisplayCard",
+                                label: "usageLimitPerCustomer",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "minimumOrderAmount",
+                            permissions: {read: "minimumOrderAmount"},
+                            field: {
+                                name: "minimumOrderAmount",
+                                widget: "#DisplayCard",
+                                label: "minimumOrderAmount",
+                                widgetProps: {
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "minimumOrderAmount"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "minimumQuantity",
+                            permissions: {read: "minimumQuantity"},
+                            field: {
+                                name: "minimumQuantity",
+                                widget: "#DisplayCard",
+                                label: "minimumQuantity",
+                                widgetProps: {icon: "#Hash"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "discounts.sheet.customerGroups.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "customerGroups",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "customerGroups",
+                    permissions: {read: "customerGroups"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "customerGroups"},
+                                    field: {
+                                        name: "customerGroupRefs",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#CustomerGroupCard",
+                                            itemDataProp: "customerGroup",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconUsers",
+                                                label: "customerGroup",
+                                                valuePath: ["name"],
+                                                linkedSheetModel: "customerGroups",
+                                                linkedSheetWidget: "#CustomerGroupSheetView",
+                                                linkedSheetEntityProp: "customerGroup",
+                                            },
+                                        },
+                                    },
                                 },
                             ],
                         },
@@ -595,115 +585,11 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                     label: "form.valueLabel",
                                     placeholder: "form.valuePlaceholder",
                                     description: "form.valueDescription",
-                                    widgetProps: {type: "number", min: 0},
+                                    widgetProps: {type: "number", min: 0, step: "any"},
                                     required: true,
                                 },
                             },
                         ],
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "startsAt",
-                            widget: "#DateInput",
-                            label: "form.startsAtLabel",
-                            placeholder: "form.startsAtPlaceholder",
-                            required: true,
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "endsAt",
-                            widget: "#DateInput",
-                            label: "form.endsAtLabel",
-                            placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.limitsSectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "minimumOrderAmount",
-                            widget: "#Input",
-                            label: "form.minimumOrderAmountLabel",
-                            placeholder: "form.minimumOrderAmountPlaceholder",
-                            description: "form.shopAmountDescription",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "minimumQuantity",
-                            widget: "#Input",
-                            label: "form.minimumQuantityLabel",
-                            placeholder: "form.minimumQuantityPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                ],
-            },
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "usageLimit",
-                            widget: "#Input",
-                            label: "form.usageLimitLabel",
-                            placeholder: "form.usageLimitPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "usageLimitPerCustomer",
-                            widget: "#Input",
-                            label: "form.usageLimitPerCustomerLabel",
-                            placeholder: "form.usageLimitPerCustomerPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
                     },
                 ],
             },
@@ -828,28 +714,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
         ],
     },
     {
-        render: "#TitleWithCollapse",
-        props: {title: "form.customerGroupsSectionTitle", defaultOpen: true},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "customerGroups",
-                    widget: "#ObjectIdChipsInput",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/customerGroup/select",
-                        method: "POST",
-                        placeholderKey: "form.selectCustomerGroup",
-                        removeTooltipKey: "form.removeCustomerGroup",
-                        selectPageSizeCreate: 50,
-                        selectPageSizeEdit: 200,
-                        labelRefFormExtraKey: "customerGroups",
-                    },
-                },
-            },
-        ],
-    },
-    {
         render: "#FormWhenFieldValueIn",
         props: {
             watchField: "type",
@@ -877,7 +741,7 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                     widget: "#Input",
                                     label: "form.buyQuantityLabel",
                                     placeholder: "form.buyQuantityPlaceholder",
-                                    widgetProps: {type: "number", min: 1},
+                                    widgetProps: {type: "number", min: 1, step: 1},
                                 },
                             },
                             {
@@ -887,7 +751,7 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                     widget: "#Input",
                                     label: "form.getQuantityLabel",
                                     placeholder: "form.getQuantityPlaceholder",
-                                    widgetProps: {type: "number", min: 1},
+                                    widgetProps: {type: "number", min: 1, step: 1},
                                 },
                             },
                         ],
@@ -908,6 +772,132 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                 labelRefFormExtraKey: "buyXGetY.getProductIds",
                             },
                         },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.customerGroupsSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#Field",
+                field: {
+                    name: "customerGroups",
+                    widget: "#ObjectIdChipsInput",
+                    widgetProps: {
+                        apiUrl: "/api/eCommerce/customerGroup/select",
+                        method: "POST",
+                        placeholderKey: "form.selectCustomerGroup",
+                        removeTooltipKey: "form.removeCustomerGroup",
+                        selectPageSizeCreate: 50,
+                        selectPageSizeEdit: 200,
+                        labelRefFormExtraKey: "customerGroups",
+                    },
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "startsAt",
+                            widget: "#DateInput",
+                            label: "form.startsAtLabel",
+                            placeholder: "form.startsAtPlaceholder",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "endsAt",
+                            widget: "#DateInput",
+                            label: "form.endsAtLabel",
+                            placeholder: "form.endsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.limitsSectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "minimumOrderAmount",
+                            widget: "#Input",
+                            label: "form.minimumOrderAmountLabel",
+                            placeholder: "form.minimumOrderAmountPlaceholder",
+                            description: "form.shopAmountDescription",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: "any"
+                            }
+                        }
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "minimumQuantity",
+                            widget: "#Input",
+                            label: "form.minimumQuantityLabel",
+                            placeholder: "form.minimumQuantityPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
+                    },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "usageLimit",
+                            widget: "#Input",
+                            label: "form.usageLimitLabel",
+                            placeholder: "form.usageLimitPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "usageLimitPerCustomer",
+                            widget: "#Input",
+                            label: "form.usageLimitPerCustomerLabel",
+                            placeholder: "form.usageLimitPerCustomerPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
                     },
                 ],
             },
@@ -1020,129 +1010,11 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                     label: "form.valueLabel",
                                     placeholder: "form.valuePlaceholder",
                                     description: "form.valueDescription",
-                                    widgetProps: {type: "number", min: 0},
+                                    widgetProps: {type: "number", min: 0, step: "any"},
                                     required: true,
                                 },
                             },
                         ],
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
-        permissions: {
-            readAny: ["startsAt", "endsAt"],
-            writeAny: ["startsAt", "endsAt"],
-        },
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "startsAt", write: "startsAt"},
-                        field: {
-                            name: "startsAt",
-                            widget: "#DateInput",
-                            label: "form.startsAtLabel",
-                            placeholder: "form.startsAtPlaceholder",
-                            required: true,
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "endsAt", write: "endsAt"},
-                        field: {
-                            name: "endsAt",
-                            widget: "#DateInput",
-                            label: "form.endsAtLabel",
-                            placeholder: "form.endsAtPlaceholder",
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
-                        },
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        render: "#TitleWithCollapse",
-        props: {title: "form.limitsSectionTitle", defaultOpen: true},
-        permissions: {
-            readAny: ["minimumOrderAmount", "minimumQuantity", "usageLimit", "usageLimitPerCustomer"],
-            writeAny: ["minimumOrderAmount", "minimumQuantity", "usageLimit", "usageLimitPerCustomer"],
-        },
-        children: [
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "minimumOrderAmount", write: "minimumOrderAmount"},
-                        field: {
-                            name: "minimumOrderAmount",
-                            widget: "#Input",
-                            label: "form.minimumOrderAmountLabel",
-                            placeholder: "form.minimumOrderAmountPlaceholder",
-                            description: "form.shopAmountDescription",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "minimumQuantity", write: "minimumQuantity"},
-                        field: {
-                            name: "minimumQuantity",
-                            widget: "#Input",
-                            label: "form.minimumQuantityLabel",
-                            placeholder: "form.minimumQuantityPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                ],
-            },
-            {
-                render: "#FormGrid",
-                props: {columns: 3},
-                children: [
-                    {
-                        render: "#Field",
-                        permissions: {read: "usageLimit", write: "usageLimit"},
-                        field: {
-                            name: "usageLimit",
-                            widget: "#Input",
-                            label: "form.usageLimitLabel",
-                            placeholder: "form.usageLimitPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "usageLimitPerCustomer", write: "usageLimitPerCustomer"},
-                        field: {
-                            name: "usageLimitPerCustomer",
-                            widget: "#Input",
-                            label: "form.usageLimitPerCustomerLabel",
-                            placeholder: "form.usageLimitPerCustomerPlaceholder",
-                            widgetProps: {
-                                type: "number",
-                                min: 0
-                            }
-                        }
                     },
                 ],
             },
@@ -1278,30 +1150,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
         ],
     },
     {
-        render: "#TitleWithCollapse",
-        props: {title: "form.customerGroupsSectionTitle", defaultOpen: true},
-        permissions: {readAny: ["customerGroups"], writeAny: ["customerGroups"]},
-        children: [
-            {
-                render: "#Field",
-                permissions: {read: "customerGroups", write: "customerGroups"},
-                field: {
-                    name: "customerGroups",
-                    widget: "#ObjectIdChipsInput",
-                    widgetProps: {
-                        apiUrl: "/api/eCommerce/customerGroup/select",
-                        method: "POST",
-                        placeholderKey: "form.selectCustomerGroup",
-                        removeTooltipKey: "form.removeCustomerGroup",
-                        selectPageSizeCreate: 50,
-                        selectPageSizeEdit: 200,
-                        labelRefFormExtraKey: "customerGroups",
-                    },
-                },
-            },
-        ],
-    },
-    {
         render: "#FormWhenFieldValueIn",
         permissions: {readAny: ["buyXGetY"], writeAny: ["buyXGetY"]},
         props: {
@@ -1332,7 +1180,7 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                     widget: "#Input",
                                     label: "form.buyQuantityLabel",
                                     placeholder: "form.buyQuantityPlaceholder",
-                                    widgetProps: {type: "number", min: 1},
+                                    widgetProps: {type: "number", min: 1, step: 1},
                                 },
                             },
                             {
@@ -1343,7 +1191,7 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                     widget: "#Input",
                                     label: "form.getQuantityLabel",
                                     placeholder: "form.getQuantityPlaceholder",
-                                    widgetProps: {type: "number", min: 1},
+                                    widgetProps: {type: "number", min: 1, step: 1},
                                 },
                             },
                         ],
@@ -1365,6 +1213,148 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                 labelRefFormExtraKey: "buyXGetY.getProductIds",
                             },
                         },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.customerGroupsSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["customerGroups"], writeAny: ["customerGroups"]},
+        children: [
+            {
+                render: "#Field",
+                permissions: {read: "customerGroups", write: "customerGroups"},
+                field: {
+                    name: "customerGroups",
+                    widget: "#ObjectIdChipsInput",
+                    widgetProps: {
+                        apiUrl: "/api/eCommerce/customerGroup/select",
+                        method: "POST",
+                        placeholderKey: "form.selectCustomerGroup",
+                        removeTooltipKey: "form.removeCustomerGroup",
+                        selectPageSizeCreate: 50,
+                        selectPageSizeEdit: 200,
+                        labelRefFormExtraKey: "customerGroups",
+                    },
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.scheduleSectionTitle", defaultOpen: true},
+        permissions: {
+            readAny: ["startsAt", "endsAt"],
+            writeAny: ["startsAt", "endsAt"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "startsAt", write: "startsAt"},
+                        field: {
+                            name: "startsAt",
+                            widget: "#DateInput",
+                            label: "form.startsAtLabel",
+                            placeholder: "form.startsAtPlaceholder",
+                            required: true,
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "endsAt", write: "endsAt"},
+                        field: {
+                            name: "endsAt",
+                            widget: "#DateInput",
+                            label: "form.endsAtLabel",
+                            placeholder: "form.endsAtPlaceholder",
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.limitsSectionTitle", defaultOpen: true},
+        permissions: {
+            readAny: ["minimumOrderAmount", "minimumQuantity", "usageLimit", "usageLimitPerCustomer"],
+            writeAny: ["minimumOrderAmount", "minimumQuantity", "usageLimit", "usageLimitPerCustomer"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "minimumOrderAmount", write: "minimumOrderAmount"},
+                        field: {
+                            name: "minimumOrderAmount",
+                            widget: "#Input",
+                            label: "form.minimumOrderAmountLabel",
+                            placeholder: "form.minimumOrderAmountPlaceholder",
+                            description: "form.shopAmountDescription",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: "any"
+                            }
+                        }
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "minimumQuantity", write: "minimumQuantity"},
+                        field: {
+                            name: "minimumQuantity",
+                            widget: "#Input",
+                            label: "form.minimumQuantityLabel",
+                            placeholder: "form.minimumQuantityPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
+                    },
+                ],
+            },
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "usageLimit", write: "usageLimit"},
+                        field: {
+                            name: "usageLimit",
+                            widget: "#Input",
+                            label: "form.usageLimitLabel",
+                            placeholder: "form.usageLimitPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "usageLimitPerCustomer", write: "usageLimitPerCustomer"},
+                        field: {
+                            name: "usageLimitPerCustomer",
+                            widget: "#Input",
+                            label: "form.usageLimitPerCustomerLabel",
+                            placeholder: "form.usageLimitPerCustomerPlaceholder",
+                            widgetProps: {
+                                type: "number",
+                                min: 0, step: 1
+                            }
+                        }
                     },
                 ],
             },

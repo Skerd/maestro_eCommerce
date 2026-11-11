@@ -25,6 +25,7 @@ export async function createPosOrders(
     products: CreateProductsResult,
     cashierId: Types.ObjectId,
     customerId: Types.ObjectId | undefined,
+    currencyId: Types.ObjectId,
 ): Promise<HydratedDocument<IPosOrder> | undefined> {
     const logger = getLogger("mongoDbInitialization-createPosOrders", parentLogger);
     logger.start("Creating POS orders...");
@@ -63,6 +64,8 @@ export async function createPosOrders(
             name: POS_ORDER_NAME,
             session: sessionId,
             config: configId,
+            // The session's currency, as the till stores it on every sale (UX-07)
+            currency: currencyId,
             state: "paid" as const,
             cashier: cashierId,
             ...(customerId ? {customer: customerId, customerName: "echo silence"} : {}),

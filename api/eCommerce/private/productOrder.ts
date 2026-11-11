@@ -27,6 +27,9 @@ import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequ
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {productOrderListFormSchema, type ProductOrderWhen} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderList.form.validator";
+import {companyTimeZoneOf} from "@coreModule/utilities/time/companyTimeZone";
+import {addLocalDays, localDateOf, localDayInterval} from "@coreModule/utilities/time/timeWindows";
 
 async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionEnabledParams) {
     const dto = productOrderToDTO(doc);
@@ -68,11 +71,30 @@ async function enrichProductOrderSingle(doc: IProductOrder, params: TransactionE
     return dto;
 }
 
+/**
+ * The "When" quick filter on the order's placement time, in the company's calendar (GLB-09): today, this week from
+ * Monday, this month, or before this month.
+ */
+async function whenFilter(when: ProductOrderWhen | undefined, companyId: ObjectId): Promise<Record<string, unknown>> {
+    if (!when) return {};
+    const timeZone = await companyTimeZoneOf(companyId);
+    const today = localDateOf(new Date(), timeZone);
+    const mondayOffset = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const firstDay = {
+        today,
+        thisWeek: addLocalDays(today, -mondayOffset),
+        thisMonth: `${today.slice(0, 8)}01`,
+        older: `${today.slice(0, 8)}01`,
+    }[when];
+    const from = localDayInterval(firstDay, timeZone).start;
+    return when === "older" ? {createdAt: {$lt: from}} : {createdAt: {$gte: from}};
+}
+
 export const basePath = "/api/eCommerce/productOrder";
 /**
  * Product orders are created by checkout/system flows only. Panel is read +
  * lifecycle actions (confirm/ship/cancel/refund) — no CRUD create/edit.
- * List filtering uses the standard DSL (`body.filter`), not top-level extras.
+ * List filtering uses the standard DSL (`body.filter`), plus the top-level `when` quick filter.
  */
 export const {router} = createCrudRouter({
     collectionName: "productOrders",
@@ -81,6 +103,8 @@ export const {router} = createCrudRouter({
     entityName: "ProductOrder",
     selectSearchField: "orderNumber",
     defaultSort: {createdAt: -1},
+    listSchema: productOrderListFormSchema,
+    extraListFilter: (params) => whenFilter(params.when, params.company._id),
     createSchema: validateSingleForm,
     editSchema: validateSingleForm,
     toDTO: productOrderToDTO,

@@ -18,26 +18,6 @@ export const posSessionSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "state"},
-                            field: {
-                                name: "state",
-                                widget: "#DisplayCard",
-                                label: "state",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "posSessionState", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "config"},
                             field: {
                                 name: "config",
@@ -72,6 +52,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "closedBy",
                             permissions: {read: "closedBy"},
                             field: {
                                 name: "closedBy",
@@ -98,6 +79,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "closedAt",
                             permissions: {read: "closedAt"},
                             field: {
                                 name: "closedAt",
@@ -140,6 +122,7 @@ export const posSessionSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "closedAt",
                             permissions: {read: "closingBalance"},
                             field: {
                                 name: "closingBalance",
@@ -287,6 +270,57 @@ export const posSessionSheetView: ViewConfig = {
         {
             render: "#ReferencesViewModeScope",
             props: {
+                storageKey: "posSession.sheet.posOrders.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "posOrders",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    dependent: "posOrders",
+                    dependentRuntimeOnly: true,
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "posOrders",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#PosOrderCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconReceipt",
+                                                label: "posOrder",
+                                                valuePath: ["name", "state", "amountTotal"],
+                                                valueLanguageKeyCategories: [null, "posOrderState", null],
+                                                valueFormats: [null, null, {money: "currency"}],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "posOrders",
+                                                linkedSheetWidget: "#PosOrderSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
                 storageKey: "posSession.sheet.cashMoves.listDisplay",
                 defaultMode: "cards",
             },
@@ -362,70 +396,18 @@ export const posSessionSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "notes", defaultOpen: false},
+            props: {title: "notes", defaultOpen: true},
+            dependent: "notes",
+            permissions: {read: "notes"},
             children: [
                 {
-                    render: "#SheetGrid",
-                    props: {columns: 1},
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
                     children: [
                         {
-                            render: "#DisplayCard",
+                            render: "#ExpandableText",
                             permissions: {read: "notes"},
-                            field: {
-                                name: "notes",
-                                widget: "#DisplayCard",
-                                label: "notes",
-                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "posSession.sheet.posOrders.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "posOrders",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependent: "posOrders",
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "posOrders",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#PosOrderCard",
-                                            itemDataProp: "entity",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconReceipt",
-                                                label: "posOrder",
-                                                valuePath: ["name", "state", "amountTotal"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "posOrders",
-                                                linkedSheetWidget: "#PosOrderSheetView",
-                                                linkedSheetEntityProp: "entity",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
+                            field: {name: "notes", widget: "#ExpandableText", widgetProps: {className: "text-sm whitespace-pre-wrap"}},
                         },
                     ],
                 },

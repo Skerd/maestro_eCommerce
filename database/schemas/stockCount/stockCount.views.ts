@@ -2,18 +2,6 @@ import type {ViewConfig} from "armonia/src/modules/core/api/auxiliary/private/vi
 import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycleSheetGroup";
 import {STOCK_COUNT_NOTE_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/private/stockCount/stockCount.schema-def";
 
-const noteField = (permissions?: {read: string; write: string}) => ({
-    render: "#Field",
-    ...(permissions ? {permissions} : {}),
-    field: {
-        name: "note",
-        widget: "#Textarea",
-        label: "form.noteLabel",
-        placeholder: "form.notePlaceholder",
-        widgetProps: {rows: 3, className: "field-sizing-fixed max-h-56 min-h-16 overflow-y-auto", maxLength: STOCK_COUNT_NOTE_MAX},
-    },
-});
-
 export const stockCountSheetView: ViewConfig = {
     model: "stockCounts",
     viewType: "sheet",
@@ -49,16 +37,7 @@ export const stockCountSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "stockCountStatus", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "appliedAt",
                             permissions: {read: "appliedAt"},
                             field: {
                                 name: "appliedAt",
@@ -69,22 +48,13 @@ export const stockCountSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "appliedBy",
                             permissions: {read: "appliedBy"},
                             field: {
                                 name: "appliedBy",
                                 widget: "#DisplayCard",
                                 label: "appliedBy",
                                 widgetProps: {icon: "#IconUser", parent: "appliedBy", valuePath: ["name"], type: "user"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "note"},
-                            field: {
-                                name: "note",
-                                widget: "#DisplayCard",
-                                label: "note",
-                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                     ],
@@ -98,6 +68,7 @@ export const stockCountSheetView: ViewConfig = {
                 {
                     render: "#SheetGroup",
                     props: {title: "lines", titleActions: "#ReferencesViewModeToggle", defaultOpen: true},
+                    dependent: "lines",
                     permissions: {read: "lines"},
                     children: [
                         {
@@ -120,8 +91,7 @@ export const stockCountSheetView: ViewConfig = {
                                                     name: "product",
                                                     type: "linkedRef",
                                                     className: "text-sm font-medium",
-                                                    valuePath: ["title", "sku"],
-                                                    joinSeparator: " · ",
+                                                    valuePath: ["title"],
                                                     labelKey: "lineProduct",
                                                     linkedSheetModel: "products",
                                                     linkedSheetWidget: "#ProductSheetView",
@@ -151,6 +121,25 @@ export const stockCountSheetView: ViewConfig = {
                 },
             ],
         },
+        {
+            render: "#SheetGroup",
+            props: {title: "note", defaultOpen: true},
+            dependent: "note",
+            permissions: {read: "note"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "p-4 rounded-lg bg-muted/30 border border-border/50"},
+                    children: [
+                        {
+                            render: "#ExpandableText",
+                            permissions: {read: "note"},
+                            field: {name: "note", widget: "#ExpandableText", widgetProps: {className: "text-sm whitespace-pre-wrap"}},
+                        },
+                    ],
+                },
+            ],
+        },
         lifecycleSheetGroup,
     ],
 };
@@ -165,21 +154,42 @@ export const stockCountCreateFormView: ViewConfig = {
     method: "PUT",
     nodes: [
         {
-            render: "#Field",
-            field: {
-                name: "warehouse",
-                widget: "#ApiSelect",
-                label: "form.warehouseLabel",
-                placeholder: "form.warehousePlaceholder",
-                required: true,
-                widgetProps: {apiUrl: "/api/eCommerce/warehouse/select", method: "POST", normalizeEmptyToUndefined: true},
-            },
+            render: "#TitleWithCollapse",
+            props: {title: "form.countSectionTitle", defaultOpen: true},
+            children: [
+                {
+                    render: "#FormGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#Field",
+                            field: {
+                                name: "warehouse",
+                                widget: "#ApiSelect",
+                                label: "form.warehouseLabel",
+                                placeholder: "form.warehousePlaceholder",
+                                required: true,
+                                widgetProps: {apiUrl: "/api/eCommerce/warehouse/select", method: "POST", normalizeEmptyToUndefined: true},
+                            },
+                        },
+                    ],
+                },
+                {
+                    render: "#Field",
+                    field: {
+                        name: "note",
+                        widget: "#Textarea",
+                        label: "form.noteLabel",
+                        placeholder: "form.notePlaceholder",
+                        widgetProps: {rows: 3, className: "field-sizing-fixed max-h-56 min-h-16 overflow-y-auto", maxLength: STOCK_COUNT_NOTE_MAX},
+                    },
+                },
+            ],
         },
-        noteField(),
     ],
 };
 
-/** Enter what was counted per line; lines can be added for items found that had no stock row. */
+/** Enter what was counted per line, then any remark; lines can be added for items found that had no stock row. */
 export const stockCountEditFormView: ViewConfig = {
     model: "stockCounts",
     viewType: "form",
@@ -188,7 +198,6 @@ export const stockCountEditFormView: ViewConfig = {
     apiUrl: "/api/eCommerce/stockCount",
     method: "PATCH",
     nodes: [
-        noteField({read: "note", write: "note"}),
         {
             render: "#Field",
             permissions: {read: "lines", write: "lines"},
@@ -246,6 +255,7 @@ export const stockCountEditFormView: ViewConfig = {
                                         widget: "#Input",
                                         label: "form.countedQuantityLabel",
                                         placeholder: "form.countedQuantityPlaceholder",
+                                        // Stock may be kept in fractions (kg, m), so no whole-number step.
                                         widgetProps: {type: "number", min: 0, step: "any"},
                                     },
                                 },
@@ -254,6 +264,24 @@ export const stockCountEditFormView: ViewConfig = {
                     ],
                 },
             },
+        },
+        {
+            render: "#TitleWithCollapse",
+            props: {title: "form.noteSectionTitle", defaultOpen: true},
+            permissions: {readAny: ["note"], writeAny: ["note"]},
+            children: [
+                {
+                    render: "#Field",
+                    permissions: {read: "note", write: "note"},
+                    field: {
+                        name: "note",
+                        widget: "#Textarea",
+                        label: "form.noteLabel",
+                        placeholder: "form.notePlaceholder",
+                        widgetProps: {rows: 3, className: "field-sizing-fixed max-h-56 min-h-16 overflow-y-auto", maxLength: STOCK_COUNT_NOTE_MAX},
+                    },
+                },
+            ],
         },
     ],
 };

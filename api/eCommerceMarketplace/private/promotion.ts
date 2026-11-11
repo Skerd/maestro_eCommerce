@@ -25,7 +25,7 @@ export const {router} = createCrudRouter<IPromotion, CreatePromotionFormType>({
     model: Promotion,
     service: promotionService,
     entityName: "Promotion",
-    defaultSort: {startAt: 1},
+    defaultSort: {startAt: -1},
     selectSearchField: "type",
     rateLimits: {read: 60, write: 20, delete: 20},
     actions: PromotionActions,

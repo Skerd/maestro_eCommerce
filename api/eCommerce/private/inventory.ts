@@ -46,7 +46,8 @@ export const {router} = createCrudRouter({
     model: Inventory,
     service: inventoryService,
     entityName: "Inventory",
-    defaultSort: {createdAt: -1},
+    // Lowest stock first, so what needs reordering leads the list (UX-12).
+    defaultSort: {quantityOnHand: 1, createdAt: -1},
     createSchema: createInventoryFormSchema,
     editSchema: editInventoryFormSchema,
     toDTO: inventoryToDTO,

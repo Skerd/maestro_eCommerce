@@ -11,8 +11,10 @@ export const listingSheetView: ViewConfig = {
         subtitleKey: "listingSubtitle",
         showCloseButton: true,
     },
+    // UX-03 order: the status sits in the header; price and packages, then description and media, then details.
     nodes: [
         {
+            // The title is the sheet title, not a card (UX-03).
             render: "#SheetGroup",
             props: {title: "overview"},
             children: [
@@ -22,58 +24,7 @@ export const listingSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "title"},
-                            field: {
-                                name: "title",
-                                widget: "#DisplayCard",
-                                label: "title",
-                                widgetProps: {icon: "#IconLabel"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "listingStatus", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "category"},
-                            field: {
-                                name: "category",
-                                widget: "#DisplayCard",
-                                label: "category",
-                                widgetProps: {
-                                    icon: "#Folder",
-                                    valuePath: ["category.name"],
-                                    linkedRefPath: "category",
-                                    linkedSheetModel: "listingCategories",
-                                    linkedSheetWidget: "#CategorySheetView",
-                                    linkedSheetEntityProp: "category",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "provider"},
-                            field: {
-                                name: "provider",
-                                widget: "#DisplayCard",
-                                label: "provider",
-                                widgetProps: {
-                                    icon: "#User",
-                                    valuePath: ["provider.name", "provider.surname"],
-                                    joinSeparator: " ",
-                                    type: "user",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "price",
                             permissions: {read: "price"},
                             field: {
                                 name: "price",
@@ -94,6 +45,7 @@ export const listingSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "pricingType",
                             permissions: {read: "pricingType"},
                             field: {
                                 name: "pricingType",
@@ -104,6 +56,7 @@ export const listingSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "deliveryDays",
                             permissions: {read: "deliveryDays"},
                             field: {
                                 name: "deliveryDays",
@@ -112,68 +65,134 @@ export const listingSheetView: ViewConfig = {
                                 widgetProps: {icon: "#Clock", format: "locale"},
                             },
                         },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "category",
+                            permissions: {read: "category"},
+                            field: {
+                                name: "category",
+                                widget: "#DisplayCard",
+                                label: "category",
+                                widgetProps: {
+                                    icon: "#Folder",
+                                    valuePath: ["category.name"],
+                                    linkedRefPath: "category",
+                                    linkedSheetModel: "listingcategories",
+                                    linkedSheetWidget: "#ListingCategorySheetView",
+                                    linkedSheetEntityProp: "category",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "provider",
+                            permissions: {read: "provider"},
+                            field: {
+                                name: "provider",
+                                widget: "#DisplayCard",
+                                label: "provider",
+                                widgetProps: {
+                                    icon: "#User",
+                                    valuePath: ["provider.name", "provider.surname"],
+                                    joinSeparator: " ",
+                                    type: "user",
+                                },
+                            },
+                        },
                     ],
                 },
             ],
         },
         {
-            render: "#SheetGroup",
-            props: {title: "address"},
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "listing.sheet.listingPackages.listDisplay",
+                defaultMode: "compact",
+            },
             children: [
                 {
-                    render: "div",
-                    props: {className: "space-y-2 mb-2"},
+                    render: "#SheetGroup",
+                    props: {
+                        title: "listingPackages",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "listingPackages",
+                    permissions: {read: "listingPackages"},
                     children: [
                         {
-                            render: "#SheetGrid",
-                            props: {columns: 3},
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
                             children: [
                                 {
-                                    render: "#DisplayCard",
-                                    permissions: {read: "address"},
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "listingPackages"},
                                     field: {
-                                        name: "address.country.name",
-                                        widget: "#DisplayCard",
-                                        label: "country",
+                                        name: "listingPackages",
+                                        widget: "#ReferencesRender",
                                         widgetProps: {
-                                            icon: "#Globe",
-                                            flagCodePath: "address.country.code",
-                                            linkedRefPath: "address.country",
-                                            linkedSheetModel: "countries",
-                                            linkedSheetWidget: "#CountrySheetView",
-                                            linkedSheetEntityProp: "country",
+                                            cardWidget: "#ListingPackageCard",
+                                            itemDataProp: "listingPackage",
+                                            pageSize: 2,
+                                            compactRow: {
+                                                icon: "#Package",
+                                                label: "listingPackage",
+                                                // Named by the package, valued by its price; the sort order stays off (UX-03).
+                                                labelPath: "name",
+                                                valuePath: ["price.amount"],
+                                                valueFormats: [{money: "price.currency"}],
+                                                linkedSheetModel: "listingPackages",
+                                                linkedSheetWidget: "#ListingPackageSheetView",
+                                                linkedSheetEntityProp: "listingPackage",
+                                            },
                                         },
                                     },
                                 },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            props: {
+                storageKey: "listing.sheet.listingAddOns.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "listingAddOns",
+                        titleActions: "#ReferencesViewModeToggle",
+                    },
+                    dependent: "listingAddOns",
+                    permissions: {read: "listingAddOns"},
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
                                 {
-                                    render: "#DisplayCard",
-                                    permissions: {read: "address"},
+                                    render: "#ReferencesRender",
+                                    permissions: {read: "listingAddOns"},
                                     field: {
-                                        name: "address.state.name",
-                                        widget: "#DisplayCard",
-                                        label: "state",
+                                        name: "listingAddOns",
+                                        widget: "#ReferencesRender",
                                         widgetProps: {
-                                            icon: "#MapPin",
-                                            linkedRefPath: "address.state",
-                                            linkedSheetModel: "states",
-                                            linkedSheetWidget: "#StateSheetView",
-                                            linkedSheetEntityProp: "state",
-                                        },
-                                    },
-                                },
-                                {
-                                    render: "#DisplayCard",
-                                    permissions: {read: "address"},
-                                    field: {
-                                        name: "address.city.name",
-                                        widget: "#DisplayCard",
-                                        label: "city",
-                                        widgetProps: {
-                                            icon: "#Building",
-                                            linkedRefPath: "address.city",
-                                            linkedSheetModel: "cities",
-                                            linkedSheetWidget: "#CitySheetView",
-                                            linkedSheetEntityProp: "city",
+                                            cardWidget: "#ListingAddOnCard",
+                                            itemDataProp: "listingAddOn",
+                                            pageSize: 2,
+                                            compactRow: {
+                                                icon: "#Package",
+                                                label: "listingAddOn",
+                                                labelPath: "name",
+                                                valuePath: ["price.amount"],
+                                                valueFormats: [{money: "price.currency"}],
+                                                linkedSheetModel: "listingAddOns",
+                                                linkedSheetWidget: "#ListingAddOnSheetView",
+                                                linkedSheetEntityProp: "listingAddOn",
+                                            },
                                         },
                                     },
                                 },
@@ -186,6 +205,8 @@ export const listingSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "description"},
+            dependent: "description",
+            permissions: {read: "description"},
             children: [
                 {
                     render: "div",
@@ -207,11 +228,107 @@ export const listingSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "tags"},
+            props: {title: "gallery"},
+            dependentAny: ["mainImage", "imageGallery", "videoGallery"],
+            permissions: {read: "mainImage"},
+            children: [
+                {
+                    render: "div",
+                    props: {className: "max-w-full"},
+                    children: [
+                        {
+                            render: "#GalleryCarousel",
+                            permissions: {read: "mainImage"},
+                            field: {
+                                name: "mainImage",
+                                widget: "#GalleryCarousel",
+                                widgetProps: {
+                                    imageGalleryField: "imageGallery",
+                                    videoGalleryField: "videoGallery",
+                                    showThumbnails: false,
+                                    allowFullScreen: false,
+                                    coverAfterFirst: false,
+                                    showPreviews: true,
+                                    previewLocation: "right",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "details"},
+            dependentAny: ["tags", "requirements", "address"],
+            permissions: {readAny: ["tags", "requirements", "address"]},
             children: [
                 {
                     render: "#SheetGrid",
+                    props: {columns: 3},
+                    dependent: "address",
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "address.country",
+                            dependentRuntimeOnly: true,
+                            permissions: {read: "address"},
+                            field: {
+                                name: "address.country.name",
+                                widget: "#DisplayCard",
+                                label: "country",
+                                widgetProps: {
+                                    icon: "#Globe",
+                                    flagCodePath: "address.country.code",
+                                    linkedRefPath: "address.country",
+                                    linkedSheetModel: "countries",
+                                    linkedSheetWidget: "#CountrySheetView",
+                                    linkedSheetEntityProp: "country",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "address.state",
+                            dependentRuntimeOnly: true,
+                            permissions: {read: "address"},
+                            field: {
+                                name: "address.state.name",
+                                widget: "#DisplayCard",
+                                label: "state",
+                                widgetProps: {
+                                    icon: "#MapPin",
+                                    linkedRefPath: "address.state",
+                                    linkedSheetModel: "states",
+                                    linkedSheetWidget: "#StateSheetView",
+                                    linkedSheetEntityProp: "state",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "address.city",
+                            dependentRuntimeOnly: true,
+                            permissions: {read: "address"},
+                            field: {
+                                name: "address.city.name",
+                                widget: "#DisplayCard",
+                                label: "city",
+                                widgetProps: {
+                                    icon: "#Building",
+                                    linkedRefPath: "address.city",
+                                    linkedSheetModel: "cities",
+                                    linkedSheetWidget: "#CitySheetView",
+                                    linkedSheetEntityProp: "city",
+                                },
+                            },
+                        },
+                    ],
+                },
+                {
+                    render: "#SheetGrid",
                     props: {columns: 1},
+                    dependent: "tags",
                     children: [
                         {
                             render: "#DisplayCard",
@@ -225,15 +342,10 @@ export const listingSheetView: ViewConfig = {
                         },
                     ],
                 },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "requirements"},
-            children: [
                 {
                     render: "div",
                     props: {className: "p-2 rounded-lg bg-muted/30 border border-border/50"},
+                    dependent: "requirements",
                     children: [
                         {
                             render: "#ExpandableText",
@@ -297,6 +409,7 @@ export const listingSheetView: ViewConfig = {
                         title: "promotions",
                         titleActions: "#ReferencesViewModeToggle",
                     },
+                    dependent: "promotions",
                     permissions: {read: "promotions"},
                     children: [
                         {
@@ -316,6 +429,7 @@ export const listingSheetView: ViewConfig = {
                                                 icon: "#Tag",
                                                 label: "promotion",
                                                 valuePath: ["name", "type"],
+                                                valueLanguageKeyCategories: [null, "promotionType"],
                                                 joinSeparator: " · ",
                                                 linkedSheetModel: "promotions",
                                                 linkedSheetWidget: "#PromotionSheetView",
@@ -330,136 +444,17 @@ export const listingSheetView: ViewConfig = {
                 },
             ],
         },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "listing.sheet.listingPackages.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "listingPackages",
-                        titleActions: "#ReferencesViewModeToggle",
-                    },
-                    dependent: "listingPackages",
-                    permissions: {read: "listingPackages"},
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "listingPackages"},
-                                    field: {
-                                        name: "listingPackages",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ListingPackageCard",
-                                            itemDataProp: "listingPackage",
-                                            pageSize: 2,
-                                            compactRow: {
-                                                icon: "#Package",
-                                                label: "listingPackage",
-                                                valuePath: ["name", "order"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "listingPackages",
-                                                linkedSheetWidget: "#ListingPackageSheetView",
-                                                linkedSheetEntityProp: "listingPackage",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "listing.sheet.listingAddOns.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "listingAddOns",
-                        titleActions: "#ReferencesViewModeToggle",
-                    },
-                    dependent: "listingAddOns",
-                    permissions: {read: "listingAddOns"},
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    permissions: {read: "listingAddOns"},
-                                    field: {
-                                        name: "listingAddOns",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ListingAddOnCard",
-                                            itemDataProp: "listingAddOn",
-                                            pageSize: 2,
-                                            compactRow: {
-                                                icon: "#Package",
-                                                label: "listingAddOn",
-                                                valuePath: ["name"],
-                                                linkedSheetModel: "listingAddOns",
-                                                linkedSheetWidget: "#ListingAddOnSheetView",
-                                                linkedSheetEntityProp: "listingAddOn",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "gallery"},
-            permissions: {read: "mainImage"},
-            children: [
-                {
-                    render: "div",
-                    props: {className: "max-w-full"},
-                    children: [
-                        {
-                            render: "#GalleryCarousel",
-                            permissions: {read: "mainImage"},
-                            field: {
-                                name: "mainImage",
-                                widget: "#GalleryCarousel",
-                                widgetProps: {
-                                    imageGalleryField: "imageGallery",
-                                    videoGalleryField: "videoGallery",
-                                    showThumbnails: false,
-                                    allowFullScreen: false,
-                                    coverAfterFirst: false,
-                                    showPreviews: true,
-                                    previewLocation: "right",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
         lifecycleSheetGroup,
     ],
 };
 
-const listingFormFields: ViewConfig["nodes"] = [
+const pricingTypeOptions = [
+    {value: "fixed", label: "form.pricingType.fixed"},
+    {value: "hourly", label: "form.pricingType.hourly"},
+];
+
+/** Groups follow the sheet: what it is, its price, its media, then details, place and FAQs (UX-03, UX-04). */
+const listingCreateFormNodes: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.section.general"},
@@ -485,6 +480,7 @@ const listingFormFields: ViewConfig["nodes"] = [
                             widget: "#ApiSelect",
                             label: "form.categoryLabel",
                             placeholder: "form.categoryPlaceholder",
+                            required: true,
                             widgetProps: {apiUrl: "/api/eCommerceMarketplace/listingCategory/select"},
                         },
                     },
@@ -506,6 +502,22 @@ const listingFormFields: ViewConfig["nodes"] = [
                 ],
             },
             {
+                render: "#Field",
+                field: {
+                    name: "description",
+                    widget: "#Textarea",
+                    label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
+                    widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.pricing"},
+        children: [
+            {
                 render: "#FormGrid",
                 props: {columns: 4},
                 children: [
@@ -516,7 +528,6 @@ const listingFormFields: ViewConfig["nodes"] = [
                             widget: "#ApiSelect",
                             label: "form.priceCurrencyLabel",
                             placeholder: "form.priceCurrencyPlaceholder",
-                            skipWriteAccessGate: true,
                             widgetProps: {apiUrl: "/api/finance/currency/select"},
                         },
                     },
@@ -526,7 +537,8 @@ const listingFormFields: ViewConfig["nodes"] = [
                             name: "price",
                             widget: "#Input",
                             label: "form.priceLabel",
-                            widgetProps: {type: "number"},
+                            placeholder: "form.pricePlaceholder",
+                            widgetProps: {type: "number", min: 0, step: "any"},
                         },
                     },
                     {
@@ -536,13 +548,7 @@ const listingFormFields: ViewConfig["nodes"] = [
                             widget: "#SimpleSelect",
                             label: "form.pricingTypeLabel",
                             placeholder: "form.pricingTypePlaceholder",
-                            widgetProps: {
-                                options: [
-                                    {value: "fixed", label: "form.pricingType.fixed"},
-                                    {value: "hourly", label: "form.pricingType.hourly"},
-                                ],
-                                className: "grow w-full",
-                            },
+                            widgetProps: {options: pricingTypeOptions, className: "grow w-full"},
                         },
                     },
                     {
@@ -552,45 +558,87 @@ const listingFormFields: ViewConfig["nodes"] = [
                             widget: "#Input",
                             label: "form.deliveryDaysLabel",
                             placeholder: "form.deliveryDaysPlaceholder",
-                            widgetProps: {type: "number", min: 0, step: "any"},
+                            widgetProps: {type: "number", min: 0, step: 1},
                         },
                     },
                 ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.images"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "mainImage",
+                            widget: "#MediaField",
+                            label: "form.mainImageLabel",
+                            widgetProps: {mediaType: "image", mode: "single"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "imageGallery",
+                            widget: "#MediaField",
+                            label: "form.imageGalleryLabel",
+                            widgetProps: {mediaType: "image", mode: "multiple", maxCount: 8},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.video"},
+        children: [
             {
                 render: "#Field",
                 field: {
-                    name: "description",
-                    widget: "#Textarea",
-                    label: "form.descriptionLabel",
-                    widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                    name: "videoGallery",
+                    widget: "#MediaField",
+                    label: "form.videoGalleryLabel",
+                    widgetProps: {mediaType: "video", mode: "multiple", maxCount: 3},
                 },
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.details"},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "tags",
-                    widget: "#StringArrayInput",
-                    label: "form.tagsLabel",
-                    placeholder: "form.tagsPlaceholder",
-                    widgetProps: {
-                        removeTooltipKey: "form.tagsRemoveTooltip",
-                        maxItems: 50,
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "tags",
+                            widget: "#StringArrayInput",
+                            label: "form.tagsLabel",
+                            placeholder: "form.tagsPlaceholder",
+                            widgetProps: {removeTooltipKey: "form.tagsRemoveTooltip", maxItems: 50},
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "requirements",
-                    widget: "#StringArrayInput",
-                    label: "form.requirementsLabel",
-                    placeholder: "form.requirementsPlaceholder",
-                    widgetProps: {
-                        removeTooltipKey: "form.requirementsRemoveTooltip",
-                        maxItems: 50,
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "requirements",
+                            widget: "#StringArrayInput",
+                            label: "form.requirementsLabel",
+                            placeholder: "form.requirementsPlaceholder",
+                            widgetProps: {removeTooltipKey: "form.requirementsRemoveTooltip", maxItems: 50},
+                        },
                     },
-                },
+                ],
             },
         ],
     },
@@ -628,7 +676,9 @@ const listingFormFields: ViewConfig["nodes"] = [
                                 apiUrl: "/api/auxiliary/state/select",
                                 method: "POST",
                                 pageSize: 50,
-                                postBodyFromFormFields: [{field: "address.country", paramName: "country"}],
+                                postBodyFromFormFields: [
+                                    {field: "address.country", paramName: "country"},
+                                ],
                                 enableWhenFormFieldsNonEmpty: ["address.country"],
                                 cascadeClearFormFields: ["address.city"],
                             },
@@ -659,7 +709,6 @@ const listingFormFields: ViewConfig["nodes"] = [
     },
     {
         render: "#Field",
-        permissions: {write: "faqs"},
         field: {
             name: "faqs",
             widget: "#FormRepeater",
@@ -701,10 +750,139 @@ const listingFormFields: ViewConfig["nodes"] = [
             },
         },
     },
+];
+
+const listingEditFormNodes: ViewConfig["nodes"] = [
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.general"},
+        permissions: {
+            readAny: ["title", "category", "provider", "description"],
+            writeAny: ["title", "category", "provider", "description"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "title", write: "title"},
+                        field: {
+                            name: "title",
+                            widget: "#Input",
+                            label: "form.titleLabel",
+                            placeholder: "form.titlePlaceholder",
+                            required: true,
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "category", write: "category"},
+                        field: {
+                            name: "category",
+                            widget: "#ApiSelect",
+                            label: "form.categoryLabel",
+                            placeholder: "form.categoryPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listingCategory/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "provider", write: "provider"},
+                        field: {
+                            name: "provider",
+                            widget: "#ApiSelect",
+                            label: "form.providerLabel",
+                            placeholder: "form.providerPlaceholder",
+                            required: true,
+                            widgetProps: {
+                                apiUrl: "/api/company/users/select",
+                                method: "POST",
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                permissions: {read: "description", write: "description"},
+                field: {
+                    name: "description",
+                    widget: "#Textarea",
+                    label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
+                    widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.pricing"},
+        permissions: {
+            readAny: ["priceCurrency", "price", "pricingType", "deliveryDays"],
+            writeAny: ["priceCurrency", "price", "pricingType", "deliveryDays"],
+        },
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 4},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "priceCurrency", write: "priceCurrency"},
+                        field: {
+                            name: "priceCurrency",
+                            widget: "#ApiSelect",
+                            label: "form.priceCurrencyLabel",
+                            placeholder: "form.priceCurrencyPlaceholder",
+                            widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "price", write: "price"},
+                        field: {
+                            name: "price",
+                            widget: "#Input",
+                            label: "form.priceLabel",
+                            placeholder: "form.pricePlaceholder",
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "pricingType", write: "pricingType"},
+                        field: {
+                            name: "pricingType",
+                            widget: "#SimpleSelect",
+                            label: "form.pricingTypeLabel",
+                            placeholder: "form.pricingTypePlaceholder",
+                            widgetProps: {options: pricingTypeOptions, className: "grow w-full"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "deliveryDays", write: "deliveryDays"},
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
     {
         render: "#TitleWithCollapse",
         props: {title: "form.section.images"},
-        permissions: {write: "mainImage"},
+        permissions: {readAny: ["mainImage", "imageGallery"], writeAny: ["mainImage", "imageGallery"]},
         children: [
             {
                 render: "#FormGrid",
@@ -712,6 +890,7 @@ const listingFormFields: ViewConfig["nodes"] = [
                 children: [
                     {
                         render: "#Field",
+                        permissions: {read: "mainImage", write: "mainImage"},
                         field: {
                             name: "mainImage",
                             widget: "#MediaField",
@@ -721,6 +900,7 @@ const listingFormFields: ViewConfig["nodes"] = [
                     },
                     {
                         render: "#Field",
+                        permissions: {read: "imageGallery", write: "imageGallery"},
                         field: {
                             name: "imageGallery",
                             widget: "#MediaField",
@@ -735,10 +915,11 @@ const listingFormFields: ViewConfig["nodes"] = [
     {
         render: "#TitleWithCollapse",
         props: {title: "form.section.video"},
-        permissions: {write: "videoGallery"},
+        permissions: {readAny: ["videoGallery"], writeAny: ["videoGallery"]},
         children: [
             {
                 render: "#Field",
+                permissions: {read: "videoGallery", write: "videoGallery"},
                 field: {
                     name: "videoGallery",
                     widget: "#MediaField",
@@ -748,7 +929,156 @@ const listingFormFields: ViewConfig["nodes"] = [
             },
         ],
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.details"},
+        permissions: {readAny: ["tags", "requirements"], writeAny: ["tags", "requirements"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "tags", write: "tags"},
+                        field: {
+                            name: "tags",
+                            widget: "#StringArrayInput",
+                            label: "form.tagsLabel",
+                            placeholder: "form.tagsPlaceholder",
+                            widgetProps: {removeTooltipKey: "form.tagsRemoveTooltip", maxItems: 50},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "requirements", write: "requirements"},
+                        field: {
+                            name: "requirements",
+                            widget: "#StringArrayInput",
+                            label: "form.requirementsLabel",
+                            placeholder: "form.requirementsPlaceholder",
+                            widgetProps: {removeTooltipKey: "form.requirementsRemoveTooltip", maxItems: 50},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.location"},
+        permissions: {readAny: ["address"], writeAny: ["address"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "address", write: "address"},
+                        field: {
+                            name: "address.country",
+                            widget: "#ApiSelect",
+                            label: "form.addressCountryLabel",
+                            placeholder: "form.addressCountryPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/auxiliary/country/select",
+                                method: "POST",
+                                pageSize: 50,
+                                cascadeClearFormFields: ["address.state", "address.city"],
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "address", write: "address"},
+                        field: {
+                            name: "address.state",
+                            widget: "#ApiSelect",
+                            label: "form.addressStateLabel",
+                            placeholder: "form.addressStatePlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/auxiliary/state/select",
+                                method: "POST",
+                                pageSize: 50,
+                                postBodyFromFormFields: [
+                                    {field: "address.country", paramName: "country"},
+                                ],
+                                enableWhenFormFieldsNonEmpty: ["address.country"],
+                                cascadeClearFormFields: ["address.city"],
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "address", write: "address"},
+                        field: {
+                            name: "address.city",
+                            widget: "#ApiSelect",
+                            label: "form.addressCityLabel",
+                            placeholder: "form.addressCityPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/auxiliary/city/select",
+                                method: "POST",
+                                pageSize: 50,
+                                postBodyFromFormFields: [
+                                    {field: "address.country", paramName: "country"},
+                                    {field: "address.state", paramName: "state"},
+                                ],
+                                enableWhenFormFieldsNonEmpty: ["address.country"],
+                            },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#Field",
+        permissions: {read: "faqs", write: "faqs"},
+        field: {
+            name: "faqs",
+            widget: "#FormRepeater",
+            widgetProps: {
+                title: "form.faqsSectionTitle",
+                arrayField: "faqs",
+                defaultItem: {question: "", answer: ""},
+                addLabel: "form.faqAddRow",
+                removeLabel: "form.faqRemoveRow",
+                rowTitleFields: ["question"],
+                rowTitlePlaceholder: "form.faqRowTitle",
+                rowTemplate: [
+                    {
+                        render: "div",
+                        props: {className: "space-y-4"},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "question",
+                                    widget: "#Input",
+                                    label: "form.faqQuestionLabel",
+                                    placeholder: "form.faqQuestionPlaceholder",
+                                },
+                            },
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "answer",
+                                    widget: "#Textarea",
+                                    label: "form.faqAnswerLabel",
+                                    placeholder: "form.faqAnswerPlaceholder",
+                                    widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    },
 ];
+
 
 export const listingCreateFormView: ViewConfig = {
     model: "listings",
@@ -757,7 +1087,7 @@ export const listingCreateFormView: ViewConfig = {
     accessModel: "listings",
     apiUrl: "/api/eCommerceMarketplace/listing",
     method: "PUT",
-    nodes: listingFormFields,
+    nodes: listingCreateFormNodes,
 };
 
 export const listingEditFormView: ViewConfig = {
@@ -767,7 +1097,7 @@ export const listingEditFormView: ViewConfig = {
     accessModel: "listings",
     apiUrl: "/api/eCommerceMarketplace/listing",
     method: "PATCH",
-    nodes: listingFormFields,
+    nodes: listingEditFormNodes,
 };
 
 export const listingViews: ViewConfig[] = [listingSheetView, listingCreateFormView, listingEditFormView];

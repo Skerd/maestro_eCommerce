@@ -13,6 +13,7 @@ export const listingPackageSheetView: ViewConfig = {
     },
     nodes: [
         {
+            // The name is the sheet title and the sort order is technical (UX-03).
             render: "#SheetGroup",
             props: {title: "overview"},
             children: [
@@ -22,16 +23,38 @@ export const listingPackageSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
+                            permissions: {read: "price"},
                             field: {
-                                name: "name",
+                                name: "price.amount",
                                 widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#IconLabel"},
+                                label: "priceAmount",
+                                widgetProps: {
+                                    icon: "#DollarSign",
+                                    format: "locale",
+                                    valuePath: ["price.currency.symbol", "price.amount"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "price.currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
+                                },
                             },
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "deliveryDays",
+                            permissions: {read: "deliveryDays"},
+                            field: {
+                                name: "deliveryDays",
+                                widget: "#DisplayCard",
+                                label: "deliveryDays",
+                                widgetProps: {icon: "#Clock", format: "locale"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "listing",
                             permissions: {read: "listing"},
                             field: {
                                 name: "listing",
@@ -50,6 +73,7 @@ export const listingPackageSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "provider",
                             permissions: {read: "provider"},
                             field: {
                                 name: "provider",
@@ -59,42 +83,8 @@ export const listingPackageSheetView: ViewConfig = {
                                     icon: "#User",
                                     valuePath: ["provider.name", "provider.surname"],
                                     joinSeparator: " ",
+                                    type: "user",
                                 },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "price"},
-                            field: {
-                                name: "price.amount",
-                                widget: "#DisplayCard",
-                                label: "priceAmount",
-                                widgetProps: {
-                                    icon: "#DollarSign",
-                                    valuePath: ["price.currency.symbol", "price.amount"],
-                                    joinSeparator: " ",
-                                    format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "order"},
-                            field: {
-                                name: "order",
-                                widget: "#DisplayCard",
-                                label: "displayOrder",
-                                widgetProps: {icon: "#Hash", format: "locale"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "deliveryDays"},
-                            field: {
-                                name: "deliveryDays",
-                                widget: "#DisplayCard",
-                                label: "deliveryDays",
-                                widgetProps: {icon: "#Clock", format: "locale"},
                             },
                         },
                     ],
@@ -104,6 +94,8 @@ export const listingPackageSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "description"},
+            dependent: "description",
+            permissions: {read: "description"},
             children: [
                 {
                     render: "div",
@@ -127,129 +119,238 @@ export const listingPackageSheetView: ViewConfig = {
     ],
 };
 
-/** Parent listing: chosen on create, shown read-only on edit (a row never moves between listings). */
-const listingPackageListingCreateRow: ViewConfig["nodes"] = [
+/** The parent listing is picked on create and shown read-only on edit: a package never moves between listings. */
+const listingPackageCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "listing",
-                    widget: "#ApiSelect",
-                    label: "form.listingIdLabel",
-                    required: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
-                },
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingIdLabel",
+                            placeholder: "form.listingIdPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
+                    },
+                ],
             },
-        ],
-    },
-];
-
-const listingPackageListingEditRow: ViewConfig["nodes"] = [
-    {
-        render: "#FormGrid",
-        props: {columns: 1},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "listing",
-                    widget: "#ApiSelect",
-                    label: "form.listingIdLabel",
-                    skipWriteAccessGate: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
-                },
-                permissions: {read: "listing"},
-            },
-        ],
-    },
-];
-
-const listingPackageFormFields: ViewConfig["nodes"] = [
-    {
-        render: "#FormGrid",
-        props: {columns: 2},
-        children: [
-            {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    required: true,
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "price.amount",
-                    widget: "#Input",
-                    label: "form.priceAmountLabel",
-                    required: true,
-                    widgetProps: {type: "number", min: 0, step: "any"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "price.currency",
-                    widget: "#ApiSelect",
-                    label: "form.currencyLabel",
-                    placeholder: "form.currencyPlaceholder",
-                    required: false,
-                    widgetProps: {apiUrl: "/api/finance/currency/select"},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "deliveryDays",
-                    widget: "#Input",
-                    label: "form.deliveryDaysLabel",
-                    required: true,
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#Input",
-                    label: "form.sortOrderLabel",
-                    widgetProps: {type: "number", min: 0, step: 1},
-                },
-            },
-        ],
-    },
-    {
-        render: "#FormGrid",
-        props: {columns: 1},
-        children: [
             {
                 render: "#Field",
                 field: {
                     name: "description",
                     widget: "#Textarea",
                     label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
                     widgetProps: {className: "min-h-[80px] max-h-[200px] resize-none overflow-y-auto"},
                 },
             },
         ],
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "price.currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "price.amount",
+                            widget: "#Input",
+                            label: "form.priceAmountLabel",
+                            placeholder: "form.priceAmountPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.sortOrderLabel",
+                            placeholder: "form.sortOrderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
-const listingPackageEditId: ViewConfig["nodes"] = [
+const listingPackageEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#Field",
-        field: {
-            name: "_id",
-            widget: "#Input",
-            label: "form.idLabel",
-            required: true,
-            widgetProps: {type: "hidden"},
-        },
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle"},
+        permissions: {readAny: ["listing", "name", "description"], writeAny: ["name", "description"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "listing"},
+                        field: {
+                            name: "listing",
+                            widget: "#ApiSelect",
+                            label: "form.listingIdLabel",
+                            disabled: true,
+                            skipWriteAccessGate: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/listing/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                permissions: {read: "description", write: "description"},
+                field: {
+                    name: "description",
+                    widget: "#Textarea",
+                    label: "form.descriptionLabel",
+                    placeholder: "form.descriptionPlaceholder",
+                    widgetProps: {className: "min-h-[80px] max-h-[200px] resize-none overflow-y-auto"},
+                },
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.pricingSectionTitle"},
+        permissions: {readAny: ["price", "deliveryDays"], writeAny: ["price", "deliveryDays"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "price", write: "price"},
+                        field: {
+                            name: "price.currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "price", write: "price"},
+                        field: {
+                            name: "price.amount",
+                            widget: "#Input",
+                            label: "form.priceAmountLabel",
+                            placeholder: "form.priceAmountPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: "any"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "deliveryDays", write: "deliveryDays"},
+                        field: {
+                            name: "deliveryDays",
+                            widget: "#Input",
+                            label: "form.deliveryDaysLabel",
+                            placeholder: "form.deliveryDaysPlaceholder",
+                            required: true,
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle"},
+        permissions: {readAny: ["order"], writeAny: ["order"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "order", write: "order"},
+                        field: {
+                            name: "order",
+                            widget: "#Input",
+                            label: "form.sortOrderLabel",
+                            placeholder: "form.sortOrderPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
     },
 ];
 
@@ -260,7 +361,7 @@ export const listingPackageCreateFormView: ViewConfig = {
     accessModel: "listingpackages",
     apiUrl: "/api/eCommerceMarketplace/listingPackage",
     method: "PUT",
-    nodes: [...listingPackageListingCreateRow, ...listingPackageFormFields],
+    nodes: listingPackageCreateFormNodes,
 };
 
 export const listingPackageEditFormView: ViewConfig = {
@@ -270,7 +371,7 @@ export const listingPackageEditFormView: ViewConfig = {
     accessModel: "listingpackages",
     apiUrl: "/api/eCommerceMarketplace/listingPackage",
     method: "PATCH",
-    nodes: [...listingPackageEditId, ...listingPackageListingEditRow, ...listingPackageFormFields],
+    nodes: listingPackageEditFormNodes,
 };
 
 export const listingPackageViews: ViewConfig[] = [

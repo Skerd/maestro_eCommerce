@@ -8,44 +8,15 @@ export const productOrderSheetView: ViewConfig = {
     apiUrl: "/api/eCommerce/productOrder",
     header: {titleField: "orderNumber", subtitleKey: "productOrderSubtitle", showCloseButton: true},
     nodes: [
+        // Order and payment status and the order number are header badges; this group is what's left to act on and what it costs.
         {
             render: "#SheetGroup",
             props: {title: "overview", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 3},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "orderNumber"},
-                            field: {
-                                name: "orderNumber",
-                                widget: "#DisplayCard",
-                                label: "orderNumber",
-                                widgetProps: {icon: "#Hash"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "status"},
-                            field: {
-                                name: "status",
-                                widget: "#DisplayCard",
-                                label: "status",
-                                widgetProps: {icon: "#Tag", languageKeyCategory: "productOrderStatus", type: "enum"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "paymentStatus"},
-                            field: {
-                                name: "paymentStatus",
-                                widget: "#DisplayCard",
-                                label: "paymentStatus",
-                                widgetProps: {icon: "#IconCreditCard", languageKeyCategory: "productOrderPaymentStatus", type: "enum"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "fulfillmentStatus"},
@@ -58,369 +29,24 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "customer"},
+                            permissions: {read: "grandTotal"},
                             field: {
-                                name: "customer",
+                                name: "grandTotal",
                                 widget: "#DisplayCard",
-                                label: "customer",
+                                label: "grandTotal",
                                 widgetProps: {
-                                    icon: "#IconUser",
-                                    parent: "customer",
-                                    valuePath: ["name", "surname"],
+                                    icon: "#IconCurrencyDollar",
+                                    format: "locale",
+                                    valuePath: ["currency.symbol", "grandTotal"],
                                     joinSeparator: " ",
-                                    type: "user",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
                                 },
                             },
                         },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "email"},
-                            field: {
-                                name: "email",
-                                widget: "#DisplayCard",
-                                label: "email",
-                                widgetProps: {icon: "#IconMail", type: "email"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "phone"},
-                            field: {
-                                name: "phone",
-                                widget: "#DisplayCard",
-                                label: "phone",
-                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "productOrder.sheet.items.listDisplay",
-                defaultMode: "cards",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "items",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#SheetEmbeddedItemsList",
-                                    field: {
-                                        name: "items",
-                                        widget: "#SheetEmbeddedItemsList",
-                                        widgetProps: {
-                                            pageSize: 5,
-                                            entityCards: true,
-                                            columns: 2,
-                                            compactSummaryFields: ["product", "quantity", "totalPrice"],
-                                            fields: [
-                                                {
-                                                    name: "product",
-                                                    type: "linkedRef",
-                                                    className: "text-sm font-medium",
-                                                    valuePath: ["title", "sku"],
-                                                    joinSeparator: " · ",
-                                                    linkedSheetModel: "products",
-                                                    linkedSheetWidget: "#ProductSheetView",
-                                                    linkedSheetEntityProp: "product",
-                                                    icon: "#IconPackage",
-                                                },
-                                                {
-                                                    name: "variant",
-                                                    type: "linkedRef",
-                                                    className: "text-sm",
-                                                    valuePath: ["sku"],
-                                                    labelKey: "itemVariant",
-                                                    linkedSheetModel: "productVariants",
-                                                    linkedSheetWidget: "#ProductVariantSheetView",
-                                                    linkedSheetEntityProp: "entity",
-                                                    icon: "#IconPackage",
-                                                },
-                                                {
-                                                    name: "snapshot.title",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "itemSnapshotTitle",
-                                                    icon: "#IconTag",
-                                                },
-                                                {
-                                                    name: "snapshot.sku",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "itemSnapshotSku",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "snapshot.variantLabel",
-                                                    type: "text",
-                                                    className: "text-xs text-muted-foreground",
-                                                    labelKey: "itemSnapshotVariantLabel",
-                                                    icon: "#IconTag",
-                                                },
-                                                {
-                                                    name: "quantity",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemQuantity",
-                                                    icon: "#Hash",
-                                                },
-                                                {
-                                                    name: "unitPrice",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    labelKey: "itemUnitPrice",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCash",
-                                                },
-                                                {
-                                                    name: "totalPrice",
-                                                    type: "text",
-                                                    className: "text-sm font-medium",
-                                                    labelKey: "itemTotalPrice",
-                                                    currencyField: "currency",
-                                                    icon: "#IconCash",
-                                                },
-                                                {
-                                                    name: "currency",
-                                                    type: "text",
-                                                    className: "text-sm",
-                                                    valuePath: ["symbol", "abbreviation"],
-                                                    joinSeparator: " ",
-                                                    labelKey: "currency",
-                                                    icon: "#IconCash",
-                                                },
-                                            ],
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "shippingAddress", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.firstName"},
-                            field: {
-                                name: "shippingAddress.firstName",
-                                widget: "#DisplayCard",
-                                label: "addressFirstName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.lastName"},
-                            field: {
-                                name: "shippingAddress.lastName",
-                                widget: "#DisplayCard",
-                                label: "addressLastName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.phone"},
-                            field: {
-                                name: "shippingAddress.phone",
-                                widget: "#DisplayCard",
-                                label: "addressPhone",
-                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.street"},
-                            field: {
-                                name: "shippingAddress.street",
-                                widget: "#DisplayCard",
-                                label: "addressStreet",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.city"},
-                            field: {
-                                name: "shippingAddress.city",
-                                widget: "#DisplayCard",
-                                label: "addressCity",
-                                widgetProps: {icon: "#IconBuilding"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.state"},
-                            field: {
-                                name: "shippingAddress.state",
-                                widget: "#DisplayCard",
-                                label: "addressState",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.postalCode"},
-                            field: {
-                                name: "shippingAddress.postalCode",
-                                widget: "#DisplayCard",
-                                label: "addressPostalCode",
-                                widgetProps: {icon: "#IconMail"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "shippingAddress.country"},
-                            field: {
-                                name: "shippingAddress.country",
-                                widget: "#DisplayCard",
-                                label: "addressCountry",
-                                widgetProps: {
-                                    icon: "#Globe",
-                                    flagCodePath: "shippingAddress.country.code",
-                                    parent: "shippingAddress.country",
-                                    valuePath: ["name"],
-                                    linkedRefPath: "shippingAddress.country",
-                                    linkedSheetModel: "countries",
-                                    linkedSheetWidget: "#CountrySheetView",
-                                    linkedSheetEntityProp: "country",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "billingAddress", defaultOpen: false},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.firstName"},
-                            field: {
-                                name: "billingAddress.firstName",
-                                widget: "#DisplayCard",
-                                label: "addressFirstName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.lastName"},
-                            field: {
-                                name: "billingAddress.lastName",
-                                widget: "#DisplayCard",
-                                label: "addressLastName",
-                                widgetProps: {icon: "#IconUser"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.phone"},
-                            field: {
-                                name: "billingAddress.phone",
-                                widget: "#DisplayCard",
-                                label: "addressPhone",
-                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.street"},
-                            field: {
-                                name: "billingAddress.street",
-                                widget: "#DisplayCard",
-                                label: "addressStreet",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.city"},
-                            field: {
-                                name: "billingAddress.city",
-                                widget: "#DisplayCard",
-                                label: "addressCity",
-                                widgetProps: {icon: "#IconBuilding"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.state"},
-                            field: {
-                                name: "billingAddress.state",
-                                widget: "#DisplayCard",
-                                label: "addressState",
-                                widgetProps: {icon: "#IconMapPin"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.postalCode"},
-                            field: {
-                                name: "billingAddress.postalCode",
-                                widget: "#DisplayCard",
-                                label: "addressPostalCode",
-                                widgetProps: {icon: "#IconMail"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "billingAddress.country"},
-                            field: {
-                                name: "billingAddress.country",
-                                widget: "#DisplayCard",
-                                label: "addressCountry",
-                                widgetProps: {
-                                    icon: "#Globe",
-                                    flagCodePath: "billingAddress.country.code",
-                                    parent: "billingAddress.country",
-                                    valuePath: ["name"],
-                                    linkedRefPath: "billingAddress.country",
-                                    linkedSheetModel: "countries",
-                                    linkedSheetWidget: "#CountrySheetView",
-                                    linkedSheetEntityProp: "country",
-                                },
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#SheetGroup",
-            props: {title: "totals", defaultOpen: true},
-            children: [
-                {
-                    render: "#SheetGrid",
-                    props: {columns: 2},
-                    children: [
                         {
                             render: "#DisplayCard",
                             permissions: {read: "subtotal"},
@@ -443,6 +69,8 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "appliedDiscounts",
+                            dependentRuntimeOnly: true,
                             permissions: {read: "discountTotal"},
                             field: {
                                 name: "discountTotal",
@@ -501,23 +129,248 @@ export const productOrderSheetView: ViewConfig = {
                                 },
                             },
                         },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            dependent: "items",
+            props: {
+                storageKey: "productOrder.sheet.items.listDisplay",
+                defaultMode: "cards",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "items",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#SheetEmbeddedItemsList",
+                                    field: {
+                                        name: "items",
+                                        widget: "#SheetEmbeddedItemsList",
+                                        widgetProps: {
+                                            pageSize: 5,
+                                            entityCards: true,
+                                            columns: 2,
+                                            compactSummaryFields: ["snapshot", "quantity", "totalPrice"],
+                                            fields: [
+                                                {
+                                                    // The name and options as sold; the product link below opens today's product.
+                                                    name: "snapshot",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                    valuePath: ["title", "variantLabel"],
+                                                    joinSeparator: " · ",
+                                                    icon: "#IconTag",
+                                                },
+                                                {
+                                                    name: "product",
+                                                    type: "linkedRef",
+                                                    className: "text-sm",
+                                                    valuePath: ["title", "sku"],
+                                                    joinSeparator: " · ",
+                                                    labelKey: "itemProduct",
+                                                    linkedSheetModel: "products",
+                                                    linkedSheetWidget: "#ProductSheetView",
+                                                    linkedSheetEntityProp: "product",
+                                                    icon: "#IconPackage",
+                                                },
+                                                {
+                                                    name: "quantity",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "itemQuantity",
+                                                    icon: "#Hash",
+                                                },
+                                                {
+                                                    name: "unitPrice",
+                                                    type: "text",
+                                                    className: "text-sm",
+                                                    labelKey: "itemUnitPrice",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCash",
+                                                },
+                                                {
+                                                    name: "totalPrice",
+                                                    type: "text",
+                                                    className: "text-sm font-medium",
+                                                    labelKey: "itemTotalPrice",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCash",
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            props: {title: "customer", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
+                    children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "grandTotal"},
+                            permissions: {read: "customer"},
                             field: {
-                                name: "grandTotal",
+                                name: "customer",
                                 widget: "#DisplayCard",
-                                label: "grandTotal",
+                                label: "customer",
                                 widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    format: "locale",
-                                    valuePath: ["currency.symbol", "grandTotal"],
+                                    icon: "#IconUser",
+                                    parent: "customer",
+                                    valuePath: ["name", "surname"],
                                     joinSeparator: " ",
-                                    type: "currency",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
+                                    type: "user",
+                                },
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "email",
+                            permissions: {read: "email"},
+                            field: {
+                                name: "email",
+                                widget: "#DisplayCard",
+                                label: "email",
+                                widgetProps: {icon: "#IconMail", type: "email"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "phone",
+                            permissions: {read: "phone"},
+                            field: {
+                                name: "phone",
+                                widget: "#DisplayCard",
+                                label: "phone",
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            dependentAny: ["shippingAddress.firstName", "shippingAddress.lastName", "shippingAddress.phone", "shippingAddress.street", "shippingAddress.city", "shippingAddress.state", "shippingAddress.postalCode", "shippingAddress.country"],
+            props: {title: "shippingAddress", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 2},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.firstName",
+                            permissions: {read: "shippingAddress.firstName"},
+                            field: {
+                                name: "shippingAddress.firstName",
+                                widget: "#DisplayCard",
+                                label: "addressFirstName",
+                                widgetProps: {icon: "#IconUser"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.lastName",
+                            permissions: {read: "shippingAddress.lastName"},
+                            field: {
+                                name: "shippingAddress.lastName",
+                                widget: "#DisplayCard",
+                                label: "addressLastName",
+                                widgetProps: {icon: "#IconUser"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.phone",
+                            permissions: {read: "shippingAddress.phone"},
+                            field: {
+                                name: "shippingAddress.phone",
+                                widget: "#DisplayCard",
+                                label: "addressPhone",
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.street",
+                            permissions: {read: "shippingAddress.street"},
+                            field: {
+                                name: "shippingAddress.street",
+                                widget: "#DisplayCard",
+                                label: "addressStreet",
+                                widgetProps: {icon: "#IconMapPin"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.city",
+                            permissions: {read: "shippingAddress.city"},
+                            field: {
+                                name: "shippingAddress.city",
+                                widget: "#DisplayCard",
+                                label: "addressCity",
+                                widgetProps: {icon: "#IconBuilding"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.state",
+                            permissions: {read: "shippingAddress.state"},
+                            field: {
+                                name: "shippingAddress.state",
+                                widget: "#DisplayCard",
+                                label: "addressState",
+                                widgetProps: {icon: "#IconMapPin"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.postalCode",
+                            permissions: {read: "shippingAddress.postalCode"},
+                            field: {
+                                name: "shippingAddress.postalCode",
+                                widget: "#DisplayCard",
+                                label: "addressPostalCode",
+                                widgetProps: {icon: "#IconMail"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "shippingAddress.country",
+                            permissions: {read: "shippingAddress.country"},
+                            field: {
+                                name: "shippingAddress.country",
+                                widget: "#DisplayCard",
+                                label: "addressCountry",
+                                widgetProps: {
+                                    icon: "#Globe",
+                                    flagCodePath: "shippingAddress.country.code",
+                                    parent: "shippingAddress.country",
+                                    valuePath: ["name"],
+                                    linkedRefPath: "shippingAddress.country",
+                                    linkedSheetModel: "countries",
+                                    linkedSheetWidget: "#CountrySheetView",
+                                    linkedSheetEntityProp: "country",
                                 },
                             },
                         },
@@ -527,11 +380,122 @@ export const productOrderSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "shippingRate", defaultOpen: false},
+            dependentAny: ["billingAddress.firstName", "billingAddress.lastName", "billingAddress.phone", "billingAddress.street", "billingAddress.city", "billingAddress.state", "billingAddress.postalCode", "billingAddress.country"],
+            props: {title: "billingAddress", defaultOpen: false},
             children: [
                 {
                     render: "#SheetGrid",
                     props: {columns: 2},
+                    children: [
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.firstName",
+                            permissions: {read: "billingAddress.firstName"},
+                            field: {
+                                name: "billingAddress.firstName",
+                                widget: "#DisplayCard",
+                                label: "addressFirstName",
+                                widgetProps: {icon: "#IconUser"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.lastName",
+                            permissions: {read: "billingAddress.lastName"},
+                            field: {
+                                name: "billingAddress.lastName",
+                                widget: "#DisplayCard",
+                                label: "addressLastName",
+                                widgetProps: {icon: "#IconUser"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.phone",
+                            permissions: {read: "billingAddress.phone"},
+                            field: {
+                                name: "billingAddress.phone",
+                                widget: "#DisplayCard",
+                                label: "addressPhone",
+                                widgetProps: {icon: "#IconPhone", type: "phoneNumber"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.street",
+                            permissions: {read: "billingAddress.street"},
+                            field: {
+                                name: "billingAddress.street",
+                                widget: "#DisplayCard",
+                                label: "addressStreet",
+                                widgetProps: {icon: "#IconMapPin"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.city",
+                            permissions: {read: "billingAddress.city"},
+                            field: {
+                                name: "billingAddress.city",
+                                widget: "#DisplayCard",
+                                label: "addressCity",
+                                widgetProps: {icon: "#IconBuilding"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.state",
+                            permissions: {read: "billingAddress.state"},
+                            field: {
+                                name: "billingAddress.state",
+                                widget: "#DisplayCard",
+                                label: "addressState",
+                                widgetProps: {icon: "#IconMapPin"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.postalCode",
+                            permissions: {read: "billingAddress.postalCode"},
+                            field: {
+                                name: "billingAddress.postalCode",
+                                widget: "#DisplayCard",
+                                label: "addressPostalCode",
+                                widgetProps: {icon: "#IconMail"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
+                            dependent: "billingAddress.country",
+                            permissions: {read: "billingAddress.country"},
+                            field: {
+                                name: "billingAddress.country",
+                                widget: "#DisplayCard",
+                                label: "addressCountry",
+                                widgetProps: {
+                                    icon: "#Globe",
+                                    flagCodePath: "billingAddress.country.code",
+                                    parent: "billingAddress.country",
+                                    valuePath: ["name"],
+                                    linkedRefPath: "billingAddress.country",
+                                    linkedSheetModel: "countries",
+                                    linkedSheetWidget: "#CountrySheetView",
+                                    linkedSheetEntityProp: "country",
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#SheetGroup",
+            dependent: "shippingRate",
+            props: {title: "shippingRate", defaultOpen: true},
+            children: [
+                {
+                    render: "#SheetGrid",
+                    props: {columns: 3},
                     children: [
                         {
                             render: "#DisplayCard",
@@ -545,6 +509,7 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "shippingRate.carrier",
                             permissions: {read: "shippingRate.carrier"},
                             field: {
                                 name: "shippingRate.carrier",
@@ -579,6 +544,7 @@ export const productOrderSheetView: ViewConfig = {
         },
         {
             render: "#ReferencesViewModeScope",
+            dependent: "appliedDiscounts",
             props: {
                 storageKey: "productOrder.sheet.appliedDiscounts.listDisplay",
                 defaultMode: "cards",
@@ -624,6 +590,8 @@ export const productOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "discountAmount",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCash",
                                                 },
                                             ],
                                         },
@@ -637,6 +605,7 @@ export const productOrderSheetView: ViewConfig = {
         },
         {
             render: "#ReferencesViewModeScope",
+            dependent: "taxBreakdown",
             props: {
                 storageKey: "productOrder.sheet.taxBreakdown.listDisplay",
                 defaultMode: "cards",
@@ -670,18 +639,22 @@ export const productOrderSheetView: ViewConfig = {
                                                     type: "text",
                                                     className: "text-sm font-medium",
                                                     labelKey: "taxName",
+                                                    icon: "#IconReceipt",
                                                 },
                                                 {
                                                     name: "rate",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "taxRate",
+                                                    icon: "#IconPercentage",
                                                 },
                                                 {
                                                     name: "amount",
                                                     type: "text",
                                                     className: "text-sm",
                                                     labelKey: "taxAmount",
+                                                    currencyField: "currency",
+                                                    icon: "#IconCash",
                                                 },
                                             ],
                                         },
@@ -695,7 +668,8 @@ export const productOrderSheetView: ViewConfig = {
         },
         {
             render: "#SheetGroup",
-            props: {title: "giftCard", defaultOpen: false},
+            dependent: "giftCard",
+            props: {title: "giftCard", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
@@ -717,16 +691,6 @@ export const productOrderSheetView: ViewConfig = {
                                     linkedSheetWidget: "#GiftCardSheetView",
                                     linkedSheetEntityProp: "entity",
                                 },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "giftCard.code"},
-                            field: {
-                                name: "giftCard.code",
-                                widget: "#DisplayCard",
-                                label: "giftCardCode",
-                                widgetProps: {icon: "#IconTag"},
                             },
                         },
                         {
@@ -754,32 +718,56 @@ export const productOrderSheetView: ViewConfig = {
             ],
         },
         {
-            render: "#SheetGroup",
-            props: {title: "notes", defaultOpen: false},
+            render: "#ReferencesViewModeScope",
+            dependent: "paymentTransactions",
+            dependentRuntimeOnly: true,
+            props: {
+                storageKey: "productOrder.sheet.paymentTransactions.listDisplay",
+                defaultMode: "compact",
+            },
             children: [
                 {
-                    render: "#SheetGrid",
-                    props: {columns: 1},
+                    render: "#SheetGroup",
+                    props: {
+                        title: "paymentTransactions",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
                     children: [
                         {
-                            render: "#DisplayCard",
-                            permissions: {read: "notes"},
-                            field: {
-                                name: "notes",
-                                widget: "#DisplayCard",
-                                label: "notes",
-                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "internalNotes"},
-                            field: {
-                                name: "internalNotes",
-                                widget: "#DisplayCard",
-                                label: "internalNotes",
-                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
-                            },
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "paymentTransactions",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#PaymentTransactionCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconCreditCard",
+                                                label: "paymentTransaction",
+                                                valuePath: ["type", "status", "amount", "gateway"],
+                                                valueLanguageKeyCategories: [
+                                                    "paymentTransactionType",
+                                                    "paymentTransactionStatus",
+                                                    null,
+                                                    "paymentTransactionGateway",
+                                                ],
+                                                valueFormats: [null, null, {money: "currency"}, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "paymentTransactions",
+                                                linkedSheetWidget: "#PaymentTransactionSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     ],
                 },
@@ -787,6 +775,107 @@ export const productOrderSheetView: ViewConfig = {
         },
         {
             render: "#ReferencesViewModeScope",
+            dependent: "fulfillments",
+            dependentRuntimeOnly: true,
+            props: {
+                storageKey: "productOrder.sheet.fulfillments.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "fulfillments",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: true,
+                    },
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "fulfillments",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#FulfillmentCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconTruck",
+                                                label: "fulfillment",
+                                                valuePath: ["status", "carrier", "trackingNumber"],
+                                                valueLanguageKeyCategories: ["fulfillmentStatusValues", null, null],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "fulfillments",
+                                                linkedSheetWidget: "#FulfillmentSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            dependent: "returnRequests",
+            dependentRuntimeOnly: true,
+            props: {
+                storageKey: "productOrder.sheet.returnRequests.listDisplay",
+                defaultMode: "compact",
+            },
+            children: [
+                {
+                    render: "#SheetGroup",
+                    props: {
+                        title: "returnRequests",
+                        titleActions: "#ReferencesViewModeToggle",
+                        defaultOpen: false,
+                    },
+                    children: [
+                        {
+                            render: "div",
+                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
+                            children: [
+                                {
+                                    render: "#ReferencesRender",
+                                    field: {
+                                        name: "returnRequests",
+                                        widget: "#ReferencesRender",
+                                        widgetProps: {
+                                            cardWidget: "#ReturnRequestCard",
+                                            itemDataProp: "entity",
+                                            pageSize: 3,
+                                            hideActions: true,
+                                            compactRow: {
+                                                icon: "#IconArrowBack",
+                                                label: "returnRequest",
+                                                valuePath: ["type", "status"],
+                                                valueLanguageKeyCategories: ["returnRequestTypeValues", "returnRequestStatusValues"],
+                                                joinSeparator: " · ",
+                                                linkedSheetModel: "returnRequests",
+                                                linkedSheetWidget: "#ReturnRequestSheetView",
+                                                linkedSheetEntityProp: "entity",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            render: "#ReferencesViewModeScope",
+            dependent: "timeline",
             props: {
                 storageKey: "productOrder.sheet.timeline.listDisplay",
                 defaultMode: "cards",
@@ -857,183 +946,35 @@ export const productOrderSheetView: ViewConfig = {
             ],
         },
         {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "productOrder.sheet.paymentTransactions.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "paymentTransactions",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "paymentTransactions",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#PaymentTransactionCard",
-                                            itemDataProp: "entity",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconCreditCard",
-                                                label: "paymentTransaction",
-                                                valuePath: ["type", "status", "amount", "currency.symbol", "gateway"],
-                                                valueLanguageKeyCategories: [
-                                                    "paymentTransactionType",
-                                                    "paymentTransactionStatus",
-                                                    null,
-                                                    null,
-                                                    "paymentTransactionGateway",
-                                                ],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "paymentTransactions",
-                                                linkedSheetWidget: "#PaymentTransactionSheetView",
-                                                linkedSheetEntityProp: "entity",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
             render: "#SheetGroup",
-            props: {title: "payment", defaultOpen: false},
+            dependentAny: ["notes", "internalNotes"],
+            props: {title: "notes", defaultOpen: true},
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 1},
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "stripePaymentIntentId"},
+                            dependent: "notes",
+                            permissions: {read: "notes"},
                             field: {
-                                name: "stripePaymentIntentId",
+                                name: "notes",
                                 widget: "#DisplayCard",
-                                label: "stripePaymentIntentId",
-                                widgetProps: {icon: "#IconCreditCard"},
+                                label: "notes",
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "idempotencyKey"},
+                            dependent: "internalNotes",
+                            permissions: {read: "internalNotes"},
                             field: {
-                                name: "idempotencyKey",
+                                name: "internalNotes",
                                 widget: "#DisplayCard",
-                                label: "idempotencyKey",
-                                widgetProps: {icon: "#Hash"},
+                                label: "internalNotes",
+                                widgetProps: {icon: "#IconNote", expandable: true, maxLength: 250},
                             },
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "productOrder.sheet.fulfillments.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "fulfillments",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: true,
-                    },
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "fulfillments",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#FulfillmentCard",
-                                            itemDataProp: "entity",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconTruck",
-                                                label: "fulfillment",
-                                                valuePath: ["status", "trackingNumber", "carrier"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "fulfillments",
-                                                linkedSheetWidget: "#FulfillmentSheetView",
-                                                linkedSheetEntityProp: "entity",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            render: "#ReferencesViewModeScope",
-            props: {
-                storageKey: "productOrder.sheet.returnRequests.listDisplay",
-                defaultMode: "compact",
-            },
-            children: [
-                {
-                    render: "#SheetGroup",
-                    props: {
-                        title: "returnRequests",
-                        titleActions: "#ReferencesViewModeToggle",
-                        defaultOpen: false,
-                    },
-                    dependentRuntimeOnly: true,
-                    children: [
-                        {
-                            render: "div",
-                            props: {className: "rounded-lg bg-muted/30 border border-border/50"},
-                            children: [
-                                {
-                                    render: "#ReferencesRender",
-                                    field: {
-                                        name: "returnRequests",
-                                        widget: "#ReferencesRender",
-                                        widgetProps: {
-                                            cardWidget: "#ReturnRequestCard",
-                                            itemDataProp: "entity",
-                                            pageSize: 3,
-                                            hideActions: true,
-                                            compactRow: {
-                                                icon: "#IconArrowBack",
-                                                label: "returnRequest",
-                                                valuePath: ["type", "status"],
-                                                joinSeparator: " · ",
-                                                linkedSheetModel: "returnRequests",
-                                                linkedSheetWidget: "#ReturnRequestSheetView",
-                                                linkedSheetEntityProp: "entity",
-                                            },
-                                        },
-                                    },
-                                },
-                            ],
                         },
                     ],
                 },

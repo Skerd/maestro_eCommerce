@@ -24,9 +24,9 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
     filter.company = {$in: companyIds};
     await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
     const [products, total] = await Promise.all([
-        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef}>(filter, {
-            select: "company title slug mainImage price currency",
-            populate: [{path: "currency", select: SHOP_CURRENCY_SELECT}],
+        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]}>(filter, {
+            select: "company title slug mainImage price currency brand categories",
+            populate: [{path: "currency", select: SHOP_CURRENCY_SELECT}, {path: "categories", select: "name"}],
             sort: SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"],
             skip,
             limit,
@@ -37,6 +37,8 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
         kind: "product",
         id: product._id.toString(),
         title: product.title,
+        // The card's second line: the brand people shop by, else the product's first category.
+        subtitle: product.brand || product.categories?.[0]?.name,
         image: publicMediaUrl(product.mainImage),
         ...(product.price != null && product.currency?.abbreviation ? {price: {amount: product.price, currency: product.currency.abbreviation}} : {}),
         section: "shop",
@@ -51,9 +53,9 @@ async function browseServices({scope, companyIds, query, priceMin, priceMax, sor
     if (!filter) return {items: [], total: 0};
     filter.company = {$in: companyIds};
     const [listings, total] = await Promise.all([
-        listingService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}}>(filter, {
-            select: "company title mainImage price priceCurrency address.city",
-            populate: [{path: "priceCurrency", select: SHOP_CURRENCY_SELECT}, {path: "address.city", select: "name"}],
+        listingService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}; category?: {name?: string}}>(filter, {
+            select: "company title mainImage price priceCurrency address.city category",
+            populate: [{path: "priceCurrency", select: SHOP_CURRENCY_SELECT}, {path: "address.city", select: "name"}, {path: "category", select: "name"}],
             sort: SHOP_LISTING_SORT_SPECS[sort ?? "newest"],
             skip,
             limit,
@@ -64,6 +66,7 @@ async function browseServices({scope, companyIds, query, priceMin, priceMax, sor
         kind: "service",
         id: listing._id.toString(),
         title: listing.title,
+        subtitle: listing.category?.name,
         image: publicMediaUrl(listing.mainImage),
         ...(listing.price != null && listing.priceCurrency?.abbreviation ? {price: {amount: listing.price, currency: listing.priceCurrency.abbreviation}} : {}),
         city: listing.address?.city?.name,

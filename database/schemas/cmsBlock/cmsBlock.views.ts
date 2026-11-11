@@ -30,18 +30,8 @@ export const cmsBlockSheetView: ViewConfig = {
             children: [
                 {
                     render: "#SheetGrid",
-                    props: {columns: 2},
+                    props: {columns: 3},
                     children: [
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "title"},
-                            field: {
-                                name: "title",
-                                widget: "#DisplayCard",
-                                label: "title",
-                                widgetProps: {icon: "#IconTag"},
-                            },
-                        },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "type"},
@@ -54,26 +44,7 @@ export const cmsBlockSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {icon: "#IconToggleRight", type: "boolean"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "position"},
-                            field: {
-                                name: "position",
-                                widget: "#DisplayCard",
-                                label: "position",
-                                widgetProps: {icon: "#Hash", type: "number"},
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "startsAt",
                             permissions: {read: "startsAt"},
                             field: {
                                 name: "startsAt",
@@ -84,6 +55,7 @@ export const cmsBlockSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "endsAt",
                             permissions: {read: "endsAt"},
                             field: {
                                 name: "endsAt",
@@ -393,6 +365,7 @@ export const cmsBlockSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "visibility", defaultOpen: true},
+            dependentAny: ["visibility.devices", "visibility.regions"],
             children: [
                 {
                     render: "#SheetGrid",
@@ -400,6 +373,7 @@ export const cmsBlockSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
+                            dependent: "visibility.devices",
                             permissions: {read: "visibility.devices"},
                             field: {
                                 name: "visibility.devices",
@@ -410,6 +384,7 @@ export const cmsBlockSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "visibility.regions",
                             permissions: {read: "visibility.regions"},
                             field: {
                                 name: "visibility.regions",
@@ -454,7 +429,7 @@ const cmsBlockCreateHeadlineLimitFields: ViewConfig["nodes"] = [
             widget: "#Input",
             label: "form.limitLabel",
             placeholder: "form.limitPlaceholder",
-            widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX},
+            widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX, step: 1},
         },
     },
 ];
@@ -504,16 +479,6 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                                 ],
                                 className: "grow w-full"
                             },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "position",
-                            widget: "#Input",
-                            label: "form.positionLabel",
-                            placeholder: "form.positionPlaceholder",
-                            widgetProps: {type: "number", min: 0},
                         },
                     },
                 ],
@@ -892,7 +857,7 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                                     label: "form.limitLabel",
                                     placeholder: "form.limitPlaceholder",
                                     required: true,
-                                    widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX},
+                                    widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX, step: 1},
                                 },
                             },
                         ],
@@ -969,40 +934,44 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {
-                        render: "#FormGrid",
-                        props: {columns: 1},
-                        children: [
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "visibility.devices",
-                                    widget: "#Select",
-                                    label: "form.visibilityDevicesLabel",
-                                    placeholder: "form.visibilityDevicesPlaceholder",
-                                    widgetProps: {
-                                        options: [
-                                            {value: "desktop", label: "form.visibilityDevice.desktop"},
-                                            {value: "mobile", label: "form.visibilityDevice.mobile"},
-                                            {value: "tablet", label: "form.visibilityDevice.tablet"},
-                                        ],
-                                        className: "grow w-full",
-                                        multiple: true
-                                    },
-                                },
+                        render: "#Field",
+                        field: {
+                            name: "visibility.devices",
+                            widget: "#Select",
+                            label: "form.visibilityDevicesLabel",
+                            placeholder: "form.visibilityDevicesPlaceholder",
+                            widgetProps: {
+                                options: [
+                                    {value: "desktop", label: "form.visibilityDevice.desktop"},
+                                    {value: "mobile", label: "form.visibilityDevice.mobile"},
+                                    {value: "tablet", label: "form.visibilityDevice.tablet"},
+                                ],
+                                className: "grow w-full",
+                                multiple: true
                             },
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "visibility.regions",
-                                    widget: "#StringArrayInput",
-                                    label: "form.visibilityRegionsLabel",
-                                    placeholder: "form.visibilityRegionsPlaceholder",
-                                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
-                                },
-                            },
-                        ],
+                        },
                     },
-                ]
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "visibility.regions",
+                    widget: "#StringArrayInput",
+                    label: "form.visibilityRegionsLabel",
+                    placeholder: "form.visibilityRegionsPlaceholder",
+                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
+                },
             },
         ],
     },
@@ -1036,7 +1005,7 @@ const cmsBlockEditHeadlineLimitFields: ViewConfig["nodes"] = [
             widget: "#Input",
             label: "form.limitLabel",
             placeholder: "form.limitPlaceholder",
-            widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX},
+            widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX, step: 1},
         }, permissions: {read: "config.limit", write: "config.limit"},
     },
 ];
@@ -1046,8 +1015,8 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.generalSectionTitle", defaultOpen: true},
         permissions: {
-            readAny: ["title", "type", "position", "startsAt", "endsAt"],
-            writeAny: ["title", "type", "position", "startsAt", "endsAt"],
+            readAny: ["title", "type", "startsAt", "endsAt"],
+            writeAny: ["title", "type", "startsAt", "endsAt"],
         },
         children: [
             {
@@ -1091,16 +1060,6 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                                 className: "grow w-full"
                             },
                         }, permissions: {read: "type", write: "type"},
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "position",
-                            widget: "#Input",
-                            label: "form.positionLabel",
-                            placeholder: "form.positionPlaceholder",
-                            widgetProps: {type: "number", min: 0},
-                        }, permissions: {read: "position", write: "position"},
                     },
                 ],
             },
@@ -1514,7 +1473,7 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                                     label: "form.limitLabel",
                                     placeholder: "form.limitPlaceholder",
                                     required: true,
-                                    widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX},
+                                    widgetProps: {type: "number", min: CMS_BLOCK_CONFIG_LIMIT_MIN, max: CMS_BLOCK_CONFIG_LIMIT_MAX, step: 1},
                                 }, permissions: {read: "config.limit", write: "config.limit"},
                             },
                         ],
@@ -1590,8 +1549,8 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
         render: "#TitleWithCollapse",
         props: {title: "form.visibilitySectionTitle", defaultOpen: true},
         permissions: {
-            readAny: ["visibility.devices", "visibility.regions"],
-            writeAny: ["visibility.devices", "visibility.regions"],
+            readAny: ["visibility.devices", "visibility.regions", "position"],
+            writeAny: ["visibility.devices", "visibility.regions", "position"],
         },
         children: [
             {
@@ -1599,41 +1558,45 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                 props: {columns: 2},
                 children: [
                     {
-                        render: "#FormGrid",
-                        props: {columns: 1},
-                        children: [
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "visibility.devices",
-                                    widget: "#Select",
-                                    label: "form.visibilityDevicesLabel",
-                                    placeholder: "form.visibilityDevicesPlaceholder",
-                                    widgetProps: {
-                                        options: [
-                                            {value: "desktop", label: "form.visibilityDevice.desktop"},
-                                            {value: "mobile", label: "form.visibilityDevice.mobile"},
-                                            {value: "tablet", label: "form.visibilityDevice.tablet"},
-                                        ],
-                                        className: "grow w-full",
-                                        multiple: true
-                                    },
-                                }, permissions: {read: "visibility.devices", write: "visibility.devices"},
+                        render: "#Field",
+                        field: {
+                            name: "visibility.devices",
+                            widget: "#Select",
+                            label: "form.visibilityDevicesLabel",
+                            placeholder: "form.visibilityDevicesPlaceholder",
+                            widgetProps: {
+                                options: [
+                                    {value: "desktop", label: "form.visibilityDevice.desktop"},
+                                    {value: "mobile", label: "form.visibilityDevice.mobile"},
+                                    {value: "tablet", label: "form.visibilityDevice.tablet"},
+                                ],
+                                className: "grow w-full",
+                                multiple: true
                             },
-                            {
-                                render: "#Field",
-                                field: {
-                                    name: "visibility.regions",
-                                    widget: "#StringArrayInput",
-                                    label: "form.visibilityRegionsLabel",
-                                    placeholder: "form.visibilityRegionsPlaceholder",
-                                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
-                                }, permissions: {read: "visibility.regions", write: "visibility.regions"},
-                            },
-                        ],
+                        }, permissions: {read: "visibility.devices", write: "visibility.devices"},
                     },
-                ]
-            }
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "position",
+                            widget: "#Input",
+                            label: "form.positionLabel",
+                            placeholder: "form.positionPlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        }, permissions: {read: "position", write: "position"},
+                    },
+                ],
+            },
+            {
+                render: "#Field",
+                field: {
+                    name: "visibility.regions",
+                    widget: "#StringArrayInput",
+                    label: "form.visibilityRegionsLabel",
+                    placeholder: "form.visibilityRegionsPlaceholder",
+                    widgetProps: {removeTooltipKey: "form.removeRegion", maxLength: CMS_BLOCK_REGION_MAX},
+                }, permissions: {read: "visibility.regions", write: "visibility.regions"},
+            },
         ],
     },
 ];

@@ -16,7 +16,7 @@ export const {router} = createCrudRouter({
     service: taxZoneService,
     entityName: "TaxZone",
     selectSearchField: "name",
-    defaultSort: {priority: -1},
+    defaultSort: {name: 1},
     createSchema: createTaxZoneFormSchema,
     editSchema: editTaxZoneFormSchema,
     toDTO: taxZoneToDTO,

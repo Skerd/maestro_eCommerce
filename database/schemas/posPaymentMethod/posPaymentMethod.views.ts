@@ -27,16 +27,6 @@ export const posPaymentMethodSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "name"},
-                            field: {
-                                name: "name",
-                                widget: "#DisplayCard",
-                                label: "name",
-                                widgetProps: {icon: "#IconTag"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "type"},
                             field: {
                                 name: "type",
@@ -50,30 +40,7 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "sequence"},
-                            field: {
-                                name: "sequence",
-                                widget: "#DisplayCard",
-                                label: "sequence",
-                                widgetProps: {
-                                    icon: "#Hash",
-                                    type: "number"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "isActive"},
-                            field: {
-                                name: "isActive",
-                                widget: "#DisplayCard",
-                                label: "isActive",
-                                widgetProps: {
-                                    icon: "#IconToggleRight",
-                                    type: "boolean"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "cashQuickAmounts",
                             permissions: {read: "cashQuickAmounts"},
                             field: {
                                 name: "cashQuickAmounts",
@@ -89,6 +56,9 @@ export const posPaymentMethodSheetView: ViewConfig = {
         {
             render: "#SheetGroup",
             props: {title: "terminal"},
+            // Only card methods drive a terminal (UX-10).
+            dependent: "terminalEnabled",
+            permissions: {read: "terminalEnabled"},
             children: [
                 {
                     render: "#SheetGrid",
@@ -96,20 +66,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                     children: [
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "terminalEnabled"},
-                            field: {
-                                name: "terminalEnabled",
-                                widget: "#DisplayCard",
-                                label: "terminalEnabled",
-                                widgetProps: {
-                                    icon: "#IconCreditCard",
-                                    type: "boolean"}
-                            }
-                        },
-                        {
-                            render: "#DisplayCard",
+                            dependent: "terminalProvider",
                             permissions: {read: "terminalProvider"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalProvider",
                                 widget: "#DisplayCard",
@@ -123,8 +81,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "terminalProtocol",
                             permissions: {read: "terminalProtocol"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalProtocol",
                                 widget: "#DisplayCard",
@@ -138,8 +96,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "terminalHost",
                             permissions: {read: "terminalHost"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalHost",
                                 widget: "#DisplayCard",
@@ -149,8 +107,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "terminalPort",
                             permissions: {read: "terminalPort"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalPort",
                                 widget: "#DisplayCard",
@@ -160,8 +118,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "terminalId",
                             permissions: {read: "terminalId"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalId",
                                 widget: "#DisplayCard",
@@ -171,8 +129,8 @@ export const posPaymentMethodSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "terminalPath",
                             permissions: {read: "terminalPath"},
-                            dependent: "terminalEnabled",
                             field: {
                                 name: "terminalPath",
                                 widget: "#DisplayCard",
@@ -190,49 +148,42 @@ export const posPaymentMethodSheetView: ViewConfig = {
 
 const posPaymentMethodCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 3},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle", defaultOpen: true},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: POS_PAYMENT_METHOD_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "type",
-                    widget: "#Select",
-                    label: "form.typeLabel",
-                    placeholder: "form.typePlaceholder",
-                    required: true,
-                    widgetProps: {
-                        options: [
-                            {value: "cash", label: "form.paymentType.cash"},
-                            {value: "card", label: "form.paymentType.card"},
-                        ],
-                        className: "grow w-full"
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: POS_PAYMENT_METHOD_NAME_MAX},
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                field: {
-                    name: "sequence",
-                    widget: "#Input",
-                    label: "form.sequenceLabel",
-                    placeholder: "form.sequencePlaceholder",
-                    widgetProps: {
-                        type: "number",
-                        min: 0
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "type",
+                            widget: "#Select",
+                            label: "form.typeLabel",
+                            placeholder: "form.typePlaceholder",
+                            required: true,
+                            widgetProps: {
+                                options: [
+                                    {value: "cash", label: "form.paymentType.cash"},
+                                    {value: "card", label: "form.paymentType.card"},
+                                ],
+                                className: "grow w-full"
+                            },
+                        },
                     },
-                },
+                ],
             },
         ],
     },
@@ -241,21 +192,27 @@ const posPaymentMethodCreateFormNodes: ViewConfig["nodes"] = [
         props: {watchField: "type", whenValues: ["cash"]},
         children: [
             {
-                render: "#FormGrid",
-                props: {columns: 1},
+                render: "#TitleWithCollapse",
+                props: {title: "form.cashSectionTitle", defaultOpen: true},
                 children: [
                     {
-                        render: "#Field",
-                        field: {
-                            name: "cashQuickAmounts",
-                            widget: "#Input",
-                            label: "form.cashQuickAmountsLabel",
-                            placeholder: "form.cashQuickAmountsPlaceholder",
-                            widgetProps: {
-                                className: "grow w-full",
-                                maxLength: POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
+                        render: "#FormGrid",
+                        props: {columns: 1},
+                        children: [
+                            {
+                                render: "#Field",
+                                field: {
+                                    name: "cashQuickAmounts",
+                                    widget: "#Input",
+                                    label: "form.cashQuickAmountsLabel",
+                                    placeholder: "form.cashQuickAmountsPlaceholder",
+                                    widgetProps: {
+                                        className: "grow w-full",
+                                        maxLength: POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
+                                    },
+                                },
                             },
-                        },
+                        ],
                     },
                 ],
             },
@@ -340,11 +297,7 @@ const posPaymentMethodCreateFormNodes: ViewConfig["nodes"] = [
                                     label: "form.terminalPortLabel",
                                     placeholder: "form.terminalPortPlaceholder",
                                     required: true,
-                                    widgetProps: {
-                                        type: "number",
-                                        min: 1,
-                                        max: 65535
-                                    },
+                                    widgetProps: {type: "number", min: 1, max: 65535, step: 1},
                                 },
                             },
                             {
@@ -364,57 +317,71 @@ const posPaymentMethodCreateFormNodes: ViewConfig["nodes"] = [
             },
         ],
     },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle", defaultOpen: true},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "sequence",
+                            widget: "#Input",
+                            label: "form.sequenceLabel",
+                            placeholder: "form.sequencePlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
 const posPaymentMethodEditFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 3},
-        permissions: {writeAny: ["name", "type", "sequence"]},
+        render: "#TitleWithCollapse",
+        props: {title: "form.basicsSectionTitle", defaultOpen: true},
+        permissions: {readAny: ["name", "type"], writeAny: ["name", "type"]},
         children: [
             {
-                render: "#Field",
-                permissions: {read: "name", write: "name"},
-                field: {
-                    name: "name",
-                    widget: "#Input",
-                    label: "form.nameLabel",
-                    placeholder: "form.namePlaceholder",
-                    required: true,
-                    widgetProps: {maxLength: POS_PAYMENT_METHOD_NAME_MAX},
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "type", write: "type"},
-                field: {
-                    name: "type",
-                    widget: "#Select",
-                    label: "form.typeLabel",
-                    placeholder: "form.typePlaceholder",
-                    required: true,
-                    widgetProps: {
-                        options: [
-                            {value: "cash", label: "form.paymentType.cash"},
-                            {value: "card", label: "form.paymentType.card"},
-                        ],
-                        className: "grow w-full"
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "name", write: "name"},
+                        field: {
+                            name: "name",
+                            widget: "#Input",
+                            label: "form.nameLabel",
+                            placeholder: "form.namePlaceholder",
+                            required: true,
+                            widgetProps: {maxLength: POS_PAYMENT_METHOD_NAME_MAX},
+                        },
                     },
-                },
-            },
-            {
-                render: "#Field",
-                permissions: {read: "sequence", write: "sequence"},
-                field: {
-                    name: "sequence",
-                    widget: "#Input",
-                    label: "form.sequenceLabel",
-                    placeholder: "form.sequencePlaceholder",
-                    widgetProps: {
-                        type: "number",
-                        min: 0
+                    {
+                        render: "#Field",
+                        permissions: {read: "type", write: "type"},
+                        field: {
+                            name: "type",
+                            widget: "#Select",
+                            label: "form.typeLabel",
+                            placeholder: "form.typePlaceholder",
+                            required: true,
+                            widgetProps: {
+                                options: [
+                                    {value: "cash", label: "form.paymentType.cash"},
+                                    {value: "card", label: "form.paymentType.card"},
+                                ],
+                                className: "grow w-full"
+                            },
+                        },
                     },
-                },
+                ],
             },
         ],
     },
@@ -424,22 +391,28 @@ const posPaymentMethodEditFormNodes: ViewConfig["nodes"] = [
         props: {watchField: "type", whenValues: ["cash"]},
         children: [
             {
-                render: "#FormGrid",
-                props: {columns: 1},
+                render: "#TitleWithCollapse",
+                props: {title: "form.cashSectionTitle", defaultOpen: true},
                 children: [
                     {
-                        render: "#Field",
-                        permissions: {read: "cashQuickAmounts", write: "cashQuickAmounts"},
-                        field: {
-                            name: "cashQuickAmounts",
-                            widget: "#Input",
-                            label: "form.cashQuickAmountsLabel",
-                            placeholder: "form.cashQuickAmountsPlaceholder",
-                            widgetProps: {
-                                className: "grow w-full",
-                                maxLength: POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
+                        render: "#FormGrid",
+                        props: {columns: 1},
+                        children: [
+                            {
+                                render: "#Field",
+                                permissions: {read: "cashQuickAmounts", write: "cashQuickAmounts"},
+                                field: {
+                                    name: "cashQuickAmounts",
+                                    widget: "#Input",
+                                    label: "form.cashQuickAmountsLabel",
+                                    placeholder: "form.cashQuickAmountsPlaceholder",
+                                    widgetProps: {
+                                        className: "grow w-full",
+                                        maxLength: POS_PAYMENT_METHOD_CASH_QUICK_AMOUNTS_MAX,
+                                    },
+                                },
                             },
-                        },
+                        ],
                     },
                 ],
             },
@@ -557,11 +530,7 @@ const posPaymentMethodEditFormNodes: ViewConfig["nodes"] = [
                                     label: "form.terminalPortLabel",
                                     placeholder: "form.terminalPortPlaceholder",
                                     required: true,
-                                    widgetProps: {
-                                        type: "number",
-                                        min: 1,
-                                        max: 65535
-                                    },
+                                    widgetProps: {type: "number", min: 1, max: 65535, step: 1},
                                 },
                             },
                             {
@@ -577,6 +546,30 @@ const posPaymentMethodEditFormNodes: ViewConfig["nodes"] = [
                                 },
                             },
                         ],
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.visibilitySectionTitle", defaultOpen: true},
+        permissions: {readAny: ["sequence"], writeAny: ["sequence"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 3},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "sequence", write: "sequence"},
+                        field: {
+                            name: "sequence",
+                            widget: "#Input",
+                            label: "form.sequenceLabel",
+                            placeholder: "form.sequencePlaceholder",
+                            widgetProps: {type: "number", min: 0, step: 1},
+                        },
                     },
                 ],
             },

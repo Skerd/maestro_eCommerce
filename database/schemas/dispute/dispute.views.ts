@@ -34,7 +34,6 @@ export const disputeSheetView: ViewConfig = {
                                         "order.listing.title",
                                         "order.taskRequest.title",
                                         "order.name",
-                                        "order._id",
                                     ],
                                     pickFirstTruthyValuePath: true,
                                     linkedRefPath: "order",
@@ -113,31 +112,50 @@ export const disputeSheetView: ViewConfig = {
     ],
 };
 
-const disputeCreateFormFields: ViewConfig["nodes"] = [
+const disputeCreateFormNodes: ViewConfig["nodes"] = [
     {
-        render: "#FormGrid",
-        props: {columns: 1},
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.order"},
         children: [
             {
-                render: "#Field",
-                field: {
-                    name: "order",
-                    widget: "#ApiSelect",
-                    label: "form.orderLabel",
-                    required: true,
-                    widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "order",
+                            widget: "#ApiSelect",
+                            label: "form.orderLabel",
+                            placeholder: "form.orderPlaceholder",
+                            required: true,
+                            widgetProps: {apiUrl: "/api/eCommerceMarketplace/order/select"},
+                        },
+                    },
+                ],
             },
+        ],
+    },
+    {
+        render: "#TitleWithCollapse",
+        props: {title: "form.section.issue"},
+        children: [
             {
-                render: "#Field",
-                field: {
-                    name: "reason",
-                    widget: "#Textarea",
-                    label: "form.reasonLabel",
-                    placeholder: "form.reasonPlaceholder",
-                    required: true,
-                    widgetProps: { className: "resize-none max-h-[250px] overflow-y-auto" },
-                },
+                render: "#FormGrid",
+                props: {columns: 1},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "reason",
+                            widget: "#Textarea",
+                            label: "form.reasonLabel",
+                            placeholder: "form.reasonPlaceholder",
+                            required: true,
+                            widgetProps: {className: "resize-none max-h-[250px] overflow-y-auto"},
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -150,7 +168,7 @@ export const disputeCreateFormView: ViewConfig = {
     accessModel: "disputes",
     apiUrl: "/api/eCommerceMarketplace/dispute",
     method: "PUT",
-    nodes: disputeCreateFormFields,
+    nodes: disputeCreateFormNodes,
 };
 
 export const disputeViews: ViewConfig[] = [disputeSheetView, disputeCreateFormView];
