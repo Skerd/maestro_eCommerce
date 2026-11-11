@@ -93,7 +93,8 @@ const DiscountSchema = new Schema<IDiscount>(
             type: [{
                 type: SchemaTypes.ObjectId
             }], 
-            default: []
+            default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         minimumOrderAmount: {
             type: SchemaTypes.Number, 
@@ -101,7 +102,8 @@ const DiscountSchema = new Schema<IDiscount>(
         },
         minimumQuantity: {
             type: SchemaTypes.Number, 
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         usageLimit: {
             type: SchemaTypes.Number,
@@ -109,7 +111,8 @@ const DiscountSchema = new Schema<IDiscount>(
         },
         usageLimitPerCustomer: {
             type: SchemaTypes.Number, 
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         usageCount: {
             type: SchemaTypes.Number, 
@@ -123,6 +126,7 @@ const DiscountSchema = new Schema<IDiscount>(
                 refAllowlist: CustomerGroupSimpleSnippet
             }],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isActive: {
             type: SchemaTypes.Boolean, 
@@ -159,6 +163,7 @@ const DiscountSchema = new Schema<IDiscount>(
                 },
             },
             _id: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {accessMode: "loose"},

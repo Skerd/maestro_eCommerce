@@ -51,6 +51,7 @@ const OrderSchema = new Schema<IOrder>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         listing: {
             type: SchemaTypes.ObjectId,
@@ -89,6 +90,7 @@ const OrderSchema = new Schema<IOrder>(
             ref: "Currency",
             required: true,
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         status: {
             type: SchemaTypes.String,
@@ -123,6 +125,7 @@ const OrderSchema = new Schema<IOrder>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

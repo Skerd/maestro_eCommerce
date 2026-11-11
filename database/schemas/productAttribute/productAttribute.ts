@@ -61,7 +61,8 @@ const ProductAttributeSchema = new Schema<IProductAttribute>(
         },
         position: {
             type: SchemaTypes.Number,
-            default: 0
+            default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {accessMode: "loose"},

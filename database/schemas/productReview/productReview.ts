@@ -81,6 +81,7 @@ const ProductReviewSchema = new Schema<IProductReview>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_REVIEW_COMMENT_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         reviewer: {
             type: SchemaTypes.ObjectId,

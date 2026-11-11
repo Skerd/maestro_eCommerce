@@ -118,6 +118,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             type: SchemaTypes.String,
             maxlength: INVENTORY_MOVEMENT_NOTE_MAX,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         quantityBefore: {
             type: SchemaTypes.Number,
@@ -140,6 +141,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             trim: true,
             maxlength: INVENTORY_MOVEMENT_TEXT_MAX,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         receipts: {
             type: [{type: SchemaTypes.ObjectId, ref: "Media"}],
@@ -162,6 +164,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             trim: true,
             maxlength: INVENTORY_MOVEMENT_TEXT_MAX,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         expiryDate: {
             type: SchemaTypes.Date,

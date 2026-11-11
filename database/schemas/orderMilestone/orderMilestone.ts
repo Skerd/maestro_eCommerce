@@ -51,6 +51,7 @@ const OrderMilestoneSchema = new Schema<IOrderMilestone>(
             ref: "Currency",
             required: true,
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         status: {
             type: SchemaTypes.String,
@@ -68,6 +69,7 @@ const OrderMilestoneSchema = new Schema<IOrderMilestone>(
             type: SchemaTypes.Number,
             required: true,
             default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

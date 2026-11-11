@@ -76,6 +76,7 @@ const SavedSearchSchema = new Schema<ISavedSearch>(
         sort: {
             type: SchemaTypes.String,
             enum: SHOP_PRODUCT_SORTS,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {accessMode: "loose"},

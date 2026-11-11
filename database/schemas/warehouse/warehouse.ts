@@ -90,11 +90,13 @@ const WarehouseSchema = new Schema<IWarehouse>(
                     type: SchemaTypes.Number,
                     min: -90,
                     max: 90,
+                    dynamicTableConfiguration: {hideColumn: true},
                 },
                 longitude: {
                     type: SchemaTypes.Number,
                     min: -180,
                     max: 180,
+                    dynamicTableConfiguration: {hideColumn: true},
                 },
             },
             required: false,

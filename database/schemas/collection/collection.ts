@@ -83,11 +83,13 @@ const CollectionSchema = new Schema<ICollection>(
                 others: {
                     write: "no-permission",
                 }
-            }
+            },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         description: {
             type: SchemaTypes.String,
             maxlength: COLLECTION_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         mainImage: {
             type: SchemaTypes.ObjectId,
@@ -105,7 +107,8 @@ const CollectionSchema = new Schema<ICollection>(
         },
         position: {
             type: SchemaTypes.Number,
-            default: 0
+            default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         products: {
             type: [{
@@ -166,10 +169,12 @@ const CollectionSchema = new Schema<ICollection>(
         seoTitle: {
             type: SchemaTypes.String,
             maxlength: COLLECTION_SEO_TITLE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         seoDescription: {
             type: SchemaTypes.String,
             maxlength: COLLECTION_SEO_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

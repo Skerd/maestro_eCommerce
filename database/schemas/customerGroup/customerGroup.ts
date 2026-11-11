@@ -44,6 +44,7 @@ const CustomerGroupSchema = new Schema<ICustomerGroup, ICustomerGroupModel>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: CUSTOMER_GROUP_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         memberCount: {
             type: SchemaTypes.Number,

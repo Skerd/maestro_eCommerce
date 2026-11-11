@@ -70,7 +70,8 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                 ref: "State",
                 refAllowlist: StateSimpleSnippet
             }],
-            default: []
+            default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         postalCodePatterns: {
             type: [{
@@ -85,6 +86,7 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                 },
                 message: `Cannot have more than ${SHIPPING_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS} postal code patterns`,
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         rates: {
             type: [
@@ -126,6 +128,7 @@ const ShippingZoneSchema = new Schema<IShippingZone>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         } as any,
         isActive: {type: SchemaTypes.Boolean, default: true},
     },

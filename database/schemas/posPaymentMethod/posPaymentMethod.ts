@@ -65,7 +65,8 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
         sequence: {
             type: SchemaTypes.Number,
             default: 0,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         cashQuickAmounts: {
             type: SchemaTypes.String,
@@ -85,27 +86,32 @@ const PosPaymentMethodSchema = new Schema<IPosPaymentMethod>(
             type: SchemaTypes.String,
             enum: ["http", "https"],
             default: "http",
+            dynamicTableConfiguration: {hideColumn: true},
         },
         terminalHost: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: POS_PAYMENT_METHOD_TERMINAL_HOST_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         terminalPort: {
             type: SchemaTypes.Number,
             min: 1,
-            max: 65535
+            max: 65535,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         terminalId: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: POS_PAYMENT_METHOD_TERMINAL_ID_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         terminalPath: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: POS_PAYMENT_METHOD_TERMINAL_PATH_MAX,
-            default: "/payment"
+            default: "/payment",
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {accessMode: "loose"},

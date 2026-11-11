@@ -61,7 +61,8 @@ const TaxZoneSchema = new Schema<ITaxZone>(
                 ref: "State", 
                 refAllowlist: StateSimpleSnippet
             }], 
-            default: []
+            default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         postalCodePatterns: {
             type: [{
@@ -76,6 +77,7 @@ const TaxZoneSchema = new Schema<ITaxZone>(
                 },
                 message: `Cannot have more than ${TAX_ZONE_POSTAL_CODE_PATTERNS_MAX_ITEMS} postal code patterns`,
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         rates: {
             type: [
@@ -105,10 +107,12 @@ const TaxZoneSchema = new Schema<ITaxZone>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         priority: {
             type: SchemaTypes.Number, 
-            default: 0
+            default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isActive: {
             type: SchemaTypes.Boolean, 

@@ -72,6 +72,7 @@ const PromotionSchema = new Schema<IPromotion>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: 2000,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         startAt: {
             type: SchemaTypes.Date,

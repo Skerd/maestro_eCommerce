@@ -39,6 +39,7 @@ const ListingCategorySchema = new Schema<IListingCategory>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         parentListingCategory: {
             type: SchemaTypes.ObjectId,
@@ -48,6 +49,7 @@ const ListingCategorySchema = new Schema<IListingCategory>(
         order: {
             type: SchemaTypes.Number,
             default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

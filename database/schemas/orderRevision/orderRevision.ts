@@ -42,6 +42,7 @@ const OrderRevisionSchema = new Schema<IOrderRevision>(
             ref: "OrderDelivery",
             required: true,
             refAllowlist: OrderDeliverySimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         requestedBy: {
             type: SchemaTypes.ObjectId,

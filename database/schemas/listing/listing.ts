@@ -81,6 +81,8 @@ const ListingSchema = new Schema<IListing>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            // The LIST-… code is a badge on the sheet; the table leads with the title (UX-12).
+            dynamicTableConfiguration: {hideColumn: true},
         },
         title: {
             type: SchemaTypes.String,
@@ -90,6 +92,7 @@ const ListingSchema = new Schema<IListing>(
         description: {
             type: SchemaTypes.String,
             default: "",
+            dynamicTableConfiguration: {hideColumn: true},
         },
         category: {
             type: SchemaTypes.ObjectId,
@@ -110,6 +113,7 @@ const ListingSchema = new Schema<IListing>(
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         status: {
             type: SchemaTypes.String,
@@ -222,10 +226,12 @@ const ListingSchema = new Schema<IListing>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         requirements: {
             type: [SchemaTypes.String],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         tags: {
             type: [SchemaTypes.String],

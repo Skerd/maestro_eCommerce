@@ -51,6 +51,8 @@ const ListingAddOnSchema = new Schema<IListingAddOn>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            // Always the listing's provider, so the column only repeats it (UX-12).
+            dynamicTableConfiguration: {hideColumn: true},
         },
         name: {
             type: SchemaTypes.String,

@@ -47,6 +47,7 @@ const ProductCategorySchema = new Schema<IProductCategory>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         parent: {
             type: SchemaTypes.ObjectId,
@@ -56,6 +57,7 @@ const ProductCategorySchema = new Schema<IProductCategory>(
         order: {
             type: SchemaTypes.Number,
             default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

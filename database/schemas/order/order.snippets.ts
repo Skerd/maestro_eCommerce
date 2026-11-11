@@ -2,14 +2,19 @@ import type {OrderSimple, OrderWithTaskOrListing} from "armonia/src/modules/eCom
 import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
 import {defineSnippet} from "@coreModule/database/utilities/snippet";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
+import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
 import {ListingSimpleSnippet} from "@eCommerceModule/database/schemas/listing/listing.snippets";
 import {TaskRequestSimpleSnippet} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.snippets";
 
 export const OrderSimpleSnippet = defineSnippet<IOrder, OrderSimple>()({
     keys: {
         _id: {},
+        name: {},
         status: {},
         amount: {},
+        listing: ListingSimpleSnippet,
+        taskRequest: TaskRequestSimpleSnippet,
+        customer: SimpleUserSnippet,
     },
 });
 

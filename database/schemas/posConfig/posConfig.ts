@@ -158,42 +158,52 @@ const PosConfigSchema = new Schema<IPosConfig>(
         receiptHeader: {
             type: SchemaTypes.String,
             maxlength: POS_CONFIG_RECEIPT_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         receiptFooter: {
             type: SchemaTypes.String,
             maxlength: POS_CONFIG_RECEIPT_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         ifaceBarcodeScanner: {
             type: SchemaTypes.Boolean,
-            default: true
+            default: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         ifaceCashControl: {
             type: SchemaTypes.Boolean,
-            default: true
+            default: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         allowDiscount: {
             type: SchemaTypes.Boolean,
-            default: true
+            default: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         allowQuantityChange: {
             type: SchemaTypes.Boolean,
-            default: true
+            default: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         allowOversell: {
             type: SchemaTypes.Boolean,
-            default: false
+            default: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         pinForDiscount: {
             type: SchemaTypes.Boolean,
-            default: false
+            default: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         pinForCashOut: {
             type: SchemaTypes.Boolean,
-            default: false
+            default: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         pinForRefund: {
             type: SchemaTypes.Boolean,
-            default: false
+            default: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isActive: {
             type: SchemaTypes.Boolean,

@@ -109,11 +109,13 @@ const CustomerAddressSchema = new Schema<ICustomerAddress>(
         },
         latitude: {
             type: SchemaTypes.Number, 
-            required: true
+            required: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         longitude: {
             type: SchemaTypes.Number, 
-            required: true
+            required: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isDefault: {
             type: SchemaTypes.Boolean, 

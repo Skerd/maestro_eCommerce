@@ -77,7 +77,8 @@ const InventorySchema = new Schema<IInventory>(
         },
         lowStockAlertSent: {
             type: SchemaTypes.Boolean,
-            default: false
+            default: false,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

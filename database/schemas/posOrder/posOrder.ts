@@ -424,6 +424,7 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         productOrder: {
             type: SchemaTypes.ObjectId,
@@ -446,25 +447,30 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         iicSignature: {
             type: SchemaTypes.String,
             select: false,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         nivf: {
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         eic: {
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         qrVerifyUrl: {
             type: SchemaTypes.String,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalIssueDateTime: {
             type: SchemaTypes.String,
@@ -473,25 +479,30 @@ const PosOrderSchema = new Schema<IPosOrder>(
         fiscalInvNum: {
             type: SchemaTypes.String,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalInvOrdNum: {
             type: SchemaTypes.String,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalTcrCode: {
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalOperatorCode: {
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalBusinessUnitCode: {
             type: SchemaTypes.String,
             trim: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalTypeOfInv: {
             type: SchemaTypes.String,
@@ -502,6 +513,7 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.ObjectId,
             ref: "FiscalConfig",
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalizedAt: {
             type: SchemaTypes.Date,
@@ -521,11 +533,13 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.String,
             select: false,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalRegisteringAt: {
             type: SchemaTypes.Date,
             select: false,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fiscalResolution: {
             type: SchemaTypes.String,
@@ -550,6 +564,7 @@ const PosOrderSchema = new Schema<IPosOrder>(
             type: SchemaTypes.String,
             select: false,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

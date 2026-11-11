@@ -54,6 +54,7 @@ const BookingSchema = new Schema<IBooking>(
             required: true,
             default: "UTC",
             trim: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

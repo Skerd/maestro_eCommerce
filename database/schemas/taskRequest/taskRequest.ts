@@ -85,6 +85,7 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         title: {
             type: SchemaTypes.String,
@@ -138,6 +139,7 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
             dynamicTableConfiguration: {
                 filterable: true,
                 sortable: true,
+                hideColumn: true,
             },
         },
         address: {
@@ -258,7 +260,8 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
             dynamicTableConfiguration: {
                 filterable: false,
                 sortable: false,
-                cellType: COLUMN_TYPE.AVATAR
+                cellType: COLUMN_TYPE.AVATAR,
+                hideColumn: true,
             },
         },
         videoGallery: {
@@ -270,6 +273,7 @@ const TaskRequestSchema = new Schema<ITaskRequest>(
             default: [],
             dynamicTableConfiguration: {
                 filterable: false,
+                hideColumn: true,
             },
         },
     },

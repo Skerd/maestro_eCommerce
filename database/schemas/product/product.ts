@@ -194,26 +194,32 @@ const ProductSchema = new Schema<IProduct>(
                 others: {
                     write: "no-permission",
                 }
-            }
+            },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         description: {
             type: SchemaTypes.String,
             maxlength: PRODUCT_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         shortDescription: {
             type: SchemaTypes.String,
             maxlength: PRODUCT_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         highlights: {
             type: [SchemaTypes.String],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         careInstructions: {
             type: SchemaTypes.String,
             maxlength: PRODUCT_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         warranty: {
             type: SchemaTypes.String,
             maxlength: PRODUCT_DESCRIPTION_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         faqs: [{
             type: {
@@ -237,31 +243,37 @@ const ProductSchema = new Schema<IProduct>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         upc: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         ean: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isbn: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         mpn: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         hsCode: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         countryOfOrigin: {
             type: SchemaTypes.String,
@@ -332,6 +344,7 @@ const ProductSchema = new Schema<IProduct>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         minOrderQty: {
             type: SchemaTypes.Number,
@@ -389,6 +402,7 @@ const ProductSchema = new Schema<IProduct>(
             type: SchemaTypes.String,
             trim: true,
             maxlength: PRODUCT_CODE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isHazmat: {
             type: SchemaTypes.Boolean,

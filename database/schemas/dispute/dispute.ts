@@ -63,6 +63,7 @@ const DisputeSchema = new Schema<IDispute>(
         resolution: {
             type: SchemaTypes.String,
             trim: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

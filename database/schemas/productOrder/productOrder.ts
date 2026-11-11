@@ -148,12 +148,14 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         email: {
             type: SchemaTypes.String,
             trim: true,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         phone: {
             type: SchemaTypes.String,
             trim: true,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         items: {
             type: [{
@@ -226,6 +228,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             default: [],
             permissions: NoWritePermission,
             dynamicTableConfiguration: {
+                hideColumn: true,
                 cellType: COLUMN_TYPE.OBJECT_ID,
                 refDisplayKey: ["quantity", "!x ", "snapshot.title"],
                 maxInlineItems: 1,
@@ -237,25 +240,29 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         discountTotal: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         shippingTotal: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         taxTotal: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         grandTotal: {
             type: SchemaTypes.Number,
@@ -274,6 +281,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.String,
             uppercase: true,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         shippingAddress: {
             type: {
@@ -313,7 +321,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                 },
             },
             required: true,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         billingAddress: {
             type: {
@@ -352,6 +361,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                     permissions: NoWritePermission,
                 },
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         paymentStatus: {
             type: SchemaTypes.String,
@@ -408,7 +418,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                 }
             }],
             default: [],
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         taxBreakdown: {
             type: [{
@@ -427,6 +438,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             }],
             permissions: NoWritePermission,
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         shippingRate: {
             type: {
@@ -442,15 +454,18 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                     type: SchemaTypes.Number,
                     permissions: NoWritePermission,
                 }
-            }
+            },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         notes: {
             type: SchemaTypes.String,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         internalNotes: {
             type: SchemaTypes.String,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         timeline: {
             type: [{
@@ -485,7 +500,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         },
         stripePaymentIntentId: {
             type: SchemaTypes.String,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         reservations: {
             ...stockReservationsField,
@@ -495,7 +511,8 @@ const ProductOrderSchema = new Schema<IProductOrder>(
         idempotencyKey: {
             type: SchemaTypes.String,
             required: true,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         giftCard: {
             type: {
@@ -514,6 +531,7 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                     permissions: NoWritePermission,
                 },
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {

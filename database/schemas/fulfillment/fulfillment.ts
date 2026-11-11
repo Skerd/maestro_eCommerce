@@ -64,6 +64,7 @@ const FulfillmentSchema = new Schema<IFulfillment>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         carrier: {
             type: SchemaTypes.String,
@@ -76,6 +77,7 @@ const FulfillmentSchema = new Schema<IFulfillment>(
         trackingUrl: {
             type: SchemaTypes.String,
             maxlength: FULFILLMENT_TRACKING_URL_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         shippedAt: {
             type: SchemaTypes.Date,
@@ -105,6 +107,7 @@ const FulfillmentSchema = new Schema<IFulfillment>(
         notes: {
             type: SchemaTypes.String,
             maxlength: FULFILLMENT_NOTES_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
     },
     {accessMode: "loose"},

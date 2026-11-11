@@ -72,7 +72,8 @@ const PricingRuleSchema = new Schema<IPricingRule>(
         // Polymorphic by appliesTo — no single static ref.
         targetIds: {
             type: [{type: SchemaTypes.ObjectId}],
-            default: []
+            default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         customerGroups: {
             type: [{
@@ -81,6 +82,7 @@ const PricingRuleSchema = new Schema<IPricingRule>(
                 refAllowlist: CustomerGroupSimpleSnippet
             }],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         minimumOrderAmount: {
             type: SchemaTypes.Number, 
@@ -88,11 +90,13 @@ const PricingRuleSchema = new Schema<IPricingRule>(
         },
         minimumQuantity: {
             type: SchemaTypes.Number, 
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         priority: {
             type: SchemaTypes.Number, 
-            default: 0
+            default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         isActive: {
             type: SchemaTypes.Boolean, 

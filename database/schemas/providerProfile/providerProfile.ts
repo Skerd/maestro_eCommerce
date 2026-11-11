@@ -54,6 +54,7 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
             type: SchemaTypes.String,
             default: "",
             trim: true,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         portfolio: {
             type: [
@@ -89,17 +90,20 @@ const ProviderProfileSchema = new Schema<IProviderProfile>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         } as any,
         timezone: {
             type: SchemaTypes.String,
             trim: true,
             maxlength: PROVIDER_PROFILE_TIMEZONE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
-        stripeAccountId: {type: SchemaTypes.String, trim: true, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
-        stripeChargesEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        // Stripe ids and sync flags are technical; payouts-enabled is the one state worth a column (UX-12).
+        stripeAccountId: {type: SchemaTypes.String, trim: true, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}, dynamicTableConfiguration: {hideColumn: true}},
+        stripeChargesEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}, dynamicTableConfiguration: {hideColumn: true}},
         stripePayoutsEnabled: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
-        stripeDetailsSubmitted: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
-        stripeAccountSyncedAt: {type: SchemaTypes.Date, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}},
+        stripeDetailsSubmitted: {type: SchemaTypes.Boolean, default: false, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}, dynamicTableConfiguration: {hideColumn: true}},
+        stripeAccountSyncedAt: {type: SchemaTypes.Date, permissions: {self: {write: "no-permission"}, others: {write: "no-permission"}}, dynamicTableConfiguration: {hideColumn: true}},
     },
     {
         accessMode: "loose",

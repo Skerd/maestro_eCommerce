@@ -119,6 +119,7 @@ const CmsBlockSchema = new Schema<ICmsBlock>(
         position: {
             type: SchemaTypes.Number,
             default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         config: {
             type: {

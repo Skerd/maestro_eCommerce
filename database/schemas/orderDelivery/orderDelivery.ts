@@ -37,14 +37,18 @@ const OrderDeliverySchema = new Schema<IOrderDelivery>(
         message: {
             type: SchemaTypes.String,
             default: "",
+            dynamicTableConfiguration: {hideColumn: true},
         },
-        attachments: [
-            {
-                type: SchemaTypes.ObjectId,
-                ref: "Media",
-                refAllowlist: MediaSimpleSnippet,
-            },
-        ],
+        attachments: {
+            type: [
+                {
+                    type: SchemaTypes.ObjectId,
+                    ref: "Media",
+                    refAllowlist: MediaSimpleSnippet,
+                },
+            ],
+            dynamicTableConfiguration: {hideColumn: true},
+        },
         status: {
             type: SchemaTypes.String,
             enum: ["submitted", "accepted", "revision_requested"],

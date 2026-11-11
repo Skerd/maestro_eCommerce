@@ -131,7 +131,8 @@ const ProductVariantSchema = new Schema<IProductVariant>(
         },
         order: {
             type: SchemaTypes.Number,
-            default: 0
+            default: 0,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         status: {
             type: SchemaTypes.String,

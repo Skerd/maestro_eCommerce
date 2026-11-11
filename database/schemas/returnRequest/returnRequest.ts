@@ -89,6 +89,7 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
                 },
             ],
             default: [],
+            dynamicTableConfiguration: {hideColumn: true},
         },
         refundAmount: {
             type: SchemaTypes.Number, 
@@ -97,10 +98,12 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
         customerNote: {
             type: SchemaTypes.String,
             maxlength: RETURN_REQUEST_NOTE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         adminNote: {
             type: SchemaTypes.String,
             maxlength: RETURN_REQUEST_NOTE_MAX,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         resolvedBy: {
             type: SchemaTypes.ObjectId, 

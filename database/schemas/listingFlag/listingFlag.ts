@@ -59,6 +59,7 @@ const ListingFlagSchema = new Schema<IListingFlag>(
             type: SchemaTypes.String,
             trim: true,
             permissions: { self: { publicRead: true } },
+            dynamicTableConfiguration: { hideColumn: true },
         },
         status: {
             type: SchemaTypes.String,
@@ -77,6 +78,7 @@ const ListingFlagSchema = new Schema<IListingFlag>(
             type: SchemaTypes.String,
             trim: true,
             permissions: { self: { publicRead: true } },
+            dynamicTableConfiguration: { hideColumn: true },
         },
     },
     {

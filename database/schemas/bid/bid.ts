@@ -42,6 +42,7 @@ const BidSchema = new Schema<IBid>(
                 self: {write: "no-permission"},
                 others: {write: "no-permission"},
             },
+            dynamicTableConfiguration: {hideColumn: true},
         },
         taskRequest: {
             type: SchemaTypes.ObjectId,
@@ -65,11 +66,13 @@ const BidSchema = new Schema<IBid>(
             ref: "Currency",
             required: true,
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         proposal: {
             type: SchemaTypes.String,
             required: true,
             default: "",
+            dynamicTableConfiguration: {hideColumn: true},
         },
         deliveryDays: {
             type: SchemaTypes.Number,
