@@ -97,7 +97,7 @@ async function seedTill() {
         name: "Till 1", isActive: true, warehouses: [warehouse._id], currency: currency._id, paymentMethods: [cash._id], company: companyId,
     } as any);
     const {session} = await openPosSession({configId: config._id.toString()}, ctx);
-    return {warehouse, cash, config, sessionId: session._id};
+    return {warehouse, cash, config, currency, sessionId: session._id};
 }
 
 let slug = 0;
@@ -202,7 +202,7 @@ describe("till sales (#19)", () => {
 
     // TD-B31: a cash payment's amount includes the change given back, so the refund used to return the change too.
     it("refunds what was paid, not the cash handed over, and takes only that out of the drawer", () => asCompany(async () => {
-        const {warehouse, cash, sessionId} = await seedTill();
+        const {warehouse, cash, currency, sessionId} = await seedTill();
         const wine = await seedProduct({price: 43.2});
         await Inventory.create({product: wine._id, warehouse: warehouse._id, quantityOnHand: 5, quantityReserved: 0, company: companyId});
         const {order} = await payPosOrder({
@@ -216,6 +216,9 @@ describe("till sales (#19)", () => {
         const {order: refund} = await refundPosOrder({_id: order._id.toString()}, ctx);
 
         expect(refund.amountTotal).toBe(43.2);
+        // The sale and its refund keep the till's currency, so their amounts read right later (UX-07).
+        expect(String((await PosOrder.findById(order._id))!.currency)).toBe(String(currency._id));
+        expect(String((await PosOrder.findById(refund._id))!.currency)).toBe(String(currency._id));
         expect(refund.payments.map(payment => payment.amount)).toEqual([43.2]);
         const drawer = (await PosSession.findById(sessionId))!;
         expect(drawer.cashRegisterBalance).toBe(drawerAfterSale - 43.2);

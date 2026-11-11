@@ -29,6 +29,7 @@ import {
     type CartForValidation,
 } from "@eCommerceModule/utilities/services/discountValidationService";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
+import {withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
 
 const discountTransforms = {
     code: (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : v),
@@ -114,9 +115,9 @@ export const {router} = createCrudRouter({
         errorCode: "discount_already_exists",
     }),
     rateLimits: {read: 60, write: 30, delete: 20},
-    enrichList: async (docs) => discountsToDTOWithLabels(docs),
-    enrichSingle: async (doc) => discountToDTOWithLabels(doc),
-    enrichUpdate: async (doc) => discountToDTOWithLabels(doc),
+    enrichList: async (docs, params) => withShopCurrency(await discountsToDTOWithLabels(docs), params.company._id, params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
 });
 
 router.post(

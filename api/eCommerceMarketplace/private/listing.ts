@@ -27,6 +27,7 @@ import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import Listing, {type IListing} from "@eCommerceModule/database/schemas/listing/listing";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 import type {ICompany} from "@coreModule/database/schemas/company/company";
+import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
 
 /** Provider must be the caller or another user in the same company. */
 async function assertProviderInCompany(
@@ -114,6 +115,8 @@ export const {router} = createCrudRouter<IListing, CreateListingFormType, EditLi
     buildCreateData: async (params) => {
         const {actionUserCtx, company, session, logger, languageCode} = params;
         const data = buildCreate(params);
+        // A listing priced without a currency is priced in the shop currency (UX-06).
+        if (!data.priceCurrency) data.priceCurrency = await shopCurrencyRefOf(company._id, languageCode);
         await assertProviderInCompany(data.provider, actionUserCtx.userId, company, languageCode, {session, logger, languageCode});
         return data;
     },

@@ -21,6 +21,7 @@ import {
 import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import {ObjectId} from "mongodb";
 import "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
+import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
 
 async function assertWarehousesActive(
     warehouseIds: ObjectId[],
@@ -113,6 +114,8 @@ export const {router} = createCrudRouter({
     },
     buildCreateData: async (params) => {
         const data = buildCreateDataFromSchemaDef(PosConfigSchemaDef)(params);
+        // A till set up without a currency sells in the shop currency (UX-06), never a hard-coded EUR.
+        if (!data.currency) data.currency = await shopCurrencyRefOf(params.company._id, params.languageCode);
         await assertWarehousesActive(data.warehouses as ObjectId[], params.company._id, {
             session: params.session,
             logger: params.logger,

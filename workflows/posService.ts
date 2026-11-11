@@ -795,6 +795,8 @@ export async function payPosOrder(body: PayPosOrderFormType, ctx: Ctx) {
             isRefund: false,
         });
     }
+    // The sale keeps the session's currency, so its amounts read right even if the till's currency changes later.
+    posOrder.currency ??= nestedEntityToRef(sessionDoc.currency);
 
     const now = new Date();
     posOrder.state = "paid";
@@ -1305,6 +1307,7 @@ export async function refundPosOrder(body: RefundPosOrderFormType, ctx: Ctx) {
         name,
         session: sessionDoc._id,
         config: config._id,
+        currency: nestedEntityToRef(original.currency) ?? nestedEntityToRef(sessionDoc.currency),
         state: "refunded",
         cashier: ctx.userId,
         customer: original.customer,

@@ -364,6 +364,7 @@ export async function holdPosOrder(body: HoldPosOrderFormType, ctx: Ctx) {
             name,
             session: sessionDoc._id,
             config: config._id,
+            currency: nestedEntityToRef(sessionDoc.currency),
             state: "draft",
             cashier: ctx.userId,
             company: ctx.company._id,

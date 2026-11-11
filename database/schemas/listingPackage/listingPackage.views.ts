@@ -79,25 +79,6 @@ export const listingPackageSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
-                            permissions: {read: "price"},
-                            field: {
-                                name: "price.currency",
-                                widget: "#DisplayCard",
-                                label: "currency",
-                                widgetProps: {
-                                    icon: "#Coins",
-                                    valuePath: ["price.currency.symbol", "price.currency.name"],
-                                    joinSeparator: " ",
-                                    linkedRefPath: "price.currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
-                                    linkedSheetValueField: "name",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
                             permissions: {read: "order"},
                             field: {
                                 name: "order",
@@ -216,7 +197,8 @@ const listingPackageFormFields: ViewConfig["nodes"] = [
                     name: "price.currency",
                     widget: "#ApiSelect",
                     label: "form.currencyLabel",
-                    required: true,
+                    placeholder: "form.currencyPlaceholder",
+                    required: false,
                     widgetProps: {apiUrl: "/api/finance/currency/select"},
                 },
             },

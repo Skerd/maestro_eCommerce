@@ -14,6 +14,7 @@ import {productVariantService} from "@eCommerceModule/database/schemas/productVa
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {productVariantToDTO, productVariantsToDTO} from "@eCommerceModule/utilities/mappers/productVariant/productVariantMapper.dto";
 import {productVariantsToSelect} from "@eCommerceModule/utilities/mappers/productVariant/productVariantMapper.select";
+import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
 
 const mediaUpload = mediaUploadMW({fields: {mainImage: 1}, maxFileSize: 50 * 1024 * 1024});
 
@@ -89,7 +90,13 @@ export const {router} = createCrudRouter({
     editMiddleware: [mediaUpload],
     buildCreateData: async (params) => {
         await assertCombinationFree(params.product, params.attributeCombination, params);
-        return buildVariantCreate(params);
+        const data = buildVariantCreate(params);
+        // A variant priced without a currency takes its product's, else the shop currency (UX-06).
+        if (!data.currency) {
+            const product = await productService.findOne({_id: params.product, company: params.company._id}, {languageCode: params.languageCode}, null, "currency");
+            data.currency = nestedEntityToRef(product?.currency) ?? (await shopCurrencyRefOf(params.company._id, params.languageCode));
+        }
+        return data;
     },
     buildUpdateData: async (params, writeFields) => {
         const data = buildVariantUpdate(params, writeFields);

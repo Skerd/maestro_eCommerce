@@ -183,25 +183,6 @@ export const productVariantSheetView: ViewConfig = {
                                 },
                             },
                         },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "currency"},
-                            field: {
-                                name: "currency",
-                                widget: "#DisplayCard",
-                                label: "currency",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    parent: "currency",
-                                    valuePath: ["symbol", "name"],
-                                    joinSeparator: " ",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
-                                },
-                            },
-                        },
                     ],
                 },
             ],
@@ -455,6 +436,21 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
                             name: "price",
                             widget: "#Input",
                             label: "form.priceLabel",
@@ -490,21 +486,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                                 min: 0
                             }
                         }
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            placeholder: "form.currencyPlaceholder",
-                            widgetProps: {
-                                apiUrl: "/api/finance/currency/select",
-                                method: "GET",
-                                pageSize: 50,
-                                normalizeEmptyToUndefined: true,
-                            },
-                        },
                     },
                 ],
             },
@@ -743,6 +724,22 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
                 children: [
                     {
                         render: "#Field",
+                        permissions: {read: "currency", write: "currency"},
+                        field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                pageSize: 50,
+                                normalizeEmptyToUndefined: true,
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
                         permissions: {read: "price", write: "price"},
                         field: {
                             name: "price",
@@ -772,22 +769,6 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
                             label: "form.costPriceLabel",
                             placeholder: "form.costPricePlaceholder",
                             widgetProps: {type: "number", min: 0},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "currency", write: "currency"},
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            placeholder: "form.currencyPlaceholder",
-                            widgetProps: {
-                                apiUrl: "/api/finance/currency/select",
-                                method: "GET",
-                                pageSize: 50,
-                                normalizeEmptyToUndefined: true,
-                            },
                         },
                     },
                 ],

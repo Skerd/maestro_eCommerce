@@ -1,6 +1,8 @@
 import {Document, model, Schema, SchemaTypes, Types} from "mongoose";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
+import {ICurrency} from "@coreModule/database/schemas/currency/currency";
+import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
 import {normalizeSchemaPermissions} from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
@@ -73,6 +75,8 @@ export interface IPosOrder extends Document, IOwnershipPluginFields, ISoftDelete
     name: string;
     session: IPosSession | Types.ObjectId;
     config: IPosConfig | Types.ObjectId;
+    /** The till's currency when the sale was made; its amounts are in it (UX-07). */
+    currency?: ICurrency | Types.ObjectId;
     state: PosOrderState;
     cashier: IUser | Types.ObjectId;
     customer?: IUser | Types.ObjectId;
@@ -167,6 +171,16 @@ const PosOrderSchema = new Schema<IPosOrder>(
             permissions: NoWritePermission,
             dynamicTableConfiguration: {
                 refDisplayKey: ["name"],
+            },
+        },
+        currency: {
+            type: SchemaTypes.ObjectId,
+            ref: "Currency",
+            refAllowlist: CurrencySimpleSnippet,
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {
+                refDisplayKey: ["symbol"],
+                hideColumn: true,
             },
         },
         state: {

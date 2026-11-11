@@ -8,6 +8,7 @@ import {
     inventoryMovementsToDTO,
 } from "@eCommerceModule/utilities/mappers/inventoryMovement/inventoryMovementMapper.dto";
 import {inventoryMovementsToSelect} from "@eCommerceModule/utilities/mappers/inventoryMovement/inventoryMovementMapper.select";
+import {withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
 
 export const basePath = "/api/eCommerce/inventoryMovement";
 
@@ -34,4 +35,7 @@ export const {router} = createCrudRouter({
         throw apiValidationException("user_permissions_not_sufficient", "", null, params.languageCode);
     },
     rateLimits: {read: 120, write: 10, delete: 5},
+    // Unit costs are in the shop currency (UX-07).
+    enrichList: (docs, params) => withShopCurrency(inventoryMovementsToDTO(docs), params.company._id, params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([inventoryMovementToDTO(doc)], params.company._id, params.languageCode))[0],
 });

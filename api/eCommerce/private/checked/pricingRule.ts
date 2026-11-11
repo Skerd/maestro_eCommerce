@@ -13,6 +13,7 @@ import {
 import {pricingRulesToSelect} from "@eCommerceModule/utilities/mappers/pricingRule/pricingRuleMapper.select";
 import {createPricingRuleFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/createPricingRule.form.validator";
 import {editPricingRuleFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/pricingRule/editPricingRule.form.validator";
+import {withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
 
 export const basePath = "/api/eCommerce/pricingRule";
 export const {router} = createCrudRouter({
@@ -31,7 +32,7 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(PricingRuleSchemaDef),
     actions: PricingRuleActions,
     rateLimits: {read: 60, write: 30, delete: 20},
-    enrichList: pricingRulesToDTOWithLabels,
-    enrichSingle: pricingRuleToDTOWithLabels,
-    enrichUpdate: pricingRuleToDTOWithLabels,
+    enrichList: async (docs, params) => withShopCurrency(await pricingRulesToDTOWithLabels(docs), params.company._id, params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
 });

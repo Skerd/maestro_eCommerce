@@ -17,6 +17,8 @@ import {listingAddOnService} from "@eCommerceModule/database/schemas/listingAddO
 import {listingAddOnToDTO, listingAddOnsToDTOArray} from "@eCommerceModule/utilities/mappers/listingAddOn/listingAddOnMapper.dto";
 import {listingAddOnsToSelect} from "@eCommerceModule/utilities/mappers/listingAddOn/listingAddOnMapper.select";
 import {assertOwnerOrAdmin} from "@eCommerceModule/utilities/services/marketplaceAccess";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
 
 const buildCreate = buildCreateDataFromSchemaDef(ListingAddOnSchemaDef);
 const buildUpdate = buildUpdateDataFromSchemaDef(ListingAddOnSchemaDef);
@@ -44,7 +46,10 @@ export const {router} = createCrudRouter<IListingAddOn, CreateListingAddOnFormTy
             throw apiValidationException("only_listing_provider_can_create_add_on", null, null, languageCode);
         }
 
-        return {...buildCreate(params), provider: foundListing.provider._id};
+        const data = buildCreate(params);
+        // Priced in the listing's currency unless another is picked; the shop currency when the listing has none.
+        const currency = data.price.currency ?? nestedEntityToRef(foundListing.priceCurrency) ?? (await shopCurrencyRefOf(company._id, languageCode));
+        return {...data, price: {...data.price, currency}, provider: foundListing.provider._id};
     },
     buildUpdateData: (params, writeFields) => {
         assertOwnerOrAdmin(params.existing.provider, params.actionUserCtx, params.languageCode);

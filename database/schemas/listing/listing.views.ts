@@ -84,21 +84,7 @@ export const listingSheetView: ViewConfig = {
                                     format: "locale",
                                     valuePath: ["priceCurrency.symbol", "price"],
                                     joinSeparator: " ",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: { read: "priceCurrency" },
-                            field: {
-                                name: "priceCurrency",
-                                widget: "#DisplayCard",
-                                label: "priceCurrency",
-                                widgetProps: {
-                                    icon: "#DollarSign",
-                                    format: "locale",
-                                    valuePath: ["priceCurrency.symbol", "priceCurrency.name"],
-                                    joinSeparator: " ",
+                                    type: "currency",
                                     linkedRefPath: "priceCurrency",
                                     linkedSheetModel: "currencies",
                                     linkedSheetWidget: "#CurrencySheetView",
@@ -526,21 +512,21 @@ const listingFormFields: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
-                            name: "price",
-                            widget: "#Input",
-                            label: "form.priceLabel",
-                            widgetProps: {type: "number"},
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
                             name: "priceCurrency",
                             widget: "#ApiSelect",
                             label: "form.priceCurrencyLabel",
                             placeholder: "form.priceCurrencyPlaceholder",
                             skipWriteAccessGate: true,
                             widgetProps: {apiUrl: "/api/finance/currency/select"},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "price",
+                            widget: "#Input",
+                            label: "form.priceLabel",
+                            widgetProps: {type: "number"},
                         },
                     },
                     {

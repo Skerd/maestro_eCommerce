@@ -17,6 +17,14 @@ import {ShippingZoneActions} from "@eCommerceModule/database/schemas/shippingZon
 import {shippingZoneToDTO, shippingZonesToDTO} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.dto";
 import {shippingZonesToSelect} from "@eCommerceModule/utilities/mappers/shippingZone/shippingZoneMapper.select";
 import {calculateShipping} from "@eCommerceModule/utilities/services/shippingCalculationService";
+import {withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
+import type {ObjectId} from "mongodb";
+import type {ShippingZone as ShippingZoneDTO} from "armonia/src/modules/eCommerce/api/eCommerce/private/shippingZone/shippingZone.dto";
+
+/** Zones and each of their rates with the shop currency the rate prices are in. */
+async function withRateCurrency(zones: ShippingZoneDTO[], companyId: ObjectId, languageCode: string) {
+    return (await withShopCurrency(zones, companyId, languageCode)).map((zone) => ({...zone, rates: zone.rates.map((rate) => ({...rate, currency: zone.currency}))}));
+}
 
 export const basePath = "/api/eCommerce/shippingZone";
 export const {router} = createCrudRouter({
@@ -35,6 +43,9 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(ShippingZoneSchemaDef),
     actions: ShippingZoneActions,
     rateLimits: {read: 60, write: 30, delete: 20},
+    enrichList: (docs, params) => withRateCurrency(shippingZonesToDTO(docs), params.company._id, params.languageCode),
+    enrichSingle: async (doc, params) => (await withRateCurrency([shippingZoneToDTO(doc)], params.company._id, params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withRateCurrency([shippingZoneToDTO(doc)], params.company._id, params.languageCode))[0],
 });
 
 router.post(

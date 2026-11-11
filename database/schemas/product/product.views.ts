@@ -424,7 +424,13 @@ export const productSheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
                                     format: "locale",
-                                    type: "locale",
+                                    valuePath: ["currency.symbol", "price"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
                                 },
                             },
                         },
@@ -438,7 +444,13 @@ export const productSheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
                                     format: "locale",
-                                    type: "locale",
+                                    valuePath: ["currency.symbol", "compareAtPrice"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
                                 },
                             },
                         },
@@ -452,7 +464,13 @@ export const productSheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#IconCurrencyDollar",
                                     format: "locale",
-                                    type: "locale",
+                                    valuePath: ["currency.symbol", "costPrice"],
+                                    joinSeparator: " ",
+                                    type: "currency",
+                                    linkedRefPath: "currency",
+                                    linkedSheetModel: "currencies",
+                                    linkedSheetWidget: "#CurrencySheetView",
+                                    linkedSheetEntityProp: "currency",
                                 },
                             },
                         },
@@ -558,25 +576,6 @@ export const productSheetView: ViewConfig = {
                                 widgetProps: {
                                     icon: "#Hash",
                                     format: "locale",
-                                },
-                            },
-                        },
-                        {
-                            render: "#DisplayCard",
-                            permissions: {read: "currency"},
-                            field: {
-                                name: "currency",
-                                widget: "#DisplayCard",
-                                label: "currency",
-                                widgetProps: {
-                                    icon: "#IconCurrencyDollar",
-                                    parent: "currency",
-                                    valuePath: ["symbol", "name"],
-                                    joinSeparator: " ",
-                                    linkedRefPath: "currency",
-                                    linkedSheetModel: "currencies",
-                                    linkedSheetWidget: "#CurrencySheetView",
-                                    linkedSheetEntityProp: "currency",
                                 },
                             },
                         },
@@ -2080,6 +2079,21 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     {
                         render: "#Field",
                         field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                normalizeEmptyToUndefined: true,
+                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
                             name: "price",
                             widget: "#Input",
                             label: "form.priceLabel",
@@ -2126,21 +2140,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            placeholder: "form.currencyPlaceholder",
-                            widgetProps: {
-                                apiUrl: "/api/finance/currency/select",
-                                method: "GET",
-                                normalizeEmptyToUndefined: true,
-                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
                             },
                         },
                     },
@@ -3384,6 +3383,22 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                 children: [
                     {
                         render: "#Field",
+                        permissions: {read: "currency", write: "currency"},
+                        field: {
+                            name: "currency",
+                            widget: "#ApiSelect",
+                            label: "form.currencyLabel",
+                            placeholder: "form.currencyPlaceholder",
+                            widgetProps: {
+                                apiUrl: "/api/finance/currency/select",
+                                method: "GET",
+                                normalizeEmptyToUndefined: true,
+                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
+                            },
+                        },
+                    },
+                    {
+                        render: "#Field",
                         permissions: {read: "price", write: "price"},
                         field: {
                             name: "price",
@@ -3435,22 +3450,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             widgetProps: {
                                 type: "number",
                                 min: 0,
-                            },
-                        },
-                    },
-                    {
-                        render: "#Field",
-                        permissions: {read: "currency", write: "currency"},
-                        field: {
-                            name: "currency",
-                            widget: "#ApiSelect",
-                            label: "form.currencyLabel",
-                            placeholder: "form.currencyPlaceholder",
-                            widgetProps: {
-                                apiUrl: "/api/finance/currency/select",
-                                method: "GET",
-                                normalizeEmptyToUndefined: true,
-                                defaultOptionsFormExtraKey: "currencyDefaultOptions",
                             },
                         },
                     },

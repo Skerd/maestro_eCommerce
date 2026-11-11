@@ -78,12 +78,12 @@ export const savedSearchSheetView: ViewConfig = {
                         {
                             render: "#DisplayCard",
                             permissions: {read: "priceMin"},
-                            field: {name: "priceMin", widget: "#DisplayCard", label: "priceMin", widgetProps: {icon: "#Hash", type: "number"}},
+                            field: {name: "priceMin", widget: "#DisplayCard", label: "priceMin", widgetProps: {icon: "#IconCash", format: "locale", valuePath: ["currency.symbol", "priceMin"], joinSeparator: " ", type: "currency", linkedRefPath: "currency", linkedSheetModel: "currencies", linkedSheetWidget: "#CurrencySheetView", linkedSheetEntityProp: "currency"}},
                         },
                         {
                             render: "#DisplayCard",
                             permissions: {read: "priceMax"},
-                            field: {name: "priceMax", widget: "#DisplayCard", label: "priceMax", widgetProps: {icon: "#Hash", type: "number"}},
+                            field: {name: "priceMax", widget: "#DisplayCard", label: "priceMax", widgetProps: {icon: "#IconCash", format: "locale", valuePath: ["currency.symbol", "priceMax"], joinSeparator: " ", type: "currency", linkedRefPath: "currency", linkedSheetModel: "currencies", linkedSheetWidget: "#CurrencySheetView", linkedSheetEntityProp: "currency"}},
                         },
                         {
                             render: "#DisplayCard",

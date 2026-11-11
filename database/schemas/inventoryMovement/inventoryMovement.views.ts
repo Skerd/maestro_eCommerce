@@ -37,7 +37,7 @@ export const inventoryMovementSheetView: ViewConfig = {
                         {render: "#DisplayCard", permissions: {read: "occurredAt"}, field: {name: "occurredAt", widget: "#DisplayCard", label: "occurredAt", widgetProps: {icon: "#Calendar", format: "dateTime", type: "dateTime"}}},
                         {render: "#DisplayCard", permissions: {read: "manufacturer"}, field: {name: "manufacturer", widget: "#DisplayCard", label: "manufacturer", widgetProps: {icon: "#IconBuilding"}}},
                         {render: "#DisplayCard", permissions: {read: "receiptNumber"}, field: {name: "receiptNumber", widget: "#DisplayCard", label: "receiptNumber", widgetProps: {icon: "#IconReceipt"}}},
-                        {render: "#DisplayCard", permissions: {read: "unitCost"}, field: {name: "unitCost", widget: "#DisplayCard", label: "unitCost", widgetProps: {icon: "#IconCurrencyDollar", type: "locale"}}},
+                        {render: "#DisplayCard", permissions: {read: "unitCost"}, field: {name: "unitCost", widget: "#DisplayCard", label: "unitCost", widgetProps: {icon: "#IconCash", format: "locale", valuePath: ["currency.symbol", "unitCost"], joinSeparator: " ", type: "currency", linkedRefPath: "currency", linkedSheetModel: "currencies", linkedSheetWidget: "#CurrencySheetView", linkedSheetEntityProp: "currency"}}},
                         {render: "#DisplayCard", permissions: {read: "batchLot"}, field: {name: "batchLot", widget: "#DisplayCard", label: "batchLot", widgetProps: {icon: "#IconTag"}}},
                         {render: "#DisplayCard", permissions: {read: "expiryDate"}, field: {name: "expiryDate", widget: "#DisplayCard", label: "expiryDate", widgetProps: {icon: "#Calendar", format: "date", type: "date"}}},
                         {

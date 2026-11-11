@@ -30,6 +30,8 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
     const config = order.config instanceof ObjectId ? undefined : order.config;
     const session = order.session instanceof ObjectId ? undefined : order.session;
     const tillCurrency = mapSnippet<CurrencySimple>()(config?.currency, CurrencySimpleSnippet);
+    // Sales store their currency; older ones fall back to the till's.
+    const saleCurrency = mapSnippet<CurrencySimple>()(order.currency, CurrencySimpleSnippet) ?? tillCurrency;
 
     return {
         _id: order._id.toString(),
@@ -87,7 +89,7 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
                 paymentMethodName: payment.paymentMethodName ?? method?.name,
                 paymentMethodType: payment.paymentMethodType ?? method?.type,
                 amount: payment.amount,
-                currency: tillCurrency,
+                currency: saleCurrency,
                 paymentDate: payment.paymentDate?.toISOString?.(),
                 terminalAuthCode: payment.terminalAuthCode,
                 terminalReference: payment.terminalReference,
@@ -99,7 +101,9 @@ export function posOrderToDTO(order: IPosOrder): PosOrder {
         amountPaid: order.amountPaid,
         amountReturn: order.amountReturn,
         discountTotal: order.discountTotal,
-        decimalPlaces: currencyDecimalPlacesOf(config?.currency)
+        currency: saleCurrency,
+        decimalPlaces: currencyDecimalPlacesOf(order.currency)
+            ?? currencyDecimalPlacesOf(config?.currency)
             ?? currencyDecimalPlacesOf(session?.currency),
         amountRefunded: order.amountRefunded,
         note: order.note,

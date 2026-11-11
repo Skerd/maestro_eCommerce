@@ -228,6 +228,7 @@ export const shippingZoneSheetView: ViewConfig = {
                                                     type: "text",
                                                     icon: "#IconCash",
                                                     labelKey: "ratePrice",
+                                                    currencyField: "currency",
                                                 },
                                                 {
                                                     name: "carrier",

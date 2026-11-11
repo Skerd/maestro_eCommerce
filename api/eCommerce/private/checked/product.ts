@@ -14,6 +14,7 @@ import {assertPricedWhenActive, assertValidBundle, ProductActions} from "@eComme
 import {productsToDTO, productToDTO} from "@eCommerceModule/utilities/mappers/product/productMapper.dto";
 import {productsToSelect} from "@eCommerceModule/utilities/mappers/product/productMapper.select";
 import {restoreUnlessKeyTaken} from "@coreModule/api/restoreUnlessKeyTaken";
+import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
 
 const mediaUpload = mediaUploadMW({
     fields: {mainImage: 1, gallery: 20, documents: 20},
@@ -56,6 +57,8 @@ export const {router} = createCrudRouter({
     editMiddleware: [mediaUpload],
     buildCreateData: async (params) => {
         const data = buildProductCreate(params);
+        // A product priced without a currency is priced in the shop currency (UX-06).
+        if (!data.currency) data.currency = await shopCurrencyRefOf(params.company._id, params.languageCode);
         assertPricedWhenActive(data, params.languageCode);
         await assertValidBundle(data, params);
         return data;
