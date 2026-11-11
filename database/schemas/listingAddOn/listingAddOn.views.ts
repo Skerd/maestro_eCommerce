@@ -49,7 +49,7 @@ export const listingAddOnSheetView: ViewConfig = {
                                 name: "deliveryDays",
                                 widget: "#DisplayCard",
                                 label: "deliveryDays",
-                                widgetProps: {icon: "#Clock", format: "locale"},
+                                widgetProps: {icon: "#Clock", format: "locale", valueTemplateKey: "deliveryDaysValue"},
                             },
                         },
                         {

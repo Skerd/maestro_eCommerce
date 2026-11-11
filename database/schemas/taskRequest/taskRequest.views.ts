@@ -514,21 +514,6 @@ const taskRequestCreateFormNodes: ViewConfig["nodes"] = [
                                     },
                                 ],
                             },
-                            {
-                                // The pin fills these; typing stays possible because they are required and a missing pin must show its error.
-                                render: "#FormGrid",
-                                props: {columns: 2, className: "gap-6"},
-                                children: [
-                                    {
-                                        render: "#Field",
-                                        field: {name: "address.latitude", widget: "#Input", label: "form.latitudeLabel", placeholder: "form.latitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
-                                    },
-                                    {
-                                        render: "#Field",
-                                        field: {name: "address.longitude", widget: "#Input", label: "form.longitudeLabel", placeholder: "form.longitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
-                                    },
-                                ],
-                            },
                             {render: "#FormAlert", props: {message: "form.addressPrivacyAlert"}},
                         ],
                     },
@@ -740,23 +725,6 @@ const taskRequestEditFormNodes: ViewConfig["nodes"] = [
                                         render: "#Field",
                                         permissions: {read: "address", write: "address"},
                                         field: {name: "address.postalCode", widget: "#Input", label: "form.postalCodeLabel", placeholder: "form.postalCodePlaceholder", required: true},
-                                    },
-                                ],
-                            },
-                            {
-                                // The pin fills these; typing stays possible because they are required and a missing pin must show its error.
-                                render: "#FormGrid",
-                                props: {columns: 2, className: "gap-6"},
-                                children: [
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "address", write: "address"},
-                                        field: {name: "address.latitude", widget: "#Input", label: "form.latitudeLabel", placeholder: "form.latitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
-                                    },
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "address", write: "address"},
-                                        field: {name: "address.longitude", widget: "#Input", label: "form.longitudeLabel", placeholder: "form.longitudePlaceholder", required: true, widgetProps: {type: "number", step: "0.000001"}},
                                     },
                                 ],
                             },

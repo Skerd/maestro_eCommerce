@@ -79,7 +79,7 @@ export const bidSheetView: ViewConfig = {
                                 name: "deliveryDays",
                                 widget: "#DisplayCard",
                                 label: "deliveryDays",
-                                widgetProps: {icon: "#Calendar"},
+                                widgetProps: {icon: "#Calendar", valueTemplateKey: "deliveryDaysValue"},
                             },
                         },
                     ],

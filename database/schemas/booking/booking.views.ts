@@ -124,7 +124,7 @@ const bookingCreateFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.startAtLabel",
                             required: true,
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm", timeZoneField: "timezone", companyTimeZone: true},
                         },
                     },
                     {
@@ -134,7 +134,7 @@ const bookingCreateFormNodes: ViewConfig["nodes"] = [
                             widget: "#DateInput",
                             label: "form.endAtLabel",
                             required: true,
-                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm", minDateField: "startAt"},
+                            widgetProps: {valueFormat: "YYYY-MM-DD HH:mm", minDateField: "startAt", timeZoneField: "timezone", companyTimeZone: true},
                         },
                     },
                 ],

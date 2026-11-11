@@ -169,26 +169,6 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
                                 render: "#FormGrid",
                                 props: {columns: 2, className: "gap-6"},
                                 children: [
-                                    {
-                                        render: "#Field",
-                                        field: {
-                                            name: "address.latitude",
-                                            widget: "#Input",
-                                            label: "form.latitudeLabel",
-                                            placeholder: "form.latitudePlaceholder",
-                                            widgetProps: {type: "number", step: "0.000001"},
-                                        },
-                                    },
-                                    {
-                                        render: "#Field",
-                                        field: {
-                                            name: "address.longitude",
-                                            widget: "#Input",
-                                            label: "form.longitudeLabel",
-                                            placeholder: "form.longitudePlaceholder",
-                                            widgetProps: {type: "number", step: "0.000001"},
-                                        },
-                                    },
                                 ],
                             },
                         ],
@@ -363,28 +343,6 @@ const warehouseEditFormNodes: ViewConfig["nodes"] = [
                                 render: "#FormGrid",
                                 props: {columns: 2, className: "gap-6"},
                                 children: [
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "address", write: "address"},
-                                        field: {
-                                            name: "address.latitude",
-                                            widget: "#Input",
-                                            label: "form.latitudeLabel",
-                                            placeholder: "form.latitudePlaceholder",
-                                            widgetProps: {type: "number", step: "0.000001"},
-                                        },
-                                    },
-                                    {
-                                        render: "#Field",
-                                        permissions: {read: "address", write: "address"},
-                                        field: {
-                                            name: "address.longitude",
-                                            widget: "#Input",
-                                            label: "form.longitudeLabel",
-                                            placeholder: "form.longitudePlaceholder",
-                                            widgetProps: {type: "number", step: "0.000001"},
-                                        },
-                                    },
                                 ],
                             },
                         ],
