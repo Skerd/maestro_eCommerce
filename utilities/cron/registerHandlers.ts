@@ -3,8 +3,6 @@ import {runLowStockAlert} from "@eCommerceModule/utilities/cronJobs/lowStockAler
 import {runScheduledPublish} from "@eCommerceModule/utilities/cronJobs/scheduledPublishJob";
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
 import {runAbandonedCart} from "@eCommerceModule/utilities/cronJobs/abandonedCartJob";
-import {runOrderAutoComplete} from "@eCommerceModule/utilities/cronJobs/orderAutoCompleteJob";
-import {runTaskRequestExpiry} from "@eCommerceModule/utilities/cronJobs/taskRequestExpiryJob";
 import {runPosFiscalSweep} from "@eCommerceModule/utilities/cronJobs/posFiscalSweepJob";
 
 export function registerECommerceCronHandlers(): void {
@@ -65,30 +63,6 @@ export function registerECommerceCronHandlers(): void {
             name: "POS fiscal sweep",
             cronExpression: "30 */5 * * * *",
             priority: 30,
-        },
-    });
-
-    registerCronHandler({
-        code: "eCommerceMarketplace.orderAutoComplete",
-        handler: async ctx => {
-            await runOrderAutoComplete(ctx.company, ctx.logger);
-        },
-        defaultJob: {
-            name: "Order auto-complete",
-            cronExpression: "0 0 * * * *",
-            priority: 20,
-        },
-    });
-
-    registerCronHandler({
-        code: "eCommerceMarketplace.taskRequestExpiry",
-        handler: async ctx => {
-            await runTaskRequestExpiry(ctx.company, ctx.logger);
-        },
-        defaultJob: {
-            name: "Task request expiry",
-            cronExpression: "0 0 * * * *",
-            priority: 20,
         },
     });
 }

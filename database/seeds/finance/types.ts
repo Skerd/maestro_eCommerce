@@ -1,9 +1,4 @@
 import type {
-    EscrowGatewayStatus,
-    EscrowTransactionStatus,
-    EscrowTransactionType,
-} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction";
-import type {
     PaymentGateway,
     PaymentTransactionStatus,
     PaymentTransactionType,
@@ -32,18 +27,4 @@ export type PaymentTransactionSeedRow = {
     amount?: number;
     refundedAmount?: number;
     failureReason?: string;
-};
-
-export type EscrowTransactionSeedRow = {
-    seedKey: string;
-    /** Marketplace Order.name marker via demoSeedName / demoSeedNameCandidates(orderSeedKey). */
-    orderSeedKey: string;
-    /** Optional milestone `orderIndex` on that order. */
-    milestoneIndex?: number;
-    type: EscrowTransactionType;
-    status: EscrowTransactionStatus;
-    gatewayStatus: EscrowGatewayStatus;
-    recipient?: "customer" | "provider" | "platform";
-    /** When omitted, uses the order (or milestone) amount. */
-    amount?: number;
 };

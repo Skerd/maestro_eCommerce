@@ -9,7 +9,6 @@ import {
 } from "@coreModule/utilities/erasure/personErasure";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
-import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
 import {customerAddressService} from "@eCommerceModule/database/schemas/customerAddress/customerAddress.service";
@@ -35,7 +34,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
 
     const productOrders = await productOrderService.find({company: companyId, $or: [byAccount("customer"), {email: {$in: subject.emails}}]}, found, undefined, "_id billingAddress");
     const posOrders = await posOrderService.find({company: companyId, ...byAccount("customer")}, found, undefined, "_id");
-    const orders = await orderService.find({company: companyId, ...byAccount("customer"), note: {$exists: true}}, found, undefined, "_id");
     const checkouts = await checkoutService.find({company: companyId, ...byAccount("user")}, found, undefined, "_id");
     const carts = await cartService.find({company: companyId, ...byAccount("user")}, found, undefined, "_id");
     const addresses = await customerAddressService.find({company: companyId, $or: [byAccount("customer"), {email: {$in: subject.emails}}]}, found, undefined, "_id");
@@ -45,7 +43,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
     const counts: ErasureCount[] = [
         {collection: "productorders", anonymised: productOrders.length, deleted: 0},
         {collection: "posorders", anonymised: posOrders.length, deleted: 0},
-        {collection: "orders", anonymised: orders.length, deleted: 0},
         {collection: "checkouts", anonymised: checkouts.length, deleted: 0},
         {collection: "carts", anonymised: 0, deleted: carts.length},
         {collection: "customeraddresses", anonymised: 0, deleted: addresses.length},
@@ -70,10 +67,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
     if (posOrders.length > 0) {
         await posOrderService.eraseFields({company: companyId, _id: {$in: ids(posOrders)}}, {$unset: {customer: "", customerName: ""}}, {session});
         ctx.scrubAudit("posorders", ids(posOrders), ["customer", "customerName"]);
-    }
-    if (orders.length > 0) {
-        await orderService.eraseFields({company: companyId, _id: {$in: ids(orders)}}, {$unset: {note: ""}}, {session});
-        ctx.scrubAudit("orders", ids(orders), ["note"]);
     }
     if (checkouts.length > 0) {
         await checkoutService.eraseFields({company: companyId, _id: {$in: ids(checkouts)}}, {$unset: {user: "", shippingAddress: "", billingAddress: ""}}, {session});

@@ -91,14 +91,6 @@ export const eCommerceRoleUserSeeds: ECommerceRoleUserSeed[] = [
         phoneNumber: "+355691110009",
         birthday: "1992-02-14",
     },
-    {
-        slug: "ecom_marketplace_operator",
-        name: "Reese",
-        surname: "Hayes",
-        username: "marketplace.operator@ecommerce.demo",
-        phoneNumber: "+355691110010",
-        birthday: "1990-09-21",
-    },
 ];
 
 function refId(value: unknown): string | undefined {

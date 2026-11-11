@@ -1,6 +1,6 @@
 # eCommerce Module (Maestro)
 
-Server-side implementation of the Arpeggio eCommerce domain: product commerce and the services marketplace. Mongoose models, business services, HTTP routes, cron jobs, and DTO mappers.
+Server-side implementation of Arpeggio product commerce: shop, inventory, till and storefront. Mongoose models, business services, HTTP routes, cron jobs, and DTO mappers. The services marketplace is its own module, `maestro/modules/marketplace` (D142); neither module imports the other.
 
 Contracts (types, schema-defs, validators) live in **armonia** at `armonia/src/modules/eCommerce/`. This module implements the runtime layer.
 
@@ -11,10 +11,9 @@ Enable via `ENABLED_MODULES=eCommerce` (or leave unset to load all present modul
 ```
 eCommerce/
 ├── api/eCommerce/private/              # Product commerce routes
-├── api/eCommerceMarketplace/private/   # Marketplace routes (stable /api/eCommerceMarketplace/*)
 ├── database/
 │   ├── moduleBootstrap.ts             # Model registry for initializer
-│   └── schemas/<resource>/            # Mongoose models (catalog + marketplace)
+│   └── schemas/<resource>/            # Mongoose models
 └── utilities/
     ├── mappers/                       # Document → DTO / select mappers
     ├── services/                      # Domain services (slug generation, checkout, …)
@@ -23,7 +22,7 @@ eCommerce/
 
 ## API routes
 
-Routes are discovered from `api/eCommerce/` and `api/eCommerceMarketplace/`. Each file exports `basePath` and `router`. Marketplace HTTP paths stay under `/api/eCommerceMarketplace/*`.
+Routes are discovered from `api/eCommerce/`. Each file exports `basePath` and `router`. The storefront's address forms read the core place lists (`/api/portal/places/{countries,states,cities}`).
 
 | Route file | Base path (typical) | Description |
 |------------|---------------------|-------------|
@@ -90,8 +89,6 @@ company is missing, so a handler added here reaches existing companies on the ne
 | `eCommerce.checkoutExpiry` | hourly at :15 | Settles checkouts past `expiresAt`: one whose gateway charge already succeeded is placed as an order, the rest expire |
 | `eCommerce.abandonedCart` | hourly at :45 | Reminds signed-in buyers once about carts untouched for 24 h+ |
 | `eCommerce.posFiscalSweep` | every 5 min | Registers with CIS the paid till sales that never reached it (2 min–24 h old, no codes, no fault, no `fiscalRegisteringAt` marker); a marker older than 10 min without codes is logged for a manual check (D97, TD-B75) |
-| `eCommerceMarketplace.orderAutoComplete` | hourly | Accepts deliveries the customer left unanswered for `autoAcceptDays` and completes the order |
-| `eCommerceMarketplace.taskRequestExpiry` | hourly | Closes open task requests past `expiresAt` and tells the users still waiting on a bid |
 
 ## Path alias
 

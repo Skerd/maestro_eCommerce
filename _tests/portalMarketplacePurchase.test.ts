@@ -6,10 +6,6 @@ import {connectTestDatabase, disconnectTestDatabase} from "@coreModule/_tests/te
 
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
-// The task request form's images are uploaded before the route; here the request names an existing media id
-vi.mock("@coreModule/utilities/middlewares/mediaUploadMW", () => ({
-    mediaUploadMW: () => (_req: unknown, _res: unknown, next: () => void) => next(),
-}));
 vi.mock("@eCommerceModule/utilities/services/productOrderNotify", () => ({
     notifyProductOrderCustomer: vi.fn(async () => undefined),
     notifyMerchantsNewOrder: vi.fn(async () => undefined),
@@ -31,21 +27,9 @@ import {getPaymentSourceHandler} from "@financeModule/utilities/services/payment
 import {getLogger} from "@coreModule/loggers/serverLog";
 import * as productOrderRoute from "@eCommerceModule/api/eCommerce/private/productOrder";
 import "@eCommerceModule/api/eCommerce/public/paymentsWebhook";
-import * as serviceOrderRoute from "@eCommerceModule/api/eCommerceMarketplace/private/order";
-import Listing from "@eCommerceModule/database/schemas/listing/listing";
-import ListingPackage from "@eCommerceModule/database/schemas/listingPackage/listingPackage";
-import Order from "@eCommerceModule/database/schemas/order/order";
-import Review from "@eCommerceModule/database/schemas/review/review";
-import Dispute from "@eCommerceModule/database/schemas/dispute/dispute";
-import Booking from "@eCommerceModule/database/schemas/booking/booking";
 import DigitalDelivery from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery";
 import State from "@coreModule/database/schemas/state/state";
-import * as reviewRoute from "@eCommerceModule/api/eCommerceMarketplace/private/review";
-import * as disputeRoute from "@eCommerceModule/api/eCommerceMarketplace/private/dispute";
-import * as bookingRoute from "@eCommerceModule/api/eCommerceMarketplace/private/booking";
 import * as digitalDeliveryRoute from "@eCommerceModule/api/eCommerce/private/digitalDelivery";
-import * as taskRequestRoute from "@eCommerceModule/api/eCommerceMarketplace/private/taskRequest";
-import ListingCategory from "@eCommerceModule/database/schemas/listingCategory/listingCategory";
 import {appFor, callerHeader} from "@coreModule/_tests/httpHarness";
 import {asCrossTenant, withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {PORTAL_ROOT_DOMAIN} from "@coreModule/environment";
@@ -58,12 +42,7 @@ const app = appFor([
     {...cartRoute, module: "eCommerce"},
     {...checkoutRoute, module: "eCommerce"},
     {...productOrderRoute, module: "eCommerce"},
-    {...serviceOrderRoute, module: "eCommerce"},
-    {...reviewRoute, module: "eCommerce"},
-    {...disputeRoute, module: "eCommerce"},
-    {...bookingRoute, module: "eCommerce"},
     {...digitalDeliveryRoute, module: "eCommerce"},
-    {...taskRequestRoute, module: "eCommerce"},
 ]);
 
 const platform = new ObjectId();
@@ -340,108 +319,6 @@ describe("portal marketplace purchase (D16)", () => {
         expect([added.status, added.body.error_code]).toEqual([400, "product_not_found"]);
     });
 
-    // TD-B91: the services marketplace orders a listing from its seller and shows the buyer their orders from every seller.
-    it("orders another seller's service listing from the apex and lists it on the buyer's pages", async () => {
-        const mug = await seedSeller(sellerA, "Alpha", 10, 5);
-        const provider = new ObjectId();
-        const listing = await asCrossTenant("test setup", async () => {
-            const {insertedId} = await Listing.collection.insertOne({
-                name: "LIST-1", title: "Wall painting", category: new ObjectId(), provider, price: 100, priceCurrency: mug.currencyRow,
-                pricingType: "fixed", deliveryDays: 3, status: "active", mainImage: new ObjectId(), listingPackages: [], company: sellerA, createdAt: new Date(),
-            });
-            const pkg = await ListingPackage.collection.insertOne({
-                listing: insertedId, provider, name: "Pack", price: {amount: 150, currency: mug.currencyRow}, deliveryDays: 5, order: 0, company: sellerA,
-            });
-            return {listing: insertedId, pkg: pkg.insertedId};
-        });
-
-        const created = await call("post", "/api/eCommerceMarketplace/order/createFromListing", {listing: listing.listing.toString(), package: listing.pkg.toString()});
-        const mine = await call("post", "/api/eCommerceMarketplace/order/my", {});
-        const single = await call("post", "/api/eCommerceMarketplace/order/mySingle", {_id: created.body._id});
-
-        expect([created.status, created.body.error_code]).toEqual([200, undefined]);
-        const order = (await asCrossTenant("test assertions", () => Order.findById(created.body._id)))!;
-        expect([String(order.company), order.amount]).toEqual([sellerA.toString(), 150]);
-        expect([mine.status, mine.body.total, single.status]).toEqual([200, 1, 200]);
-    });
-
-    /** A services order of seller A that the shopper bought on the portal, in `status`. */
-    async function seedServiceOrder(status: string) {
-        const provider = new ObjectId();
-        return asCrossTenant("test setup", async () => (await Order.collection.insertOne({
-            name: `ORD-${new ObjectId().toString()}`, listing: new ObjectId(), customer: buyer, provider, amount: 100,
-            currency: new ObjectId(), status, company: sellerA, createdAt: new Date(),
-        })).insertedId);
-    }
-    const storedOrder = (_id: ObjectId) => asCrossTenant("test assertions", () => Order.findById(_id));
-
-    // TD-B93: the buyer's own actions on a services order of another seller, from the apex.
-    it("lets the buyer cancel, review and dispute their own services order of another seller from the apex", async () => {
-        await seedSeller(sellerA, "Alpha", 10, 5);
-        const pending = await seedServiceOrder("pending");
-        const completed = await seedServiceOrder("completed");
-        const active = await seedServiceOrder("in_progress");
-
-        const cancelled = await call("post", "/api/eCommerceMarketplace/order/cancel", {_id: pending.toString()});
-        const reviewed = await call("put", "/api/eCommerceMarketplace/review/createMine", {order: completed.toString(), rating: 5, comment: "Great"});
-        const disputed = await call("put", "/api/eCommerceMarketplace/dispute/createMine", {order: active.toString(), reason: "Late"});
-
-        expect([cancelled.status, cancelled.body.error_code]).toEqual([200, undefined]);
-        expect([reviewed.status, reviewed.body.error_code]).toEqual([200, undefined]);
-        expect([disputed.status, disputed.body.error_code]).toEqual([200, undefined]);
-        expect((await storedOrder(pending))!.status).toBe("cancelled");
-        await asCrossTenant("test assertions", async () => {
-            expect(String((await Review.findOne({order: completed}))!.company)).toBe(sellerA.toString());
-            expect(String((await Dispute.findOne({order: active}))!.company)).toBe(sellerA.toString());
-        });
-    });
-
-    // TD-B94: the buyer books a session on their own services order of another seller, from the apex.
-    it("lets the buyer book on their own active services order of another seller from the apex", async () => {
-        await seedSeller(sellerA, "Alpha", 10, 5);
-        const accepted = await seedServiceOrder("accepted");
-        const slot = {startAt: "2026-12-01T09:00:00.000Z", endAt: "2026-12-01T10:00:00.000Z", timezone: "Europe/Tirane"};
-
-        const booked = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: accepted.toString(), ...slot});
-
-        expect([booked.status, booked.body.error_code]).toEqual([200, undefined]);
-        const booking = (await asCrossTenant("test assertions", () => Booking.findOne({order: accepted})))!;
-        const order = (await storedOrder(accepted))!;
-        expect([String(booking.company), String(booking.provider), booking.startAt.toISOString(), booking.timezone])
-            .toEqual([sellerA.toString(), String(order.provider), slot.startAt, "Europe/Tirane"]);
-    });
-
-    it("refuses a booking on another buyer's order, on an order not yet accepted, and for an invalid slot", async () => {
-        await seedSeller(sellerA, "Alpha", 10, 5);
-        const accepted = await seedServiceOrder("accepted");
-        const pending = await seedServiceOrder("pending");
-        const slot = {startAt: "2026-12-01T09:00:00.000Z", endAt: "2026-12-01T10:00:00.000Z"};
-        const stranger = callerHeader({userId: new ObjectId().toString(), companyId: platform.toString()});
-
-        const notMine = await request(app).put("/api/eCommerceMarketplace/booking/createMine")
-            .set({...stranger, Origin: apex}).send({order: accepted.toString(), ...slot});
-        const notActive = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: pending.toString(), ...slot});
-        const backwards = await call("put", "/api/eCommerceMarketplace/booking/createMine", {order: accepted.toString(), startAt: slot.endAt, endAt: slot.startAt});
-
-        expect([notMine.status, notMine.body.error_code]).toEqual([400, "order_not_found"]);
-        expect([notActive.status, notActive.body.error_code]).toEqual([400, "booking_order_not_active"]);
-        expect(backwards.status).toBe(400);
-        expect(await asCrossTenant("test assertions", () => Booking.countDocuments({}))).toBe(0);
-    });
-
-    it("keeps seller-side actions and other buyers' orders inside the request's company", async () => {
-        await seedSeller(sellerA, "Alpha", 10, 5);
-        const pending = await seedServiceOrder("pending");
-        await asCrossTenant("test setup", () => Order.collection.updateOne({_id: pending}, {$set: {customer: new ObjectId()}}));
-
-        const accepted = await call("post", "/api/eCommerceMarketplace/order/accept", {_id: pending.toString()});
-        const cancelled = await call("post", "/api/eCommerceMarketplace/order/cancel", {_id: pending.toString()});
-
-        expect(accepted.status).not.toBe(200);
-        expect(cancelled.body.error_code).toBe("order_not_found");
-        expect((await storedOrder(pending))!.status).toBe("pending");
-    });
-
     // TD-B93: the buyer's downloads on the apex come from every seller.
     it("lists the buyer's downloads from every seller on the apex", async () => {
         const mug = await seedSeller(sellerA, "Alpha", 10, 5);
@@ -475,22 +352,4 @@ describe("portal marketplace purchase (D16)", () => {
         expect([shipped.status, shipped.body.data.taxTotal]).toEqual([200, 8]);
     });
 
-    // TD-B95: a buyer's task requests on the apex are the platform company's own records, so they post, list and open.
-    it("posts, lists and opens the buyer's task request from the apex", async () => {
-        const {category, currency} = await withTenant(platform, async () => ({
-            category: (await ListingCategory.collection.insertOne({name: "Painting", slug: "painting", order: 0, company: platform})).insertedId,
-            currency: (await new Currency({name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company: platform}).save())._id,
-        }));
-
-        const created = await call("put", "/api/eCommerceMarketplace/taskRequest/createMine", {
-            title: "Paint my flat", category: category.toString(), budgetMin: 100, budgetMax: 300, currency: currency.toString(),
-            mainImage: new ObjectId().toString(),
-            address: {street: "Rruga 1", postalCode: "1001", country: platformAlbania.toString(), city: new ObjectId().toString(), latitude: 41.3, longitude: 19.8},
-        });
-        const mine = await call("post", "/api/eCommerceMarketplace/taskRequest/my", {});
-        const single = await call("post", "/api/eCommerceMarketplace/taskRequest/mySingle", {_id: created.body.data?._id});
-
-        expect([created.status, created.body.error_code]).toEqual([200, undefined]);
-        expect([mine.status, mine.body.total, single.status]).toEqual([200, 1, 200]);
-    });
 });

@@ -1,7 +1,7 @@
 /**
  * Shop blog demo: categories + posts for the storefront `/blog` pages and the
  * home page's latest-posts strip. Core owns the blog schemas and writers; this
- * file owns the copy and the Unsplash covers (via the marketplace demo media helper).
+ * file owns the copy and the Unsplash covers (via the core demo media helper).
  */
 
 import type {ObjectId} from "mongodb";
