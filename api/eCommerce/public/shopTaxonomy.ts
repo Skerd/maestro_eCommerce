@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
 import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {ShopTaxonomyResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
@@ -18,8 +18,8 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopTaxonomyResponse> => {
         const {languageCode, origin} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const companyFilter = ctx.mode === "tenant"
                 ? {company: ctx.company._id}
                 : await liveSellerCompanyClause();

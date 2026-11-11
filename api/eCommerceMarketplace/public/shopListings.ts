@@ -5,7 +5,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS, shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {
     SHOP_LISTING_CARD_FIELDS,
@@ -34,8 +34,8 @@ router.post(
     asyncHandler(async (params: any & ShopListingsFormType): Promise<ShopListingsResponse> => {
         const {languageCode, origin, logger, sort = "recommended", page = 1, limit = 24} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const companyId = ctx.mode === "tenant" ? ctx.company._id : undefined;
             const filter = await buildShopListingFilter(companyId, params);
             if (!filter) return {data: [], total: 0, page, limit};

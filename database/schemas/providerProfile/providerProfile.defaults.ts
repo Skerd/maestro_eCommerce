@@ -3,7 +3,7 @@ import ProviderProfile, {type IProviderProfile} from "./providerProfile";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
-import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedTag} from "@coreModule/database/demo/demoSeed";
 
 export type ProviderProfileSeed = {
     seedKey: string;

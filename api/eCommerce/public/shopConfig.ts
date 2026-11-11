@@ -4,7 +4,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {PAYMENTS} from "@financeModule/environment";
 import {shopCurrencyOf} from "@eCommerceModule/utilities/services/shopCurrency";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext} from "@coreModule/utilities/marketing/portalStorefront";
 import type {
     ShopCompany,
     ShopCompanyAddress,
@@ -116,7 +116,7 @@ router.get(
     asyncHandler(async (params: any): Promise<ShopConfigResponse> => {
         const {languageCode, origin} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
+        const ctx = await resolveStorefrontContext(origin, languageCode);
         const currency = await shopCurrencyOf(ctx.mode === "tenant" ? ctx.company._id : undefined, languageCode);
         const currencyPayload = currency
             ? {_id: currency._id, symbol: currency.symbol, abbreviation: currency.abbreviation, decimalPlaces: currency.decimalPlaces}

@@ -31,7 +31,7 @@ import {applyCollectionIndexes} from "./collection.indexes";
 import {collectionViews} from "./collection.views";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {IProduct} from "@eCommerceModule/database/schemas/product/product";
-import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 
 export type CollectionType = "manual" | "dynamic";
 

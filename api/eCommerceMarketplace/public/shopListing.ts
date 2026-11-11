@@ -10,7 +10,7 @@ import {listingService} from "@eCommerceModule/database/schemas/listing/listing.
 import {listingAddOnService} from "@eCommerceModule/database/schemas/listingAddOn/listingAddOn.service";
 import {listingPackageService} from "@eCommerceModule/database/schemas/listingPackage/listingPackage.service";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
@@ -42,8 +42,8 @@ router.post(
         const {languageCode, origin, logger, id} = params;
         const opts = {logger, languageCode};
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const listingFilter: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
             if (ctx.mode === "tenant") listingFilter.company = ctx.company._id;
 

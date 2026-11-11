@@ -6,7 +6,7 @@ import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@c
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
-import {SHOP_CURRENCY_SELECT} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {PORTAL_CURRENCY_SELECT} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {buildShopListingFilter, SHOP_LISTING_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 
@@ -26,7 +26,7 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
     const [products, total] = await Promise.all([
         productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]}>(filter, {
             select: "company title slug mainImage price currency brand categories",
-            populate: [{path: "currency", select: SHOP_CURRENCY_SELECT}, {path: "categories", select: "name"}],
+            populate: [{path: "currency", select: PORTAL_CURRENCY_SELECT}, {path: "categories", select: "name"}],
             sort: SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"],
             skip,
             limit,
@@ -55,7 +55,7 @@ async function browseServices({scope, companyIds, query, priceMin, priceMax, sor
     const [listings, total] = await Promise.all([
         listingService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; mainImage?: ObjectId; price?: number; priceCurrency?: CurrencyRef; address?: {city?: {name?: string}}; category?: {name?: string}}>(filter, {
             select: "company title mainImage price priceCurrency address.city category",
-            populate: [{path: "priceCurrency", select: SHOP_CURRENCY_SELECT}, {path: "address.city", select: "name"}, {path: "category", select: "name"}],
+            populate: [{path: "priceCurrency", select: PORTAL_CURRENCY_SELECT}, {path: "address.city", select: "name"}, {path: "category", select: "name"}],
             sort: SHOP_LISTING_SORT_SPECS[sort ?? "newest"],
             skip,
             limit,

@@ -26,7 +26,7 @@ import {fulfillmentsToDTO} from "@eCommerceModule/utilities/mappers/fulfillment/
 import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequest/returnRequestMapper.dto";
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {productOrderListFormSchema, type ProductOrderWhen} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderList.form.validator";
 import {companyTimeZoneOf} from "@coreModule/utilities/time/companyTimeZone";
 import {addLocalDays, localDateOf, localDayInterval} from "@coreModule/utilities/time/timeWindows";
@@ -171,7 +171,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validatePagedForm),
-    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & PagedForm) => {
+    asyncHandler(shopPurchaseRoute(async (params: AuthenticatedMWType & PagedForm) => {
         const {company, actionUserCtx, logger, languageCode, origin} = params;
         const page = params.page ?? 1;
         const limit = params.limit ?? 10;
@@ -203,7 +203,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
-    asyncHandler(portalPurchaseRoute(async (params: AuthenticatedMWType & {_id: string}) => {
+    asyncHandler(shopPurchaseRoute(async (params: AuthenticatedMWType & {_id: string}) => {
         const {languageCode, company, actionUserCtx, logger, _id, origin} = params;
 
         const filter: Record<string, unknown> = {

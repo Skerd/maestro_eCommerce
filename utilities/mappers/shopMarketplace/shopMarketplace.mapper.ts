@@ -10,10 +10,10 @@ import type {
     ShopPlace,
     ShopProviderProfile,
     ShopProviderSummary,
-    ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/public/shopMarketplace/shopMarketplace.types";
 import type {ProviderAvailability} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/providerProfile/providerProfile.dto";
-import {toShopCurrency, toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {toPortalCurrency, toPortalSeller} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
+import type {PortalSeller} from "armonia/src/modules/core/api/portal/public/portal/portal.dto";
 
 /** Populate paths for a listing card; the detail route adds packages and add-ons. */
 export const SHOP_LISTING_CARD_POPULATE = [
@@ -77,7 +77,7 @@ export function toShopListingCard(listing: any, promotions?: ShopPromotionMap): 
         ? {_id: listing.category._id.toString(), name: listing.category.name, slug: listing.category.slug ?? ""}
         : undefined;
 
-    const seller: ShopSeller | undefined = toShopSeller(listing.company);
+    const seller: PortalSeller | undefined = toPortalSeller(listing.company);
 
     return {
         _id: listing._id.toString(),
@@ -87,7 +87,7 @@ export function toShopListingCard(listing: any, promotions?: ShopPromotionMap): 
         provider: toShopProviderSummary(listing.provider),
         price: listing.price,
         fromPrice: prices.length ? Math.min(...prices) : undefined,
-        currency: toShopCurrency(listing.priceCurrency),
+        currency: toPortalCurrency(listing.priceCurrency),
         pricingType: listing.pricingType,
         deliveryDays: listing.deliveryDays,
         location: toShopListingLocation(listing.address),
@@ -105,7 +105,7 @@ function toShopListingPackage(pkg: any): ShopListingPackage {
         name: pkg.name ?? "",
         description: pkg.description || undefined,
         price: pkg.price?.amount ?? 0,
-        currency: toShopCurrency(pkg.price?.currency),
+        currency: toPortalCurrency(pkg.price?.currency),
         deliveryDays: pkg.deliveryDays ?? 0,
     };
 }
@@ -115,7 +115,7 @@ function toShopListingAddOn(addOn: any): ShopListingAddOn {
         _id: addOn._id.toString(),
         name: addOn.name ?? "",
         price: addOn.price?.amount ?? 0,
-        currency: toShopCurrency(addOn.price?.currency),
+        currency: toPortalCurrency(addOn.price?.currency),
         deliveryDays: addOn.deliveryDays || undefined,
     };
 }

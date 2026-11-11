@@ -8,7 +8,7 @@ import {IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields}
 import { ICompany } from "@coreModule/database/schemas/company/company";
 import { applyListingCategoryIndexes } from "./listingCategory.indexes";
 import { addModelData } from "@coreModule/database/collections";
-import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import { listingCategoryViews } from "./listingCategory.views";
 import { ListingCategorySimpleSnippet } from "@eCommerceModule/database/schemas/listingCategory/listingCategory.snippets";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";

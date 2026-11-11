@@ -1,10 +1,9 @@
 import type {
-    ShopCurrency,
     ShopProductCard,
     ShopProductDetail,
     ShopProductVariant,
-    ShopSeller,
 } from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
+import {toPortalCurrency, toPortalSeller} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 
 function mediaId(value: any): string | undefined {
     if (!value) return undefined;
@@ -16,37 +15,8 @@ function mediaIds(values: unknown): string[] | undefined {
     return values.map(mediaId).filter((v): v is string => Boolean(v));
 }
 
-/** Currency fields the shop needs to format a price. */
-export const SHOP_CURRENCY_SELECT = "symbol abbreviation decimalPlaces";
-
-export function toShopCurrency(value: any): ShopCurrency | undefined {
-    if (!value || typeof value !== "object" || !value._id) return undefined;
-    return {
-        _id: value._id.toString(),
-        symbol: value.symbol,
-        abbreviation: value.abbreviation,
-        decimalPlaces: value.decimalPlaces,
-    };
-}
-
-export function toShopSeller(company: any): ShopSeller | undefined {
-    if (!company || typeof company !== "object" || !company._id) return undefined;
-    const name = typeof company.name === "string" ? company.name.trim() : "";
-    if (!name) return undefined;
-    const seller: ShopSeller = {_id: company._id.toString(), name};
-    const logo = mediaId(company.logo);
-    if (logo) seller.logo = logo;
-    if (typeof company.siteSlug === "string" && company.siteSlug.trim()) {
-        seller.siteSlug = company.siteSlug.trim();
-    }
-    if (typeof company.siteHost === "string" && company.siteHost.trim()) {
-        seller.siteHost = company.siteHost.trim();
-    }
-    return seller;
-}
-
 export function toShopProductCard(product: any): ShopProductCard {
-    const seller = toShopSeller(product.company);
+    const seller = toPortalSeller(product.company);
     return {
         _id: product._id.toString(),
         title: product.title ?? "",
@@ -54,7 +24,7 @@ export function toShopProductCard(product: any): ShopProductCard {
         type: product.type ?? "physical",
         price: product.price,
         compareAtPrice: product.compareAtPrice,
-        currency: toShopCurrency(product.currency),
+        currency: toPortalCurrency(product.currency),
         mainImage: mediaId(product.mainImage),
         badges: product.badges?.length ? product.badges : undefined,
         featured: product.featured || undefined,

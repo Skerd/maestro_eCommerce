@@ -1,11 +1,11 @@
 import type {ICart, ICartItem} from "@eCommerceModule/database/schemas/cart/cart";
 import type {Cart, CartItem} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 import {dateToISOString, objectIdToString} from "@coreModule/utilities/mappers/common.mapper";
-import {toShopSeller} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {toPortalSeller} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 
 function cartItemToDTO(item: ICartItem & {_id?: any}): CartItem {
     const productId = objectIdToString((item.product as any)?._id ?? item.product);
-    const seller = toShopSeller(item.sellerCompany);
+    const seller = toPortalSeller(item.sellerCompany);
     const sellerCompanyId = objectIdToString((item.sellerCompany as any)?._id ?? item.sellerCompany) || undefined;
     return {
         _id: item._id ? objectIdToString(item._id) : undefined,

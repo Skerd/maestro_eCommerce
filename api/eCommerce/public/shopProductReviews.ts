@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {shopProductReviewsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopProductReviews/shopProductReviews.form.validator";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
 import type {ShopProductReviewsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.dto";
@@ -24,8 +24,8 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopProductReviewsResponse> => {
         const {languageCode, origin, id, slug, sellerCompanyId, page = 1, limit = 10} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             let product: any;
             if (id) {
                 const byId: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};

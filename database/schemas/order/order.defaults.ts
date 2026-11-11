@@ -5,7 +5,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
-import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedName, demoSeedNameCandidates} from "@coreModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 import type {CreateTaskRequestsResult} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.defaults";
 import type {CreateBidsResult} from "@eCommerceModule/database/schemas/bid/bid.defaults";

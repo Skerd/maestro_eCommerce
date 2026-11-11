@@ -53,7 +53,7 @@ import {
     refundPosOrder,
 } from "@eCommerceModule/workflows/posService";
 import {deleteHeldPosOrder, holdPosOrder} from "@eCommerceModule/workflows/posTillOps";
-import {demoSeedMarkerRegex, demoSeedTag, withDemoSeedMarker} from "./demoSeed";
+import {demoSeedMarkerRegex, demoSeedTag, withDemoSeedMarker} from "@coreModule/database/demo/demoSeed";
 
 const LANGUAGE = "en-US";
 

@@ -6,7 +6,7 @@ import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {productAttributeService} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.service";
 import {productVariantService} from "@eCommerceModule/database/schemas/productVariant/productVariant.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {buildShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {productTypes} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {shopFacetsFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
@@ -96,8 +96,8 @@ router.post(
     validateFormZod(shopFacetsFormSchema),
     asyncHandler(async (params: any): Promise<ShopFacetsResponse> => {
         const {languageCode, origin, search, categorySlug, categoryIds, collectionSlug, collectionId} = params;
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
             const filter = await buildShopCatalogFilter({
                 companyId,

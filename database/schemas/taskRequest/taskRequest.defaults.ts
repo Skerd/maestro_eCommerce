@@ -8,7 +8,7 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {demoName} from "@coreModule/utilities/helpers";
-import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedName, demoSeedNameCandidates} from "@coreModule/database/demo/demoSeed";
 import {resolveTaskRequestPhotoIds} from "@eCommerceModule/database/demo/marketplace.demo.media";
 import {resolveDemoImagesFromUnsplash} from "@coreModule/database/demo/demoMedia";
 

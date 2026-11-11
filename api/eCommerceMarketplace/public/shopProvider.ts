@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {providerProfileService} from "@eCommerceModule/database/schemas/providerProfile/providerProfile.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {shopPromotionMap} from "@eCommerceModule/utilities/shop/shopMarketplaceFilter";
 import {loadProviderProfileMetrics} from "@eCommerceModule/utilities/mappers/providerProfile/providerProfileMetrics";
 import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
@@ -39,8 +39,8 @@ router.post(
         const {languageCode, origin, logger, id} = params;
         const opts = {logger, languageCode};
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const providerId = new ObjectId(id);
             const listingFilter: Record<string, unknown> = {status: "active", provider: providerId};
             if (ctx.mode === "tenant") listingFilter.company = ctx.company._id;

@@ -3,7 +3,7 @@ import Dispute, {type IDispute, type DisputeStatus} from "./dispute";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
-import {demoSeedMarkerRegex, withDemoSeedMarker} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedMarkerRegex, withDemoSeedMarker} from "@coreModule/database/demo/demoSeed";
 import type {CreateOrdersResult} from "@eCommerceModule/database/schemas/order/order.defaults";
 
 export type DisputeSeed = {

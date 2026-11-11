@@ -3,7 +3,7 @@ import OrderRevision, {type IOrderRevision, type OrderRevisionStatus} from "./or
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
-import {withDemoSeedMarker} from "@eCommerceModule/database/demo/demoSeed";
+import {withDemoSeedMarker} from "@coreModule/database/demo/demoSeed";
 import type {IOrderDelivery} from "@eCommerceModule/database/schemas/orderDelivery/orderDelivery";
 import type {CreateOrdersResult} from "@eCommerceModule/database/schemas/order/order.defaults";
 

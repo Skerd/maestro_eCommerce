@@ -38,7 +38,7 @@ import {orderDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/orderDeli
 import {orderMilestonesToDTO} from "@eCommerceModule/utilities/mappers/orderMilestone/orderMilestoneMapper.dto";
 import {orderRevisionsToDTO} from "@eCommerceModule/utilities/mappers/orderRevision/orderRevisionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {portalPurchaseRoute} from "@coreModule/utilities/marketing/portalStorefront";
 import {loadProviderAvailability} from "@eCommerceModule/utilities/services/providerAvailability";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {escrowTransactionService} from "@financeModule/database/schemas/escrowTransaction/escrowTransaction.service";

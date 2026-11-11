@@ -4,7 +4,7 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import Currency from "@coreModule/database/schemas/currency/currency";
 import Order from "@eCommerceModule/database/schemas/order/order";
 import OrderMilestone from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone";
-import {demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedNameCandidates} from "@coreModule/database/demo/demoSeed";
 import {escrowTransactionsSeed} from "@eCommerceModule/database/seeds/finance/escrowTransactions.seed";
 import type {HydratedDocument} from "mongoose";
 import {toMinor} from "armonia/src/modules/core/helpers/money";

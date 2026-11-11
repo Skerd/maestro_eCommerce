@@ -10,8 +10,9 @@ import {productVariantService} from "@eCommerceModule/database/schemas/productVa
 import {inventoryService} from "@eCommerceModule/database/schemas/inventory/inventory.service";
 import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/warehouse.service";
 import {isStockTracked} from "@eCommerceModule/utilities/services/inventoryReservationService";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {SHOP_CURRENCY_SELECT, toShopProductDetail, toShopSeller, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
+import {toShopProductDetail, type ShopStockMap} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {PORTAL_CURRENCY_SELECT, toPortalSeller} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
 
@@ -58,7 +59,7 @@ const RELATED_LIMIT = 8;
 const DETAIL_POPULATE = [
     {path: "categories", select: "name slug"},
     {path: "company", select: "name logo siteSlug siteHost"},
-    {path: "currency", select: SHOP_CURRENCY_SELECT},
+    {path: "currency", select: PORTAL_CURRENCY_SELECT},
 ] as const;
 
 async function findActiveProduct(filter: Record<string, unknown>) {
@@ -73,8 +74,8 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopProductResponse> => {
         const {languageCode, origin, id, slug, sellerCompanyId} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             let product: any;
             if (id) {
                 const byId: Record<string, unknown> = {_id: new ObjectId(id)};
@@ -102,7 +103,7 @@ router.post(
 
             const productSellerId = product.company?._id ?? product.company;
             // Orphan rows (company missing after populate) must not surface on the platform apex.
-            if (ctx.mode === "platform" && !toShopSeller(product.company)) {
+            if (ctx.mode === "platform" && !toPortalSeller(product.company)) {
                 throw apiValidationException("product_not_found", null, null, languageCode);
             }
 
@@ -124,7 +125,7 @@ router.post(
 
             const explicitRelatedIds = (product.relatedProducts as any[]) ?? [];
             let related = explicitRelatedIds.length
-                ? await productService.find({...relatedFilter, _id: {$in: explicitRelatedIds}}, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT)
+                ? await productService.find({...relatedFilter, _id: {$in: explicitRelatedIds}}, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: PORTAL_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT)
                 : [];
 
             if (related.length < RELATED_LIMIT) {
@@ -134,7 +135,7 @@ router.post(
                         ...relatedFilter,
                         _id: {$nin: [product._id, ...related.map((r: any) => r._id)]},
                         categories: {$in: categoryIds},
-                    }, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT - related.length);
+                    }, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: PORTAL_CURRENCY_SELECT}], CARD_FIELDS, undefined, RELATED_LIMIT - related.length);
                     related = [...related, ...fill];
                 }
             }

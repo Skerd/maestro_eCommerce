@@ -4,7 +4,7 @@ import Booking, {type IBooking} from "./booking";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
-import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedTag} from "@coreModule/database/demo/demoSeed";
 import type {CreateOrdersResult} from "@eCommerceModule/database/schemas/order/order.defaults";
 
 export type BookingSeed = {

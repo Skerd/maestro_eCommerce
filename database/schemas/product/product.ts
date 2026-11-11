@@ -45,7 +45,7 @@ import type {IInventory} from "@eCommerceModule/database/schemas/inventory/inven
 import type {IProductReview} from "@eCommerceModule/database/schemas/productReview/productReview";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
-import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";

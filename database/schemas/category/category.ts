@@ -19,7 +19,7 @@ import {
     CATEGORY_NAME_MAX,
     CategorySchemaDef,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
-import {generateUniqueSlug} from "@eCommerceModule/utilities/services/slugGenerationService";
+import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
 
 export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {

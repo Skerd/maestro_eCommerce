@@ -17,7 +17,7 @@ import type {IOrder} from "@eCommerceModule/database/schemas/order/order";
 import type {ClientSession} from "mongoose";
 import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
-import {inPortalMarketplace, isPortalPurchase} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {inPortalPurchase, isPortalPurchase} from "@coreModule/utilities/marketing/portalStorefront";
 
 /** The two facts every rule below needs; the API passes its UserContext, the assistant its access decision. */
 type Caller = Pick<UserContext, "userId" | "isAdmin">;
@@ -51,7 +51,7 @@ export async function asPortalBuyer<P extends AuthenticatedMWType & {session?: C
 ): Promise<R> {
     if (!isPortalPurchase(params.origin)) return work(params);
     const {session, languageCode} = params;
-    const sellerId = await inPortalMarketplace(true, async () => {
+    const sellerId = await inPortalPurchase(true, async () => {
         const orderId = nestedEntityToRef(await orderRef());
         if (!orderId) return undefined;
         const order = await orderService.findOne({_id: orderId, customer: new ObjectId(params.actionUserCtx.userId)}, {session}, null, "company");
@@ -59,7 +59,7 @@ export async function asPortalBuyer<P extends AuthenticatedMWType & {session?: C
     });
     if (!sellerId || sellerId.toString() === String(params.company._id)) return work(params);
     const seller = await companyService.findByIdOrThrow(sellerId, {session, languageCode}, [], "name isActive modules isPlatformOwner");
-    return inPortalMarketplace(true, () => work({...params, company: seller}));
+    return inPortalPurchase(true, () => work({...params, company: seller}));
 }
 
 export function isOrderParty(order: IOrder, userId: string, role: "customer" | "provider"): boolean {

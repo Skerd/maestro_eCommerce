@@ -7,7 +7,7 @@ import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
 import {demoName} from "@coreModule/utilities/helpers";
-import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedTag} from "@coreModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 
 export type ListingPackageSeed = {

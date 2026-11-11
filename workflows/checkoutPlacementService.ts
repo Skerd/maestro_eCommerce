@@ -32,7 +32,7 @@ import {
     isOfflinePaymentMethod,
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
-import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {inShopPurchase} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {countryStateOfRow, sellerOwnCountryId} from "@eCommerceModule/utilities/services/zoneState";
 import {
     notifyMerchantsNewOrder,
@@ -93,7 +93,7 @@ function checkoutLinesForSeller(checkout: ICheckout, sellerCompanyId: ObjectId) 
 
 /**
  * A checkout that buys from a company other than its own: a portal marketplace purchase, whose seller work runs
- * through `inPortalMarketplace` (D16) wherever it is settled (the request, the payment webhook, the expiry job).
+ * through `inShopPurchase` (D16) wherever it is settled (the request, the payment webhook, the expiry job).
  */
 export function spansSellers(checkout: ICheckout): boolean {
     const own = idOf(checkout.company).toString();
@@ -575,7 +575,7 @@ export async function placePaidCheckoutInBackground(
 
             // The account login (username) is the buyer's email address
             const owner = checkout.user ? await userService.findById(idOf(checkout.user), {session}, undefined, "username") : null;
-            const result = await inPortalMarketplace(spansSellers(checkout), () =>
+            const result = await inShopPurchase(spansSellers(checkout), () =>
                 placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session}));
             placed = result.order;
         });

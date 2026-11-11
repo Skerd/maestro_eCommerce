@@ -3,7 +3,7 @@ import type {HydratedDocument} from "mongoose";
 import Promotion, {type IPromotion, type PromotionLifecycleStatus, type PromotionType} from "./promotion";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
-import {demoSeedName, demoSeedNameCandidates} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedName, demoSeedNameCandidates} from "@coreModule/database/demo/demoSeed";
 import type {CreateListingsResult} from "@eCommerceModule/database/schemas/listing/listing.defaults";
 
 export type PromotionSeed = {

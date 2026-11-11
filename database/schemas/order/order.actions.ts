@@ -36,7 +36,7 @@ import {
 } from "@eCommerceModule/database/schemas/order/orderEscrow";
 import {asPortalBuyer, isOrderParty} from "@eCommerceModule/utilities/services/marketplaceAccess";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {inPortalPurchase} from "@coreModule/utilities/marketing/portalStorefront";
 import {orderMilestoneService} from "@eCommerceModule/database/schemas/orderMilestone/orderMilestone.service";
 import {createOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/createOrderMilestone.form.validator";
 import {releaseOrderMilestoneFormSchema} from "armonia/src/modules/eCommerce/api/eCommerceMarketplace/private/orderMilestone/releaseOrderMilestone.form.validator";
@@ -91,7 +91,7 @@ export class OrderActions {
 
         const platform = isPortalZoneOrigin(origin ?? "");
         // On the portal the listing's seller owns the order: its listing, packages and add-ons are read there (D16)
-        return inPortalMarketplace(platform, async () => {
+        return inPortalPurchase(platform, async () => {
             const listingFilter: Record<string, unknown> = {_id: new ObjectId(listingRef), status: "active"};
             if (!platform) listingFilter.company = company._id;
 

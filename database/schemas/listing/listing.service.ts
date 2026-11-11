@@ -1,6 +1,6 @@
 import type {FilterQuery} from "mongoose";
 import { BaseCrudService } from "@coreModule/database/services/baseCrudService";
-import type {CatalogPage} from "@eCommerceModule/database/schemas/product/product.service";
+import type {CatalogPage} from "@coreModule/database/services/baseCrudService";
 import Listing, { IListing } from "@eCommerceModule/database/schemas/listing/listing";
 
 export class ListingService extends BaseCrudService<IListing, typeof Listing> {

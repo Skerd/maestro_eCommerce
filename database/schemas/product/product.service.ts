@@ -1,9 +1,6 @@
-import type {FilterQuery, PopulateOptions} from "mongoose";
-import {BaseCrudService} from "@coreModule/database/services/baseCrudService";
+import type {FilterQuery} from "mongoose";
+import {BaseCrudService, type CatalogPage} from "@coreModule/database/services/baseCrudService";
 import Product, {IProduct} from "@eCommerceModule/database/schemas/product/product";
-
-/** One page of a read-only catalog query. */
-export type CatalogPage = {select: string; populate: PopulateOptions[]; sort: Record<string, 1 | -1>; skip: number; limit: number};
 
 const SHOP_RATING_PROJECTION = {ratingAverage: 1, ratingCount: 1, company: 1};
 

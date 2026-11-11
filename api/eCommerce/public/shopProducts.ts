@@ -4,8 +4,9 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
-import {SHOP_CURRENCY_SELECT, toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
+import {toShopProductCard} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {PORTAL_CURRENCY_SELECT} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 import {
     shopProductsFormSchema,
@@ -38,8 +39,8 @@ router.post(
             limit = 24,
         } = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const companyId = ctx.mode === "tenant" ? ctx.company._id : await liveSellerScope(params.sellerCompanyId);
             const filter = await buildShopCatalogFilter({
                 companyId,
@@ -65,7 +66,7 @@ router.post(
             const sortSpec = (sort && SHOP_PRODUCT_SORT_SPECS[sort]) || SHOP_PRODUCT_SORT_SPECS.newest;
 
             const [products, total] = await Promise.all([
-                productService.find(filter, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: SHOP_CURRENCY_SELECT}], CARD_FIELDS, sortSpec, limit, (page - 1) * limit),
+                productService.find(filter, {withDeleted: false}, [{path: "company", select: "name logo siteSlug siteHost"}, {path: "currency", select: PORTAL_CURRENCY_SELECT}], CARD_FIELDS, sortSpec, limit, (page - 1) * limit),
                 productService.count(filter, {withDeleted: false}),
             ]);
 

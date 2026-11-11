@@ -8,7 +8,7 @@ import State from "@coreModule/database/schemas/state/state";
 import City from "@coreModule/database/schemas/city/city";
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {listingCategoryService} from "@eCommerceModule/database/schemas/listingCategory/listingCategory.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import type {
     ShopListingLocation,
@@ -35,8 +35,8 @@ router.post(
     asyncHandler(async (params: any): Promise<ShopListingTaxonomyResponse> => {
         const {languageCode, origin} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const activeMatch: Record<string, unknown> = {status: "active", deletedAt: null};
             const companyFilter = ctx.mode === "tenant"
                 ? {company: ctx.company._id}

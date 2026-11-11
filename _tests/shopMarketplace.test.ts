@@ -12,16 +12,12 @@ const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(compan
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
 // Public routes find the tenant from the request origin; the tests run as one shop
-vi.mock("@eCommerceModule/utilities/shop/shopCompany.util", async (importOriginal) => {
+vi.mock("@coreModule/utilities/marketing/portalStorefront", async (importOriginal) => {
     // Resolves like the real one, including the request's tenant (D16).
     const {setRequestTenant} = await import("@coreModule/utilities/endpoints/tenantScope");
     return {
-        ...(await importOriginal<typeof import("@eCommerceModule/utilities/shop/shopCompany.util")>()),
-        resolveShopCompany: async () => {
-            setRequestTenant(companyId);
-            return {_id: companyId};
-        },
-        resolveShopContext: async () => {
+        ...(await importOriginal<typeof import("@coreModule/utilities/marketing/portalStorefront")>()),
+        resolveStorefrontContext: async () => {
             setRequestTenant(companyId);
             return {mode: "tenant", company: {_id: companyId}};
         },

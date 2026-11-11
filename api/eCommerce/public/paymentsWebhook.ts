@@ -13,7 +13,7 @@ import {
     placePaidCheckoutInBackground,
     spansSellers,
 } from "@eCommerceModule/workflows/checkoutPlacementService";
-import {inPortalMarketplace} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {inShopPurchase} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {handleStripeWebhook} from "@financeModule/utilities/services/payment/stripeWebhook";
 import {registerPaymentSourceHandler} from "@financeModule/utilities/services/payment/paymentSourceHandlers";
@@ -31,7 +31,7 @@ export const router = Router();
  */
 async function applyPaymentSucceeded(checkout: ICheckout, ctx: {logger: any; languageCode: string}): Promise<void> {
     // A portal marketplace checkout's orders belong to its sellers (D16, TD-B87)
-    return inPortalMarketplace(spansSellers(checkout), async () => {
+    return inShopPurchase(spansSellers(checkout), async () => {
         const orders = await productOrderService.find({$or: checkoutOrderKeys(checkout)});
         if (!orders.length) {
             await placePaidCheckoutInBackground(checkout._id, ctx);

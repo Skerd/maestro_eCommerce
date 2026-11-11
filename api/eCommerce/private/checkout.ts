@@ -30,10 +30,10 @@ import {
 } from "@eCommerceModule/workflows/checkoutPlacementService";
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
-import {SHOP_CURRENCY_SELECT, toShopCurrency} from "@eCommerceModule/utilities/mappers/shopCatalog/shopCatalog.mapper";
+import {PORTAL_CURRENCY_SELECT, toPortalCurrency} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
-import {portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
 import {checkoutAddressFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutAddress.form.validator";
 import {checkoutShippingFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutShipping.form.validator";
@@ -55,8 +55,8 @@ const CHECKOUT_TTL_MS = 30 * 60 * 1000;
 /** The checkout DTO with its currency, so the storefront shows totals in the currency that is charged. */
 async function checkoutResponse(checkout: ICheckout) {
     const currencyId = (checkout.currency as any)?._id ?? checkout.currency;
-    const currency = currencyId ? await currencyService.findById(currencyId, {}, undefined, SHOP_CURRENCY_SELECT) : null;
-    return {data: {...checkoutToDTO(checkout.toObject() as ICheckout), currency: toShopCurrency(currency)}};
+    const currency = currencyId ? await currencyService.findById(currencyId, {}, undefined, PORTAL_CURRENCY_SELECT) : null;
+    return {data: {...checkoutToDTO(checkout.toObject() as ICheckout), currency: toPortalCurrency(currency)}};
 }
 
 /**
@@ -171,7 +171,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 10}),
     validateFormZod(initCheckoutFormSchema),
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, idempotencyKey} = params;
         const userId = new ObjectId(actionUserCtx.userId);
 
@@ -248,7 +248,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutAddressFormSchema),
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, session, shippingAddress, billingAddress} = params;
 
         const checkout = await findOpenCheckout(params);
@@ -365,7 +365,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutShippingFormSchema),
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, session, rateIndex} = params;
 
         const checkout = await findOpenCheckout(params);
@@ -440,7 +440,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 10}),
     transactionHandler(),
     validateFormZod(checkoutPaymentFormSchema),
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, session, paymentMethod} = params;
         const ctx = placementCtx(params);
 
@@ -526,7 +526,7 @@ router.post(
     rateLimiter({windowMs: 60000, max: 5}),
     transactionHandler(),
     validateFormZod(confirmCheckoutFormSchema),
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx, session, checkoutId, email, phone, notes} = params;
 
         const checkout = await checkoutService.findOne({

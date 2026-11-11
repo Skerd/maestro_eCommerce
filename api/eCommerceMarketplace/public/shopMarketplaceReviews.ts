@@ -8,7 +8,7 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {listingService} from "@eCommerceModule/database/schemas/listing/listing.service";
 import {orderService} from "@eCommerceModule/database/schemas/order/order.service";
 import {reviewService} from "@eCommerceModule/database/schemas/review/review.service";
-import {resolveShopContext, inShopCatalog} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utilities/marketing/portalStorefront";
 import {toShopMarketplaceReview} from "@eCommerceModule/utilities/mappers/shopMarketplace/shopMarketplace.mapper";
 import {
     shopMarketplaceReviewsFormSchema,
@@ -31,8 +31,8 @@ router.post(
     asyncHandler(async (params: any & ShopMarketplaceReviewsFormType): Promise<ShopMarketplaceReviewsResponse> => {
         const {languageCode, origin, listingId, providerId, page = 1, limit = 10} = params;
 
-        const ctx = await resolveShopContext(origin, languageCode);
-        return inShopCatalog(ctx, async () => {
+        const ctx = await resolveStorefrontContext(origin, languageCode);
+        return inStorefrontCatalog(ctx, async () => {
             const active: Record<string, unknown> = {status: "active"};
             if (ctx.mode === "tenant") active.company = ctx.company._id;
 

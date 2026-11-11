@@ -5,7 +5,7 @@ import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {stateService} from "@coreModule/database/schemas/state/state.service";
-import {resolveShopContext} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {resolveStorefrontContext} from "@coreModule/utilities/marketing/portalStorefront";
 import {shopCitiesFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCities.form.validator";
 import type {ShopCitiesFormType} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCities.form.validator";
 
@@ -20,7 +20,7 @@ router.post(
     validateFormZod(shopCitiesFormSchema),
     asyncHandler(async (params: any & ShopCitiesFormType) => {
         const {languageCode, origin, countryId} = params;
-        await resolveShopContext(origin, languageCode);
+        await resolveStorefrontContext(origin, languageCode);
 
         const states = await stateService.find({country: new ObjectId(countryId)}, {}, undefined, "name", {name: 1});
 

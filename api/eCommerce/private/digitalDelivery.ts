@@ -4,7 +4,8 @@ import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {digitalDeliveryService} from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery.service";
-import {isPortalPurchase, portalPurchaseRoute} from "@eCommerceModule/utilities/shop/shopCompany.util";
+import {isPortalPurchase} from "@coreModule/utilities/marketing/portalStorefront";
+import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {digitalDeliveriesToDTO} from "@eCommerceModule/utilities/mappers/digitalDelivery/digitalDeliveryMapper.dto";
 
 export const basePath = "/api/eCommerce/digitalDelivery";
@@ -19,7 +20,7 @@ router.post(
     authMW("private"),
     rateLimiter({windowMs: 60000, max: 60}),
     // On the portal: the buyer's downloads from every seller (D16)
-    asyncHandler(portalPurchaseRoute(async (params: any) => {
+    asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {logger, languageCode, company, actionUserCtx, orderId, origin} = params;
 
         const filter: Record<string, unknown> = {customer: new ObjectId(actionUserCtx.userId)};

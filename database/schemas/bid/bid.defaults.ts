@@ -4,7 +4,7 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {IUser} from "@coreModule/database/schemas/user/user";
 import {ICurrency} from "@coreModule/database/schemas/currency/currency";
-import {demoSeedTag} from "@eCommerceModule/database/demo/demoSeed";
+import {demoSeedTag} from "@coreModule/database/demo/demoSeed";
 import type {CreateTaskRequestsResult} from "@eCommerceModule/database/schemas/taskRequest/taskRequest.defaults";
 
 export type BidSeed = {
