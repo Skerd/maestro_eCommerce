@@ -94,6 +94,7 @@ const PosSessionSchema = new Schema<IPosSession>(
             refAllowlist: CurrencySimpleSnippet,
             permissions: NoWritePermission,
             dynamicTableConfiguration: {
+                visible: false,
                 refDisplayKey: ["symbol", "abbreviation"],
             },
         },
@@ -143,11 +144,13 @@ const PosSessionSchema = new Schema<IPosSession>(
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         closingBalance: {
             type: SchemaTypes.Number,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         expectedCash: {
             type: SchemaTypes.Number,
@@ -160,6 +163,7 @@ const PosSessionSchema = new Schema<IPosSession>(
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         cashMoves: {
             type: [{
@@ -212,18 +216,21 @@ const PosSessionSchema = new Schema<IPosSession>(
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         totalCash: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         totalCard: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         notes: {
             type: SchemaTypes.String,

@@ -86,7 +86,8 @@ const PricingRuleSchema = new Schema<IPricingRule>(
         },
         minimumOrderAmount: {
             type: SchemaTypes.Number, 
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         minimumQuantity: {
             type: SchemaTypes.Number, 

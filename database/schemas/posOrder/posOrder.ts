@@ -379,36 +379,42 @@ const PosOrderSchema = new Schema<IPosOrder>(
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         amountTotal: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         amountPaid: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         amountReturn: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         discountTotal: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         /** Sum of refund amounts issued against this sale (partial + full). */
         amountRefunded: {
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         note: {
             type: SchemaTypes.String,

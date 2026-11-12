@@ -314,19 +314,23 @@ const ProductSchema = new Schema<IProduct>(
         // Pricing
         price: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         compareAtPrice: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         costPrice: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         msrp: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         saleStartsAt: {
             type: SchemaTypes.Date,
@@ -362,6 +366,7 @@ const ProductSchema = new Schema<IProduct>(
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {visible: false},
         },
         // Shipping / physical
         weight: {

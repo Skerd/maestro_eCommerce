@@ -88,20 +88,24 @@ const ProductVariantSchema = new Schema<IProductVariant>(
         },
         price: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         compareAtPrice: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         costPrice: {
             type: SchemaTypes.Number,
-            min: 0
+            min: 0,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         currency: {
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             refAllowlist: CurrencySimpleSnippet,
+            dynamicTableConfiguration: {visible: false},
         },
         weight: {
             type: SchemaTypes.Number,

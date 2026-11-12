@@ -77,7 +77,7 @@ const CartSchema = new Schema<ICart>(
         user: {type: SchemaTypes.ObjectId, ref: "User", refAllowlist: SimpleUserSnippet},
         company: {type: SchemaTypes.ObjectId, ref: "Company", required: true, refAllowlist: CompanyBlankSnippet},
         items: {type: [CartItemSubSchema], default: []},
-        currency: {type: SchemaTypes.ObjectId, ref: "Currency", refAllowlist: CurrencySimpleSnippet},
+        currency: {type: SchemaTypes.ObjectId, ref: "Currency", refAllowlist: CurrencySimpleSnippet, dynamicTableConfiguration: {visible: false}},
         appliedDiscounts: {
             type: [
                 {
@@ -89,9 +89,9 @@ const CartSchema = new Schema<ICart>(
             ],
             default: [],
         },
-        subtotal: {type: SchemaTypes.Number, default: 0, min: 0},
-        discountTotal: {type: SchemaTypes.Number, default: 0, min: 0},
-        estimatedTotal: {type: SchemaTypes.Number, default: 0, min: 0},
+        subtotal: {type: SchemaTypes.Number, default: 0, min: 0, dynamicTableConfiguration: {currencyPath: "currency"}},
+        discountTotal: {type: SchemaTypes.Number, default: 0, min: 0, dynamicTableConfiguration: {currencyPath: "currency"}},
+        estimatedTotal: {type: SchemaTypes.Number, default: 0, min: 0, dynamicTableConfiguration: {currencyPath: "currency"}},
         expiresAt: {type: SchemaTypes.Date, required: true},
         mergedFrom: {type: SchemaTypes.ObjectId, ref: "Cart"},
         abandonedNotifiedAt: {type: SchemaTypes.Date},

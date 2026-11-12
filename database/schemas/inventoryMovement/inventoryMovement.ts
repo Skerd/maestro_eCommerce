@@ -158,6 +158,7 @@ const InventoryMovementSchema = new Schema<IInventoryMovement>(
             type: SchemaTypes.Number,
             min: 0,
             permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         batchLot: {
             type: SchemaTypes.String,

@@ -71,8 +71,8 @@ const SavedSearchSchema = new Schema<ISavedSearch>(
                 refDisplayKey: ["name"],
             },
         },
-        priceMin: {type: SchemaTypes.Number, min: 0},
-        priceMax: {type: SchemaTypes.Number, min: 0},
+        priceMin: {type: SchemaTypes.Number, min: 0, dynamicTableConfiguration: {currencyPath: "currency"}},
+        priceMax: {type: SchemaTypes.Number, min: 0, dynamicTableConfiguration: {currencyPath: "currency"}},
         sort: {
             type: SchemaTypes.String,
             enum: SHOP_PRODUCT_SORTS,

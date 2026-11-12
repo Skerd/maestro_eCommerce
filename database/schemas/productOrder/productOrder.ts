@@ -268,14 +268,16 @@ const ProductOrderSchema = new Schema<IProductOrder>(
             type: SchemaTypes.Number,
             default: 0,
             min: 0,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {currencyPath: "currency"},
         },
         currency: {
             type: SchemaTypes.ObjectId,
             ref: "Currency",
             required: true,
             refAllowlist: CurrencySimpleSnippet,
-            permissions: NoWritePermission
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {visible: false},
         },
         currencyCode: {
             type: SchemaTypes.String,
