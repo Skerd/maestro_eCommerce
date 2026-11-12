@@ -2,6 +2,7 @@ import {Router} from "express";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {CLIENT_SIDE} from "@coreModule/environment";
 import {PAYMENTS} from "@financeModule/environment";
 import {shopCurrencyOf} from "@eCommerceModule/utilities/services/shopCurrency";
 import {resolveStorefrontContext} from "@coreModule/utilities/marketing/portalStorefront";
@@ -116,13 +117,14 @@ router.get(
 
         // Apex is the multi-seller marketplace brand — not the signup/session company.
         if (ctx.mode === "platform") {
+            const brand = CLIENT_SIDE.NAME ?? "";
             return {
                 data: {
                     mode: "platform",
                     stripePublishableKey,
                     currency: currencyPayload,
-                    companyName: "Arpeggio",
-                    company: {name: "Arpeggio"},
+                    companyName: brand,
+                    company: {name: brand},
                 },
             };
         }
