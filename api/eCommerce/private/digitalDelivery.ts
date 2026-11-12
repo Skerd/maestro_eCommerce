@@ -2,6 +2,7 @@ import {Router} from "express";
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
+import {shopSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {digitalDeliveryService} from "@eCommerceModule/database/schemas/digitalDelivery/digitalDelivery.service";
 import {isPortalPurchase} from "@coreModule/utilities/marketing/portalStorefront";
@@ -17,7 +18,7 @@ export const router = Router();
  */
 router.post(
     "/my",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     // On the portal: the buyer's downloads from every seller (D16)
     asyncHandler(shopPurchaseRoute(async (params: any) => {

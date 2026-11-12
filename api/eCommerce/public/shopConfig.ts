@@ -5,6 +5,7 @@ import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {PAYMENTS} from "@financeModule/environment";
 import {shopCurrencyOf} from "@eCommerceModule/utilities/services/shopCurrency";
 import {resolveStorefrontContext} from "@coreModule/utilities/marketing/portalStorefront";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import type {
     ShopCompany,
     ShopCompanyAddress,
@@ -20,17 +21,6 @@ function optionalTrimmed(value: unknown): string | undefined {
     }
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function optionalId(value: unknown): string | undefined {
-    if (value == null) {
-        return undefined;
-    }
-    if (typeof value === "object" && "_id" in value) {
-        return optionalId((value as {_id?: unknown})._id);
-    }
-    const id = String(value).trim();
-    return id.length > 0 ? id : undefined;
 }
 
 function namedRef(value: unknown): string | undefined {
@@ -68,7 +58,8 @@ function mapCompanyAddresses(
     return mapped.length > 0 ? mapped : undefined;
 }
 
-function mapShopCompany(company: {
+/** The company as its shop shows it. Exported for its test (TD-B187: a logo id is a Mongoose `ObjectId`, whose `_id` is itself). */
+export function mapShopCompany(company: {
     name?: string;
     logo?: unknown;
     email?: string;
@@ -82,7 +73,7 @@ function mapShopCompany(company: {
 }): ShopCompany {
     const mapped: ShopCompany = {};
     const name = optionalTrimmed(company.name);
-    const logo = optionalId(company.logo);
+    const logo = nestedEntityToRef(company.logo)?.toString();
     const email = optionalTrimmed(company.email);
     const phoneNumber = optionalTrimmed(company.phoneNumber);
     const vat = optionalTrimmed(company.vat);

@@ -2,6 +2,7 @@ import {Router} from "express";
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
+import {shopSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -117,7 +118,7 @@ function assertSingleSellerPromo(cart: ICart, languageCode: string): void {
 // GET cart — re-priced on read so the buyer always sees live prices
 router.get(
     "/",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 120}),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {company, actionUserCtx} = params;
@@ -138,7 +139,7 @@ router.get(
 // PUT item into cart
 router.put(
     "/item",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(addCartItemFormSchema),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
@@ -233,7 +234,7 @@ router.put(
 // PATCH item quantity (0 removes the line)
 router.patch(
     "/item",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(updateCartItemFormSchema),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
@@ -261,7 +262,7 @@ router.patch(
 // DELETE item
 router.delete(
     "/item/:itemId",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     asyncHandler(shopPurchaseRoute(async (params: any, queryParams: any) => {
         const {languageCode, company, actionUserCtx} = params;
@@ -279,7 +280,7 @@ router.delete(
 // Apply discount code
 router.post(
     "/apply-discount",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 30}),
     validateFormZod(applyCartCodeFormSchema),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
@@ -320,7 +321,7 @@ router.post(
 // Remove the applied discount code
 router.delete(
     "/discount",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 30}),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
@@ -336,7 +337,7 @@ router.delete(
 // Apply gift card (store credit) — amount re-capped on every reprice and at checkout
 router.post(
     "/apply-gift-card",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 20}),
     validateFormZod(applyCartCodeFormSchema),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
@@ -366,7 +367,7 @@ router.post(
 // Remove applied gift card
 router.delete(
     "/gift-card",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 20}),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {languageCode, company, actionUserCtx} = params;
@@ -382,7 +383,7 @@ router.delete(
 // Clear cart (items, discount and store credit)
 router.delete(
     "/clear",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 10}),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
         const {company, actionUserCtx} = params;

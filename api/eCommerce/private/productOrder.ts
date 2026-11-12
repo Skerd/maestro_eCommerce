@@ -1,6 +1,7 @@
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW, {type AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
+import {shopSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -168,7 +169,7 @@ router.post(
  */
 router.post(
     "/my",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validatePagedForm),
     asyncHandler(shopPurchaseRoute(async (params: AuthenticatedMWType & PagedForm) => {
@@ -200,7 +201,7 @@ router.post(
 
 router.post(
     "/mySingle",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 60}),
     validateFormZod(validateSingleForm),
     asyncHandler(shopPurchaseRoute(async (params: AuthenticatedMWType & {_id: string}) => {

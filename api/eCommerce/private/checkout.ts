@@ -2,6 +2,7 @@ import {Router} from "express";
 import {ObjectId} from "mongodb";
 import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
 import authMW from "@coreModule/utilities/middlewares/authMW";
+import {shopSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
 import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
 import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
 import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
@@ -168,7 +169,7 @@ function placementCtx(params: any) {
 // Initialize (or resume) the checkout for the buyer's cart
 router.post(
     "/init",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 10}),
     validateFormZod(initCheckoutFormSchema),
     asyncHandler(shopPurchaseRoute(async (params: any) => {
@@ -244,7 +245,7 @@ router.post(
 // Set shipping address + calculate rates (resets any chosen rate, tax and payment attempt)
 router.post(
     "/address",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutAddressFormSchema),
@@ -361,7 +362,7 @@ router.post(
 // Select shipping rate + recalculate totals
 router.post(
     "/shipping",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 20}),
     transactionHandler(),
     validateFormZod(checkoutShippingFormSchema),
@@ -436,7 +437,7 @@ router.post(
  */
 router.post(
     "/payment",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 10}),
     transactionHandler(),
     validateFormZod(checkoutPaymentFormSchema),
@@ -522,7 +523,7 @@ router.post(
  */
 router.post(
     "/confirm",
-    authMW("private"),
+    authMW("private", {portalBuyer: shopSeller}),
     rateLimiter({windowMs: 60000, max: 5}),
     transactionHandler(),
     validateFormZod(confirmCheckoutFormSchema),
