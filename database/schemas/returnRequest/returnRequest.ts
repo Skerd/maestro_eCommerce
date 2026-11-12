@@ -93,7 +93,9 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
         },
         refundAmount: {
             type: SchemaTypes.Number, 
-            min: 0
+            min: 0,
+            // In the order's currency, as the sheet shows it.
+            dynamicTableConfiguration: {currencyPath: "order.currency"},
         },
         customerNote: {
             type: SchemaTypes.String,
