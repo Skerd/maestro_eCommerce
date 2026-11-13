@@ -449,7 +449,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.currencyPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/currency/select",
-                                method: "GET",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },
@@ -752,7 +751,6 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.currencyPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/currency/select",
-                                method: "GET",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },

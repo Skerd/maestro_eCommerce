@@ -2031,7 +2031,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.currencyPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/currency/select",
-                                method: "GET",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "currencyDefaultOptions",
                             },
@@ -3352,7 +3351,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.currencyPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/currency/select",
-                                method: "GET",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "currencyDefaultOptions",
                             },
