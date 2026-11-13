@@ -1,8 +1,7 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
-import {mongooseInstance} from "@coreModule/connections/connectToMongoDb";
-import {flushAfterCommitTasks} from "@coreModule/utilities/middlewares/transactionUtils";
+import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import {stateService} from "@coreModule/database/schemas/state/state.service";
@@ -554,34 +553,23 @@ export async function placeOrderFromCheckout(
 
 /**
  * Places the order for a paid checkout outside an HTTP request (payment
- * webhook, expiry job) in its own transaction. withTransaction retries
+ * webhook, expiry job) in its own transaction. `runInTransaction` retries
  * transient conflicts — e.g. racing the buyer's own /confirm — and the retry
- * then finds the order and returns it.
+ * then finds the order and returns it; notifications queued by an aborted
+ * attempt are dropped, the committed attempt's run after the commit.
  */
 export async function placePaidCheckoutInBackground(
     checkoutId: ObjectId,
     ctx: Omit<PlacementCtx, "session">,
 ): Promise<IProductOrder | null> {
-    const session = await mongooseInstance.startSession();
-    let placed: IProductOrder | null = null;
-    const logFailure = (error: unknown) => ctx.logger?.err?.("After-commit task failed", error);
-    try {
-        await session.withTransaction(async () => {
-            placed = null;
-            // A retried attempt starts clean: notifications queued by the aborted one are dropped
-            await flushAfterCommitTasks(session, false, logFailure);
-            const checkout = await checkoutService.findOne({_id: checkoutId}, {session});
-            if (!checkout || !["pending", "payment_processing", "confirmed", "expired"].includes(checkout.status)) return;
+    return runInTransaction(ctx.logger, async (session) => {
+        const checkout = await checkoutService.findOne({_id: checkoutId}, {session});
+        if (!checkout || !["pending", "payment_processing", "confirmed", "expired"].includes(checkout.status)) return null;
 
-            // The account login (username) is the buyer's email address
-            const owner = checkout.user ? await userService.findById(idOf(checkout.user), {session}, undefined, "username") : null;
-            const result = await inShopPurchase(spansSellers(checkout), () =>
-                placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session}));
-            placed = result.order;
-        });
-        await flushAfterCommitTasks(session, true, logFailure);
-    } finally {
-        await session.endSession();
-    }
-    return placed;
+        // The account login (username) is the buyer's email address
+        const owner = checkout.user ? await userService.findById(idOf(checkout.user), {session}, undefined, "username") : null;
+        const result = await inShopPurchase(spansSellers(checkout), () =>
+            placeOrderFromCheckout(checkout, {email: owner?.username}, {...ctx, session}));
+        return result.order;
+    });
 }

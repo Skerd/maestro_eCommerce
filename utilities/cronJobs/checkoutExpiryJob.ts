@@ -9,7 +9,7 @@
 
 import { ObjectId } from "mongodb";
 import { CONSTANTS } from "@coreModule/environment";
-import { mongooseInstance } from "@coreModule/connections/connectToMongoDb";
+import { runInTransaction } from "@coreModule/utilities/middlewares/runInTransaction";
 import { getLogger, serverLogger } from "@coreModule/loggers/serverLog";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import { releaseReservations } from "@eCommerceModule/utilities/services/inventoryReservationService";
@@ -41,29 +41,21 @@ async function chargeSucceeded(checkout: any): Promise<boolean> {
  * is left alone, and a failure part-way releases nothing.
  */
 async function expireCheckout(checkoutId: ObjectId, ctx: { logger: serverLogger; languageCode: string }): Promise<boolean> {
-    const session = await mongooseInstance.startSession();
-    let expired = false;
-    try {
-        await session.withTransaction(async () => {
-            expired = false;
-            const checkout = await checkoutService.findOne({
-                _id: checkoutId,
-                status: { $in: ["pending", "payment_processing"] },
-                expiresAt: { $lte: new Date() },
-            }, { session });
-            if (!checkout) return;
+    return runInTransaction(ctx.logger, async (session) => {
+        const checkout = await checkoutService.findOne({
+            _id: checkoutId,
+            status: { $in: ["pending", "payment_processing"] },
+            expiresAt: { $lte: new Date() },
+        }, { session });
+        if (!checkout) return false;
 
-            if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
-                await inShopPurchase(spansSellers(checkout), () => releaseReservations(checkout, { ...ctx, session }));
-            }
-            checkout.status = "expired";
-            await checkout.save({ session });
-            expired = true;
-        });
-    } finally {
-        await session.endSession();
-    }
-    return expired;
+        if ((checkout.reservations ?? []).some(r => r.state === "reserved")) {
+            await inShopPurchase(spansSellers(checkout), () => releaseReservations(checkout, { ...ctx, session }));
+        }
+        checkout.status = "expired";
+        await checkout.save({ session });
+        return true;
+    });
 }
 
 export async function runCheckoutExpiry(company: ObjectId, parentLogger?: serverLogger): Promise<void> {

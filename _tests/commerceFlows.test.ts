@@ -26,9 +26,11 @@ import {validateDiscount, validateDiscountForCustomer} from "@eCommerceModule/ut
 import {generateOrderNumber} from "@eCommerceModule/utilities/services/orderNumberService";
 import {
     placeOrderFromCheckout,
+    placePaidCheckoutInBackground,
     reserveStockForPayment,
     resetCheckoutPayment,
 } from "@eCommerceModule/workflows/checkoutPlacementService";
+import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {resolvePosLineUnitPrice} from "@eCommerceModule/utilities/services/posLinePrice";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
@@ -319,6 +321,32 @@ describe("checkout placement", () => {
         expect(again.created).toBe(false);
         expect(again.order._id.toString()).toBe(first.order._id.toString());
         expect(await ProductOrder.countDocuments({})).toBe(1);
+    }));
+
+    // TD-B232: the background placement (payment webhook, expiry job) runs in core's runInTransaction, whose transaction
+    // is already open on the server when the placement's first read runs.
+    it("places a paid checkout's order in its own transaction, opened on the server before its first read", () => asCompany(async () => {
+        const product = await seedProduct();
+        await seedStock(product, 5);
+        const checkout = await seedCheckout(product, {status: "payment_processing"});
+        const findOne = checkoutService.findOne.bind(checkoutService);
+        const openedFirst: boolean[] = [];
+        const spy = vi.spyOn(checkoutService, "findOne").mockImplementation((query, options = {}, ...rest) => {
+            const {session} = options;
+            openedFirst.push(!!session && session.inTransaction() && !session.transaction.isStarting);
+            return findOne(query, options, ...rest);
+        });
+
+        try {
+            const order = await placePaidCheckoutInBackground(checkout._id, placement);
+
+            expect(openedFirst[0]).toBe(true);
+            expect(order).not.toBeNull();
+            expect(await ProductOrder.countDocuments({})).toBe(1);
+            expect((await Checkout.findById(checkout._id))!.status).toBe("confirmed");
+        } finally {
+            spy.mockRestore();
+        }
     }));
 
     it("refuses an out-of-stock unpaid order without leaving partial holds", () => asCompany(async () => {
