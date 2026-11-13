@@ -247,7 +247,6 @@ const taxZoneCreateFormNodes: ViewConfig["nodes"] = [
                     label: "form.statesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/state/select",
-                        method: "POST",
                         placeholderKey: "form.selectState",
                         removeTooltipKey: "form.removeState",
                         selectPageSizeCreate: 50,
@@ -439,7 +438,6 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.statesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/state/select",
-                        method: "POST",
                         placeholderKey: "form.selectState",
                         removeTooltipKey: "form.removeState",
                         selectPageSizeCreate: 50,

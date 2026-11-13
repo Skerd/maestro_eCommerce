@@ -423,7 +423,6 @@ const shippingZoneCreateFormNodes: ViewConfig["nodes"] = [
                     label: "form.countriesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/country/select",
-                        method: "POST",
                         placeholderKey: "form.selectCountry",
                         removeTooltipKey: "form.removeCountry",
                         selectPageSizeCreate: 50,
@@ -440,7 +439,6 @@ const shippingZoneCreateFormNodes: ViewConfig["nodes"] = [
                     label: "form.statesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/state/select",
-                        method: "POST",
                         placeholderKey: "form.selectState",
                         removeTooltipKey: "form.removeState",
                         selectPageSizeCreate: 50,
@@ -521,7 +519,6 @@ const shippingZoneEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.countriesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/country/select",
-                        method: "POST",
                         placeholderKey: "form.selectCountry",
                         removeTooltipKey: "form.removeCountry",
                         selectPageSizeCreate: 50,
@@ -539,7 +536,6 @@ const shippingZoneEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.statesLabel",
                     widgetProps: {
                         apiUrl: "/api/auxiliary/state/select",
-                        method: "POST",
                         placeholderKey: "form.selectState",
                         removeTooltipKey: "form.removeState",
                         selectPageSizeCreate: 50,

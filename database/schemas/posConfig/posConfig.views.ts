@@ -461,7 +461,6 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/warehouse/select",
-                                method: "POST",
                                 placeholderKey: "form.selectWarehouse",
                                 removeTooltipKey: "form.removeWarehouse",
                                 selectPageSizeCreate: 50,
@@ -479,7 +478,6 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/posPaymentMethod/select",
-                                method: "POST",
                                 placeholderKey: "form.selectPaymentMethod",
                                 removeTooltipKey: "form.removePaymentMethod",
                                 selectPageSizeCreate: 50,
@@ -508,7 +506,6 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                             label: "form.managersLabel",
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 placeholderKey: "form.selectManager",
                                 removeTooltipKey: "form.removeManager",
                                 selectPageSizeCreate: 50,
@@ -712,7 +709,6 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/warehouse/select",
-                                method: "POST",
                                 placeholderKey: "form.selectWarehouse",
                                 removeTooltipKey: "form.removeWarehouse",
                                 selectPageSizeCreate: 50,
@@ -731,7 +727,6 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/posPaymentMethod/select",
-                                method: "POST",
                                 placeholderKey: "form.selectPaymentMethod",
                                 removeTooltipKey: "form.removePaymentMethod",
                                 selectPageSizeCreate: 50,
@@ -762,7 +757,6 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                             label: "form.managersLabel",
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 placeholderKey: "form.selectManager",
                                 removeTooltipKey: "form.removeManager",
                                 selectPageSizeCreate: 50,

@@ -2396,7 +2396,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     name: "categories",
                     widget: "#ObjectIdChipsInput",
                     label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
                 },
             },
             {
@@ -2405,7 +2405,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     name: "collections",
                     widget: "#ObjectIdChipsInput",
                     label: "form.collectionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
+                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
                 },
             },
         ],
@@ -2422,7 +2422,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     name: "variantOptions",
                     widget: "#ObjectIdChipsInput",
                     label: "form.variantOptionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
+                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
                 },
             },
             {
@@ -2895,7 +2895,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     label: "form.relatedProductsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -2912,7 +2911,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     label: "form.upsellsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -2929,7 +2927,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     label: "form.crossSellsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -2946,7 +2943,6 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     label: "form.frequentlyBoughtTogetherLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -3747,7 +3743,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     name: "categories",
                     widget: "#ObjectIdChipsInput",
                     label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", method: "POST", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
                 },
             },
             {
@@ -3757,7 +3753,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     name: "collections",
                     widget: "#ObjectIdChipsInput",
                     label: "form.collectionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", method: "POST", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
+                    widgetProps: {apiUrl: "/api/eCommerce/collection/select", placeholderKey: "form.selectCollection", removeTooltipKey: "form.removeCollection", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "collections"},
                 },
             },
         ],
@@ -3776,7 +3772,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     name: "variantOptions",
                     widget: "#ObjectIdChipsInput",
                     label: "form.variantOptionsLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", method: "POST", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
+                    widgetProps: {apiUrl: "/api/eCommerce/productAttribute/select", placeholderKey: "form.selectAttribute", removeTooltipKey: "form.removeAttribute", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "variantOptions"},
                 },
             },
             {
@@ -4284,7 +4280,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.relatedProductsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -4302,7 +4297,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.upsellsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -4320,7 +4314,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.crossSellsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,
@@ -4338,7 +4331,6 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.frequentlyBoughtTogetherLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/product/select",
-                        method: "POST",
                         placeholderKey: "form.selectProduct",
                         removeTooltipKey: "form.removeProduct",
                         selectPageSizeCreate: 50,

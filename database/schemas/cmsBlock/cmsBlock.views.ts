@@ -801,7 +801,6 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/category/select",
-                                        method: "POST",
                                         placeholderKey: "form.selectCategory",
                                         removeTooltipKey: "form.removeCategory",
                                         selectPageSizeCreate: 50,
@@ -1412,7 +1411,6 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/category/select",
-                                        method: "POST",
                                         placeholderKey: "form.selectCategory",
                                         removeTooltipKey: "form.removeCategory",
                                         selectPageSizeCreate: 50,

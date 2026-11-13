@@ -420,7 +420,6 @@ const collectionCreateFormNodes: ViewConfig["nodes"] = [
                             label: "form.productsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 placeholderKey: "form.selectProduct",
                                 removeTooltipKey: "form.removeProduct",
                                 selectPageSizeCreate: 50,
@@ -696,7 +695,6 @@ const collectionEditFormNodes: ViewConfig["nodes"] = [
                             label: "form.productsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 placeholderKey: "form.selectProduct",
                                 removeTooltipKey: "form.removeProduct",
                                 selectPageSizeCreate: 50,

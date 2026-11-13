@@ -632,7 +632,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/product/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectProduct",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -664,7 +663,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/collection/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectCollection",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -696,7 +694,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/category/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectCategory",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -764,7 +761,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                             label: "form.getProductIdsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 placeholderKey: "form.selectProduct",
                                 removeTooltipKey: "form.removeProduct",
                                 selectPageSizeCreate: 50,
@@ -788,7 +784,6 @@ const discountCreateFormNodes: ViewConfig["nodes"] = [
                     widget: "#ObjectIdChipsInput",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/customerGroup/select",
-                        method: "POST",
                         placeholderKey: "form.selectCustomerGroup",
                         removeTooltipKey: "form.removeCustomerGroup",
                         selectPageSizeCreate: 50,
@@ -1062,7 +1057,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/product/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectProduct",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -1097,7 +1091,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/collection/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectCollection",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -1132,7 +1125,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                                             widget: "#ObjectIdChipsInput",
                                             widgetProps: {
                                                 apiUrl: "/api/eCommerce/category/select",
-                                                method: "POST",
                                                 placeholderKey: "form.selectCategory",
                                                 removeTooltipKey: "form.removeTarget",
                                                 selectPageSizeCreate: 50,
@@ -1205,7 +1197,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                             label: "form.getProductIdsLabel",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 placeholderKey: "form.selectProduct",
                                 removeTooltipKey: "form.removeProduct",
                                 selectPageSizeCreate: 50,
@@ -1231,7 +1222,6 @@ const discountEditFormNodes: ViewConfig["nodes"] = [
                     widget: "#ObjectIdChipsInput",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/customerGroup/select",
-                        method: "POST",
                         placeholderKey: "form.selectCustomerGroup",
                         removeTooltipKey: "form.removeCustomerGroup",
                         selectPageSizeCreate: 50,

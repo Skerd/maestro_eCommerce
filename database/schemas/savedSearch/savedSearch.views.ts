@@ -257,7 +257,6 @@ const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
                     label: "form.categoryIdsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/category/select",
-                        method: "POST",
                         placeholderKey: "form.selectCategory",
                         removeTooltipKey: "form.removeCategory",
                         selectPageSizeCreate: 50,
@@ -384,7 +383,6 @@ const savedSearchEditFormNodes: ViewConfig["nodes"] = [
                     label: "form.categoryIdsLabel",
                     widgetProps: {
                         apiUrl: "/api/eCommerce/category/select",
-                        method: "POST",
                         placeholderKey: "form.selectCategory",
                         removeTooltipKey: "form.removeCategory",
                         selectPageSizeCreate: 50,
