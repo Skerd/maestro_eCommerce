@@ -95,7 +95,6 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.countryPlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/country/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 cascadeClearFormFields: ["address.state", "address.city"],
                                             },
@@ -110,7 +109,6 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.statePlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/state/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 postBodyFromFormFields: [{field: "address.country", paramName: "country"}],
                                                 enableWhenFormFieldsNonEmpty: ["address.country"],
@@ -127,7 +125,6 @@ const warehouseCreateFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.cityPlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/city/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 postBodyFromFormFields: [
                                                     {field: "address.country", paramName: "country"},
@@ -265,7 +262,6 @@ const warehouseEditFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.countryPlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/country/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 cascadeClearFormFields: ["address.state", "address.city"],
                                             },
@@ -281,7 +277,6 @@ const warehouseEditFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.statePlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/state/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 postBodyFromFormFields: [{field: "address.country", paramName: "country"}],
                                                 enableWhenFormFieldsNonEmpty: ["address.country"],
@@ -299,7 +294,6 @@ const warehouseEditFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.cityPlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/city/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 postBodyFromFormFields: [
                                                     {field: "address.country", paramName: "country"},

@@ -29,7 +29,6 @@ const fulfillmentCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/productOrder/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         },
@@ -105,7 +104,6 @@ const fulfillmentCreateFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productOrder/lineSelect",
-                                        method: "POST",
                                         normalizeEmptyToUndefined: true,
                                         postBodyFromFormField: {field: "order", paramName: "productOrderId"},
                                         remountKeyFormField: "order",
@@ -167,7 +165,6 @@ const fulfillmentEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/productOrder/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         },
@@ -249,7 +246,6 @@ const fulfillmentEditFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productOrder/lineSelect",
-                                        method: "POST",
                                         normalizeEmptyToUndefined: true,
                                         postBodyFromFormField: {field: "order", paramName: "productOrderId"},
                                         remountKeyFormField: "order",

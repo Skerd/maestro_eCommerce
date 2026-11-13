@@ -148,7 +148,6 @@ const productReviewCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/productOrder/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 cascadeClearFormFields: ["product"],
                             },
@@ -164,7 +163,6 @@ const productReviewCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 enableWhenFormFieldsNonEmpty: ["order"],
                                 postBodyFromFormField: {field: "order", paramName: "productOrderId"},

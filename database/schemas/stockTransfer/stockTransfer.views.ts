@@ -4,13 +4,11 @@ import {STOCK_TRANSFER_NOTE_MAX} from "armonia/src/modules/eCommerce/api/eCommer
 
 const warehouseSelectProps = {
     apiUrl: "/api/eCommerce/warehouse/select",
-    method: "POST",
     normalizeEmptyToUndefined: true,
 };
 
 const productSelectProps = {
     apiUrl: "/api/eCommerce/product/select",
-    method: "POST",
     normalizeEmptyToUndefined: true,
     cascadeClearFormFields: ["variant"],
 };
@@ -18,7 +16,6 @@ const productSelectProps = {
 /** The variant picker lists the row's product's variants. */
 const variantSelectProps = {
     apiUrl: "/api/eCommerce/productVariant/select",
-    method: "POST",
     normalizeEmptyToUndefined: true,
     postBodyFromFormFields: [{field: "product", paramName: "product"}],
 };

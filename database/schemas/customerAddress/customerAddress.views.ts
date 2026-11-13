@@ -118,7 +118,6 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         },
@@ -211,7 +210,6 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                                             required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/country/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 cascadeClearFormFields: ["state", "city"],
@@ -227,7 +225,6 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.statePlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/state/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 postBodyFromFormFields: [{field: "country", paramName: "country"}],
@@ -246,7 +243,6 @@ const customerAddressCreateFormNodes: ViewConfig["nodes"] = [
                                             required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/city/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 postBodyFromFormFields: [
@@ -342,7 +338,6 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         }, permissions: {read: "customer", write: "customer"},
@@ -441,7 +436,6 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                                             required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/country/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 cascadeClearFormFields: ["state", "city"],
@@ -457,7 +451,6 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                                             placeholder: "form.statePlaceholder",
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/state/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 postBodyFromFormFields: [{field: "country", paramName: "country"}],
@@ -476,7 +469,6 @@ const customerAddressEditFormNodes: ViewConfig["nodes"] = [
                                             required: true,
                                             widgetProps: {
                                                 apiUrl: "/api/auxiliary/city/select",
-                                                method: "POST",
                                                 pageSize: 50,
                                                 normalizeEmptyToUndefined: true,
                                                 postBodyFromFormFields: [

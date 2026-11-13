@@ -768,7 +768,6 @@ const cmsBlockCreateFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/collection/select",
-                                        method: "POST",
                                         pageSize: 50,
                                         normalizeEmptyToUndefined: true,
                                         className: "grow w-full",
@@ -1376,7 +1375,6 @@ const cmsBlockEditFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/collection/select",
-                                        method: "POST",
                                         pageSize: 50,
                                         normalizeEmptyToUndefined: true,
                                         className: "grow w-full",

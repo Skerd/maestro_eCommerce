@@ -225,7 +225,6 @@ const taxZoneCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/auxiliary/country/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                                 cascadeClearFormFields: ["states"],
@@ -413,7 +412,6 @@ const taxZoneEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/auxiliary/country/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                                 cascadeClearFormFields: ["states"],

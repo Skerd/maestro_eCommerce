@@ -435,7 +435,6 @@ const posConfigCreateFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.fiscalConfigPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/fiscalConfig/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },
@@ -685,7 +684,6 @@ const posConfigEditFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.fiscalConfigPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/finance/fiscalConfig/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },

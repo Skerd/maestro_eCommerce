@@ -2473,7 +2473,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                                             label: "form.bundleComponentProductLabel",
                                             placeholder: "form.bundleComponentProductPlaceholder",
                                             required: true,
-                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", normalizeEmptyToUndefined: true},
                                         },
                                     },
                                     {
@@ -3831,7 +3831,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                                             label: "form.bundleComponentProductLabel",
                                             placeholder: "form.bundleComponentProductPlaceholder",
                                             required: true,
-                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", method: "POST", normalizeEmptyToUndefined: true},
+                                            widgetProps: {apiUrl: "/api/eCommerce/product/select", normalizeEmptyToUndefined: true},
                                         },
                                     },
                                     {

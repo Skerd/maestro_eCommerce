@@ -169,7 +169,7 @@ export const stockCountCreateFormView: ViewConfig = {
                                 label: "form.warehouseLabel",
                                 placeholder: "form.warehousePlaceholder",
                                 required: true,
-                                widgetProps: {apiUrl: "/api/eCommerce/warehouse/select", method: "POST", normalizeEmptyToUndefined: true},
+                                widgetProps: {apiUrl: "/api/eCommerce/warehouse/select", normalizeEmptyToUndefined: true},
                             },
                         },
                     ],
@@ -227,7 +227,6 @@ export const stockCountEditFormView: ViewConfig = {
                                         required: true,
                                         widgetProps: {
                                             apiUrl: "/api/eCommerce/product/select",
-                                            method: "POST",
                                             normalizeEmptyToUndefined: true,
                                             cascadeClearFormFields: ["variant"],
                                         },
@@ -242,7 +241,6 @@ export const stockCountEditFormView: ViewConfig = {
                                         placeholder: "form.variantPlaceholder",
                                         widgetProps: {
                                             apiUrl: "/api/eCommerce/productVariant/select",
-                                            method: "POST",
                                             normalizeEmptyToUndefined: true,
                                             postBodyFromFormFields: [{field: "product", paramName: "product"}],
                                         },

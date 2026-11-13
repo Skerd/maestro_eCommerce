@@ -343,7 +343,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },
@@ -409,7 +408,6 @@ const productVariantCreateFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productAttribute/select",
-                                        method: "POST",
                                         pageSize: 50,
                                         normalizeEmptyToUndefined: true,
                                     },
@@ -639,7 +637,6 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/product/select",
-                                method: "POST",
                                 pageSize: 50,
                                 normalizeEmptyToUndefined: true,
                             },
@@ -709,7 +706,6 @@ const productVariantEditFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productAttribute/select",
-                                        method: "POST",
                                         pageSize: 50,
                                         normalizeEmptyToUndefined: true,
                                     },

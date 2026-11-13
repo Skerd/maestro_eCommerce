@@ -7,7 +7,8 @@ export const giftCardsSeed: readonly GiftCardSeedRow[] = [
         balance: 50,
         status: "active",
         orderNumber: "DEMO-ORD-1008",
-        purchasedBy: {$user: "almir@leka.com"},
+        // The customer of DEMO-ORD-1008, echo (a core user every dev profile has).
+        purchasedBy: {$user: "echo@echo.com"},
         currency: {$currency: "EUR"},
         expiresInDays: 365,
     },

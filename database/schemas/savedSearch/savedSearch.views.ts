@@ -172,7 +172,6 @@ const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "customerDefaultOptions",
                             },
@@ -210,7 +209,6 @@ const savedSearchCreateFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.collectionIdPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/collection/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "collectionIdDefaultOptions",
                             },
@@ -294,7 +292,6 @@ const savedSearchEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/company/users/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "customerDefaultOptions",
                             },
@@ -335,7 +332,6 @@ const savedSearchEditFormNodes: ViewConfig["nodes"] = [
                             placeholder: "form.collectionIdPlaceholder",
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/collection/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                                 defaultOptionsFormExtraKey: "collectionIdDefaultOptions",
                             },

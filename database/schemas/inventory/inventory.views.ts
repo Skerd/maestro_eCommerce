@@ -3,7 +3,6 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 
 const productSelectProps = {
     apiUrl: "/api/eCommerce/product/select",
-    method: "POST",
     pageSize: 50,
     normalizeEmptyToUndefined: true,
     cascadeClearFormFields: ["variant"],
@@ -11,7 +10,6 @@ const productSelectProps = {
 
 const variantSelectProps = {
     apiUrl: "/api/eCommerce/productVariant/select",
-    method: "POST",
     pageSize: 50,
     normalizeEmptyToUndefined: true,
     postBodyFromFormField: {field: "product", paramName: "product"},
@@ -20,7 +18,6 @@ const variantSelectProps = {
 
 const warehouseSelectProps = {
     apiUrl: "/api/eCommerce/warehouse/select",
-    method: "POST",
     pageSize: 50,
     normalizeEmptyToUndefined: true,
 };

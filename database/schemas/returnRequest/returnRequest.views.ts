@@ -34,7 +34,6 @@ const returnRequestCreateFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/productOrder/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         },
@@ -93,7 +92,6 @@ const returnRequestCreateFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productOrder/lineSelect",
-                                        method: "POST",
                                         normalizeEmptyToUndefined: true,
                                         postBodyFromFormField: {field: "order", paramName: "productOrderId"},
                                         remountKeyFormField: "order",
@@ -182,7 +180,6 @@ const returnRequestEditFormNodes: ViewConfig["nodes"] = [
                             required: true,
                             widgetProps: {
                                 apiUrl: "/api/eCommerce/productOrder/select",
-                                method: "POST",
                                 normalizeEmptyToUndefined: true,
                             },
                         },
@@ -245,7 +242,6 @@ const returnRequestEditFormNodes: ViewConfig["nodes"] = [
                                     required: true,
                                     widgetProps: {
                                         apiUrl: "/api/eCommerce/productOrder/lineSelect",
-                                        method: "POST",
                                         normalizeEmptyToUndefined: true,
                                         postBodyFromFormField: {field: "order", paramName: "productOrderId"},
                                         remountKeyFormField: "order",
