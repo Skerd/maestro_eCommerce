@@ -5,6 +5,7 @@ import {seedECommerceDemoData} from "@eCommerceModule/database/demo/eCommerceCom
 import {seedShopBlogDemoData} from "@eCommerceModule/database/demo/blog.demo";
 import {createGiftCards} from "@eCommerceModule/database/demo/giftCards.demo";
 import {createPaymentTransactions} from "@eCommerceModule/database/demo/paymentTransactions.demo";
+import {createECommerceNotifications} from "@eCommerceModule/database/demo/notifications.demo";
 
 /**
  * After property management (20). Seeds the catalog, then the shop blog demo data, then the finance ledger rows
@@ -18,6 +19,8 @@ export async function seedCompanyDemoData(parentLogger: serverLogger | undefined
     await createCategories(logger, company);
     await seedECommerceDemoData(logger, company);
     await seedShopBlogDemoData(logger, company);
-    await createGiftCards(logger, company);
+    const giftCards = await createGiftCards(logger, company);
+    // The notice names the demo gift card: only where it was seeded.
+    if (giftCards.length > 0) await createECommerceNotifications(logger, company);
     await createPaymentTransactions(logger, company);
 }
