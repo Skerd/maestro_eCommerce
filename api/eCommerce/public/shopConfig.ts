@@ -109,7 +109,7 @@ router.get(
         const {languageCode, origin} = params;
 
         const ctx = await resolveStorefrontContext(origin, languageCode);
-        const currency = await shopCurrencyOf(ctx.mode === "tenant" ? ctx.company._id : undefined, languageCode);
+        const currency = await shopCurrencyOf(languageCode);
         const currencyPayload = currency
             ? {_id: currency._id, symbol: currency.symbol, abbreviation: currency.abbreviation, decimalPlaces: currency.decimalPlaces}
             : undefined;

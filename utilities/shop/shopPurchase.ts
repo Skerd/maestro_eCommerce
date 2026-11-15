@@ -3,8 +3,8 @@ import {inPortalPurchase, portalPurchaseRoute} from "@coreModule/utilities/marke
 
 /**
  * The references a portal shop purchase stores across companies (D104): the platform's cart and checkout name each
- * seller's products, stock and currency. A seller's order stores its own country and state rows for the buyer's
- * address (D107). Every other reference must still point inside its record's company.
+ * seller's products and stock. Currencies and places are platform lists (D160), so they need no allowance. Every other
+ * reference must still point inside its record's company.
  */
 const SHOP_PURCHASE_REFERENCES: ForeignReferenceAllowance = {
     reason: "a portal shop purchase: the platform's cart and checkout list every seller's products",
@@ -16,8 +16,6 @@ const SHOP_PURCHASE_REFERENCES: ForeignReferenceAllowance = {
         "Checkout.reservations.product",
         "Checkout.reservations.variant",
         "Checkout.reservations.warehouse",
-        // The checkout is priced in its first line's seller's currency row (TD-B85).
-        "Checkout.currency",
     ],
 };
 

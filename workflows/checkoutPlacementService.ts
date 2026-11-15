@@ -32,7 +32,6 @@ import {
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
 import {inShopPurchase} from "@eCommerceModule/utilities/shop/shopPurchase";
-import {countryStateOfRow, sellerOwnCountryId} from "@eCommerceModule/utilities/services/zoneState";
 import {
     notifyMerchantsNewOrder,
     notifyProductOrderCustomer,
@@ -118,41 +117,19 @@ function sellerCompanyIdsOnCheckout(checkout: ICheckout): ObjectId[] {
 }
 
 /**
- * The seller's own row of the checkout's currency. Currencies are rows per company, and a portal marketplace checkout
- * charges in one row (its first seller's), so each other seller's order points at its own row with the same code
- * (TD-B86); without one the checkout's row is kept, the order's `currencyCode` still naming it.
+ * The checkout address as an order keeps it. Countries and states are platform lists (D160), so the order names the
+ * address's own country row; the order's `state` is text, so a state given as a row id becomes that row's name.
  */
-async function sellerCurrencyId(
-    currency: {abbreviation?: string; company?: unknown} | null,
-    checkoutCurrencyId: ObjectId,
-    sellerCompanyId: ObjectId,
-    ctx: PlacementCtx,
-): Promise<ObjectId> {
-    if (!currency?.abbreviation || (currency.company && idOf(currency.company).equals(sellerCompanyId))) return checkoutCurrencyId;
-    const own = await currencyService.findOne({company: sellerCompanyId, abbreviation: currency.abbreviation}, {session: ctx.session}, undefined, "_id");
-    return own?._id ?? checkoutCurrencyId;
-}
-
-/**
- * The checkout address as the seller's order keeps it (D107): the country is the seller's own row with the same code,
- * and a state given as a row id the name of the seller's state of that country with the same name or code (the shared
- * tax and shipping mappers); a text state stays as given. A portal address names the platform's rows, which a seller's
- * records may not reference (D104). Without a seller row the order keeps the text: no country, and the given state
- * row's name, so it stays placeable.
- */
-async function sellerOrderAddress(address: ICheckoutAddress, sellerCompanyId: ObjectId, ctx: PlacementCtx) {
+async function orderAddress(address: ICheckoutAddress, ctx: PlacementCtx) {
     const {firstName, lastName, phone, street, city, postalCode} = address;
-    const country = address.country ? await sellerOwnCountryId(idOf(address.country), sellerCompanyId, ctx.session) : undefined;
-    return {firstName, lastName, phone, street, city, postalCode, country, state: await sellerOrderState(address.state, country, ctx)};
+    const country = address.country ? idOf(address.country) : undefined;
+    return {firstName, lastName, phone, street, city, postalCode, country, state: await orderState(address.state, ctx)};
 }
 
-async function sellerOrderState(state: string | undefined, sellerCountry: ObjectId | undefined, ctx: PlacementCtx): Promise<string | undefined> {
+async function orderState(state: string | undefined, ctx: PlacementCtx): Promise<string | undefined> {
     const value = state?.trim();
     if (!value || !ObjectId.isValid(value) || new ObjectId(value).toString() !== value) return value || undefined;
-    const stateId = new ObjectId(value);
-    const own = sellerCountry ? await countryStateOfRow(sellerCountry, stateId, ctx.session) : undefined;
-    // `state` is text on the order, so the seller's panel shows the name of its own row (else the given row's)
-    return (await stateService.findOne({_id: own ? new ObjectId(own) : stateId}, {session: ctx.session}, undefined, "name"))?.name;
+    return (await stateService.findOne({_id: new ObjectId(value)}, {session: ctx.session}, undefined, "name"))?.name;
 }
 
 /**
@@ -389,7 +366,7 @@ export async function placeOrderFromCheckout(
         }
     }
 
-    const currency = await currencyService.findById(idOf(checkout.currency), {session: ctx.session}, undefined, "abbreviation decimalPlaces company");
+    const currency = await currencyService.findById(idOf(checkout.currency), {session: ctx.session}, undefined, "abbreviation decimalPlaces");
     const now = new Date();
     const paymentStatus = paid ? "paid" : "unpaid";
     const placedOrders: IProductOrder[] = [];
@@ -408,10 +385,11 @@ export async function placeOrderFromCheckout(
             return seller === sellerCompanyId.toString();
         });
         const {productTypes, variantLabels} = await lineSnapshotFacts(checkout, ctx, sellerCompanyId);
-        const orderCurrency = await sellerCurrencyId(currency, idOf(checkout.currency), sellerCompanyId, ctx);
+        // Currencies are a platform list (D160): every seller's order is in the checkout's currency row.
+        const orderCurrency = idOf(checkout.currency);
         const orderNumber = await generateOrderNumber(sellerCompanyId);
-        const shippingAddress = await sellerOrderAddress(checkout.shippingAddress, sellerCompanyId, ctx);
-        const billingAddress = checkout.billingAddress ? await sellerOrderAddress(checkout.billingAddress, sellerCompanyId, ctx) : shippingAddress;
+        const shippingAddress = await orderAddress(checkout.shippingAddress, ctx);
+        const billingAddress = checkout.billingAddress ? await orderAddress(checkout.billingAddress, ctx) : shippingAddress;
         const subtotal = group?.subtotal ?? lines.reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
         const shippingTotal = multiSeller ? (group?.shippingTotal ?? 0) : checkout.shippingTotal;
         const taxTotal = multiSeller ? (group?.taxTotal ?? 0) : checkout.taxTotal;

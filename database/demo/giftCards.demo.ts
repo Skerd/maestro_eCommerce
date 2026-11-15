@@ -33,7 +33,7 @@ export async function createGiftCards(
                 continue;
             }
 
-            const currency = await Currency.findOne({abbreviation: row.currency.$currency, company: company._id}).select("_id decimalPlaces");
+            const currency = await Currency.findOne({abbreviation: row.currency.$currency}).select("_id decimalPlaces");
             if (!currency) {
                 logger.warn(`Skipping gift card ${row.code}: currency "${row.currency.$currency}" not found.`);
                 continue;

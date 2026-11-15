@@ -41,6 +41,6 @@ export const {router} = createCrudRouter({
     },
     rateLimits: {read: 120, write: 10, delete: 5},
     // Unit costs are in the shop currency (UX-07).
-    enrichList: (docs, params) => withShopCurrency(inventoryMovementsToDTO(docs), params.company._id, params.languageCode),
-    enrichSingle: async (doc, params) => (await withShopCurrency([inventoryMovementToDTO(doc)], params.company._id, params.languageCode))[0],
+    enrichList: (docs, params) => withShopCurrency(inventoryMovementsToDTO(docs), params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([inventoryMovementToDTO(doc)], params.languageCode))[0],
 });

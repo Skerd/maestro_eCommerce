@@ -77,7 +77,7 @@ async function resolveCurrencyId(cart: any, companyId: ObjectId): Promise<Object
         if (productCurrency) return productCurrency;
     }
 
-    const [fallback] = await currencyService.find({company: companyId}, {}, undefined, "_id", {createdAt: 1}, 1);
+    const [fallback] = await currencyService.find({}, {}, undefined, "_id", {createdAt: 1}, 1);
     return fallback?._id ?? null;
 }
 

@@ -35,8 +35,8 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(SavedSearchSchemaDef),
     extraListFilter: savedSearchExtraListFilter,
     rateLimits: {read: 60, write: 20, delete: 20},
-    enrichList: (docs, params) => withShopCurrency(savedSearchesToDTO(docs), params.company._id, params.languageCode),
-    enrichSingle: async (doc, params) => (await withShopCurrency([savedSearchToDTO(doc)], params.company._id, params.languageCode))[0],
-    enrichUpdate: async (doc, params) => (await withShopCurrency([savedSearchToDTO(doc)], params.company._id, params.languageCode))[0],
+    enrichList: (docs, params) => withShopCurrency(savedSearchesToDTO(docs), params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([savedSearchToDTO(doc)], params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withShopCurrency([savedSearchToDTO(doc)], params.languageCode))[0],
 });
 

@@ -59,8 +59,8 @@ export async function seedECommerceDemoData(
     logger.start("Seeding eCommerce catalog demo data...");
 
     const currency =
-        (await Currency.findOne({abbreviation: "EUR", company: company._id}).lean()) ||
-        (await Currency.findOne({company: company._id}).lean());
+        (await Currency.findOne({abbreviation: "EUR"}).lean()) ||
+        (await Currency.findOne({}).lean());
     if (!currency) {
         logger.err("No currency found; cannot seed eCommerce catalog demo.");
         logger.fail("eCommerce demo seed failed.");
@@ -72,9 +72,9 @@ export async function seedECommerceDemoData(
     const demoUserId = (demoUser?._id ?? company.createdBy) as Types.ObjectId;
 
     const addr = defaultCompaniesValues.address;
-    const country = await Country.findOne({code: addr.countryCode, company: company._id}).select("_id").lean();
-    const state = await State.findOne({code: addr.stateCode, company: company._id}).select("_id").lean();
-    const city = await City.findOne({name: addr.cityName, company: company._id}).select("_id").lean();
+    const country = await Country.findOne({code: addr.countryCode}).select("_id").lean();
+    const state = country ? await State.findOne({country: country._id, code: addr.stateCode}).select("_id").lean() : null;
+    const city = country ? await City.findOne({country: country._id, name: addr.cityName}).select("_id").lean() : null;
     const geo = {
         countryId: country?._id,
         stateId: state?._id,

@@ -28,7 +28,7 @@ export async function createPaymentTransactions(
     logger.start(`Creating payment transactions (${paymentTransactionsSeed.length})...`);
 
     const created: HydratedDocument<IPaymentTransaction>[] = [];
-    const currency = await Currency.findOne({abbreviation: "EUR", company: company._id}).select("_id");
+    const currency = await Currency.findOne({abbreviation: "EUR"}).select("_id");
     if (!currency) {
         logger.warn("Skipping payment transactions: EUR currency not found.");
         logger.finish("Finished creating payment transactions!", 0);

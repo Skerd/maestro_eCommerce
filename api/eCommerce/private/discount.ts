@@ -115,9 +115,9 @@ export const {router} = createCrudRouter({
         errorCode: "discount_already_exists",
     }),
     rateLimits: {read: 60, write: 30, delete: 20},
-    enrichList: async (docs, params) => withShopCurrency(await discountsToDTOWithLabels(docs), params.company._id, params.languageCode),
-    enrichSingle: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
-    enrichUpdate: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
+    enrichList: async (docs, params) => withShopCurrency(await discountsToDTOWithLabels(docs), params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withShopCurrency([await discountToDTOWithLabels(doc)], params.languageCode))[0],
 });
 
 router.post(

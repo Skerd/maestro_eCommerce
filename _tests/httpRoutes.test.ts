@@ -194,27 +194,18 @@ describe("PATCH writes (E-14)", {timeout: 30000}, () => {
     }));
 });
 
-describe("references stay inside the company (D104, TD-B89)", {timeout: 30000}, () => {
+describe("references to a platform list cross companies (D104, D160)", {timeout: 30000}, () => {
     const seedCurrency = (company: ObjectId) => asCrossTenant("test fixture", () =>
         Currency.create({name: "Euro", abbreviation: "EUR", symbol: "€", decimalPlaces: 2, company} as any));
 
-    it("refuses a product create or edit naming another company's currency and accepts its own", () => asCompany(async () => {
-        const own = await seedCurrency(companyId);
-        const foreign = await seedCurrency(new ObjectId());
+    it("stores a product in the platform's currency, a row another company owns (D160)", () => asCompany(async () => {
+        const platformEuro = await seedCurrency(new ObjectId());
         const product = {title: "Ref check", slug: "ref-check", type: "physical", status: "active", price: 10};
 
-        const foreignCreate = await request(app).put("/api/eCommerce/product").set(callerHeader(admin)).send({...product, currency: foreign._id.toString()});
-        expect([foreignCreate.status, foreignCreate.body.error_code]).toEqual([403, "reference_outside_tenant"]);
-        expect(await Product.countDocuments({slug: "ref-check"})).toBe(0);
-
-        const ownCreate = await request(app).put("/api/eCommerce/product").set(callerHeader(admin)).send({...product, currency: own._id.toString()});
-        expect(ownCreate.status).toBe(200);
-        const created = await Product.findOne({slug: "ref-check"});
-        expect(created!.get("currency")!.toString()).toBe(own._id.toString());
-
-        const foreignEdit = await request(app).patch("/api/eCommerce/product").set(callerHeader(admin)).send({_id: created!._id.toString(), title: product.title, type: "physical", currency: foreign._id.toString()});
-        expect([foreignEdit.status, foreignEdit.body.error_code]).toEqual([403, "reference_outside_tenant"]);
-        expect((await Product.findById(created!._id))!.get("currency")!.toString()).toBe(own._id.toString());
+        const created = await request(app).put("/api/eCommerce/product").set(callerHeader(admin)).send({...product, currency: platformEuro._id.toString()});
+        expect([created.status, created.body.error_code]).toEqual([200, undefined]);
+        const stored = await Product.findOne({slug: "ref-check"});
+        expect(stored!.get("currency")!.toString()).toBe(platformEuro._id.toString());
     }));
 });
 

@@ -213,7 +213,7 @@ router.post(
         };
         if (!isPortalZoneOrigin(origin)) filter.company = company._id;
 
-        // The address country is the seller's own row (D107); the storefront shows its name
+        // The address country is a platform list row (D160); the storefront shows its name
         const order = await productOrderService.findOne(
             filter,
             {withDeleted: false, logger, languageCode},

@@ -94,7 +94,7 @@ export const {router} = createCrudRouter({
         // A variant priced without a currency takes its product's, else the shop currency (UX-06).
         if (!data.currency) {
             const product = await productService.findOne({_id: params.product, company: params.company._id}, {languageCode: params.languageCode}, null, "currency");
-            data.currency = nestedEntityToRef(product?.currency) ?? (await shopCurrencyRefOf(params.company._id, params.languageCode));
+            data.currency = nestedEntityToRef(product?.currency) ?? (await shopCurrencyRefOf(params.languageCode));
         }
         return data;
     },

@@ -3,7 +3,7 @@ import type {ClientSession} from "mongoose";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {COMMERCE_PROVIDERS} from "@eCommerceModule/environment";
 import {taxZoneService} from "@eCommerceModule/database/schemas/taxZone/taxZone.service";
-import {resolveZoneState, sellerCountryId} from "@eCommerceModule/utilities/services/zoneState";
+import {resolveZoneState} from "@eCommerceModule/utilities/services/zoneState";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import {allocateMinor, DEFAULT_DECIMAL_PLACES, includedPercentOfMinor, minorToNumber, percentOfMinor, sumMinor, toMinor} from "armonia/src/modules/core/helpers/money";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
@@ -80,7 +80,7 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
         if (!shippingAddress.country) return {amount: 0, breakdown: []};
 
         if (!ObjectId.isValid(shippingAddress.country)) return {amount: 0, breakdown: []};
-        const countryId = await sellerCountryId(new ObjectId(shippingAddress.country), companyId, context.session);
+        const countryId = new ObjectId(shippingAddress.country);
 
         const zones = await taxZoneService.find({
             company: companyId,

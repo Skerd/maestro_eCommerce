@@ -30,8 +30,8 @@ import {roleService} from "@coreModule/database/schemas/role/role.service";
 import {userService} from "@coreModule/database/schemas/user/user.service";
 import User from "@coreModule/database/schemas/user/user";
 import {ensureAiChannel} from "@coreModule/database/schemas/channel/channel.helper";
-import Currency from "@coreModule/database/schemas/currency/currency";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
+import {platformRowsClause} from "@coreModule/utilities/security/platformAccess";
 import ProductCategory from "@eCommerceModule/database/schemas/category/category";
 import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
 import Product from "@eCommerceModule/database/schemas/product/product";
@@ -150,22 +150,15 @@ async function resolveStockRef(ctx: ImportCtx, productOdooId: number): Promise<S
 }
 
 /**
- * Matches an Odoo currency to the company's currency with the same ISO code, creating
- * it when missing. A match is never rewritten.
+ * Matches an Odoo currency to the platform's currency with the same ISO code (a platform list, D160). A currency the
+ * platform does not have is skipped (a company asks the platform for it through a reference data request); products
+ * priced in it then keep no currency. A match is never rewritten.
  */
-async function linkCurrency(ctx: ImportCtx, row: OdooCurrencyRow): Promise<"created" | "updated" | null> {
-    const existing = await currencyService.findOne({abbreviation: row.code, company: ctx.companyId}, {withDeleted: true}, undefined, "_id deletedAt");
-    // A deleted currency still holds the unique code, so no new one can be created for it
-    if (existing?.deletedAt) return null;
-    const localId = existing?._id ?? (await currencyService.create({
-        name: row.name,
-        symbol: row.symbol,
-        decimalPlaces: row.decimalPlaces,
-        abbreviation: row.code,
-        company: ctx.companyId,
-    }, ctx.opts))._id;
-    await writeLink(ctx, "res.currency", row.id, "Currency", localId);
-    return existing ? "updated" : "created";
+async function linkCurrency(ctx: ImportCtx, row: OdooCurrencyRow): Promise<"updated" | null> {
+    const existing = await currencyService.findOne({...(await platformRowsClause()), abbreviation: row.code}, {}, undefined, "_id");
+    if (!existing) return null;
+    await writeLink(ctx, "res.currency", row.id, "Currency", existing._id);
+    return "updated";
 }
 
 async function importCurrencies(ctx: ImportCtx): Promise<OdooImportCounts> {
@@ -860,7 +853,8 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
     }
 
     const permissionChecks: Record<OdooImportDataset, Model<Document>> = {
-        currencies: Currency,
+        // Currencies are only linked to the platform list (D160), never created.
+        currencies: OdooLink,
         categories: ProductCategory,
         products: Product,
         warehouses: Warehouse,
@@ -876,7 +870,6 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
         assertCanCreate(OdooLink, params);
         if (selected.includes("products")) {
             assertCanCreate(ProductAttribute, params);
-            assertCanCreate(Currency, params);
         }
     }
 

@@ -5,8 +5,9 @@ import Currency from "@coreModule/database/schemas/currency/currency";
 import {withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {shopCurrencyOf, withShopCurrency} from "@eCommerceModule/utilities/services/shopCurrency";
 
-const companyId = new ObjectId();
-const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(companyId, fn);
+const platformId = new ObjectId();
+const shopId = new ObjectId();
+const asShop = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(shopId, fn);
 
 beforeAll(async () => {
     await connectTestDatabase();
@@ -16,19 +17,19 @@ afterAll(async () => {
     await disconnectTestDatabase();
 });
 
-describe("the shop currency (P10.2)", () => {
-    it("is the company's oldest currency, and records without a currency of their own are read in it", () => asCompany(async () => {
-        expect(await shopCurrencyOf(companyId, "en-US")).toBeUndefined();
-        expect(await withShopCurrency([{_id: "d1"}], companyId, "en-US")).toEqual([{_id: "d1"}]);
+describe("the shop currency (P10.2, D160)", () => {
+    it("is the oldest row of the platform's currency list, and records without a currency of their own are read in it", () => asShop(async () => {
+        expect(await shopCurrencyOf("en-US")).toBeUndefined();
+        expect(await withShopCurrency([{_id: "d1"}], "en-US")).toEqual([{_id: "d1"}]);
 
-        await Currency.create({name: "Lek", symbol: "L", decimalPlaces: 2, abbreviation: "ALL", company: companyId, createdAt: new Date("2026-01-02")} as any);
-        // Written past the tenant guard: another company's currency, as it sits in the shared collection.
-        await Currency.collection.insertOne({name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company: new ObjectId(), createdAt: new Date("2025-01-01")});
-        await Currency.create({name: "Swiss franc", symbol: "CHF", decimalPlaces: 2, abbreviation: "CHF", company: companyId, createdAt: new Date("2026-03-01")} as any);
+        // Currencies are a platform list: the platform company owns every row and each shop reads them all.
+        await Currency.collection.insertMany([
+            {name: "Swiss franc", symbol: "CHF", decimalPlaces: 2, abbreviation: "CHF", company: platformId, createdAt: new Date("2026-03-01"), deletedAt: null},
+            {name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company: platformId, createdAt: new Date("2025-01-01"), deletedAt: null},
+        ]);
 
-        // Another company's older currency never counts.
-        expect((await shopCurrencyOf(companyId, "en-US"))?.abbreviation).toBe("ALL");
-        const [discount] = await withShopCurrency([{_id: "d1", value: 5}], companyId, "en-US");
-        expect(discount.currency).toMatchObject({symbol: "L", abbreviation: "ALL", decimalPlaces: 2});
+        expect((await shopCurrencyOf("en-US"))?.abbreviation).toBe("EUR");
+        const [discount] = await withShopCurrency([{_id: "d1", value: 5}], "en-US");
+        expect(discount.currency).toMatchObject({symbol: "€", abbreviation: "EUR", decimalPlaces: 2});
     }));
 });

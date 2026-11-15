@@ -69,32 +69,39 @@ beforeEach(() => asCrossTenant("test setup", async () => {
     }
 }));
 
+/** The platform's euro: currencies are a platform list (D160), one row every seller prices in. */
+async function platformEuro(): Promise<ObjectId> {
+    return asCrossTenant("test setup", async () => {
+        const existing = await Currency.collection.findOne({abbreviation: "EUR"});
+        return existing?._id ?? (await Currency.collection.insertOne({name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company: platform, deletedAt: null})).insertedId;
+    });
+}
+
 /**
- * A listed seller with one product in its own currency row (EUR) and `stock` units in its default warehouse; with
- * `vatRate`, a tax zone on its own Albania row.
+ * A listed seller with one product in the platform's euro and `stock` units in its default warehouse; with `vatRate`,
+ * a tax and a shipping zone on the platform's Albania row (D160).
  */
 async function seedSeller(company: ObjectId, name: string, price: number, stock: number, vatRate?: number) {
     await Company.collection.insertOne({_id: company, name, vat: `VAT-${name}`, isActive: true, modules: ["eCommerce"], shopListedOnPortal: true, deletedAt: null});
+    const euro = await platformEuro();
     return withTenant(company, async () => {
-        const currency = await new Currency({name: "Euro", symbol: "€", decimalPlaces: 2, abbreviation: "EUR", company}).save();
         const warehouse = await new Warehouse({name: "Main", code: `WH-${name}`, company, isActive: true, isDefault: true}).save();
         const product = await new Product({
             title: `${name} product`, slug: `${name.toLowerCase()}-product`, type: "physical", status: "active",
-            price, currency: currency._id, company,
+            price, currency: euro, company,
         }).save();
         await Inventory.create({product: product._id, warehouse: warehouse._id, quantityOnHand: stock, quantityReserved: 0, company});
         if (vatRate) {
-            const albania = await new Country({name: "Albania", code: "AL", phoneCode: "355", company}).save();
             await new TaxZone({
-                name: "VAT", country: albania._id, isActive: true, priority: 1, company,
+                name: "VAT", country: platformAlbania, isActive: true, priority: 1, company,
                 rates: [{name: "VAT", rate: vatRate, isCompound: false, appliesTo: "all"}],
             }).save();
             await new ShippingZone({
-                name: "Albania", countries: [albania._id], isActive: true, company,
+                name: "Albania", countries: [platformAlbania], isActive: true, company,
                 rates: [{name: "Courier", type: "flat", price: 5}],
             }).save();
         }
-        return Object.assign(product, {currencyRow: currency._id});
+        return Object.assign(product, {currencyRow: euro});
     });
 }
 
@@ -134,8 +141,8 @@ describe("portal marketplace purchase (D16)", () => {
         return {checkoutId, confirmed};
     }
 
-    // TD-B86, TD-B88: each seller's order is in its own currency row, and taxed by its own zones.
-    it("puts each seller's order in its own currency row and taxes it by the seller's zones", async () => {
+    // D160: every seller's order is in the checkout's currency, the one platform row, and taxed by the seller's own zones.
+    it("puts each seller's order in the platform's currency row and taxes it by the seller's zones", async () => {
         const mug = await seedSeller(sellerA, "Alpha", 10, 5);
         const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
 
@@ -148,7 +155,7 @@ describe("portal marketplace purchase (D16)", () => {
         ]);
     });
 
-    // TD-B90: a single foreign seller's cart is shipped and taxed by that seller's zones, on its own Albania row.
+    // TD-B90, D160: a single foreign seller's cart is shipped and taxed by that seller's zones, which name the platform's Albania.
     it("offers a single seller's shipping and charges its VAT for an apex address", async () => {
         const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
         await call("put", "/api/eCommerce/cart/item", {productId: book._id.toString(), quantity: 2});
@@ -161,60 +168,49 @@ describe("portal marketplace purchase (D16)", () => {
         expect([shipped.status, shipped.body.data.shippingTotal, shipped.body.data.taxTotal, shipped.body.data.grandTotal]).toEqual([200, 5, 8, 53]);
     });
 
-    /** Each company's own Tirana state (code TR) of its Albania row, named after the company: "Tirana (Alpha)". */
-    async function seedTirana(...companies: [ObjectId, string][]) {
-        return asCrossTenant("test setup", async () => {
-            const ids: Record<string, ObjectId> = {};
-            for (const [company, name] of companies) {
-                const albania = (await Country.findOne({company}))!._id;
-                ids[company.toString()] = (await State.collection.insertOne({name: `Tirana (${name})`, code: "TR", country: albania, company})).insertedId;
-            }
-            return ids;
-        });
+    /** The platform's Tirana state (code TR) of Albania: states are a platform list (D160). */
+    async function seedTirana(): Promise<ObjectId> {
+        return asCrossTenant("test setup", async () =>
+            (await State.collection.insertOne({name: "Tirana", code: "TR", country: platformAlbania, company: platform})).insertedId);
     }
 
-    // D107 (TD-B110): each seller's order stores its own country row and its own state's name (matched here by code)
-    // for the buyer's portal address, so the write passes the D104 reference check without an opt-out for the address.
-    it("stores each seller's own country row and state name on its order's addresses", async () => {
+    // D160: every seller's order keeps the buyer's country row, and its state's name (an order's state is text).
+    it("stores the buyer's country row and state name on each seller's order", async () => {
         const mug = await seedSeller(sellerA, "Alpha", 10, 5, 10);
         const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
-        const tirana = await seedTirana([platform, "Platform"], [sellerA, "Alpha"], [sellerB, "Beta"]);
+        const tirana = await seedTirana();
         const country = platformAlbania.toString();
 
         await buyFromBothSellers(mug, book, "apex-checkout-8", {
-            shippingAddress: {...address, country, state: tirana[platform.toString()].toString()},
+            shippingAddress: {...address, country, state: tirana.toString()},
             billingAddress: {...address, street: "Rruga 2", country, state: "Durrës"},
         });
 
         const orders = await asCrossTenant("test assertions", () => ProductOrder.find({}).sort({grandTotal: 1}));
-        const albaniaOf = async (company: ObjectId) => String((await asCrossTenant("test assertions", () => Country.findOne({company})))!._id);
         expect(orders.map(order => [
             String(order.shippingAddress.country), order.shippingAddress.state, String(order.billingAddress?.country), order.billingAddress?.state,
         ])).toEqual([
-            [await albaniaOf(sellerA), "Tirana (Alpha)", await albaniaOf(sellerA), "Durrës"],
-            [await albaniaOf(sellerB), "Tirana (Beta)", await albaniaOf(sellerB), "Durrës"],
+            [country, "Tirana", country, "Durrës"],
+            [country, "Tirana", country, "Durrës"],
         ]);
     });
 
-    // D107: a seller without its own row for the country still gets the order; it keeps the address text, and the
-    // buyer's order detail on the apex shows the address with the seller's country.
-    it("places a seller's order without a country row of its own and shows the buyer the address", async () => {
+    // The buyer's order detail on the apex shows the address with its country.
+    it("shows the buyer the address of a seller's order", async () => {
         const mug = await seedSeller(sellerA, "Alpha", 10, 5);
         const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
-        const tirana = await seedTirana([platform, "Platform"], [sellerB, "Beta"]);
+        const tirana = await seedTirana();
 
         await buyFromBothSellers(mug, book, "apex-checkout-9", {
-            shippingAddress: {...address, postalCode: "1001", country: platformAlbania.toString(), state: tirana[platform.toString()].toString()},
+            shippingAddress: {...address, postalCode: "1001", country: platformAlbania.toString(), state: tirana.toString()},
         });
 
-        const [noRow] = await asCrossTenant("test assertions", () => ProductOrder.find({company: sellerA}));
-        expect([noRow.shippingAddress.country, noRow.shippingAddress.state, noRow.shippingAddress.street]).toEqual([undefined, "Tirana (Platform)", "Rruga 1"]);
         const mine = await call("post", "/api/eCommerce/productOrder/my", {page: 1, limit: 10});
         const sellerBOrder = mine.body.data.find((order: {subtotal: number}) => order.subtotal === 40);
         const single = await call("post", "/api/eCommerce/productOrder/mySingle", {_id: sellerBOrder._id});
         const shown = single.body.data.shippingAddress;
         expect([single.status, shown.street, shown.postalCode, shown.city, shown.country?.name, shown.state]).toEqual(
-            [200, "Rruga 1", "1001", "Tirane", "Albania", "Tirana (Beta)"],
+            [200, "Rruga 1", "1001", "Tirane", "Albania", "Tirana"],
         );
     });
 
@@ -331,15 +327,13 @@ describe("portal marketplace purchase (D16)", () => {
         expect([downloads.status, downloads.body.data?.length]).toEqual([200, 1]);
     });
 
-    // TD-B92: an address whose state is the platform's state row still matches the seller's state-restricted zones.
+    // TD-B92, D160: an address naming a state row matches the seller's state-restricted zones, which name the same row.
     it("matches a seller's state-restricted zones from an apex address that names a state row", async () => {
         const book = await seedSeller(sellerB, "Beta", 20, 5, 20);
-        const platformTirana = await asCrossTenant("test setup", async () => {
-            const sellerAlbania = (await Country.findOne({company: sellerB}))!._id;
-            const sellerTirana = (await State.collection.insertOne({name: "Tirana District", code: "TR", country: sellerAlbania, company: sellerB})).insertedId;
-            await TaxZone.updateOne({company: sellerB}, {$set: {states: [sellerTirana]}});
-            await ShippingZone.updateOne({company: sellerB}, {$set: {states: [sellerTirana]}});
-            return (await State.collection.insertOne({name: "Tirana District", code: "TR", country: platformAlbania, company: platform})).insertedId;
+        const platformTirana = await seedTirana();
+        await asCrossTenant("test setup", async () => {
+            await TaxZone.updateOne({company: sellerB}, {$set: {states: [platformTirana]}});
+            await ShippingZone.updateOne({company: sellerB}, {$set: {states: [platformTirana]}});
         });
         await call("put", "/api/eCommerce/cart/item", {productId: book._id.toString(), quantity: 2});
         const checkoutId: string = (await call("post", "/api/eCommerce/checkout/init", {idempotencyKey: "apex-checkout-7"})).body.data._id;

@@ -32,7 +32,7 @@ export const {router} = createCrudRouter({
     buildUpdateData: buildUpdateDataFromSchemaDef(PricingRuleSchemaDef),
     actions: PricingRuleActions,
     rateLimits: {read: 60, write: 30, delete: 20},
-    enrichList: async (docs, params) => withShopCurrency(await pricingRulesToDTOWithLabels(docs), params.company._id, params.languageCode),
-    enrichSingle: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
-    enrichUpdate: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.company._id, params.languageCode))[0],
+    enrichList: async (docs, params) => withShopCurrency(await pricingRulesToDTOWithLabels(docs), params.languageCode),
+    enrichSingle: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.languageCode))[0],
+    enrichUpdate: async (doc, params) => (await withShopCurrency([await pricingRuleToDTOWithLabels(doc)], params.languageCode))[0],
 });

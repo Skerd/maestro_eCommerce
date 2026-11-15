@@ -69,7 +69,7 @@ export const {router} = createCrudRouter({
     buildCreateData: async (params) => {
         const data = buildProductCreate(params);
         // A product priced without a currency is priced in the shop currency (UX-06).
-        if (!data.currency) data.currency = await shopCurrencyRefOf(params.company._id, params.languageCode);
+        if (!data.currency) data.currency = await shopCurrencyRefOf(params.languageCode);
         assertPricedWhenActive(data, params.languageCode);
         await assertValidBundle(data, params);
         return data;
