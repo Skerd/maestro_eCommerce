@@ -5,6 +5,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const pricingRuleSheetView: ViewConfig = {
     model: "pricingRules",
     viewType: "sheet",
+    sheetWidget: "#PricingRuleSheetView",
     accessModel: "pricingRules",
     apiUrl: "/api/eCommerce/pricingRule",
     header: {titleField: "name", subtitleKey: "pricingRuleSubtitle", showCloseButton: true},

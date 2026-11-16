@@ -12,6 +12,7 @@ const customerAddressTypeOptions = [
 export const customerAddressSheetView: ViewConfig = {
     model: "customerAddresses",
     viewType: "sheet",
+    sheetWidget: "#CustomerAddressSheetView",
     accessModel: "customerAddresses",
     apiUrl: "/api/eCommerce/customerAddress",
     header: {titleField: "firstName", subtitleKey: "customerAddressSubtitle", showCloseButton: true},

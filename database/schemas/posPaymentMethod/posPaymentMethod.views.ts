@@ -13,6 +13,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const posPaymentMethodSheetView: ViewConfig = {
     model: "posPaymentMethods",
     viewType: "sheet",
+    sheetWidget: "#PosPaymentMethodSheetView",
     accessModel: "posPaymentMethods",
     apiUrl: "/api/eCommerce/posPaymentMethod",
     header: {titleField: "name", subtitleKey: "posPaymentMethodSubtitle", showCloseButton: true},

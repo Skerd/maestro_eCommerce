@@ -16,6 +16,7 @@ import {
 export const cmsBlockSheetView: ViewConfig = {
     model: "cmsBlocks",
     viewType: "sheet",
+    sheetWidget: "#CmsBlockSheetView",
     accessModel: "cmsBlocks",
     apiUrl: "/api/eCommerce/cmsBlock",
     header: {

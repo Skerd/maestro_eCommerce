@@ -1,5 +1,6 @@
 import {ObjectId} from "mongodb";
-import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, selectIdsOf} from "@coreModule/api/crudRouterFactory";
+import {escapeRegex} from "@coreModule/utilities/helpers";
 import {buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -67,7 +68,40 @@ export const {router} = createCrudRouter({
     service: productReviewService,
     entityName: "ProductReview",
     defaultSort: {createdAt: -1},
-    selectSearchField: "comment",
+    // A review reads as the rating, who wrote it and the product (D162: the chat's "Share a record" list), so the
+    // select populates both; the search matches the review's own title and comment.
+    overrideSelectHandler: async (params) => {
+        const {logger, languageCode, actionUserCtx, company, name, page, limit, dslFilterQuery} = params;
+        logger.start("Fetching product reviews for select...");
+
+        const sanitizedFields = SchemaGuard.sanitizeFields(
+            ProductReview,
+            {rating: {}, title: {}, comment: {}, product: {keys: {title: {}}}, reviewer: {keys: {name: {}, surname: {}}}},
+            "read", actionUserCtx, languageCode,
+        );
+        const populate = SchemaGuard.generatePopulate(sanitizedFields, ProductReview.schema);
+
+        const filter: Record<string, unknown> = {company: company._id};
+        const ids = selectIdsOf(params);
+        if (ids.length > 0) {
+            filter._id = {$in: ids};
+        } else {
+            const search = String(name ?? "").trim();
+            if (search) {
+                const searchable = ["title", "comment"].filter((field) => sanitizedFields[field]);
+                if (searchable.length === 0) return {data: [], total: 0};
+                filter.$or = searchable.map((field) => ({[field]: {$regex: escapeRegex(search), $options: "i"}}));
+            }
+            if (dslFilterQuery && Object.keys(dslFilterQuery as object).length > 0) filter.$and = [dslFilterQuery];
+        }
+
+        const [reviews, total] = await Promise.all([
+            productReviewService.find(filter, {logger, languageCode}, populate.populate, populate.select || "", {createdAt: -1}, limit, (page - 1) * limit),
+            productReviewService.count(filter, {logger, languageCode}),
+        ]);
+        logger.finish("Finished fetching product reviews for select!");
+        return {data: productReviewsToSelect(reviews), total};
+    },
     rateLimits: {read: 60, write: 30, delete: 20},
     createSchema: createProductReviewFormSchema,
     editSchema: editProductReviewFormSchema,

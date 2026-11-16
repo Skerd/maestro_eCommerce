@@ -4,6 +4,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const inventoryMovementSheetView: ViewConfig = {
     model: "inventoryMovements",
     viewType: "sheet",
+    sheetWidget: "#InventoryMovementSheetView",
     accessModel: "inventoryMovements",
     apiUrl: "/api/eCommerce/inventoryMovement",
     header: {

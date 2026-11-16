@@ -11,6 +11,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const shippingZoneSheetView: ViewConfig = {
     model: "shippingZones",
     viewType: "sheet",
+    sheetWidget: "#ShippingZoneSheetView",
     accessModel: "shippingZones",
     apiUrl: "/api/eCommerce/shippingZone",
     header: {titleField: "name", subtitleKey: "shippingZoneSubtitle", showCloseButton: true},

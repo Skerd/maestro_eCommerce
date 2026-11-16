@@ -10,6 +10,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const warehouseSheetView: ViewConfig = {
     model: "warehouses",
     viewType: "sheet",
+    sheetWidget: "#WarehouseSheetView",
     accessModel: "warehouses",
     apiUrl: "/api/eCommerce/warehouse",
     header: {titleField: "name", subtitleKey: "warehouseSubtitle", showCloseButton: true},

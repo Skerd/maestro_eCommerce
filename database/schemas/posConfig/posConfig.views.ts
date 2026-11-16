@@ -8,6 +8,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const posConfigSheetView: ViewConfig = {
     model: "posConfigs",
     viewType: "sheet",
+    sheetWidget: "#PosConfigSheetView",
     accessModel: "posConfigs",
     apiUrl: "/api/eCommerce/posConfig",
     header: {titleField: "name", subtitleKey: "posConfigSubtitle", showCloseButton: true},

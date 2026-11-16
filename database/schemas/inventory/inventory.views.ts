@@ -25,6 +25,7 @@ const warehouseSelectProps = {
 export const inventorySheetView: ViewConfig = {
     model: "inventories",
     viewType: "sheet",
+    sheetWidget: "#InventorySheetView",
     accessModel: "inventories",
     apiUrl: "/api/eCommerce/inventory",
     header: {titleField: "product.title", subtitleKey: "inventorySubtitle", showCloseButton: true},

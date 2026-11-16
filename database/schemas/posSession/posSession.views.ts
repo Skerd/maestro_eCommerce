@@ -4,6 +4,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const posSessionSheetView: ViewConfig = {
     model: "posSessions",
     viewType: "sheet",
+    sheetWidget: "#PosSessionSheetView",
     accessModel: "posSessions",
     apiUrl: "/api/eCommerce/posSession",
     header: {titleField: "name", subtitleKey: "posSessionSubtitle", showCloseButton: true},

@@ -5,6 +5,7 @@ import {STOCK_COUNT_NOTE_MAX} from "armonia/src/modules/eCommerce/api/eCommerce/
 export const stockCountSheetView: ViewConfig = {
     model: "stockCounts",
     viewType: "sheet",
+    sheetWidget: "#StockCountSheetView",
     accessModel: "stockCounts",
     apiUrl: "/api/eCommerce/stockCount",
     header: {titleField: "warehouse.name", subtitleKey: "stockCountSubtitle", showCloseButton: true},

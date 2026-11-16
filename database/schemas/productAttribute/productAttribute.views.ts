@@ -9,6 +9,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const productAttributeSheetView: ViewConfig = {
     model: "productAttributes",
     viewType: "sheet",
+    sheetWidget: "#ProductAttributeSheetView",
     accessModel: "productAttributes",
     apiUrl: "/api/eCommerce/productAttribute",
     header: {titleField: "name", subtitleKey: "productAttributeSubtitle", showCloseButton: true},

@@ -9,6 +9,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const customerGroupSheetView: ViewConfig = {
     model: "customerGroups",
     viewType: "sheet",
+    sheetWidget: "#CustomerGroupSheetView",
     accessModel: "customerGroups",
     apiUrl: "/api/eCommerce/customerGroup",
     header: {titleField: "name", subtitleKey: "customerGroupSubtitle", showCloseButton: true},

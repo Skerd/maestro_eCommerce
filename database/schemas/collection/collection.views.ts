@@ -41,6 +41,7 @@ const ruleOperatorOptions = [
 export const collectionSheetView: ViewConfig = {
     model: "productCollections",
     viewType: "sheet",
+    sheetWidget: "#CollectionSheetView",
     accessModel: "productCollections",
     apiUrl: "/api/eCommerce/collection",
     header: {

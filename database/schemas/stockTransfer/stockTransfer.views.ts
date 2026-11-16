@@ -25,6 +25,7 @@ const noteWidgetProps = {rows: 3, className: "field-sizing-fixed max-h-56 min-h-
 export const stockTransferSheetView: ViewConfig = {
     model: "stockTransfers",
     viewType: "sheet",
+    sheetWidget: "#StockTransferSheetView",
     accessModel: "stockTransfers",
     apiUrl: "/api/eCommerce/stockTransfer",
     header: {titleField: "fromWarehouse.name", subtitleKey: "stockTransferSubtitle", showCloseButton: true},

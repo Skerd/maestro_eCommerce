@@ -5,6 +5,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const posOrderSheetView: ViewConfig = {
     model: "posOrders",
     viewType: "sheet",
+    sheetWidget: "#PosOrderSheetView",
     accessModel: "posOrders",
     apiUrl: "/api/eCommerce/posOrder",
     header: {titleField: "name", subtitleKey: "posOrderSubtitle", showCloseButton: true},

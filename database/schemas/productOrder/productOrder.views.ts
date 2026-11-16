@@ -4,6 +4,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const productOrderSheetView: ViewConfig = {
     model: "productOrders",
     viewType: "sheet",
+    sheetWidget: "#ProductOrderSheetView",
     accessModel: "productOrders",
     apiUrl: "/api/eCommerce/productOrder",
     header: {titleField: "orderNumber", subtitleKey: "productOrderSubtitle", showCloseButton: true},

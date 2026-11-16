@@ -9,6 +9,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const productVariantSheetView: ViewConfig = {
     model: "productVariants",
     viewType: "sheet",
+    sheetWidget: "#ProductVariantSheetView",
     accessModel: "productVariants",
     apiUrl: "/api/eCommerce/productVariant",
     header: {titleField: "sku", subtitleKey: "productVariantSubtitle", showCloseButton: true},

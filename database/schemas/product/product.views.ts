@@ -13,6 +13,7 @@ import {
 export const productSheetView: ViewConfig = {
     model: "products",
     viewType: "sheet",
+    sheetWidget: "#ProductSheetView",
     accessModel: "products",
     apiUrl: "/api/eCommerce/product",
     header: {

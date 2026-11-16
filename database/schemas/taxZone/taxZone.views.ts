@@ -10,6 +10,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const taxZoneSheetView: ViewConfig = {
     model: "taxZones",
     viewType: "sheet",
+    sheetWidget: "#TaxZoneSheetView",
     accessModel: "taxZones",
     apiUrl: "/api/eCommerce/taxZone",
     header: {titleField: "name", subtitleKey: "taxZoneSubtitle", showCloseButton: true},

@@ -12,6 +12,7 @@ const savedSearchSortOptions = [
 export const savedSearchSheetView: ViewConfig = {
     model: "savedsearches",
     viewType: "sheet",
+    sheetWidget: "#SavedSearchSheetView",
     accessModel: "savedsearches",
     apiUrl: "/api/eCommerce/savedSearch",
     header: {

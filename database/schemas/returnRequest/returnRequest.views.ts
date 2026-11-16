@@ -317,6 +317,7 @@ const returnRequestEditFormNodes: ViewConfig["nodes"] = [
 export const returnRequestSheetView: ViewConfig = {
     model: "returnRequests",
     viewType: "sheet",
+    sheetWidget: "#ReturnRequestSheetView",
     accessModel: "returnRequests",
     apiUrl: "/api/eCommerce/returnRequest",
     header: {titleField: "type", subtitleKey: "returnRequestSubtitle", showCloseButton: true},

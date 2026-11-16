@@ -8,6 +8,7 @@ import {lifecycleSheetGroup} from "@coreModule/database/schemas/shared/lifecycle
 export const discountSheetView: ViewConfig = {
     model: "discounts",
     viewType: "sheet",
+    sheetWidget: "#DiscountSheetView",
     accessModel: "discounts",
     apiUrl: "/api/eCommerce/discount",
     header: {titleField: "title", subtitleKey: "discountSubtitle", showCloseButton: true},

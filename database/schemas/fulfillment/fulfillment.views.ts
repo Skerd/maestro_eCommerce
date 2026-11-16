@@ -292,6 +292,7 @@ const fulfillmentEditFormNodes: ViewConfig["nodes"] = [
 export const fulfillmentSheetView: ViewConfig = {
     model: "fulfillments",
     viewType: "sheet",
+    sheetWidget: "#FulfillmentSheetView",
     accessModel: "fulfillments",
     apiUrl: "/api/eCommerce/fulfillment",
     header: {titleField: "trackingNumber", subtitleKey: "fulfillmentSubtitle", showCloseButton: true},

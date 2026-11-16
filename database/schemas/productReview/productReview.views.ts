@@ -10,6 +10,7 @@ const textareaScrollClass = "field-sizing-fixed max-h-56 min-h-24 overflow-y-aut
 export const productReviewSheetView: ViewConfig = {
     model: "productReviews",
     viewType: "sheet",
+    sheetWidget: "#ProductReviewSheetView",
     accessModel: "productReviews",
     apiUrl: "/api/eCommerce/productReview",
     header: {
