@@ -4,6 +4,7 @@ import Role from "@coreModule/database/schemas/role/role";
 import {defaultRoleSlug} from "@coreModule/database/schemas/role/role.defaults";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import type {ICompany} from "@coreModule/database/schemas/company/company";
+import {companyTimeZone} from "@coreModule/utilities/time/companyTimeZone";
 import {eCommerceDefaultRoles} from "./eCommerce.role.defaults";
 
 /** Shared demo password. Hashed on save by the User pre-save hook. */
@@ -179,7 +180,8 @@ export async function createECommerceRoleUsers(
             name: profile.name,
             surname: profile.surname,
             fullName: `${profile.name} ${profile.surname}`,
-            timezone: "Europe/Berlin",
+            // The shop's zone (TD-B240: Tirana's staff read Europe/Berlin).
+            timezone: companyTimeZone(company),
             birthday: profile.birthday,
             phoneNumber: profile.phoneNumber,
             isEmailVerified: true,
