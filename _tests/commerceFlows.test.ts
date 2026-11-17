@@ -565,25 +565,37 @@ describe("calculateShipping", () => {
         expect(large.map(rate => rate.rateName)).toEqual(["Standard", "Free over 60"]);
     }));
 
-    it("matches a state-limited zone from the state name a storefront address carries", () => asCompany(async () => {
+    it("matches a state-limited zone however the address names the state, or from its city when it names none", () => asCompany(async () => {
         const {calculateShipping} = await import("@eCommerceModule/utilities/services/shippingCalculationService");
         const ShippingZone = (await import("@eCommerceModule/database/schemas/shippingZone/shippingZone")).default;
         const country = new ObjectId();
         const tirana = new ObjectId();
         await mongoose.connection.db!.collection("states").insertMany([
             // States are company reference data, like every company's copy of the country list.
-            {_id: tirana, name: "Tirana District", country, company: companyId},
+            {_id: tirana, name: "Tirana District", code: "TR", country, company: companyId},
             {_id: new ObjectId(), name: "Tirana District", country: new ObjectId(), company: companyId},
+        ]);
+        const durres = new ObjectId();
+        await mongoose.connection.db!.collection("cities").insertMany([
+            {name: "Tirana", country, state: tirana, company: companyId},
+            {name: "Durrës", country, state: durres, company: companyId},
         ]);
         await ShippingZone.create({
             name: "Tirana", countries: [country], states: [tirana], isActive: true, company: companyId,
             rates: [{name: "Courier", type: "flat", price: 3}],
         } as any);
-        const rates = (state?: string) =>
-            calculateShipping({subtotal: 20, itemCount: 1, destinationCountry: country.toString(), destinationState: state}, companyId);
+        const rates = (state?: string, city?: string) =>
+            calculateShipping({subtotal: 20, itemCount: 1, destinationCountry: country.toString(), destinationState: state, destinationCity: city}, companyId);
+        const courier = ["Courier"];
 
-        expect((await rates("tirana district")).map(rate => rate.rateName)).toEqual(["Courier"]);
-        expect((await rates(tirana.toString())).map(rate => rate.rateName)).toEqual(["Courier"]);
+        expect((await rates("tirana district")).map(rate => rate.rateName)).toEqual(courier);
+        expect((await rates(tirana.toString())).map(rate => rate.rateName)).toEqual(courier);
+        // The code a seeded or imported address carries.
+        expect((await rates("TR")).map(rate => rate.rateName)).toEqual(courier);
+        // No state, or one the list does not know: the city's own state decides.
+        expect((await rates(undefined, "tirana")).map(rate => rate.rateName)).toEqual(courier);
+        expect((await rates("Tirana County", "Tirana")).map(rate => rate.rateName)).toEqual(courier);
+        expect(await rates(undefined, "Durrës")).toEqual([]);
         expect(await rates("Durrës District")).toEqual([]);
         expect(await rates(undefined)).toEqual([]);
     }));

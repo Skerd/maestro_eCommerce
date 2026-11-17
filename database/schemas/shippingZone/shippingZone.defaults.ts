@@ -28,7 +28,8 @@ export async function createShippingZones(
         const payload = {
             name: SHIPPING_ZONE_NAME,
             countries: [geo.countryId],
-            states: geo.stateId ? [geo.stateId] : [],
+            // Domestic: the whole country, every state.
+            states: [],
             rates: [
                 {
                     name: "Standard",

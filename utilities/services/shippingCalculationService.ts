@@ -11,6 +11,8 @@ export type CartForShipping = {
     itemCount: number;
     destinationCountry?: string;
     destinationState?: string;
+    /** The address's city (name or id): gives the state when the address leaves it out. */
+    destinationCity?: string;
     destinationPostalCode?: string;
 };
 
@@ -107,7 +109,7 @@ const internalZonesShippingProvider: ShippingRateProvider = {
         }, {withDeleted: false});
 
         const availableRates: AvailableShippingRate[] = [];
-        const destinationState = await resolveZoneState(countryId, cart.destinationState);
+        const destinationState = await resolveZoneState(countryId, cart.destinationState, undefined, cart.destinationCity);
 
         for (const zone of zones) {
             if (!zoneMatchesAddress(zone, destinationState, cart.destinationPostalCode)) continue;

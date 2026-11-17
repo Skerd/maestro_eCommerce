@@ -282,6 +282,7 @@ router.post(
         const destination = {
             destinationCountry: shippingAddress?.country,
             destinationState: shippingAddress?.state,
+            destinationCity: shippingAddress?.city,
             destinationPostalCode: shippingAddress?.postalCode,
         };
 

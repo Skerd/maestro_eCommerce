@@ -11,6 +11,7 @@ import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 export type ShippingAddress = {
     country?: string;
     state?: string;
+    city?: string;
     postalCode?: string;
 };
 
@@ -95,7 +96,7 @@ const internalZonesTaxProvider: TaxCalculatorProvider = {
         let taxAmount = 0n;
         let runningBase = toMinor(subtotal, decimals);
         const breakdown: TaxBreakdownLine[] = [];
-        const state = await resolveZoneState(countryId, shippingAddress.state, context.session);
+        const state = await resolveZoneState(countryId, shippingAddress.state, context.session, shippingAddress.city);
 
         for (const zone of zones) {
             if (!zoneMatchesAddress(zone, state, shippingAddress.postalCode)) continue;
