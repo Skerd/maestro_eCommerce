@@ -42,7 +42,7 @@ Routes are discovered from `api/eCommerce/`. Each file exports `basePath` and `r
 | `taxZone.ts` | `/api/eCommerce/taxZone` | Tax zones |
 | `shippingZone.ts` | `/api/eCommerce/shippingZone` | Shipping zones |
 | `customerGroup.ts` | `/api/eCommerce/customerGroup` | Customer groups |
-| `customerAddress.ts` | `/api/eCommerce/customerAddress` | Customer addresses |
+| `productOrder.ts` → `customerAddresses` | `/api/eCommerce/productOrder/customerAddresses` | The shop's buyers' address books, read-only (core `UserAddress`, D163) |
 | `returnRequest.ts` | `/api/eCommerce/returnRequest` | Returns |
 | `cmsBlock.ts` | `/api/eCommerce/cmsBlock` | CMS blocks |
 | `savedSearch.ts` | `/api/eCommerce/savedSearch` | Saved searches |

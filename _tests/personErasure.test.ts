@@ -21,7 +21,7 @@ import {asCrossTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import PosOrder from "@eCommerceModule/database/schemas/posOrder/posOrder";
 import Cart from "@eCommerceModule/database/schemas/cart/cart";
-import CustomerAddress from "@eCommerceModule/database/schemas/customerAddress/customerAddress";
+import UserAddress from "@coreModule/database/schemas/userAddress/userAddress";
 import SavedSearch from "@eCommerceModule/database/schemas/savedSearch/savedSearch";
 
 const company = new ObjectId();
@@ -49,7 +49,8 @@ beforeAll(async () => {
         ]);
         await PosOrder.collection.insertOne({_id: ids.pos, company, name: "POS-1", customer: accountId, customerName: "Ada Lovelace", amountTotal: 20, deletedAt: null});
         await Cart.collection.insertMany([{company, user: accountId, items: [], deletedAt: null}, {company, user: otherAccountId, items: [], deletedAt: null}]);
-        await CustomerAddress.collection.insertOne({company, customer: accountId, ...address("Ada"), deletedAt: null});
+        // The address book is core's (D163); erasing the person in this company deletes the rows stored there.
+        await UserAddress.collection.insertOne({company, user: accountId, ...address("Ada"), deletedAt: null});
         await SavedSearch.collection.insertOne({company, customer: accountId, name: "red shoes", deletedAt: null});
     });
 }, 120000);
@@ -73,7 +74,7 @@ describe("person erasure in a shop (D57)", {timeout: 60000}, () => {
         expect(pos.customer).toBeUndefined();
         expect(pos.customerName).toBeUndefined();
         expect(await raw(() => Cart.collection.countDocuments({user: accountId}))).toBe(0);
-        expect(await raw(() => CustomerAddress.collection.countDocuments({}))).toBe(0);
+        expect(await raw(() => UserAddress.collection.countDocuments({}))).toBe(0);
         expect(await raw(() => SavedSearch.collection.countDocuments({}))).toBe(0);
 
         expect((await raw(() => ProductOrder.collection.findOne({_id: ids.otherOrder})))).toMatchObject({email: "marco@example.com", shippingAddress: {firstName: "Marco", street: "Bahnhofstrasse 1"}});

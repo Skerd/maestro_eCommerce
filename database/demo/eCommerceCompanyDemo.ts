@@ -22,7 +22,6 @@ import {createTaxZones} from "@eCommerceModule/database/schemas/taxZone/taxZone.
 import {createShippingZones} from "@eCommerceModule/database/schemas/shippingZone/shippingZone.defaults";
 import {createPricingRules} from "@eCommerceModule/database/schemas/pricingRule/pricingRule.defaults";
 import {createCmsBlocks} from "@eCommerceModule/database/schemas/cmsBlock/cmsBlock.defaults";
-import {createCustomerAddresses} from "@eCommerceModule/database/schemas/customerAddress/customerAddress.defaults";
 import {
     createProductOrders,
     type CreateProductOrdersResult,
@@ -96,7 +95,6 @@ export async function seedECommerceDemoData(
     await createShippingZones(logger, company, geo);
     await createPricingRules(logger, company, groups, collections);
     await createCmsBlocks(logger, company, collections);
-    await createCustomerAddresses(logger, company, demoUserId, geo, addr);
     const orders = await createProductOrders(logger, company, currency._id, products, demoUserId, geo, addr);
     const carts = await createCarts(logger, company, currency._id, products, demoUserId);
     await createCheckouts(logger, company, currency._id, carts, orders, demoUserId, geo, addr);

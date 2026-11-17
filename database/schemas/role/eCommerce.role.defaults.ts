@@ -12,8 +12,9 @@ const tillOwn = ["Posorders", "Possessions"];
 const tillSetupOwn = ["Posconfigs", "Pospaymentmethods", "Fiscalconfigs"];
 const odooOwn = ["Odooconnections", "Odoolinks"];
 // The stock ledger and buyer-side records are written by the system, so they are only ever read
-const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
-const buyerRead = ["Carts", "Checkouts", "Customeraddresses", "Digitaldeliveries"];
+const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Digitaldeliveries"];
+// A buyer's saved addresses are core `Useraddresses`, their own book (D163).
+const buyerRead = ["Carts", "Checkouts", "Useraddresses", "Digitaldeliveries"];
 // Settling a sale CIS may not have registered (D98) stays with the till's supervisors (D99).
 const cisResolutionActions = ["posorders[action:recordFiscalCodes]", "posorders[action:resendFiscal]"];
 

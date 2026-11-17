@@ -11,7 +11,6 @@ import {productOrderService} from "@eCommerceModule/database/schemas/productOrde
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
-import {customerAddressService} from "@eCommerceModule/database/schemas/customerAddress/customerAddress.service";
 import {savedSearchService} from "@eCommerceModule/database/schemas/savedSearch/savedSearch.service";
 import {customerGroupMemberService} from "@eCommerceModule/database/schemas/customerGroupMember/customerGroupMember.service";
 
@@ -23,8 +22,8 @@ const anonymisedAddress = (path: string) => ({
 
 /**
  * A shop's records of one person (D57): orders stay for accounting with an erased name, no email, phone or street
- * (town and country stay for tax); checkouts lose their addresses; carts, saved addresses, saved searches and group
- * memberships are deleted. Links to the person's login account that an order needs (its buyer) stay: the account
+ * (town and country stay for tax); checkouts lose their addresses; carts, saved searches and group memberships are
+ * deleted (saved addresses are the person's core address book, D163). Links to the person's login account that an order needs (its buyer) stay: the account
  * itself is removed by the separate account deletion.
  */
 async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]> {
@@ -36,7 +35,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
     const posOrders = await posOrderService.find({company: companyId, ...byAccount("customer")}, found, undefined, "_id");
     const checkouts = await checkoutService.find({company: companyId, ...byAccount("user")}, found, undefined, "_id");
     const carts = await cartService.find({company: companyId, ...byAccount("user")}, found, undefined, "_id");
-    const addresses = await customerAddressService.find({company: companyId, $or: [byAccount("customer"), {email: {$in: subject.emails}}]}, found, undefined, "_id");
     const searches = await savedSearchService.find({company: companyId, ...byAccount("customer")}, found, undefined, "_id");
     const memberships = await customerGroupMemberService.find({company: companyId, ...byAccount("user")}, found, undefined, "_id");
 
@@ -45,7 +43,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
         {collection: "posorders", anonymised: posOrders.length, deleted: 0},
         {collection: "checkouts", anonymised: checkouts.length, deleted: 0},
         {collection: "carts", anonymised: 0, deleted: carts.length},
-        {collection: "customeraddresses", anonymised: 0, deleted: addresses.length},
         {collection: "savedsearches", anonymised: 0, deleted: searches.length},
         {collection: "customergroupmembers", anonymised: 0, deleted: memberships.length},
     ];
@@ -75,10 +72,6 @@ async function eraseECommercePerson(ctx: ErasureContext): Promise<ErasureCount[]
     if (carts.length > 0) {
         await cartService.deleteMany({company: companyId, _id: {$in: ids(carts)}}, {session, hard: true});
         ctx.scrubAudit("carts", ids(carts), "all");
-    }
-    if (addresses.length > 0) {
-        await customerAddressService.deleteMany({company: companyId, _id: {$in: ids(addresses)}}, {session, hard: true});
-        ctx.scrubAudit("customeraddresses", ids(addresses), "all");
     }
     if (searches.length > 0) {
         await savedSearchService.deleteMany({company: companyId, _id: {$in: ids(searches)}}, {session, hard: true});

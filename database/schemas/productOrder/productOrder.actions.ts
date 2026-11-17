@@ -1,6 +1,13 @@
 import {ObjectId} from "mongodb";
 import type {ClientSession} from "mongoose";
 import {action} from "@coreModule/api/actionDecorator";
+import {userAddressFormSchema} from "armonia/src/modules/core/api/user/private/userAddress/userAddress.form.validator";
+import type {UserAddress} from "armonia/src/modules/core/api/user/private/userAddress/userAddress.dto";
+import type {TableForm} from "armonia/src/modules/core/types/shared.types";
+import {userAddressService} from "@coreModule/database/schemas/userAddress/userAddress.service";
+import {userAddressesToDTO} from "@coreModule/utilities/mappers/userAddress/userAddressMapper.dto";
+import {dslFilterMW, type DslFilterMWType} from "@coreModule/utilities/middlewares/dslFilterMW";
+import type {AuthenticatedMWType} from "@coreModule/utilities/middlewares/authMW";
 import {validateSingleForm} from "armonia/src/modules/core/utilities/zod/shared.validator";
 import {shipProductOrderFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/shipProductOrder.form.validator";
 import type {ShipProductOrderFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/shipProductOrder.form.validator";
@@ -404,6 +411,32 @@ export class ProductOrderActions {
         logger.finish(`Successfully refunded product order: ${_id}`);
 
         return {message: "Order refunded successfully"};
+    }
+
+    /**
+     * The address books of this shop's buyers (D163), read-only: every saved address of a person who has an order in
+     * the company. The books live in the platform company (core `UserAddress`); a seller otherwise only sees the copy on
+     * each order. Its own permission, so a buyer who also holds a role in the shop never reaches other buyers' books.
+     */
+    @action({
+        auth: "private",
+        rateLimit: {windowMs: 60000, max: 60},
+        schema: userAddressFormSchema,
+        middleware: [dslFilterMW({model: "userAddresses"})],
+    })
+    async customerAddresses(params: AuthenticatedMWType & TableForm & DslFilterMWType): Promise<{data: UserAddress[]; total: number}> {
+        const {company, logger, languageCode, offset, limit, dslFilterQuery} = params;
+        const buyers = await productOrderService.buyersOf(company._id);
+        const filter: Record<string, unknown> = {
+            ...(await userAddressService.bookClause(buyers.map(String))),
+            ...(dslFilterQuery ? {$and: [dslFilterQuery]} : {}),
+        };
+        const ctx = {logger, languageCode};
+        const [docs, total] = await Promise.all([
+            userAddressService.find(filter, ctx, ["city", "state", "country", "user"], undefined, {createdAt: -1}, limit, offset ?? 0),
+            userAddressService.count(filter, ctx),
+        ]);
+        return {data: userAddressesToDTO(docs), total};
     }
 }
 
