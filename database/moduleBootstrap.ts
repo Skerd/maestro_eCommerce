@@ -11,6 +11,8 @@ import {eCommerceDefaultRoles} from "@eCommerceModule/database/schemas/role/eCom
 import {ProductSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/product/product.schema-def";
 import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productVariant/productVariant.schema-def";
 import {CollectionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/collection/collection.schema-def";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
+import type {SelfServeBusinessType} from "@coreModule/domain/company/selfServeBusinessTypes";
 
 export const eCommerceModels: Model<any>[] = [
     ProductCategory,
@@ -43,8 +45,19 @@ registerPublicMediaBackfillSource({
     loadModel: () => import("@eCommerceModule/database/schemas/collection/collection").then((m) => m.default),
 });
 
+/** A shop may sign itself up on the portal; it is listed there once the platform approves it (D178). */
+const selfServeBusinessTypes: SelfServeBusinessType[] = [{
+    key: "eCommerce",
+    modules: ["eCommerce"],
+    // The shop's portal opt-in is a company field, not a config row.
+    onCreated: async ({company, session, logger}) => {
+        await companyService.updateOne({_id: company._id}, {$set: {shopListedOnPortal: true}}, {session, logger});
+    },
+}];
+
 export const moduleBootstrap = {
     models: eCommerceModels,
     dropModuleCollections: dropECommerceCollections,
     defaultRoles: eCommerceDefaultRoles,
+    selfServeBusinessTypes,
 };
