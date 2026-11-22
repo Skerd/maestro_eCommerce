@@ -1,6 +1,6 @@
 import {ObjectId} from "mongodb";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
-import {portalCompanyClause} from "@coreModule/utilities/marketing/portalCompanies";
+import {PORTAL_APPROVED_CLAUSE, portalCompanyClause} from "@coreModule/utilities/marketing/portalCompanies";
 
 /**
  * Mongo clause limiting platform browsing (the portal apex) to live seller companies:
@@ -26,7 +26,8 @@ async function companyClause(filter: Record<string, unknown>): Promise<{company:
 }
 
 function liveSellerFilter(): Record<string, unknown> {
-    return {...portalCompanyClause("eCommerce"), shopListedOnPortal: true};
+    // A self-serve shop sells on its own site at once; the apex lists it once the platform approves it (D178).
+    return {...portalCompanyClause("eCommerce"), shopListedOnPortal: true, ...PORTAL_APPROVED_CLAUSE};
 }
 
 /**
