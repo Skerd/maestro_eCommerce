@@ -1,7 +1,7 @@
 import type {ObjectId} from "mongodb";
 import {registerPortalProvider} from "@coreModule/domain/portal/portalProviderRegistry";
 import type {PortalBrowseParams} from "@coreModule/domain/portal/portalProvider.types";
-import {catalogItems, filterValue, filterValues} from "@coreModule/domain/portal/portalCatalog";
+import {catalogItems, catalogRating, filterValue, filterValues} from "@coreModule/domain/portal/portalCatalog";
 import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -22,8 +22,8 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
     filter.company = {$in: companyIds};
     await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
     const [products, total] = await Promise.all([
-        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]}>(filter, {
-            select: "company title slug mainImage price currency brand categories",
+        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]; ratingAverage?: number; ratingCount?: number}>(filter, {
+            select: "company title slug mainImage price currency brand categories ratingAverage ratingCount",
             populate: [{path: "currency", select: PORTAL_CURRENCY_SELECT}, {path: "categories", select: "name"}],
             sort: SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"],
             skip,
@@ -39,6 +39,7 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
         subtitle: product.brand || product.categories?.[0]?.name,
         image: publicMediaUrl(product.mainImage),
         ...(product.price != null && product.currency?.abbreviation ? {price: {amount: product.price, currency: product.currency.abbreviation}} : {}),
+        ...catalogRating(product.ratingAverage, product.ratingCount),
         section: "shop",
         path: `/product?${new URLSearchParams({id: product._id.toString(), slug: product.slug, seller: product.company.toString()})}`,
     }));

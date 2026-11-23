@@ -5,6 +5,7 @@ import {asCrossTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
 import {portalCompanyClause} from "@coreModule/utilities/marketing/portalCompanies";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 
 const REASON = "the module gate names a shop seller for a portal buyer's cart or order";
 
@@ -21,4 +22,12 @@ export const shopSeller: PortalBuyerTarget = ({body}) => asCrossTenant(REASON, a
     }
     const seller = await companyService.findOne(portalCompanyClause("eCommerce"), {withDeleted: false}, undefined, "_id");
     return seller?._id;
+});
+
+/** The seller of the shop order a buyer route names in `order` (a product review). The route checks the buyer. */
+export const productOrderSeller: PortalBuyerTarget = ({body}) => asCrossTenant(REASON, async () => {
+    const orderId = typeof body.order === "string" && ObjectId.isValid(body.order) ? new ObjectId(body.order) : undefined;
+    if (!orderId) return undefined;
+    const order = await productOrderService.findById(orderId, {}, null, "company");
+    return order ? nestedEntityToRef(order.company) : undefined;
 });

@@ -1,15 +1,24 @@
 import {ObjectId} from "mongodb";
-import {createCrudRouter, selectIdsOf} from "@coreModule/api/crudRouterFactory";
+import {createCrudRouter, selectIdsOf, type CrudCreateParams} from "@coreModule/api/crudRouterFactory";
+import authMW from "@coreModule/utilities/middlewares/authMW";
+import {asyncHandler} from "@coreModule/utilities/middlewares/asyncHandler";
+import {rateLimiter} from "@coreModule/utilities/middlewares/rateLimiter";
+import {transactionHandler} from "@coreModule/utilities/middlewares/transactionHandler";
+import {validateFormZod} from "@coreModule/utilities/middlewares/validateFormZod";
+import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
+import {isPortalPurchase} from "@coreModule/utilities/marketing/portalStorefront";
+import {productOrderSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
+import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {escapeRegex} from "@coreModule/utilities/helpers";
 import {buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromSchemaDef";
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
-import {ProductReviewSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
+import {ProductReviewSchemaDef, type CreateProductReviewFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
 import {createProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/createProductReview.form.validator";
 import {editProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/editProductReview.form.validator";
-import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
+import ProductReview, {type IProductReview} from "@eCommerceModule/database/schemas/productReview/productReview";
 import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -61,8 +70,80 @@ async function recalculateProductRating(productId: ObjectId, ctx: CrudOptions): 
     );
 }
 
+/**
+ * The one review create (BE-02): the order's customer reviews a product of their paid order, once per order line, and
+ * the review is published under their name in the order's company. `orderScope` narrows the order lookup: the
+ * request's company for the panel create, the buyer's own orders for `createMine` (on the portal, every seller's).
+ */
+async function buildProductReviewCreate(
+    {order, product, rating, title, comment, actionUserCtx, session, logger, languageCode}: CrudCreateParams<CreateProductReviewFormType>,
+    orderScope: Record<string, unknown>,
+) {
+    const orderDoc = await productOrderService.findOneOrThrow(
+        {_id: new ObjectId(order), ...orderScope},
+        {withDeleted: false, session, logger, languageCode},
+        undefined,
+        undefined,
+        apiValidationException("order_not_found", "order", null, languageCode),
+    );
+
+    const customerId = orderDoc.customer?._id;
+    const actorIsCustomer = !!customerId && customerId.toString() === actionUserCtx.userId.toString();
+
+    // Only the buyer reviews: a review is published under the buyer's name
+    if (!customerId || !actorIsCustomer) {
+        throw apiValidationException("only_customer_can_review", "", null, languageCode);
+    }
+
+    if (!["paid", "partially_refunded"].includes(orderDoc.paymentStatus)) {
+        throw apiValidationException("order_must_be_paid_to_review", "", null, languageCode);
+    }
+
+    const lineHasProduct = orderDoc.items.some(item => item.product?._id?.toString() === product);
+    if (!lineHasProduct) {
+        throw apiValidationException("product_not_in_order", "", null, languageCode);
+    }
+
+    const existing = await productReviewService.findOne(
+        {
+            order: orderDoc._id,
+            product: new ObjectId(product)
+        },
+        {session, logger, languageCode, withDeleted: false},
+    );
+    if (existing) {
+        throw apiValidationException("product_already_reviewed_for_order", "", null, languageCode);
+    }
+
+    return {
+        company: nestedEntityToRef(orderDoc.company),
+        order: orderDoc._id,
+        product: new ObjectId(product),
+        rating,
+        title: title?.trim(),
+        comment: comment?.trim(),
+        reviewer: customerId,
+    };
+}
+
+/** Lists a new review on its product and refreshes the product's stored rating. */
+async function addReviewToProduct(created: IProductReview, {session, logger, languageCode, actionUserCtx}: TransactionRequiredParams): Promise<void> {
+    const productId = created.product?._id;
+    if (!productId) return;
+    await productService.updateByIdOrThrow(
+        productId,
+        {
+            $push: {
+                reviews: created._id
+            }
+        },
+        {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "create"},
+    );
+    await recalculateProductRating(productId, {session, logger, languageCode});
+}
+
 export const basePath = "/api/eCommerce/productReview";
-export const {router} = createCrudRouter({
+export const {router} = createCrudRouter<IProductReview, CreateProductReviewFormType>({
     collectionName: "productReviews",
     model: ProductReview,
     service: productReviewService,
@@ -108,76 +189,9 @@ export const {router} = createCrudRouter({
     toDTO: productReviewToDTO,
     toDTOArray: productReviewsToDTO,
     toSelect: productReviewsToSelect,
-    buildCreateData: async ({order, product, rating, title, comment, actionUserCtx, company, session, logger, languageCode}) => {
-
-        const orderDoc = await productOrderService.findOneOrThrow({
-            _id: new ObjectId(order),
-            company: company._id
-        }, {withDeleted: false, session, logger, languageCode});
-
-        const customerId = orderDoc.customer?._id;
-        const actorIsCustomer = !!customerId && customerId.toString() === actionUserCtx.userId.toString();
-
-        // Only the buyer reviews: a review is published under the buyer's name
-        if (!customerId || !actorIsCustomer) {
-            throw apiValidationException("only_customer_can_review", "", null, languageCode);
-        }
-
-        if (!["paid", "partially_refunded"].includes(orderDoc.paymentStatus)) {
-            throw apiValidationException("order_must_be_paid_to_review", "", null, languageCode);
-        }
-
-        const lineHasProduct = orderDoc.items.some(item => item.product?._id?.toString() === product);
-        if (!lineHasProduct) {
-            throw apiValidationException("product_not_in_order", "", null, languageCode);
-        }
-
-        const existing = await productReviewService.findOne(
-            {
-                order: new ObjectId(order),
-                product: new ObjectId(product)
-            },
-            {session, logger, languageCode, withDeleted: false},
-        );
-        if (existing) {
-            throw apiValidationException("product_already_reviewed_for_order", "", null, languageCode);
-        }
-
-        return {
-            order: new ObjectId(order),
-            product: new ObjectId(product),
-            rating,
-            title: title?.trim(),
-            comment: comment?.trim(),
-            reviewer: customerId,
-        };
-    },
+    buildCreateData: (params) => buildProductReviewCreate(params, {company: params.company._id}),
     buildUpdateData: buildUpdateDataFromSchemaDef(ProductReviewSchemaDef),
-    afterCreate: async (created, params) => {
-        const productId = created.product?._id;
-        if (productId) {
-            await productService.updateByIdOrThrow(
-                productId,
-                {
-                    $push: {
-                        reviews: created._id
-                    }
-                },
-                {
-                    session: params.session,
-                    logger: params.logger,
-                    languageCode: params.languageCode,
-                    auditUserId: params.actionUserCtx.userId,
-                    auditAction: "create",
-                },
-            );
-            await recalculateProductRating(productId, {
-                session: params.session,
-                logger: params.logger,
-                languageCode: params.languageCode,
-            });
-        }
-    },
+    afterCreate: (created, params) => addReviewToProduct(created, params),
     afterUpdate: async (params, existing) => {
         if (params.rating == null || Number(params.rating) === existing.rating) return;
         if (!existing.product?._id) return;
@@ -264,3 +278,29 @@ export const {router} = createCrudRouter({
         return {message: "Product review successfully restored"};
     },
 });
+
+/**
+ * The buyer's own review (storefront account, product page): the same rules as PUT, without the model permission. On
+ * the portal the buyer's session is the platform's while the order is its seller's, so the order is found among the
+ * buyer's own across sellers and the review is written in the order's company (D16).
+ */
+router.put(
+    "/createMine",
+    authMW("private", {portalBuyer: productOrderSeller}),
+    rateLimiter({windowMs: 60000, max: 30}),
+    transactionHandler(),
+    validateFormZod(createProductReviewFormSchema),
+    asyncHandler(shopPurchaseRoute(async (params: CrudCreateParams<CreateProductReviewFormType>) => {
+        const {company, actionUserCtx, session, logger, languageCode, origin} = params;
+        const ownOrders = {
+            customer: new ObjectId(actionUserCtx.userId),
+            ...(!isPortalPurchase(origin) && {company: company._id}),
+        };
+        const created = await productReviewService.create(
+            await buildProductReviewCreate(params, ownOrders),
+            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
+        );
+        await addReviewToProduct(created, params);
+        return {data: {_id: created._id.toString()}};
+    })),
+);
