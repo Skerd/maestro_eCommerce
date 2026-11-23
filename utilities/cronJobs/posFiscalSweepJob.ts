@@ -7,6 +7,7 @@
 
 import type {ObjectId} from "mongodb";
 import {CONSTANTS} from "@coreModule/environment";
+import {FISCALIZATION_AVAILABLE} from "armonia/src/modules/finance/helpers/fiscalAvailability";
 import {getLogger, type serverLogger} from "@coreModule/loggers/serverLog";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
 import {fiscalConfigService} from "@financeModule/database/schemas/fiscalConfig/fiscalConfig.service";
@@ -25,6 +26,10 @@ const LOST_ANSWER_AFTER_MS = 10 * 60 * 1000;
 
 export async function runPosFiscalSweep(company: ObjectId, parentLogger?: serverLogger): Promise<void> {
     const logger = getLogger("pos_fiscal_sweep", parentLogger);
+    if (!FISCALIZATION_AVAILABLE) {
+        logger.debug("Fiscalization waits for certification (D186): nothing to send.");
+        return;
+    }
     const languageCode = CONSTANTS.DEFAULT_LANGUAGE ?? "en-US";
     logger.start("Running POS fiscal sweep...");
 

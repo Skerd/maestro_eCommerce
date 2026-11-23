@@ -12,6 +12,8 @@ let cisFailure: Error | undefined;
 /** The IIC every signing yields; its signature is a function of the input, as RSA PKCS#1 v1.5 signing is. */
 let signedIic = "IIC";
 const iicInputs: string[] = [];
+// These cover the till and fiscalization as they run once certified; `fiscalComingSoon.test.ts` covers them switched off (D186)
+vi.mock("armonia/src/modules/finance/helpers/fiscalAvailability", () => ({FISCALIZATION_AVAILABLE: true}));
 vi.mock("@financeModule/utilities/fiscalization/fiscalSoap", async (importOriginal) => ({
     ...(await importOriginal<object>()),
     getIIC: (input: string) => {

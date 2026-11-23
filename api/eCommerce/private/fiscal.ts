@@ -18,9 +18,12 @@ import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrd
 import {sendPosOrderToCis} from "@eCommerceModule/workflows/posService";
 import {posOrderToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
+import {fiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 export const basePath = "/api/eCommerce/fiscal";
 export const router = Router();
+// The till and fiscalization wait for certification (D186)
+router.use(fiscalComingSoon);
 
 router.post(
     "/fiscalizePosOrder",

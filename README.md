@@ -48,6 +48,13 @@ Routes are discovered from `api/eCommerce/`. Each file exports `basePath` and `r
 | `savedSearch.ts` | `/api/eCommerce/savedSearch` | Saved searches |
 | `analytics.ts` | `/api/eCommerce/analytics` | Analytics |
 
+**Point of sale and fiscalization: coming soon (D186).** Until Arpeggio is certified as fiscal software, finance's
+`FISCALIZATION_AVAILABLE` (`armonia/src/modules/finance/helpers/fiscalAvailability.ts`) is `false`. The till
+(`/api/eCommerce/pos`) and its fiscal routes (`/api/eCommerce/fiscal`) refuse every call with
+`fiscalization_coming_soon`, and so do the actions and writes of `posOrder`, `posSession`, `posConfig` and
+`posPaymentMethod`. Their list, select and single reads stay open, because other records link to till sales. The gate is
+finance's `fiscalComingSoon` middleware. Setting the constant to `true` restores all of it, and the panel's menus too.
+
 ## Database schemas
 
 Registered in `database/moduleBootstrap.ts` for index sync and test teardown. Additional schemas (product, cart, checkout, etc.) are loaded via side-effect imports in route/service files.
@@ -88,7 +95,7 @@ company is missing, so a handler added here reaches existing companies on the ne
 | `eCommerce.scheduledPublish` | every 5 min | Publishes scheduled products whose time has come (unpriced ones stay in draft) |
 | `eCommerce.checkoutExpiry` | hourly at :15 | Settles checkouts past `expiresAt`: one whose gateway charge already succeeded is placed as an order, the rest expire |
 | `eCommerce.abandonedCart` | hourly at :45 | Reminds signed-in buyers once about carts untouched for 24 h+ |
-| `eCommerce.posFiscalSweep` | every 5 min | Registers with CIS the paid till sales that never reached it (2 min–24 h old, no codes, no fault, no `fiscalRegisteringAt` marker); a marker older than 10 min without codes is logged for a manual check (D97, TD-B75) |
+| `eCommerce.posFiscalSweep` | every 5 min | Registers with CIS the paid till sales that never reached it (2 min–24 h old, no codes, no fault, no `fiscalRegisteringAt` marker); a marker older than 10 min without codes is logged for a manual check (D97, TD-B75); does nothing while fiscalization is coming soon (D186) |
 
 ## Path alias
 

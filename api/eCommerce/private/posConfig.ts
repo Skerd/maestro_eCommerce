@@ -22,6 +22,7 @@ import {warehouseService} from "@eCommerceModule/database/schemas/warehouse/ware
 import {ObjectId} from "mongodb";
 import "@eCommerceModule/database/schemas/posCompanyPosLock/posCompanyPosLock";
 import {shopCurrencyRefOf} from "@eCommerceModule/utilities/services/shopCurrency";
+import {behindFiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 async function assertWarehousesActive(
     warehouseIds: ObjectId[],
@@ -90,7 +91,7 @@ async function prunePinsAfterManagerChange(doc: IPosConfig, params: Record<strin
 }
 
 export const basePath = "/api/eCommerce/posConfig";
-export const {router} = createCrudRouter({
+const {router: crudRouter} = createCrudRouter({
     collectionName: "posConfigs",
     model: PosConfig,
     service: posConfigService,
@@ -149,3 +150,6 @@ export const {router} = createCrudRouter({
     enrichSingle: async (doc, params) => posConfigToDTO(doc, dtoOpts(params, await companyLockDtoOpts(params))),
     enrichUpdate: async (doc, params) => posConfigToDTO(doc, dtoOpts(params, await companyLockDtoOpts(params))),
 });
+
+// The till and fiscalization wait for certification (D186)
+export const router = behindFiscalComingSoon(crudRouter);

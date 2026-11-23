@@ -6,13 +6,14 @@ import {PosOrderActions} from "@eCommerceModule/database/schemas/posOrder/posOrd
 import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrder.service";
 import {posOrderToDTO, posOrdersToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {posOrdersToSelect} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.select";
+import {behindFiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 export const basePath = "/api/eCommerce/posOrder";
 /**
  * POS orders are created by till actions (hold / pay / refund).
  * Panel is read + reprint, and resolving a sale whose CIS answer was lost (D98) — no CRUD create, edit, or delete.
  */
-export const {router} = createCrudRouter({
+const {router: crudRouter} = createCrudRouter({
     collectionName: "posOrders",
     model: PosOrder,
     service: posOrderService,
@@ -38,3 +39,6 @@ export const {router} = createCrudRouter({
     rateLimits: {read: 60, write: 10, delete: 10},
     actions: PosOrderActions,
 });
+
+// The till and fiscalization wait for certification (D186)
+export const router = behindFiscalComingSoon(crudRouter);

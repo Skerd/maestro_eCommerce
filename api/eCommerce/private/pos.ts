@@ -23,9 +23,12 @@ import {
 import {chargePosTerminal, getCurrentPosSession, loadPosCatalog} from "@eCommerceModule/workflows/posService";
 import {assertPosOrderWrite} from "@eCommerceModule/database/schemas/posOrder/posOrder.actions";
 import {listHeldPosOrders, listSessionPosOrders, searchPosCustomers, verifyPosManagerPin} from "@eCommerceModule/workflows/posTillOps";
+import {fiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 export const basePath = "/api/eCommerce/pos";
 export const router = Router();
+// The till and fiscalization wait for certification (D186)
+router.use(fiscalComingSoon);
 
 function tillCtx(params: AuthenticatedMWType & any) {
     return {

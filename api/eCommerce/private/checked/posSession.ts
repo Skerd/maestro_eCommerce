@@ -10,13 +10,14 @@ import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrd
 import {posOrdersToDTO} from "@eCommerceModule/utilities/mappers/posOrder/posOrderMapper.dto";
 import {posSessionListFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/posSession/posSessionList.form.validator";
 import {recentWhenFilter} from "@eCommerceModule/utilities/services/recentWhenFilter";
+import {behindFiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 export const basePath = "/api/eCommerce/posSession";
 /**
  * POS sessions are opened and closed by till actions.
  * Panel is read-only — no CRUD create, edit, or delete.
  */
-export const {router} = createCrudRouter({
+const {router: crudRouter} = createCrudRouter({
     collectionName: "posSessions",
     model: PosSession,
     service: posSessionService,
@@ -58,3 +59,6 @@ export const {router} = createCrudRouter({
     rateLimits: {read: 60, write: 10, delete: 10},
     actions: PosSessionActions,
 });
+
+// The till and fiscalization wait for certification (D186)
+export const router = behindFiscalComingSoon(crudRouter);

@@ -9,9 +9,10 @@ import {PosPaymentMethodActions} from "@eCommerceModule/database/schemas/posPaym
 import {posPaymentMethodToDTO, posPaymentMethodsToDTO} from "@eCommerceModule/utilities/mappers/posPaymentMethod/posPaymentMethodMapper.dto";
 import {posPaymentMethodsToSelect} from "@eCommerceModule/utilities/mappers/posPaymentMethod/posPaymentMethodMapper.select";
 import {detachPosPaymentMethodFromConfigs} from "@eCommerceModule/utilities/services/posPaymentMethodDetach";
+import {behindFiscalComingSoon} from "@financeModule/utilities/middlewares/fiscalComingSoon";
 
 export const basePath = "/api/eCommerce/posPaymentMethod";
-export const {router} = createCrudRouter({
+const {router: crudRouter} = createCrudRouter({
     collectionName: "posPaymentMethods",
     model: PosPaymentMethod,
     service: posPaymentMethodService,
@@ -37,3 +38,6 @@ export const {router} = createCrudRouter({
     },
     rateLimits: {read: 60, write: 30, delete: 20},
 });
+
+// The till and fiscalization wait for certification (D186)
+export const router = behindFiscalComingSoon(crudRouter);

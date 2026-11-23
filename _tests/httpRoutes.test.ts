@@ -5,6 +5,8 @@ import mongoose from "mongoose";
 import {ObjectId} from "mongodb";
 import request from "supertest";
 
+// These cover the till and fiscalization as they run once certified; `fiscalComingSoon.test.ts` covers them switched off (D186)
+vi.mock("armonia/src/modules/finance/helpers/fiscalAvailability", () => ({FISCALIZATION_AVAILABLE: true}));
 vi.mock("@coreModule/utilities/middlewares/authMW", async () =>
     (await import("@coreModule/_tests/httpHarness")).authMWStub);
 vi.mock("@eCommerceModule/utilities/services/productOrderNotify", () => ({
