@@ -1,7 +1,7 @@
 import type {ObjectId} from "mongodb";
 import {registerPortalProvider} from "@coreModule/domain/portal/portalProviderRegistry";
 import type {PortalBrowseParams, PortalNewSinceContext} from "@coreModule/domain/portal/portalProvider.types";
-import {catalogItems, catalogRating, filterValue, filterValues, newSinceClause} from "@coreModule/domain/portal/portalCatalog";
+import {catalogItems, catalogRating, filterValue, filterValues, idClause, itemPagePath, newSinceClause} from "@coreModule/domain/portal/portalCatalog";
 import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -54,11 +54,28 @@ export function registerShopPortalProvider(): void {
     registerPortalProvider({
         key: "shop",
         order: 10,
+        sitePath: "shop",
+        // As the portal's section tabs name it (sinfonia `portalSectionName`).
+        names: {
+            "en-US": {title: "Shop", description: "Products from every shop, one cart and one checkout."},
+            "sq-AL": {title: "Dyqani", description: "Produktet e të gjitha dyqaneve, një shportë dhe një pagesë."},
+            "it-IT": {title: "Negozio", description: "I prodotti di tutti i negozi, un solo carrello e un solo pagamento."},
+            "fr-FR": {title: "Boutique", description: "Les produits de toutes les boutiques, un seul panier et un seul paiement."},
+            "de-CH": {title: "Shop", description: "Produkte aus allen Shops, ein Warenkorb, ein Checkout."},
+        },
         kinds: ["product"],
         companyIds: shopPortalCompanyIds,
         citiesByCompany: companyAddressCities,
         browse: (params) => browseProducts(params),
         // Products added after the date (D178): a saved search's alert, a person's kept items.
         newSince: (context: PortalNewSinceContext) => browseProducts({...context, sort: "newest", skip: 0}, newSinceClause(context)),
+        // A product's page (D181): `/product?id=…`.
+        itemAt: async ({scope, companyId, path, languageCode}) => {
+            const {segments, query} = itemPagePath(path);
+            const clause = segments[0] === "product" ? idClause(query.get("id")) : null;
+            if (!clause) return undefined;
+            const {items} = await browseProducts({kind: "product", scope, companyIds: [companyId], filters: {}, skip: 0, limit: 1, languageCode}, clause);
+            return items[0] ? {item: items[0], schemaType: "Product"} : undefined;
+        },
     });
 }

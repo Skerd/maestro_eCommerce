@@ -67,3 +67,17 @@ describe("products new since a date (P23.7)", () => {
         expect(kept.items.map((item) => item.title)).toEqual(["Old lamp"]);
     });
 });
+
+describe("a product's page (D181)", () => {
+    it("finds the product its page names by id, and nothing for a draft or another page", async () => {
+        const provider = getPortalProvider("shop");
+        if (!provider?.itemAt) throw new Error("the shop section must answer itemAt");
+        const itemAt = provider.itemAt;
+        const at = (path: string) => withTenant(seller, () => itemAt({scope: {companyId: seller}, companyId: seller, path, languageCode: "en-US"}));
+        expect(provider.sitePath).toBe("shop");
+        expect(await at(`/product?id=${products.old.toString()}&slug=old-lamp`)).toMatchObject({schemaType: "Product", item: {title: "Old lamp"}});
+        expect(await at(`/product?id=${products.draft.toString()}`)).toBeUndefined();
+        expect(await at("/product?id=nope")).toBeUndefined();
+        expect(await at("/cart")).toBeUndefined();
+    });
+});
