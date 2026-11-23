@@ -14,6 +14,9 @@ import ProductOrder from "@eCommerceModule/database/schemas/productOrder/product
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {paymentTransactionService} from "@financeModule/database/schemas/paymentTransaction/paymentTransaction.service";
 import {productOrderService} from "@eCommerceModule/database/schemas/productOrder/productOrder.service";
+import {productReviewService} from "@eCommerceModule/database/schemas/productReview/productReview.service";
+import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
+import type {BuyerProductOrder} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.dto";
 import type {TransactionEnabledParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {ProductOrderActions} from "@eCommerceModule/database/schemas/productOrder/productOrder.actions";
 import {productOrderToBuyerDTO, productOrderToDTO, productOrdersToDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
@@ -195,7 +198,24 @@ router.post(
             productOrderService.count(filter, {...ctx, withDeleted: false}),
         ]);
 
-        return {data: orders.map(productOrderToBuyerDTO), total, page, limit};
+        // The products the buyer already reviewed per order (one review per order and product), so the shop's product
+        // page offers the review form only for a line that has none (TD-F147).
+        const reviews = orders.length > 0
+            ? await productReviewService.find({order: {$in: orders.map((order) => order._id)}}, {...ctx, withDeleted: false}, undefined, "order product")
+            : [];
+        const reviewedProducts = new Map<string, Set<string>>();
+        for (const review of reviews) {
+            const orderId = String(nestedEntityToRef(review.order));
+            reviewedProducts.set(orderId, (reviewedProducts.get(orderId) ?? new Set()).add(String(nestedEntityToRef(review.product))));
+        }
+
+        const data: BuyerProductOrder[] = orders.map((order) => {
+            const dto = productOrderToBuyerDTO(order);
+            const reviewed = reviewedProducts.get(dto._id);
+            // A line whose product was deleted since has none populated.
+            return {...dto, items: dto.items?.map((item) => ({...item, reviewed: reviewed?.has(item.product?._id) === true}))};
+        });
+        return {data, total, page, limit};
     })),
 );
 

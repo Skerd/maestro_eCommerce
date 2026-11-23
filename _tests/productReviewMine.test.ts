@@ -12,6 +12,7 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import ProductOrder from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import ProductReview from "@eCommerceModule/database/schemas/productReview/productReview";
 import * as productReviewRoute from "@eCommerceModule/api/eCommerce/private/checked/productReview";
+import * as productOrderRoute from "@eCommerceModule/api/eCommerce/private/productOrder";
 import {allPermissionTags, appFor, callerHeader} from "@coreModule/_tests/httpHarness";
 import {asCrossTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import {PORTAL_ROOT_DOMAIN} from "@coreModule/environment";
@@ -19,7 +20,7 @@ import {portalBuyerTargetHasModule} from "@coreModule/utilities/security/portalB
 import {productOrderSeller} from "@eCommerceModule/utilities/shop/shopBuyerTarget";
 
 // D178: a portal buyer reviews a shop purchase. The buyer's session is the platform's; the order is its seller's.
-const app = appFor([{...productReviewRoute, module: "eCommerce"}]);
+const app = appFor([productReviewRoute, productOrderRoute].map((route) => ({...route, module: "eCommerce"})));
 
 const platform = new ObjectId();
 const seller = new ObjectId();
@@ -138,5 +139,42 @@ describe("a buyer's own product review (D178)", () => {
         expect(fromPlatform.body.error_code).toBe("order_not_found");
         const product = await fixtures(() => Product.findById(mug).lean());
         expect([product?.ratingAverage, product?.reviewCount]).toEqual([4, 1]);
+    });
+});
+
+describe("the buyer's order list marks the lines they reviewed (TD-F147)", () => {
+    const myOrders = (origin: string, caller = portalBuyer) =>
+        request(app).post("/api/eCommerce/productOrder/my").set({...caller, Origin: origin}).send({limit: 50});
+    type ListedOrder = {_id: string; items: {product: {_id: string}; reviewed?: boolean}[]};
+    const reviewedLines = (body: {data: ListedOrder[]}, id: ObjectId) =>
+        body.data.find((row) => row._id === id.toString())?.items.map((item) => [item.product._id, item.reviewed]);
+
+    it("says, per order, which products the buyer already reviewed", async () => {
+        const again = await seedOrder(buyer);
+        const both = await fixtures(async () => (await ProductOrder.collection.insertOne({
+            company: seller, customer: buyer, paymentStatus: "paid", status: "processing",
+            orderNumber: `ORD-${new ObjectId().toHexString()}`, idempotencyKey: new ObjectId().toHexString(),
+            items: [{_id: new ObjectId(), product: mug, quantity: 1, unitPrice: 10}, {_id: new ObjectId(), product: book, quantity: 1, unitPrice: 20}],
+            deletedAt: null,
+        })).insertedId);
+        expect((await review({order: order.toString(), product: mug.toString(), rating: 5})).status).toBe(200);
+        expect((await review({order: both.toString(), product: book.toString(), rating: 4})).status).toBe(200);
+
+        const listed = await myOrders(apex);
+
+        expect([listed.status, listed.body.error_code]).toEqual([200, undefined]);
+        expect(reviewedLines(listed.body, order)).toEqual([[mug.toString(), true]]);
+        expect(reviewedLines(listed.body, again)).toEqual([[mug.toString(), false]]);
+        expect(reviewedLines(listed.body, both)).toEqual([[mug.toString(), false], [book.toString(), true]]);
+    });
+
+    it("does the same on the seller's own shop, where the buyer's session is the seller's", async () => {
+        await review({order: order.toString(), product: mug.toString(), rating: 5});
+        const shopBuyer = callerHeader({userId: buyer.toString(), companyId: seller.toString()});
+
+        const listed = await myOrders("http://shop.example.com", shopBuyer);
+
+        expect([listed.status, listed.body.error_code]).toEqual([200, undefined]);
+        expect(reviewedLines(listed.body, order)).toEqual([[mug.toString(), true]]);
     });
 });
