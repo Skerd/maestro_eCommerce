@@ -1,7 +1,7 @@
 import type {ObjectId} from "mongodb";
 import {registerPortalProvider} from "@coreModule/domain/portal/portalProviderRegistry";
-import type {PortalBrowseParams} from "@coreModule/domain/portal/portalProvider.types";
-import {catalogItems, catalogRating, filterValue, filterValues} from "@coreModule/domain/portal/portalCatalog";
+import type {PortalBrowseParams, PortalNewSinceContext} from "@coreModule/domain/portal/portalProvider.types";
+import {catalogItems, catalogRating, filterValue, filterValues, newSinceClause} from "@coreModule/domain/portal/portalCatalog";
 import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -15,11 +15,14 @@ export function shopPortalCompanyIds(scope: PortalScope) {
 
 type CurrencyRef = {abbreviation?: string};
 
-/** Active products, with the shop's own category (`f.category`) and brand (`f.brand`) filters. */
-async function browseProducts({scope, companyIds, query, priceMin, priceMax, sort, skip, limit, filters}: PortalBrowseParams) {
+/**
+ * Active products, with the shop's own category (`f.category`) and brand (`f.brand`) filters; `narrowing` keeps only the
+ * products a "new since" ask is about.
+ */
+async function browseProducts({scope, companyIds, query, priceMin, priceMax, sort, skip, limit, filters}: PortalBrowseParams, narrowing: Record<string, unknown> = {}) {
     const filter = await buildShopCatalogFilter({companyId: scope.companyId, search: query, categorySlug: filterValue(filters, "category")});
     if (!filter) return {items: [], total: 0};
-    filter.company = {$in: companyIds};
+    Object.assign(filter, narrowing, {company: {$in: companyIds}});
     await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
     const [products, total] = await Promise.all([
         productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]; ratingAverage?: number; ratingCount?: number}>(filter, {
@@ -54,6 +57,8 @@ export function registerShopPortalProvider(): void {
         kinds: ["product"],
         companyIds: shopPortalCompanyIds,
         citiesByCompany: companyAddressCities,
-        browse: browseProducts,
+        browse: (params) => browseProducts(params),
+        // Products added after the date (D178): a saved search's alert, a person's kept items.
+        newSince: (context: PortalNewSinceContext) => browseProducts({...context, sort: "newest", skip: 0}, newSinceClause(context)),
     });
 }
