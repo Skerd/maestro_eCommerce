@@ -55,13 +55,13 @@ export function registerShopPortalProvider(): void {
         key: "shop",
         order: 10,
         sitePath: "shop",
-        // As the portal's section tabs name it (sinfonia `portalSectionName`).
+        // As the portal names it: the section (sinfonia `portalSectionName`) and its kinds' tabs (`portalKindName`).
         names: {
-            "en-US": {title: "Shop", description: "Products from every shop, one cart and one checkout."},
-            "sq-AL": {title: "Dyqani", description: "Produktet e të gjitha dyqaneve, një shportë dhe një pagesë."},
-            "it-IT": {title: "Negozio", description: "I prodotti di tutti i negozi, un solo carrello e un solo pagamento."},
-            "fr-FR": {title: "Boutique", description: "Les produits de toutes les boutiques, un seul panier et un seul paiement."},
-            "de-CH": {title: "Shop", description: "Produkte aus allen Shops, ein Warenkorb, ein Checkout."},
+            "en-US": {title: "Shop", description: "Products from every shop, one cart and one checkout.", kinds: {product: "Products"}},
+            "sq-AL": {title: "Dyqani", description: "Produktet e të gjitha dyqaneve, një shportë dhe një pagesë.", kinds: {product: "Produkte"}},
+            "it-IT": {title: "Negozio", description: "I prodotti di tutti i negozi, un solo carrello e un solo pagamento.", kinds: {product: "Prodotti"}},
+            "fr-FR": {title: "Boutique", description: "Les produits de toutes les boutiques, un seul panier et un seul paiement.", kinds: {product: "Produits"}},
+            "de-CH": {title: "Shop", description: "Produkte aus allen Shops, ein Warenkorb, ein Checkout.", kinds: {product: "Produkte"}},
         },
         kinds: ["product"],
         companyIds: shopPortalCompanyIds,
