@@ -5,7 +5,6 @@ import {defaultRoleSlug} from "@coreModule/database/schemas/role/role.defaults";
 import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import type {ICompany} from "@coreModule/database/schemas/company/company";
 import {companyTimeZone} from "@coreModule/utilities/time/companyTimeZone";
-import {isSandboxCompany} from "@coreModule/utilities/company/isSandboxCompany";
 import {eCommerceDefaultRoles} from "./eCommerce.role.defaults";
 
 /** Shared demo password. Hashed on save by the User pre-save hook. */
@@ -130,11 +129,6 @@ export async function createECommerceRoleUsers(
     company: ICompany,
 ): Promise<void> {
     const logger = getLogger("eCommerce_role_users", parentLogger);
-    // A sample company gets no demo people (D178, TD-B257): they would sign in with the shared password, in production too.
-    if (await isSandboxCompany(company._id)) {
-        logger.info(`'${company.name}' is a sample company; it gets no eCommerce role users`);
-        return;
-    }
     logger.start(`Creating eCommerce role users for '${company.name}'...`);
 
     const profileBySlug = new Map(eCommerceRoleUserSeeds.map((seed) => [seed.slug, seed]));
