@@ -1,5 +1,6 @@
-import {describe, expect, it, vi} from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {ServerError} from "armonia/src/modules/core/types";
+import {PUBLIC_ADDRESS, resolveTo} from "@coreModule/_tests/dnsStub";
 import {createOdooJsonRpcClient, ODOO_SEARCH_PAGE_SIZE} from "../utilities/odoo/odooJsonRpc";
 import {odooJsonRpcUrl, parseOdooBaseUrl} from "../utilities/odoo/odooUrl";
 
@@ -15,6 +16,15 @@ describe("odoo json-rpc url", () => {
         expect(odooJsonRpcUrl("https://shop.example.com/web", "en-US")).toBe("https://shop.example.com/jsonrpc");
         expect(() => parseOdooBaseUrl("https://user:secret@shop.example.com", "en-US")).toThrow(ServerError);
     });
+});
+
+// Every request checks that the server is public (EC-10); names resolve from a fake resolver, never from DNS.
+beforeEach(() => {
+    resolveTo([PUBLIC_ADDRESS]);
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
 });
 
 describe("odoo json-rpc client", () => {
@@ -106,5 +116,36 @@ describe("odoo json-rpc client", () => {
         const rows = await client.searchReadAll("product.category", [], ["id", "name", "sequence"]);
         expect(searchFields[0]).toEqual(["id", "name"]);
         expect(rows).toEqual([{id: 1, name: "All"}]);
+    });
+});
+
+describe("odoo json-rpc client on a server that is not public (EC-10)", () => {
+    function clientFor(url: string, fetchImpl: typeof fetch) {
+        return createOdooJsonRpcClient({url, database: "odoo", username: "admin", apiKey: "key", languageCode: "en-US", fetchImpl});
+    }
+
+    it.each(["http://127.0.0.1:8069", "http://localhost:8069", "http://[::ffff:10.0.0.1]:8069", "http://odoo.internal"])(
+        "refuses %s before any request",
+        async (url) => {
+            const fetchImpl = vi.fn(async () => jsonResponse({jsonrpc: "2.0", result: 7, id: 1}));
+            await expect(clientFor(url, fetchImpl as typeof fetch).authenticate()).rejects.toMatchObject({error_code: "url_not_public"});
+            expect(fetchImpl).not.toHaveBeenCalled();
+        },
+    );
+
+    it("refuses a saved host that now resolves to a private address", async () => {
+        resolveTo([{address: "192.168.1.20", family: 4}]);
+        const fetchImpl = vi.fn(async () => jsonResponse({jsonrpc: "2.0", result: 7, id: 1}));
+        await expect(clientFor("https://shop.example.com", fetchImpl as typeof fetch).authenticate())
+            .rejects.toMatchObject({error_code: "url_not_public"});
+        expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("refuses a redirect hop once the host resolves to a private address", async () => {
+        resolveTo([PUBLIC_ADDRESS], [{address: "127.0.0.1", family: 4}]);
+        const fetchImpl = vi.fn(async () => new Response(null, {status: 307, headers: {location: "/web/jsonrpc"}}));
+        await expect(clientFor("https://shop.example.com", fetchImpl as typeof fetch).authenticate())
+            .rejects.toMatchObject({error_code: "url_not_public"});
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 });

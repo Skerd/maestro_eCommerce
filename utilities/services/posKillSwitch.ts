@@ -12,6 +12,7 @@ import {posOrderService} from "@eCommerceModule/database/schemas/posOrder/posOrd
 import {posPaymentMethodService} from "@eCommerceModule/database/schemas/posPaymentMethod/posPaymentMethod.service";
 import {pushWebsocketMessage} from "@coreModule/connections/connectToWebSocketServer";
 import {ECommerceWebSocketMessageCodes} from "armonia/src/modules/eCommerce/websocket/types";
+import {assertSafePublicHttpUrl} from "@coreModule/utilities/security/publicUrl";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
 
 type LoggerLike = {info?: (...a: any[]) => void; warn?: (...a: any[]) => void; error?: (...a: any[]) => void};
@@ -116,6 +117,8 @@ async function voidLocalHttpTerminal(entry: InFlightTerminalCharge, logger?: Log
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5_000);
     try {
+        // Refused like the charge itself: the bridge host is company-set; a refusal is logged below
+        await assertSafePublicHttpUrl(url);
         await fetch(url, {
             method: "POST",
             headers: {"Content-Type": "application/json", Accept: "application/json"},
@@ -128,6 +131,8 @@ async function voidLocalHttpTerminal(entry: InFlightTerminalCharge, logger?: Log
                 sessionId: entry.sessionId,
                 paymentMethodId: entry.paymentMethodId,
             }),
+            // The bridge host was checked as public; a redirect could point anywhere, so none is followed
+            redirect: "manual",
             signal: controller.signal,
         });
     } catch (err: any) {

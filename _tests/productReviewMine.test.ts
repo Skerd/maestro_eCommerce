@@ -142,6 +142,26 @@ describe("a buyer's own product review (D178)", () => {
     });
 });
 
+describe("a product review's words are the reviewer's", () => {
+    it("refuses the shop's staff and lets the reviewer change their rating", async () => {
+        const created = await review({order: order.toString(), product: mug.toString(), rating: 5, title: "Great", comment: "Solid mug"});
+        const edit = (caller: Record<string, string>, body: Record<string, unknown>) =>
+            request(app).patch("/api/eCommerce/productReview").set(caller).send({_id: created.body.data._id, ...body});
+        const stored = () => fixtures(() => ProductReview.findById(created.body.data._id).lean());
+        const shopAdmin = callerHeader({userId: new ObjectId().toString(), companyId: seller.toString(), isAdmin: true, permissions: allPermissionTags([ProductReview])});
+        const reviewerAsStaff = callerHeader({userId: buyer.toString(), companyId: seller.toString(), permissions: allPermissionTags([ProductReview])});
+
+        const byStaff = await edit(shopAdmin, {rating: 1, title: "Broken", comment: "Cracked on arrival"});
+        expect([byStaff.status, byStaff.body.error_code]).toEqual([403, "only_reviewer_can_edit_review"]);
+        expect(await stored()).toMatchObject({rating: 5, title: "Great", comment: "Solid mug"});
+
+        const byReviewer = await edit(reviewerAsStaff, {rating: 3, title: "Fine", comment: "Chipped after a month"});
+        expect([byReviewer.status, byReviewer.body.error_code]).toEqual([200, undefined]);
+        expect(await stored()).toMatchObject({rating: 3, title: "Fine", comment: "Chipped after a month"});
+        expect((await fixtures(() => Product.findById(mug).lean()))?.ratingAverage).toBe(3);
+    });
+});
+
 describe("the buyer's order list marks the lines they reviewed (TD-F147)", () => {
     const myOrders = (origin: string, caller = portalBuyer) =>
         request(app).post("/api/eCommerce/productOrder/my").set({...caller, Origin: origin}).send({limit: 50});

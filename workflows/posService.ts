@@ -44,6 +44,7 @@ import {
     registerInFlightTerminalCharge,
 } from "@eCommerceModule/utilities/services/posKillSwitch";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "@eCommerceModule/utilities/services/posTerminalUrl";
+import {assertPublicUrl} from "@coreModule/utilities/security/publicUrl";
 import {decimal128FromMinor} from "@coreModule/utilities/helpers/money";
 import {allocateMinor, fromMinor, minorToNumber, percentOfMoney, prorateMoney, roundToCurrency, subtractMoney, sumMinor, sumMoney, toMinor, type MoneyInput} from "armonia/src/modules/core/helpers/money";
 import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyDecimals";
@@ -1547,6 +1548,7 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
             port,
             path,
         });
+        await assertPublicUrl(url, "terminalHost", ctx.languageCode);
         const payload = {
             amount,
             currency: body.currency || "EUR",
@@ -1563,6 +1565,8 @@ export async function chargePosTerminal(body: ChargePosTerminalBody, ctx: Ctx): 
                 method: "POST",
                 headers: {"Content-Type": "application/json", Accept: "application/json"},
                 body: JSON.stringify(payload),
+                // The bridge host was checked as public; a redirect could point anywhere, so none is followed
+                redirect: "manual",
                 signal: controller.signal,
             });
             const text = await res.text();

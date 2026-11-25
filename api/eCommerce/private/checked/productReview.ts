@@ -142,6 +142,8 @@ async function addReviewToProduct(created: IProductReview, {session, logger, lan
     await recalculateProductRating(productId, {session, logger, languageCode});
 }
 
+const buildProductReviewUpdate = buildUpdateDataFromSchemaDef(ProductReviewSchemaDef);
+
 export const basePath = "/api/eCommerce/productReview";
 export const {router} = createCrudRouter<IProductReview, CreateProductReviewFormType>({
     collectionName: "productReviews",
@@ -190,7 +192,13 @@ export const {router} = createCrudRouter<IProductReview, CreateProductReviewForm
     toDTOArray: productReviewsToDTO,
     toSelect: productReviewsToSelect,
     buildCreateData: (params) => buildProductReviewCreate(params, {company: params.company._id}),
-    buildUpdateData: buildUpdateDataFromSchemaDef(ProductReviewSchemaDef),
+    // The rating, title and comment are the buyer's words: only the reviewer changes them, never the shop's staff.
+    buildUpdateData: (params, writeFields) => {
+        if (String(nestedEntityToRef(params.existing.reviewer)) !== String(params.actionUserCtx.userId)) {
+            throw apiValidationException("only_reviewer_can_edit_review", "", null, params.languageCode);
+        }
+        return buildProductReviewUpdate(params, writeFields);
+    },
     afterCreate: (created, params) => addReviewToProduct(created, params),
     afterUpdate: async (params, existing) => {
         if (params.rating == null || Number(params.rating) === existing.rating) return;

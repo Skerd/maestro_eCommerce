@@ -15,6 +15,7 @@ import {odooConnectionService} from "@eCommerceModule/database/schemas/odooConne
 import {odooConnectionToDTO} from "@eCommerceModule/utilities/mappers/odooConnection/odooConnectionMapper.dto";
 import {createOdooJsonRpcClient} from "@eCommerceModule/utilities/odoo/odooJsonRpc";
 import {parseOdooBaseUrl} from "@eCommerceModule/utilities/odoo/odooUrl";
+import {assertPublicUrl} from "@coreModule/utilities/security/publicUrl";
 import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
 
 export const basePath = "/api/eCommerce/odooConnection";
@@ -55,6 +56,7 @@ router.put(
         const {languageCode, company, actionUserCtx} = params;
         SchemaGuard.checkModelPermission(OdooConnectionModel, "create", actionUserCtx, languageCode);
         parseOdooBaseUrl(params.url, languageCode);
+        await assertPublicUrl(params.url.trim(), "url", languageCode);
         const opts = crudOpts(params);
         const existing = await loadConnection(params);
         const nextKey = plaintextKey(params.apiKeyEncrypted);

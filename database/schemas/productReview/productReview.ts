@@ -24,7 +24,8 @@ import {productReviewViews} from "./productReview.views";
  *
  * Order, product, and reviewer stay write-locked after create. The reviewer
  * is set from the order's customer and is not part of the form. Rating, title,
- * and comment can be edited.
+ * and comment can be edited by the reviewer only (the update route checks it:
+ * the field permissions cannot tell the reviewer from the shop's staff).
  */
 export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     order: IProductOrder;

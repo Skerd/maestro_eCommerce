@@ -1,4 +1,5 @@
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {assertPublicUrl} from "@coreModule/utilities/security/publicUrl";
 import {odooJsonRpcUrl, parseOdooBaseUrl} from "./odooUrl";
 
 export const ODOO_SEARCH_PAGE_SIZE = 200;
@@ -60,6 +61,8 @@ async function postJsonRpc(
 ): Promise<JsonRpcEnvelope> {
     let current = endpoint;
     for (let hop = 0; hop <= MAX_SAME_HOST_REDIRECTS; hop++) {
+        // Checked before every request and hop, not only on save: the saved host can be re-pointed to a private address
+        await assertPublicUrl(current, "url", languageCode);
         let response: Response;
         try {
             response = await fetchImpl(current, {

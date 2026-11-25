@@ -1,4 +1,5 @@
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
+import {assertPublicUrl} from "@coreModule/utilities/security/publicUrl";
 import {buildPosTerminalUrl, normalizePosTerminalPath} from "./posTerminalUrl";
 
 export type TestPosTerminalConnectionResult = {
@@ -64,6 +65,7 @@ export async function testPosTerminalConnection(
         port,
         path,
     });
+    await assertPublicUrl(url, "terminalHost", ctx.languageCode);
     const payload = {
         probe: true,
         test: true,
@@ -78,6 +80,8 @@ export async function testPosTerminalConnection(
             method: "POST",
             headers: {"Content-Type": "application/json", Accept: "application/json"},
             body: JSON.stringify(payload),
+            // The bridge host was checked as public; a redirect could point anywhere, so none is followed
+            redirect: "manual",
             signal: controller.signal,
         });
         return {
