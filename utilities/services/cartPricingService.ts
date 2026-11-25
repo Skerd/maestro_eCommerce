@@ -15,6 +15,7 @@ import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {collectionIdsByProduct} from "@eCommerceModule/utilities/services/collection/collectionMembership";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
 import {sellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
+import {notHiddenByPlatform} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 /** The priced fields shared by Cart and Checkout documents. */
 export type PriceableLine = {
@@ -87,7 +88,8 @@ export async function repriceCart(doc: PriceableDoc, ctx: PricingCtx): Promise<{
     const productIds = [...new Set(doc.items.map(item => idOf(item.product)))].map(id => new ObjectId(id));
     const variantIds = doc.items.filter(item => item.variant).map(item => new ObjectId(idOf(item.variant)));
 
-    const productFilter: Record<string, unknown> = {_id: {$in: productIds}, status: "active"};
+    // A product the platform hid after a report drops out like an unavailable one (D191).
+    const productFilter: Record<string, unknown> = {_id: {$in: productIds}, status: "active", ...notHiddenByPlatform()};
     const variantFilter: Record<string, unknown> = {_id: {$in: variantIds}, status: "active"};
     if (ctx.multiSeller) {
         // Sellers no longer eligible since the item was added drop out like unavailable products.

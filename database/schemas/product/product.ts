@@ -47,11 +47,12 @@ import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
+import {platformHiddenPlugin, type IPlatformHiddenPluginFields} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 export type ProductType = "physical" | "digital" | "service" | "variable" | "bundle" | "gift_card";
 export type ProductStatus = "draft" | "active" | "archived";
 
-export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
+export interface IProduct extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields, IPlatformHiddenPluginFields {
     type: ProductType;
     title: string;
     slug: string;
@@ -752,6 +753,8 @@ ProductSchema.pre("save", async function () {
 });
 
 ownershipPlugin(ProductSchema);
+// The platform may hide it from the public after a report (D191).
+platformHiddenPlugin(ProductSchema);
 publicMediaPlugin(ProductSchema, {schemaDef: ProductSchemaDef});
 auditPlugin(ProductSchema);
 softDeletePlugin(ProductSchema);

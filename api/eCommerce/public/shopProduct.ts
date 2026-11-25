@@ -15,6 +15,7 @@ import {toShopProductDetail, type ShopStockMap} from "@eCommerceModule/utilities
 import {PORTAL_CURRENCY_SELECT, toPortalSeller} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {shopProductFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
 import type {ShopProductResponse} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopCatalog.types";
+import {notHiddenByPlatform} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 export const basePath = "/api/eCommerce/shopProduct";
 export const router = Router();
@@ -62,8 +63,11 @@ const DETAIL_POPULATE = [
     {path: "currency", select: PORTAL_CURRENCY_SELECT},
 ] as const;
 
+/** A product the shop shows: active, and not hidden by the platform after a report (D191). */
+const SHOWN = {status: "active", ...notHiddenByPlatform()};
+
 async function findActiveProduct(filter: Record<string, unknown>) {
-    return productService.findOne({...filter, status: "active"}, {withDeleted: false}, [...DETAIL_POPULATE]);
+    return productService.findOne({...filter, ...SHOWN}, {withDeleted: false}, [...DETAIL_POPULATE]);
 }
 
 router.post(
@@ -88,7 +92,7 @@ router.post(
                 } else if (sellerCompanyId) {
                     product = await findActiveProduct({company: new ObjectId(sellerCompanyId), slug: slugKey});
                 } else {
-                    const matches = await productService.find({slug: slugKey, status: "active"}, {withDeleted: false}, [...DETAIL_POPULATE]);
+                    const matches = await productService.find({slug: slugKey, ...SHOWN}, {withDeleted: false}, [...DETAIL_POPULATE]);
                     // Ambiguous slug across sellers — require id or sellerCompanyId
                     if (matches.length > 1) {
                         throw apiValidationException("product_not_found", null, null, languageCode);
@@ -119,7 +123,7 @@ router.post(
 
             const relatedFilter: Record<string, unknown> = {
                 company: productSellerId,
-                status: "active",
+                ...SHOWN,
                 _id: {$ne: product._id},
             };
 

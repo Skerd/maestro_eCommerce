@@ -12,13 +12,17 @@ Enable via `ENABLED_MODULES=eCommerce` (or leave unset to load all present modul
 eCommerce/
 ├── api/eCommerce/private/              # Product commerce routes
 ├── database/
-│   ├── moduleBootstrap.ts             # Model registry for initializer
+│   ├── moduleBootstrap.ts             # Model registry for initializer; reportables (D191: `domain/reports/eCommerceReportables.ts`)
 │   └── schemas/<resource>/            # Mongoose models
 └── utilities/
     ├── mappers/                       # Document → DTO / select mappers
     ├── services/                      # Domain services (slug generation, checkout, …)
     └── cron/                          # Module-specific cron handlers
 ```
+
+## Reports to the platform (D191)
+
+People report a product or a product review to the platform from the shop (`eCommerce.product`, `eCommerce.productReview`). A product the platform hides (`hiddenByPlatform`) leaves the portal, the shop, its search and the cart; a hidden review leaves the shop and the product's stored rating (`workflows/productRating.ts`). A review is published once written, and nobody deletes one (the model's delete is `no-permission`).
 
 ## API routes
 

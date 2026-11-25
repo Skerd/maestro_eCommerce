@@ -34,6 +34,7 @@ import {
     updateCartItemFormSchema,
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.form.validator";
 import type {CartNotices} from "armonia/src/modules/eCommerce/api/eCommerce/private/cart/cart.dto";
+import {notHiddenByPlatform} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 /**
  * Cart is authenticated-only: every route requires a JWT (storefront asks the
@@ -149,6 +150,8 @@ router.put(
         const productQuery: Record<string, unknown> = {
             _id: new ObjectId(productId),
             status: "active",
+            // A product the platform hid after a report cannot be bought (D191).
+            ...notHiddenByPlatform(),
         };
         if (!platform) productQuery.company = company._id;
         else Object.assign(productQuery, await sellerCompanyClause());

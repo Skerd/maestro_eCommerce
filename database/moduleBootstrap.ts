@@ -13,6 +13,7 @@ import {ProductVariantSchemaDef} from "armonia/src/modules/eCommerce/api/eCommer
 import {CollectionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/private/collection/collection.schema-def";
 import {companyService} from "@coreModule/database/schemas/company/company.service";
 import type {SelfServeBusinessType} from "@coreModule/domain/company/selfServeBusinessTypes";
+import {eCommerceReportables} from "@eCommerceModule/domain/reports/eCommerceReportables";
 
 export const eCommerceModels: Model<any>[] = [
     ProductCategory,
@@ -60,4 +61,5 @@ export const moduleBootstrap = {
     dropModuleCollections: dropECommerceCollections,
     defaultRoles: eCommerceDefaultRoles,
     selfServeBusinessTypes,
+    reportables: eCommerceReportables,
 };

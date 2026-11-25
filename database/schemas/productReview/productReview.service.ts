@@ -1,4 +1,5 @@
-import type {FilterQuery} from "mongoose";
+import type {ClientSession, FilterQuery} from "mongoose";
+import type {ObjectId} from "mongodb";
 import {BaseCrudService} from "@coreModule/database/services/baseCrudService";
 import ProductReview, {IProductReview} from "@eCommerceModule/database/schemas/productReview/productReview";
 
@@ -20,6 +21,14 @@ export class ProductReviewService extends BaseCrudService<IProductReview, typeof
 
     countLive(filter: FilterQuery<IProductReview>) {
         return ProductReview.countDocuments(filter).noDeleted();
+    }
+
+    /** A live review as the platform's report desk reads it (D191): by its id alone, whichever shop owns it. */
+    findReportable(id: ObjectId, session?: ClientSession) {
+        return this.model.findOne({_id: id, deletedAt: null})
+            .select("company product reviewer rating title comment hiddenByPlatform")
+            .session(session ?? null)
+            .lean<{_id: ObjectId; company: ObjectId; product: ObjectId; reviewer: ObjectId; rating: number; title?: string; comment?: string; hiddenByPlatform?: boolean}>();
     }
 }
 

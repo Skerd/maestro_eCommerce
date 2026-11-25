@@ -14,7 +14,7 @@ import {buildUpdateDataFromSchemaDef} from "@coreModule/api/buildUpdateDataFromS
 import SchemaGuard from "@coreModule/database/security/schemaGuard";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
-import type {CrudOptions} from "@coreModule/database/services/baseCrudService";
+import {refreshProductRating} from "@eCommerceModule/workflows/productRating";
 import {ProductReviewSchemaDef, type CreateProductReviewFormType} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.schema-def";
 import {createProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/createProductReview.form.validator";
 import {editProductReviewFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/editProductReview.form.validator";
@@ -27,48 +27,6 @@ import {
     productReviewsToDTO,
 } from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
 import {productReviewsToSelect} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.select";
-
-/**
- * Ratings are system-computed denormalizations on the product (schema-def
- * marks them as such) — recomputed on every review create/delete/restore.
- */
-async function recalculateProductRating(productId: ObjectId, ctx: CrudOptions): Promise<void> {
-    const agg = await productReviewService.aggregate(
-        [
-            {
-                $match: {
-                    product: productId,
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                    avg: {
-                        $avg: "$rating"
-                    },
-                    count: {
-                        $sum: 1
-                    }
-                }
-            },
-        ],
-        {...ctx, withDeleted: false},
-    );
-    const row = agg[0];
-    const avg = row ? Math.round(Number(row.avg) * 10) / 10 : 0;
-    const count = row ? Number(row.count) : 0;
-    await productService.updateById(
-        productId,
-        {
-            $set: {
-                ratingAverage: avg,
-                ratingCount: count,
-                reviewCount: count
-            }
-        },
-        ctx,
-    );
-}
 
 /**
  * The one review create (BE-02): the order's customer reviews a product of their paid order, once per order line, and
@@ -139,7 +97,7 @@ async function addReviewToProduct(created: IProductReview, {session, logger, lan
         },
         {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "create"},
     );
-    await recalculateProductRating(productId, {session, logger, languageCode});
+    await refreshProductRating(productId, {session, logger, languageCode});
 }
 
 const buildProductReviewUpdate = buildUpdateDataFromSchemaDef(ProductReviewSchemaDef);
@@ -203,87 +161,11 @@ export const {router} = createCrudRouter<IProductReview, CreateProductReviewForm
     afterUpdate: async (params, existing) => {
         if (params.rating == null || Number(params.rating) === existing.rating) return;
         if (!existing.product?._id) return;
-        await recalculateProductRating(existing.product?._id, {
+        await refreshProductRating(existing.product?._id, {
             session: params.session,
             logger: params.logger,
             languageCode: params.languageCode,
         });
-    },
-    beforeDelete: async (params) => {
-        if (!params.actionUserCtx.isAdmin) {
-            throw apiValidationException("only_admin_can_delete_review", "", null, params.languageCode);
-        }
-    },
-    afterDelete: async (params, doc) => {
-        const productId = doc.product?._id;
-        if (productId) {
-            await productService.updateByIdOrThrow(
-                productId,
-                {$pull: {reviews: doc._id}},
-                {
-                    session: params.session,
-                    logger: params.logger,
-                    languageCode: params.languageCode,
-                    auditUserId: params.actionUserCtx.userId,
-                },
-            );
-            await recalculateProductRating(productId, {
-                session: params.session,
-                logger: params.logger,
-                languageCode: params.languageCode,
-            });
-        }
-    },
-    overrideRestoreHandler: async (params) => {
-        const {logger, languageCode, session, _id, actionUserCtx, company} = params;
-
-        logger.start(`Restoring ProductReview ${_id}...`);
-        SchemaGuard.checkModelPermission(ProductReview, "restore", actionUserCtx, languageCode);
-
-        const toRestore = await productReviewService.findOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode, withDeleted: true},
-        );
-
-        const orderId = toRestore.order?._id;
-        const productId = toRestore.product?._id;
-        const activeSibling = await productReviewService.findOne(
-            {
-                order: orderId,
-                product: productId,
-                company: company._id,
-                _id: {
-                    $ne: new ObjectId(_id)
-                },
-            },
-            {session, logger, languageCode, withDeleted: false},
-        );
-        if (activeSibling) {
-            throw apiValidationException(
-                "cannot_restore_product_review_active_exists",
-                "",
-                null,
-                languageCode,
-            );
-        }
-
-        const restored = await productReviewService.restoreOneOrThrow(
-            {_id: new ObjectId(_id), company: company._id},
-            {session, logger, languageCode, auditUserId: actionUserCtx.userId},
-        );
-
-        const ratingProductId = restored.product?._id;
-        if (ratingProductId) {
-            await productService.updateByIdOrThrow(
-                ratingProductId,
-                {$push: {reviews: restored._id}},
-                {session, logger, languageCode, auditUserId: actionUserCtx.userId, auditAction: "restore"},
-            );
-            await recalculateProductRating(ratingProductId, {session, logger, languageCode});
-        }
-
-        logger.finish(`Restored ProductReview ${_id}`);
-        return {message: "Product review successfully restored"};
     },
 });
 

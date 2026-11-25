@@ -17,7 +17,7 @@ import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/pr
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {InventorySimpleSnippet} from "@eCommerceModule/database/schemas/inventory/inventory.snippets";
 import {ProductReviewSimpleSnippet} from "@eCommerceModule/database/schemas/productReview/productReview.snippets";
-import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
+import {mapLifeCycleToDTO, mapOwnershipToDTO, mapSoftDeleteToDTO, mapPlatformHiddenToDTO} from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 
 export function productToDTO(product: IProduct): Product {
     const seo = product.seo;
@@ -102,6 +102,7 @@ export function productToDTO(product: IProduct): Product {
         ratingCount: product.ratingCount,
         reviewCount: product.reviewCount,
         publishedAt: product.publishedAt?.toISOString(),
+        ...mapPlatformHiddenToDTO(product),
         attributes: product.attributes,
         specifications: product.specifications,
         seo: seo ? {

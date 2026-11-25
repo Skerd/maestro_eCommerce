@@ -7,6 +7,7 @@ import {applyCollectionMembershipToProductFilter} from "@eCommerceModule/utiliti
 import {applyShopCatalogRefinement, type ShopCatalogRefinement} from "./shopCatalogRefinement";
 import {liveSellerCompanyClause} from "./shopLiveSellers";
 import type {ShopProductSort} from "armonia/src/modules/eCommerce/api/eCommerce/public/shopCatalog/shopProducts.form.validator";
+import {notHiddenByPlatform} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 /** Mongo sort of each storefront product order. */
 export const SHOP_PRODUCT_SORT_SPECS: Record<ShopProductSort, Record<string, 1 | -1>> = {
@@ -50,6 +51,8 @@ async function withDescendantCategories(
 export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<Record<string, unknown> | null> {
     const filter: Record<string, unknown> = {
         status: "active",
+        // A product the platform hid after a report is gone from the shop, the portal and their search (D191).
+        ...notHiddenByPlatform(),
     };
 
     // Platform: only products owned by live companies (seed leftovers without a company stay out).

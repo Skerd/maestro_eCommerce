@@ -28,11 +28,12 @@ vi.mock("../shopLiveSellers", () => ({
 describe("buildShopCatalogFilter platform", () => {
     it("limits platform browsing to live seller companies when companyId is undefined", async () => {
         const filter = await buildShopCatalogFilter({});
-        expect(filter).toEqual({status: "active", company: {$in: ["live-seller"]}});
+        // A product the platform hid after a report is never browsed (D191).
+        expect(filter).toEqual({status: "active", hiddenByPlatform: {$ne: true}, company: {$in: ["live-seller"]}});
     });
 
     it("includes company when companyId is set", async () => {
         const filter = await buildShopCatalogFilter({companyId: "abc"});
-        expect(filter).toEqual({status: "active", company: "abc"});
+        expect(filter).toEqual({status: "active", hiddenByPlatform: {$ne: true}, company: "abc"});
     });
 });

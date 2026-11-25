@@ -7,6 +7,7 @@ import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
     mapSoftDeleteToDTO,
+    mapPlatformHiddenToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {SimpleUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
@@ -22,6 +23,7 @@ export function productReviewToDTO(review: IProductReview): ProductReview {
         title: review.title,
         comment: review.comment,
         reviewer: mapSnippet<SimpleUser>()(review.reviewer, SimpleUserSnippet),
+        ...mapPlatformHiddenToDTO(review),
         ...mapSoftDeleteToDTO(review),
         ...mapOwnershipToDTO(review),
         ...mapLifeCycleToDTO(review),

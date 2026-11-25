@@ -16,6 +16,7 @@ import {IProduct} from "@eCommerceModule/database/schemas/product/product";
 import {IProductOrder} from "@eCommerceModule/database/schemas/productOrder/productOrder";
 import {applyProductReviewIndexes} from "./productReview.indexes";
 import {productReviewViews} from "./productReview.views";
+import {platformHiddenPlugin, type IPlatformHiddenPluginFields} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 /**
  * Product-commerce review: one per paid order line. Aggregates into
@@ -26,8 +27,10 @@ import {productReviewViews} from "./productReview.views";
  * is set from the order's customer and is not part of the form. Rating, title,
  * and comment can be edited by the reviewer only (the update route checks it:
  * the field permissions cannot tell the reviewer from the shop's staff).
+ * Nobody deletes a review: one that breaks the rules is reported, and only the
+ * platform hides it (D191), which takes it out of the product's rating.
  */
-export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
+export interface IProductReview extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields, IPlatformHiddenPluginFields {
     order: IProductOrder;
     product: IProduct;
     rating: number;
@@ -96,10 +99,18 @@ const ProductReviewSchema = new Schema<IProductReview>(
             },
         },
     },
-    {accessMode: "loose"},
+    {
+        accessMode: "loose",
+        permissions: {
+            self: {delete: "no-permission", restore: "no-permission"},
+            others: {delete: "no-permission", restore: "no-permission"},
+        },
+    },
 );
 
 ownershipPlugin(ProductReviewSchema);
+// The platform may hide it from the public after a report (D191).
+platformHiddenPlugin(ProductReviewSchema);
 auditPlugin(ProductReviewSchema);
 softDeletePlugin(ProductReviewSchema);
 applyProductReviewIndexes(ProductReviewSchema);

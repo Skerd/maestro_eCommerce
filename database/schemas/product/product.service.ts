@@ -1,4 +1,5 @@
-import type {FilterQuery} from "mongoose";
+import type {ClientSession, FilterQuery} from "mongoose";
+import type {ObjectId} from "mongodb";
 import {BaseCrudService, type CatalogPage} from "@coreModule/database/services/baseCrudService";
 import Product, {IProduct} from "@eCommerceModule/database/schemas/product/product";
 
@@ -29,6 +30,14 @@ export class ProductService extends BaseCrudService<IProduct, typeof Product> {
             .sort(page.sort)
             .skip(page.skip).limit(page.limit)
             .lean<Row[]>();
+    }
+
+    /** A live product as the platform's report desk reads it (D191): by its id alone, whichever shop owns it. */
+    findReportable(id: ObjectId, session?: ClientSession) {
+        return this.model.findOne({_id: id, deletedAt: null})
+            .select("company title slug hiddenByPlatform")
+            .session(session ?? null)
+            .lean<{_id: ObjectId; company: ObjectId; title: string; slug?: string; hiddenByPlatform?: boolean}>();
     }
 }
 

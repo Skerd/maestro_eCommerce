@@ -12,8 +12,12 @@ import {resolveStorefrontContext, inStorefrontCatalog} from "@coreModule/utiliti
 import {liveSellerCompanyClause} from "@eCommerceModule/utilities/shop/shopLiveSellers";
 import {productReviewToShopDTO} from "@eCommerceModule/utilities/mappers/productReview/productReviewMapper.dto";
 import type {ShopProductReviewsResponse} from "armonia/src/modules/eCommerce/api/eCommerce/private/productReview/productReview.dto";
+import {notHiddenByPlatform} from "@coreModule/database/plugins/platformHiddenPlugin";
 
 export const basePath = "/api/eCommerce/shopProductReviews";
+
+/** A product the shop shows (active, not hidden by the platform), and a review it shows (not hidden by the platform, D191). */
+const SHOWN = {status: "active", ...notHiddenByPlatform()};
 export const router = Router();
 
 router.post(
@@ -28,17 +32,17 @@ router.post(
         return inStorefrontCatalog(ctx, async () => {
             let product: any;
             if (id) {
-                const byId: Record<string, unknown> = {_id: new ObjectId(id), status: "active"};
+                const byId: Record<string, unknown> = {_id: new ObjectId(id), ...SHOWN};
                 if (ctx.mode === "tenant") byId.company = ctx.company._id;
                 product = await productService.findShopRating(byId);
             } else if (slug) {
                 const slugKey = String(slug).toLowerCase();
                 if (ctx.mode === "tenant") {
-                    product = await productService.findShopRating({company: ctx.company._id, slug: slugKey, status: "active"});
+                    product = await productService.findShopRating({company: ctx.company._id, slug: slugKey, ...SHOWN});
                 } else if (sellerCompanyId) {
-                    product = await productService.findShopRating({company: new ObjectId(sellerCompanyId), slug: slugKey, status: "active"});
+                    product = await productService.findShopRating({company: new ObjectId(sellerCompanyId), slug: slugKey, ...SHOWN});
                 } else {
-                    const matches = await productService.findShopRatings({slug: slugKey, status: "active"});
+                    const matches = await productService.findShopRatings({slug: slugKey, ...SHOWN});
                     if (matches.length > 1) {
                         throw apiValidationException("product_not_found", null, null, languageCode);
                     }
@@ -57,7 +61,7 @@ router.post(
                     throw apiValidationException("product_not_found", null, null, languageCode);
                 }
             }
-            const filter = {product: product._id, company: productSellerId};
+            const filter = {product: product._id, company: productSellerId, ...notHiddenByPlatform()};
 
             const [reviews, total] = await Promise.all([
                 productReviewService.findShopPage(filter, page, limit),
