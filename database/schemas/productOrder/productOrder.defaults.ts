@@ -11,11 +11,14 @@ import {getLogger, serverLogger} from "@coreModule/loggers/serverLog";
 import {ICompany} from "@coreModule/database/schemas/company/company";
 import {defaultCompaniesValues} from "@coreModule/database/schemas/company/company.defaults";
 import type {CreateProductsResult} from "@eCommerceModule/database/schemas/product/product.defaults";
+import type {CheckoutPaymentMethod} from "@eCommerceModule/database/schemas/checkout/checkout";
 
 export type ProductOrderSeed = {
     orderNumber: string;
     status: ProductOrderStatus;
     paymentStatus: ProductOrderPaymentStatus;
+    /** Offline methods only while the platform takes no cards (D190). */
+    paymentMethod: CheckoutPaymentMethod;
     fulfillmentStatus: ProductOrderFulfillmentStatus;
     productKeys: string[];
     shippingTotal: number;
@@ -31,6 +34,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1001",
         status: "pending",
         paymentStatus: "unpaid",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "unfulfilled",
         productKeys: ["prod-02-hoodie"],
         shippingTotal: 4.5,
@@ -43,6 +47,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1002",
         status: "confirmed",
         paymentStatus: "paid",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "unfulfilled",
         productKeys: ["prod-01-brand-tee", "prod-02-hoodie"],
         shippingTotal: 4.5,
@@ -54,6 +59,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1003",
         status: "processing",
         paymentStatus: "paid",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "partially_fulfilled",
         productKeys: ["prod-02-hoodie"],
         shippingTotal: 9.9,
@@ -65,6 +71,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1004",
         status: "shipped",
         paymentStatus: "paid",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "fulfilled",
         productKeys: ["prod-01-brand-tee", "prod-03-logo-pack"],
         shippingTotal: 0,
@@ -76,6 +83,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1005",
         status: "delivered",
         paymentStatus: "paid",
+        paymentMethod: "cod",
         fulfillmentStatus: "fulfilled",
         productKeys: ["prod-03-logo-pack"],
         shippingTotal: 0,
@@ -87,6 +95,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1006",
         status: "cancelled",
         paymentStatus: "voided",
+        paymentMethod: "cod",
         fulfillmentStatus: "unfulfilled",
         productKeys: ["prod-01-brand-tee"],
         shippingTotal: 0,
@@ -99,6 +108,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1007",
         status: "refunded",
         paymentStatus: "refunded",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "returned",
         productKeys: ["prod-02-hoodie"],
         shippingTotal: 4.5,
@@ -111,6 +121,7 @@ export const defaultProductOrderSeeds: readonly ProductOrderSeed[] = [
         orderNumber: "DEMO-ORD-1008",
         status: "delivered",
         paymentStatus: "paid",
+        paymentMethod: "bank_transfer",
         fulfillmentStatus: "fulfilled",
         productKeys: ["prod-03-logo-pack"],
         shippingTotal: 0,
@@ -143,6 +154,7 @@ function buildReviewCoverageSeeds(
             orderNumber: `DEMO-REV-${String(batch).padStart(4, "0")}`,
             status: "delivered",
             paymentStatus: "paid",
+            paymentMethod: "cod",
             fulfillmentStatus: "fulfilled",
             productKeys: chunk,
             shippingTotal: needsShipping ? 4.5 : 0,
@@ -258,6 +270,7 @@ export async function createProductOrders(
                 shippingAddress,
                 billingAddress: shippingAddress,
                 paymentStatus: seed.paymentStatus,
+                paymentMethod: seed.paymentMethod,
                 fulfillmentStatus: seed.fulfillmentStatus,
                 status: seed.status,
                 taxBreakdown: seed.taxRate

@@ -1,3 +1,5 @@
+import type {CompanyBankAccount} from "armonia/src/modules/core/api/company/private/company/company.dto";
+
 export type ManagerPinResetEmailEvent = {
     eventType: "manager_pin_reset_email";
     email: string;
@@ -41,6 +43,8 @@ export type ProductOrderClientEmailEvent = {
     orderId?: string;
     orderNumber?: string;
     orderTotalDisplay?: string;
+    /** The seller's bank account a "placed" bank-transfer order is paid into (D190); the order number is the reference. */
+    bankTransfer?: CompanyBankAccount;
     trackingNumber?: string;
     trackingUrl?: string;
     carrier?: string;

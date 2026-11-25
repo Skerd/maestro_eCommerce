@@ -14,6 +14,7 @@ import {
     findCompanyAdminEmailRecipients,
     findCompanyAdminReceiverIds,
 } from "@eCommerceModule/utilities/services/companyStaffRecipients";
+import {awaitsBankTransfer} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 
 const ORDER_CODE_TO_EMAIL_KIND: Partial<Record<string, ProductOrderClientEmailKind>> = {
     [NotificationEventCodes.PRODUCT_ORDER_PLACED]: "placed",
@@ -55,6 +56,18 @@ async function resolveCompanyName(companyId: string): Promise<string> {
     return company?.name ?? "";
 }
 
+/** The seller's name, and its bank account when the buyer is to pay this order into it (D190). */
+async function resolveSeller(companyId: string, withBankAccount: boolean) {
+    const company = await companyService.findById(companyId, {}, undefined, withBankAccount ? "name bankAccount" : "name");
+    const account = withBankAccount ? company?.bankAccount : undefined;
+    return {
+        name: company?.name ?? "",
+        bankTransfer: account?.iban
+            ? {holder: account.holder, iban: account.iban, bic: account.bic, bankName: account.bankName}
+            : undefined,
+    };
+}
+
 /**
  * Who order emails go to: the address the buyer gave for this order (the
  * checkout contact email), else their account login. The account supplies the
@@ -94,7 +107,7 @@ async function resolveRecipientEmail(opts: {
 export type NotifyOrderOpts = {
     companyId: ObjectId | string;
     languageCode: string;
-    order?: Pick<IProductOrder, "_id" | "orderNumber" | "email" | "customer" | "grandTotal"> & Partial<Pick<IProductOrder, "currency" | "currencyCode">> | null;
+    order?: Pick<IProductOrder, "_id" | "orderNumber" | "email" | "customer" | "grandTotal"> & Partial<Pick<IProductOrder, "currency" | "currencyCode" | "paymentMethod" | "paymentStatus" | "status">> | null;
     orderId?: string;
     orderNumber?: string;
     orderEmail?: string;
@@ -159,7 +172,8 @@ async function sendProductOrderCustomerNotice(code: string, opts: NotifyOrderOpt
     const recipient = await resolveRecipientEmail({customerId, orderEmail});
     if (!recipient) return;
 
-    const companyName = await resolveCompanyName(companyId);
+    // The order email tells a bank-transfer buyer where to pay: the seller's own account
+    const seller = await resolveSeller(companyId, emailKind === "placed" && !!opts.order && awaitsBankTransfer(opts.order));
     const currencyCode = opts.order?.currencyCode ?? await resolveCurrencyCode(opts.order?.currency);
     await dispatchProductOrderClientEmail({
         email: recipient.email,
@@ -168,10 +182,11 @@ async function sendProductOrderCustomerNotice(code: string, opts: NotifyOrderOpt
         languageCode: opts.languageCode,
         kind: emailKind,
         companyId,
-        companyName,
+        companyName: seller.name,
         orderId,
         orderNumber,
         orderTotalDisplay: formatMoney(opts.extra?.grandTotal ?? opts.order?.grandTotal, opts.languageCode, currencyCode),
+        bankTransfer: seller.bankTransfer,
         trackingNumber: opts.extra?.trackingNumber || undefined,
         trackingUrl: opts.extra?.trackingUrl || undefined,
         carrier: opts.extra?.carrier || undefined,

@@ -31,6 +31,7 @@ import {returnRequestsToDTO} from "@eCommerceModule/utilities/mappers/returnRequ
 import {paymentTransactionsToDTO} from "@financeModule/utilities/mappers/paymentTransaction/paymentTransactionMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
+import {buyerOrdersWithPaymentDetails} from "@eCommerceModule/workflows/checkoutPlacementService";
 import {productOrderListFormSchema, type ProductOrderWhen} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrderList.form.validator";
 import {companyTimeZoneOf} from "@coreModule/utilities/time/companyTimeZone";
 import {addLocalDays, localDateOf, localDayInterval} from "@coreModule/utilities/time/timeWindows";
@@ -233,15 +234,18 @@ router.post(
         };
         if (!isPortalZoneOrigin(origin)) filter.company = company._id;
 
-        // The address country is a platform list row (D160); the storefront shows its name
+        // The address country and the currency are platform list rows (D160); the storefront shows the country's name
+        // and every amount with its currency (UX-07)
         const order = await productOrderService.findOne(
             filter,
             {withDeleted: false, logger, languageCode},
-            ["items.product", "items.variant", "shippingAddress.country", "billingAddress.country"],
+            ["items.product", "items.variant", "shippingAddress.country", "billingAddress.country", "currency"],
         );
 
         if (!order) throw apiValidationException("order_not_found", "", null, languageCode);
 
-        return {data: productOrderToBuyerDTO(order)};
+        // A bank-transfer order awaiting payment shows how to pay its own seller (D190)
+        const [data] = await buyerOrdersWithPaymentDetails([order]);
+        return {data};
     })),
 );

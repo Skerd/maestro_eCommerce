@@ -23,7 +23,8 @@ import {IProductVariant} from "@eCommerceModule/database/schemas/productVariant/
 import { ICountry } from "@coreModule/database/schemas/country/country";
 import {IDiscount} from "@eCommerceModule/database/schemas/discount/discount";
 import {IGiftCard} from "@financeModule/database/schemas/giftCard/giftCard";
-import {type ICheckoutReservation, stockReservationsField} from "@eCommerceModule/database/schemas/checkout/checkout";
+import {type CheckoutPaymentMethod, type ICheckoutReservation, stockReservationsField} from "@eCommerceModule/database/schemas/checkout/checkout";
+import {CHECKOUT_PAYMENT_METHODS} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/checkoutPayment.form.validator";
 import {COLUMN_TYPE} from "armonia/src/modules/core/database/filter/typeOperators";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
 import {validateSchemaDefAgainstMongoose} from "@coreModule/database/utilities/validateSchemaDefAgainstMongoose";
@@ -90,6 +91,8 @@ export interface IProductOrder extends Document, IOwnershipPluginFields, ISoftDe
     shippingAddress: IProductOrderAddress;
     billingAddress?: IProductOrderAddress;
     paymentStatus: ProductOrderPaymentStatus;
+    /** How the buyer chose to pay at checkout; absent on till sales and orders paid in full by gift card. */
+    paymentMethod?: CheckoutPaymentMethod;
     fulfillmentStatus: ProductOrderFulfillmentStatus;
     status: ProductOrderStatus;
     appliedDiscounts?: {
@@ -379,6 +382,12 @@ const ProductOrderSchema = new Schema<IProductOrder>(
                     voided:               "danger",
                 },
             },
+        },
+        paymentMethod: {
+            type: SchemaTypes.String,
+            enum: [...CHECKOUT_PAYMENT_METHODS],
+            permissions: NoWritePermission,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         fulfillmentStatus: {
             type: SchemaTypes.String,

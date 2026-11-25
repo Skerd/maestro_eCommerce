@@ -10,12 +10,14 @@ import {
     escapeHtml,
     layoutStrings,
     localized,
+    noteHtml,
     pushRow,
     summaryCardHtml,
     type SummaryRow,
 } from "@coreModule/utilities/emails/emailLayout";
 import {sendMail} from "@coreModule/utilities/emails/mailDeliveryService";
 import type {ProductOrderClientEmailEvent, ProductOrderClientEmailKind} from "@eCommerceModule/kafka/types";
+import {formatIban} from "armonia/src/modules/eCommerce/helpers/orderPayment";
 
 const fallbackLanguageCode = "en-US";
 const LOCALES_ROOT = path.join(__dirname, "static", "locales");
@@ -76,6 +78,20 @@ function downloadListHtml(title: string, links: {productTitle: string; url: stri
 <ul style="margin:0;padding-left:18px;">${items}</ul>`;
 }
 
+/** How to pay a bank-transfer order (D190): the seller's account, the amount and the order number as the reference. */
+function bankTransferHtml(strings: EmailStrings, data: ProductOrderClientEmailEvent): string {
+    const account = data.bankTransfer;
+    if (!account?.iban) return "";
+    const rows: SummaryRow[] = [];
+    pushRow(rows, strings.labelAccountHolder, account.holder);
+    pushRow(rows, strings.labelIban, formatIban(account.iban));
+    pushRow(rows, strings.labelBic, account.bic);
+    pushRow(rows, strings.labelBank, account.bankName);
+    pushRow(rows, strings.labelAmount, data.orderTotalDisplay);
+    pushRow(rows, strings.labelReference, data.orderNumber);
+    return summaryCardHtml(strings.bankTransferTitle ?? "", rows) + noteHtml(strings.bankTransferNote ?? "");
+}
+
 function orderBodyParts(
     strings: EmailStrings,
     data: ProductOrderClientEmailEvent,
@@ -91,6 +107,7 @@ function orderBodyParts(
         case "placed":
             pushRow(rows, strings.labelOrder, data.orderNumber);
             pushRow(rows, strings.labelTotal, data.orderTotalDisplay);
+            extra = bankTransferHtml(strings, data);
             ctaLabel = strings.ctaOrders ?? "";
             ctaUrl = links.ordersUrl;
             break;

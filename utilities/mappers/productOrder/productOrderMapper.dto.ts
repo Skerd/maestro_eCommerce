@@ -15,6 +15,7 @@ import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/pr
 import {ProductVariantSimpleSnippet} from "@eCommerceModule/database/schemas/productVariant/productVariant.snippets";
 import {DiscountSimpleSnippet} from "@eCommerceModule/database/schemas/discount/discount.snippets";
 import type {IProductOrderItem} from "@eCommerceModule/database/schemas/productOrder/productOrder";
+import type {CompanyBankAccount} from "armonia/src/modules/core/api/company/private/company/company.dto";
 
 /** Frozen sale image, else the live catalog image when the line's product/variant is populated. */
 export function lineSnapshotImageUrl(item: IProductOrderItem): string | undefined {
@@ -72,6 +73,7 @@ export function productOrderToDTO(order: IProductOrder): ProductOrder {
         shippingAddress: mapAddress(order.shippingAddress)!,
         billingAddress: order.billingAddress ? mapAddress(order.billingAddress) : undefined,
         paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
         fulfillmentStatus: order.fulfillmentStatus,
         status: order.status,
         appliedDiscounts: order.appliedDiscounts?.map((appliedDiscount) => {
@@ -118,12 +120,21 @@ const BUYER_TIMELINE_EVENTS = new Set([
     "order_partially_refunded", "refunded",
 ]);
 
-/** The order as its buyer may see it (storefront routes): staff-only fields and events are dropped. */
-export function productOrderToBuyerDTO(order: IProductOrder): BuyerProductOrder {
+/** A bank-transfer order still waiting for its money, whose buyer needs the seller's bank account to pay it (D190). */
+export function awaitsBankTransfer(order: Partial<Pick<IProductOrder, "paymentMethod" | "paymentStatus" | "status">>): boolean {
+    return order.paymentMethod === "bank_transfer" && order.paymentStatus === "unpaid" && order.status !== "cancelled";
+}
+
+/**
+ * The order as its buyer may see it (storefront routes): staff-only fields and events are dropped. `sellerBankAccount`
+ * is the account of the order's own seller; it is shown only while the order awaits a bank transfer.
+ */
+export function productOrderToBuyerDTO(order: IProductOrder, sellerBankAccount?: CompanyBankAccount): BuyerProductOrder {
     const {internalNotes, stripePaymentIntentId, idempotencyKey, paymentTransactions, timeline, ...dto} = productOrderToDTO(order);
     return {
         ...dto,
         timeline: timeline?.filter(entry => BUYER_TIMELINE_EVENTS.has(entry.event)).map(({event, timestamp}) => ({event, timestamp})),
+        ...(sellerBankAccount?.iban && awaitsBankTransfer(order) ? {bankTransfer: sellerBankAccount} : {}),
     };
 }
 

@@ -35,6 +35,7 @@ import {releaseReservations} from "@eCommerceModule/utilities/services/inventory
 import {consumeForShipment, syncOrderFulfillment} from "@eCommerceModule/utilities/services/orderFulfillmentService";
 import {fulfillOrderPaidExtras} from "@eCommerceModule/utilities/services/orderPaidFulfillmentService";
 import {getPaymentAdapter} from "@eCommerceModule/utilities/services/payment/paymentService";
+import {CARD_PAYMENTS_AVAILABLE} from "armonia/src/modules/finance/helpers/cardPaymentAvailability";
 import {notifyProductOrderCustomer} from "@eCommerceModule/utilities/services/productOrderNotify";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {minorToNumber, toMinor} from "armonia/src/modules/core/helpers/money";
@@ -490,6 +491,12 @@ export async function refundProductOrder(
     const refundAmount = amount ?? remaining;
     if (refundAmount <= 0 || refundAmount > remaining) {
         throw apiValidationException("invalid_refund_amount", "", null, languageCode);
+    }
+
+    // A card payment goes back through the card processor, which the platform does not use until cards come (D190);
+    // offline and gift-card payments are recorded as paid back by staff.
+    if (!CARD_PAYMENTS_AVAILABLE && charge.gateway !== "manual" && charge.gateway !== "wallet") {
+        throw apiValidationException("card_refunds_coming_soon", "", null, languageCode);
     }
 
     let gatewayRefundId: string | undefined;

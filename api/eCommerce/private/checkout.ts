@@ -25,6 +25,8 @@ import {currencyDecimalPlaces} from "@financeModule/utilities/services/currencyD
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import {
     assertDiscountUsable,
+    buyerOrdersWithPaymentDetails,
+    checkoutPaymentMethods,
     placeOrderFromCheckout,
     reserveStockForPayment,
     resetCheckoutPayment,
@@ -32,7 +34,6 @@ import {
 import {getAdapterForMethod, isOfflinePaymentMethod} from "@eCommerceModule/utilities/services/payment/paymentService";
 import {checkoutToDTO} from "@eCommerceModule/utilities/mappers/checkout/checkoutMapper.dto";
 import {PORTAL_CURRENCY_SELECT, toPortalCurrency} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
-import {productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
 import {isPortalZoneOrigin} from "@coreModule/utilities/marketing/portalOrigin";
 import {shopPurchaseRoute} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {initCheckoutFormSchema} from "armonia/src/modules/eCommerce/api/eCommerce/private/checkout/initCheckout.form.validator";
@@ -53,11 +54,20 @@ const SHIPPED_TYPES = new Set(["physical", "variable", "bundle"]);
 /** How long a checkout (and the stock it holds) stays open without activity. */
 const CHECKOUT_TTL_MS = 30 * 60 * 1000;
 
-/** The checkout DTO with its currency, so the storefront shows totals in the currency that is charged. */
-async function checkoutResponse(checkout: ICheckout) {
+/**
+ * The checkout DTO with its currency, so the storefront shows totals in the currency that is charged, and the ways it
+ * can be paid, so the storefront offers only those (D190).
+ */
+async function checkoutResponse(checkout: ICheckout, session?: ClientSession) {
     const currencyId = (checkout.currency as any)?._id ?? checkout.currency;
-    const currency = currencyId ? await currencyService.findById(currencyId, {}, undefined, PORTAL_CURRENCY_SELECT) : null;
-    return {data: {...checkoutToDTO(checkout.toObject() as ICheckout), currency: toPortalCurrency(currency)}};
+    const currency = currencyId ? await currencyService.findById(currencyId, {session}, undefined, PORTAL_CURRENCY_SELECT) : null;
+    return {
+        data: {
+            ...checkoutToDTO(checkout.toObject() as ICheckout),
+            currency: toPortalCurrency(currency),
+            paymentMethods: await checkoutPaymentMethods(checkout, session),
+        },
+    };
 }
 
 /**
@@ -356,7 +366,7 @@ router.post(
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
-        return checkoutResponse(checkout);
+        return checkoutResponse(checkout, session);
     })),
 );
 
@@ -427,7 +437,7 @@ router.post(
         await recomputeTotals(checkout, company._id, languageCode, session);
 
         await checkout.save({session});
-        return checkoutResponse(checkout);
+        return checkoutResponse(checkout, session);
     })),
 );
 
@@ -450,21 +460,19 @@ router.post(
         if (!checkout.selectedShippingRate) throw apiValidationException("shipping_rate_required", null, null, languageCode);
         if (checkout.grandTotal <= 0) throw apiValidationException("invalid_amount", null, null, languageCode);
 
+        // Only what the checkout offers: no card while the platform takes none, no bank transfer without the sellers' accounts (D190)
+        if (!(await checkoutPaymentMethods(checkout, session)).includes(paymentMethod)) {
+            throw apiValidationException("payment_method_not_available", null, null, languageCode);
+        }
         // Re-entering with the same online method and a live intent: return it as-is
         if (paymentMethod === "stripe" && checkout.paymentMethod === "stripe" && checkout.stripePaymentIntentId && checkout.stripeClientSecret) {
-            return checkoutResponse(checkout);
+            return checkoutResponse(checkout, session);
         }
         if (checkout.paymentMethod && checkout.paymentMethod !== paymentMethod) {
             await resetCheckoutPayment(checkout, ctx);
         }
 
-        let adapter = null;
-        if (!isOfflinePaymentMethod(paymentMethod)) {
-            adapter = getAdapterForMethod(paymentMethod);
-            if (!adapter || !adapter.isEnabled()) {
-                throw apiValidationException("payment_method_not_available", null, null, languageCode);
-            }
-        }
+        const adapter = isOfflinePaymentMethod(paymentMethod) ? null : getAdapterForMethod(paymentMethod);
 
         await assertDiscountUsable(checkout, ctx);
         await reserveStockForPayment(checkout, ctx);
@@ -473,7 +481,7 @@ router.post(
 
         if (!adapter) {
             await checkout.save({session});
-            return checkoutResponse(checkout);
+            return checkoutResponse(checkout, session);
         }
 
         const currencyId = (checkout.currency as any)?._id ?? (checkout.currency as any);
@@ -512,7 +520,7 @@ router.post(
             {logger, languageCode, session, auditUserId: actionUserCtx.userId},
         );
 
-        return checkoutResponse(checkout);
+        return checkoutResponse(checkout, session);
     })),
 );
 
@@ -540,9 +548,9 @@ router.post(
         if (!checkout) throw apiValidationException("checkout_not_found", null, null, languageCode);
 
         const {order, siblingOrders} = await placeOrderFromCheckout(checkout, {email, phone, notes}, placementCtx(params));
-        const siblings = (siblingOrders ?? []).map(productOrderToBuyerDTO);
+        const [placed, ...siblings] = await buyerOrdersWithPaymentDetails([order, ...(siblingOrders ?? [])], session);
         return {
-            data: productOrderToBuyerDTO(order),
+            data: placed,
             ...(siblings.length > 0 ? {siblingOrders: siblings, siblingOrderIds: siblings.map(s => s._id)} : {}),
         };
     })),

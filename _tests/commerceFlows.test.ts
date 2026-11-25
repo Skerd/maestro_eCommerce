@@ -453,6 +453,27 @@ describe("checkout placement", () => {
         expect([charge.gateway, charge.amount.toString(), charge.refundedAmount.toString()]).toEqual(["wallet", "105.500", "0.000"]);
     }));
 
+    // D190: the order keeps how the buyer chose to pay; what it bought is issued once staff record the money.
+    it("keeps a bank transfer on the order and issues the gift card it bought once it is marked paid", () => asCompany(async () => {
+        const giftCard = await seedProduct({type: "gift_card", price: 50});
+        const checkout = await seedCheckout(giftCard, {
+            paymentMethod: "bank_transfer",
+            items: [{product: giftCard._id, quantity: 1, unitPrice: 50, totalPrice: 50, snapshot: {title: giftCard.title}}],
+            subtotal: 50, shippingTotal: 0, grandTotal: 50,
+        });
+
+        const {order} = await placeOrderFromCheckout(checkout, {}, placement);
+        expect([order.paymentMethod, order.paymentStatus, await GiftCard.countDocuments({order: order._id})]).toEqual(["bank_transfer", "unpaid", 0]);
+
+        await new ProductOrderActions().markPaid({
+            logger, languageCode: lang, company: {_id: companyId}, _id: order._id.toString(),
+            actionUserCtx: {userId: userId.toString(), isAdmin: false, isSelf: true, permissions: ["productorders[write:paymentStatus]"]},
+        } as any);
+
+        const cards = await GiftCard.find({order: order._id});
+        expect(cards.map(card => [Number(card.balance.toString()), card.status])).toEqual([[50, "active"]]);
+    }));
+
     it("lets only one of two buyers hold the last units (#8)", () => asCompany(async () => {
         const product = await seedProduct();
         const inventory = await seedStock(product, 2);
@@ -910,6 +931,41 @@ describe("assertValidBundle", () => {
         await expect(assertValidBundle({type: "bundle", bundleComponents: [{product: otherBundle._id}]}, params)).rejects.toThrow();
         await expect(assertValidBundle({_id: self, type: "bundle", bundleComponents: [{product: self}]}, params)).rejects.toThrow();
         await expect(assertValidBundle({type: "bundle", bundleComponents: [{product: new ObjectId()}]}, params)).rejects.toThrow();
+    }));
+});
+
+// D190: a card payment goes back through the card processor, which the platform does not use until cards come.
+describe("refunds while card payments are coming soon", () => {
+    const refund = (order: {_id: ObjectId}) => new ProductOrderActions().refund({
+        logger, languageCode: lang, company: {_id: companyId}, _id: order._id.toString(),
+        actionUserCtx: {userId: userId.toString(), isAdmin: false, isSelf: true, permissions: ["productorders[write:paymentStatus]"]},
+    } as any);
+
+    async function paidOrder(paymentMethod: string, gateway: string) {
+        const order = await ProductOrder.create({
+            company: companyId, orderNumber: `ORD-C-${new ObjectId().toString().slice(-6)}`, customer: userId, currency: currencyId,
+            idempotencyKey: `k-${new ObjectId().toString()}`, status: "confirmed", paymentStatus: "paid", paymentMethod,
+            items: [], subtotal: 30, discountTotal: 0, shippingTotal: 0, taxTotal: 0, grandTotal: 30, shippingAddress: address,
+        } as any);
+        await PaymentTransaction.create({
+            sourceType: "productOrder", sourceId: order._id, gateway, type: "charge", status: "succeeded",
+            amount: 30, refundedAmount: 0, currency: currencyId, company: companyId,
+            ...(gateway === "stripe" ? {gatewayTransactionId: "pi_card"} : {}),
+        } as any);
+        return order;
+    }
+
+    it("refuses to refund a card payment and leaves the order paid", () => asCompany(async () => {
+        const order = await paidOrder("stripe", "stripe");
+        await expect(refund(order)).rejects.toMatchObject({error_code: "card_refunds_coming_soon"});
+        expect((await ProductOrder.findById(order._id))!.paymentStatus).toBe("paid");
+    }));
+
+    it("records the refund of a bank transfer that staff pay back themselves", () => asCompany(async () => {
+        const order = await paidOrder("bank_transfer", "manual");
+        await refund(order);
+        expect((await ProductOrder.findById(order._id))!.paymentStatus).toBe("refunded");
+        expect((await PaymentTransaction.findOne({sourceId: order._id, type: "refund"}))!.gateway).toBe("manual");
     }));
 });
 

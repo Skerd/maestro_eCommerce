@@ -36,6 +36,7 @@ import {PORTAL_ROOT_DOMAIN} from "@coreModule/environment";
 import * as cartRoute from "@eCommerceModule/api/eCommerce/private/cart";
 import * as checkoutRoute from "@eCommerceModule/api/eCommerce/private/checkout";
 import {runCheckoutExpiry} from "@eCommerceModule/utilities/cronJobs/checkoutExpiryJob";
+import {stripeAdapter} from "@financeModule/utilities/services/payment/stripeAdapter";
 
 // The portal apex sells every listed seller's products from one cart (D16: the marketplace is an explicit opt-out).
 const app = appFor([
@@ -114,12 +115,13 @@ describe("portal marketplace purchase (D16)", () => {
         platformAlbania = (await withTenant(platform, () => new Country({name: "Albania", code: "AL", phoneCode: "355", company: platform}).save()))._id;
     });
 
-    /** Rings up both sellers' products on the apex and confirms cash on delivery; the confirm response. */
+    /** Rings up both sellers' products on the apex and confirms with `paymentMethod` (cash on delivery); the confirm response. */
     async function buyFromBothSellers(
         mug: {_id: ObjectId},
         book: {_id: ObjectId},
         idempotencyKey: string,
         addresses: Record<string, unknown> = {shippingAddress: {...address, country: platformAlbania.toString()}},
+        paymentMethod = "cod",
     ) {
         for (const product of [mug, book]) {
             const added = await call("put", "/api/eCommerce/cart/item", {productId: product._id.toString(), quantity: 2});
@@ -131,7 +133,7 @@ describe("portal marketplace purchase (D16)", () => {
         for (const [path, body] of [
             ["/api/eCommerce/checkout/address", {checkoutId, ...addresses}],
             ["/api/eCommerce/checkout/shipping", {checkoutId, rateIndex: 0}],
-            ["/api/eCommerce/checkout/payment", {checkoutId, paymentMethod: "cod"}],
+            ["/api/eCommerce/checkout/payment", {checkoutId, paymentMethod}],
         ] as const) {
             const step = await call("post", path, body);
             expect([path, step.status, step.body.error_code]).toEqual([path, 200, undefined]);
@@ -139,6 +141,25 @@ describe("portal marketplace purchase (D16)", () => {
         const confirmed = await call("post", "/api/eCommerce/checkout/confirm", {checkoutId, email: "buyer@example.com"});
         expect([confirmed.status, confirmed.body.error_code]).toEqual([200, undefined]);
         return {checkoutId, confirmed};
+    }
+
+    /** Where a seller's customers pay by bank transfer (D190). */
+    const ibanOf = {[sellerA.toString()]: "AL47212110090000000235698741", [sellerB.toString()]: "AL35202111090000000001234567"};
+    const giveBankAccount = (seller: ObjectId) => asCrossTenant("test setup", () => Company.collection.updateOne(
+        {_id: seller},
+        {$set: {bankAccount: {holder: `Seller ${seller.toString().slice(-4)} sh.p.k.`, iban: ibanOf[seller.toString()], bic: "BKTRALTR", bankName: "BKT"}}},
+    ));
+
+    /** Both sellers' products in the cart, the checkout at its payment step; the shipping step's response. */
+    async function checkoutAtPayment(idempotencyKey: string) {
+        const mug = await seedSeller(sellerA, "Alpha", 10, 5);
+        const book = await seedSeller(sellerB, "Beta", 20, 5);
+        for (const product of [mug, book]) await call("put", "/api/eCommerce/cart/item", {productId: product._id.toString(), quantity: 1});
+        const checkoutId: string = (await call("post", "/api/eCommerce/checkout/init", {idempotencyKey})).body.data._id;
+        await call("post", "/api/eCommerce/checkout/address", {checkoutId, shippingAddress: address});
+        const shipped = await call("post", "/api/eCommerce/checkout/shipping", {checkoutId, rateIndex: 0});
+        expect([shipped.status, shipped.body.error_code]).toEqual([200, undefined]);
+        return {checkoutId, shipped};
     }
 
     // D160: every seller's order is in the checkout's currency, the one platform row, and taxed by the seller's own zones.
@@ -346,4 +367,61 @@ describe("portal marketplace purchase (D16)", () => {
         expect([shipped.status, shipped.body.data.taxTotal]).toEqual([200, 8]);
     });
 
+    // D190: the platform takes no cards yet; the buyer pays each seller offline.
+    it("offers no card while card payments are coming soon, and refuses one sent anyway", async () => {
+        const {checkoutId, shipped} = await checkoutAtPayment("apex-pay-1");
+
+        const card = await call("post", "/api/eCommerce/checkout/payment", {checkoutId, paymentMethod: "stripe"});
+
+        expect(shipped.body.data.paymentMethods).toEqual(["cod"]);
+        expect([card.status, card.body.error_code]).toEqual([400, "payment_method_not_available"]);
+    });
+
+    it("offers a card again once the card processor is on", async () => {
+        const cardsOn = vi.spyOn(stripeAdapter, "isEnabled").mockReturnValue(true);
+        try {
+            const {shipped} = await checkoutAtPayment("apex-pay-4");
+            expect(shipped.body.data.paymentMethods).toEqual(["stripe", "cod"]);
+        } finally {
+            cardsOn.mockRestore();
+        }
+    });
+
+    it("offers a bank transfer only once every seller on the checkout has a bank account", async () => {
+        const {checkoutId, shipped} = await checkoutAtPayment("apex-pay-2");
+        await giveBankAccount(sellerA);
+
+        const refused = await call("post", "/api/eCommerce/checkout/payment", {checkoutId, paymentMethod: "bank_transfer"});
+        await giveBankAccount(sellerB);
+        const chosen = await call("post", "/api/eCommerce/checkout/payment", {checkoutId, paymentMethod: "bank_transfer"});
+
+        expect(shipped.body.data.paymentMethods).toEqual(["cod"]);
+        expect([refused.status, refused.body.error_code]).toEqual([400, "payment_method_not_available"]);
+        expect([chosen.status, chosen.body.data.paymentMethods, chosen.body.data.paymentMethod]).toEqual([200, ["cod", "bank_transfer"], "bank_transfer"]);
+    });
+
+    it("shows each seller's bank-transfer order its own seller's bank account, never the other's", async () => {
+        const mug = await seedSeller(sellerA, "Alpha", 10, 5);
+        const book = await seedSeller(sellerB, "Beta", 20, 5);
+        await giveBankAccount(sellerA);
+        await giveBankAccount(sellerB);
+
+        const {confirmed} = await buyFromBothSellers(mug, book, "apex-pay-3", undefined, "bank_transfer");
+
+        const orders = await asCrossTenant("test assertions", () => ProductOrder.find({}));
+        const sellerOf = new Map(orders.map(order => [order._id.toString(), order.company.toString()]));
+        const placed: {_id: string; bankTransfer?: {iban?: string}}[] = [confirmed.body.data, ...confirmed.body.siblingOrders];
+        expect(orders.map(order => order.paymentMethod)).toEqual(["bank_transfer", "bank_transfer"]);
+        expect(placed.map(order => order.bankTransfer?.iban)).toEqual(placed.map(order => ibanOf[sellerOf.get(order._id)!]));
+        for (const order of placed) {
+            const single = await call("post", "/api/eCommerce/productOrder/mySingle", {_id: order._id});
+            // The amount to transfer reads with its currency (UX-07)
+            expect([single.status, single.body.data.bankTransfer?.iban, single.body.data.currency?.symbol]).toEqual([200, ibanOf[sellerOf.get(order._id)!], "€"]);
+        }
+
+        // Once the seller records the money, the order no longer asks for it
+        await asCrossTenant("test setup", () => ProductOrder.updateMany({}, {$set: {paymentStatus: "paid"}}));
+        const paid = await call("post", "/api/eCommerce/productOrder/mySingle", {_id: placed[0]._id});
+        expect([paid.status, paid.body.data.bankTransfer]).toEqual([200, undefined]);
+    });
 });

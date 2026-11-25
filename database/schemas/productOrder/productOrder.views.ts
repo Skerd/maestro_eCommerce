@@ -30,6 +30,17 @@ export const productOrderSheetView: ViewConfig = {
                         },
                         {
                             render: "#DisplayCard",
+                            dependent: "paymentMethod",
+                            permissions: {read: "paymentMethod"},
+                            field: {
+                                name: "paymentMethod",
+                                widget: "#DisplayCard",
+                                label: "paymentMethod",
+                                widgetProps: {icon: "#IconWallet", languageKeyCategory: "productOrderPaymentMethod", type: "enum"},
+                            },
+                        },
+                        {
+                            render: "#DisplayCard",
                             permissions: {read: "grandTotal"},
                             field: {
                                 name: "grandTotal",

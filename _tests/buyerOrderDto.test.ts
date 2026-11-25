@@ -36,4 +36,16 @@ describe("productOrderToBuyerDTO (storefront order routes)", () => {
             {event: "order_confirmed", timestamp: "2026-10-02T00:00:00.000Z"},
         ]);
     });
+
+    // D190: the buyer pays a bank-transfer order into its own seller's account, shown while the money is due.
+    it("carries the seller's bank account only while a bank-transfer order awaits its payment", () => {
+        const account = {holder: "Kudoo Market sh.p.k.", iban: "AL47212110090000000235698741", bic: "BKTRALTR", bankName: "BKT"};
+        const transfer = {...order, paymentMethod: "bank_transfer", paymentStatus: "unpaid", status: "pending"};
+
+        expect(productOrderToBuyerDTO(transfer, account).bankTransfer).toEqual(account);
+        expect(productOrderToBuyerDTO({...transfer, paymentStatus: "paid", status: "confirmed"}, account).bankTransfer).toBeUndefined();
+        expect(productOrderToBuyerDTO({...transfer, status: "cancelled"}, account).bankTransfer).toBeUndefined();
+        expect(productOrderToBuyerDTO({...transfer, paymentMethod: "cod"}, account).bankTransfer).toBeUndefined();
+        expect(productOrderToBuyerDTO(transfer).bankTransfer).toBeUndefined();
+    });
 });

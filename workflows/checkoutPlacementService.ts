@@ -4,10 +4,11 @@ import {apiValidationException} from "armonia/src/modules/core/helpers/exception
 import {runInTransaction} from "@coreModule/utilities/middlewares/runInTransaction";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {userService} from "@coreModule/database/schemas/user/user.service";
+import {companyService} from "@coreModule/database/schemas/company/company.service";
 import {stateService} from "@coreModule/database/schemas/state/state.service";
 import {NotificationEventCodes} from "@eCommerceModule/domain/notifications/notificationEventCodes";
 import {cartService} from "@eCommerceModule/database/schemas/cart/cart.service";
-import type {ICheckout, ICheckoutAddress} from "@eCommerceModule/database/schemas/checkout/checkout";
+import type {CheckoutPaymentMethod, ICheckout, ICheckoutAddress} from "@eCommerceModule/database/schemas/checkout/checkout";
 import {checkoutService} from "@eCommerceModule/database/schemas/checkout/checkout.service";
 import {discountService} from "@eCommerceModule/database/schemas/discount/discount.service";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
@@ -27,10 +28,14 @@ import {
     reserveCheckoutStock,
 } from "@eCommerceModule/utilities/services/inventoryReservationService";
 import {
+    getAdapterForMethod,
     getPaymentAdapter,
     isOfflinePaymentMethod,
     paymentMethodToGateway,
 } from "@eCommerceModule/utilities/services/payment/paymentService";
+import {awaitsBankTransfer, productOrderToBuyerDTO} from "@eCommerceModule/utilities/mappers/productOrder/productOrderMapper.dto";
+import type {CompanyBankAccount} from "armonia/src/modules/core/api/company/private/company/company.dto";
+import type {BuyerProductOrder} from "armonia/src/modules/eCommerce/api/eCommerce/private/productOrder/productOrder.dto";
 import {inShopPurchase} from "@eCommerceModule/utilities/shop/shopPurchase";
 import {
     notifyMerchantsNewOrder,
@@ -114,6 +119,38 @@ function sellerCompanyIdsOnCheckout(checkout: ICheckout): ObjectId[] {
         ids.add(item.sellerCompany ? idOf(item.sellerCompany).toString() : idOf(checkout.company).toString());
     }
     return [...ids].map(id => new ObjectId(id));
+}
+
+/** The bank accounts of these sellers that a buyer can pay into (an IBAN at least), by seller id (D190). */
+export async function sellerBankAccounts(sellerIds: ObjectId[], session?: ClientSession): Promise<Map<string, CompanyBankAccount>> {
+    if (sellerIds.length === 0) return new Map();
+    const sellers = await companyService.find({_id: {$in: sellerIds}}, {session}, undefined, "bankAccount");
+    const accounts = new Map<string, CompanyBankAccount>();
+    for (const {_id, bankAccount} of sellers) {
+        if (!bankAccount?.iban) continue;
+        const {holder, iban, bic, bankName} = bankAccount;
+        accounts.set(_id.toString(), {holder, iban, bic, bankName});
+    }
+    return accounts;
+}
+
+/**
+ * The ways a checkout can be paid (D190): a card only while the card processor is on, cash on delivery always, and a
+ * bank transfer only when every seller on it has a bank account, since each seller's order is paid to that seller.
+ */
+export async function checkoutPaymentMethods(checkout: ICheckout, session?: ClientSession): Promise<CheckoutPaymentMethod[]> {
+    const sellers = sellerCompanyIdsOnCheckout(checkout);
+    const methods: CheckoutPaymentMethod[] = [];
+    if (getAdapterForMethod("stripe")?.isEnabled()) methods.push("stripe");
+    methods.push("cod");
+    if ((await sellerBankAccounts(sellers, session)).size === sellers.length) methods.push("bank_transfer");
+    return methods;
+}
+
+/** Orders as their buyer sees them, each bank-transfer order with its own seller's bank account while it is unpaid. */
+export async function buyerOrdersWithPaymentDetails(orders: IProductOrder[], session?: ClientSession): Promise<BuyerProductOrder[]> {
+    const accounts = await sellerBankAccounts(orders.filter(awaitsBankTransfer).map(order => idOf(order.company)), session);
+    return orders.map(order => productOrderToBuyerDTO(order, accounts.get(idOf(order.company).toString())));
 }
 
 /**
@@ -411,6 +448,7 @@ export async function placeOrderFromCheckout(
             orderNumber,
             status: paid ? "confirmed" : "pending",
             paymentStatus,
+            paymentMethod: fullyCoveredByGiftCard ? undefined : checkout.paymentMethod,
             fulfillmentStatus: "unfulfilled",
             customer: customerId,
             email: contact.email || undefined,
