@@ -44,7 +44,7 @@ export async function createInventoryMovements(
             warehouse: warehouseId,
             quantity,
             reason: "initial" as const,
-            note: `Initial restock of Studio Hoodie. [${HOODIE_INITIAL_MOVE_NOTE}]`,
+            note: `Initial restock of Heavyweight Hoodie. [${HOODIE_INITIAL_MOVE_NOTE}]`,
             quantityBefore: 0,
             quantityAfter: quantity,
             occurredAt: dayjs().subtract(30, "day").toDate(),

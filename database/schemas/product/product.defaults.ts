@@ -260,11 +260,7 @@ function expandCatalogSeed(seed: CatalogProductSeed): ProductSeed {
         dimensions: ships ? {length: 28, width: 20, height: 8} : undefined,
         dimensionUnit: ships ? "cm" : undefined,
         volumetricWeight: ships ? (seed.weight ?? 0.5) * 1.1 : undefined,
-        shippingClass: ships
-            ? seed.categorySlug.startsWith("fashion")
-                ? "apparel"
-                : "standard"
-            : undefined,
+        shippingClass: ships ? "apparel" : undefined,
         isHazmat: false,
         requiresShipping: ships,
         trackInventory: tracksStock,

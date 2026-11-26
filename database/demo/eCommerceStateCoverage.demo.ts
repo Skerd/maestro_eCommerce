@@ -59,9 +59,9 @@ const LANGUAGE = "en-US";
 
 /** The tracked catalog items the coverage moves, sells and counts; each has plenty on hand in the demo catalog. */
 export const STATE_COVERAGE_PRODUCT_KEYS = {
-    mouse: "prod-comp-05-glide-mouse",
-    keyboard: "prod-comp-04-keyline-mech",
-    caseKit: "prod-phone-10-prism-case-kit",
+    belt: "prod-ac-01-belt",
+    cap: "prod-ac-04-cap",
+    socks: "prod-sl-03-socks",
 } as const;
 
 export const BACK_COUNTER_TILL_NAME = demoName("Back Counter Till");
@@ -144,19 +144,19 @@ export async function seedECommerceStateCoverage(
         return;
     }
     const pick = (seedKey: string): Product | undefined => input.products.bySeedKey[seedKey];
-    const mouse = pick(STATE_COVERAGE_PRODUCT_KEYS.mouse);
-    const keyboard = pick(STATE_COVERAGE_PRODUCT_KEYS.keyboard);
-    const caseKit = pick(STATE_COVERAGE_PRODUCT_KEYS.caseKit);
+    const belt = pick(STATE_COVERAGE_PRODUCT_KEYS.belt);
+    const cap = pick(STATE_COVERAGE_PRODUCT_KEYS.cap);
+    const socks = pick(STATE_COVERAGE_PRODUCT_KEYS.socks);
     const primary = input.warehouses.primaryWarehouseId;
     const secondary = input.warehouses.bySeedKey[SECONDARY_WAREHOUSE_SEED_KEY]?._id;
-    if (!mouse || !keyboard || !caseKit || !primary || !secondary) {
+    if (!belt || !cap || !socks || !primary || !secondary) {
         logger.warn(
             `Skipping state coverage: needs products ${Object.values(STATE_COVERAGE_PRODUCT_KEYS).join(", ")} and both demo warehouses.`,
         );
         logger.finish("Finished eCommerce state coverage!", 0);
         return;
     }
-    const products: Products = {mouse, keyboard, caseKit};
+    const products: Products = {belt, cap, socks};
     const staff = staffParams(company, user, logger);
 
     await part(logger, "stock movements", () => seedStockMoves(company, staff, products, primary));
@@ -179,9 +179,9 @@ async function inventoryRowId(company: ICompany, product: Product, warehouse: Ty
 
 async function seedStockMoves(company: ICompany, staff: StaffParams, products: Products, warehouse: Types.ObjectId): Promise<void> {
     const moves = [
-        {key: "move-restock-mouse", product: products.mouse, quantity: 24, reason: "restock" as const, note: "Supplier delivery, checked against the delivery note."},
-        {key: "move-damage-keyboard", product: products.keyboard, quantity: 1, reason: "damage" as const, note: "Keycaps cracked when a carton fell."},
-        {key: "move-writeoff-case-kit", product: products.caseKit, quantity: 2, reason: "write_off" as const, note: "Display units, too worn to sell."},
+        {key: "move-restock-belt", product: products.belt, quantity: 24, reason: "restock" as const, note: "Supplier delivery, checked against the delivery note."},
+        {key: "move-damage-cap", product: products.cap, quantity: 1, reason: "damage" as const, note: "Brim crushed when a carton fell."},
+        {key: "move-writeoff-socks", product: products.socks, quantity: 2, reason: "write_off" as const, note: "Display units, too worn to sell."},
     ];
     const actions = new InventoryActions();
     for (const move of moves) {
@@ -190,7 +190,7 @@ async function seedStockMoves(company: ICompany, staff: StaffParams, products: P
         const note = withDemoSeedMarker(move.note, move.key);
         await runInTransaction(staff.logger, (session) =>
             move.reason === "restock"
-                ? actions.restock({...staff, session, _id, quantity: move.quantity, note, manufacturer: "Glide Peripherals", receiptNumber: "GR-2026-0142", unitCost: 31.6})
+                ? actions.restock({...staff, session, _id, quantity: move.quantity, note, manufacturer: "Corvo Leather Goods", receiptNumber: "GR-2026-0142", unitCost: 15.6})
                 : actions.deduct({...staff, session, _id, quantity: move.quantity, reason: move.reason, note}),
         );
     }
@@ -200,24 +200,24 @@ async function seedStockCounts(company: ICompany, staff: StaffParams, products: 
     const counts: {key: string; note: string; target: IStockCount["status"]; lines: {product: Product; counted?: (expected: number) => number}[]}[] = [
         {
             key: "count-applied",
-            note: "Weekly accessories count: one mouse missing, two case kits found behind the counter.",
+            note: "Weekly accessories count: one belt missing, two sock packs found behind the counter.",
             target: "applied",
             lines: [
-                {product: products.mouse, counted: (expected) => Math.max(0, expected - 1)},
-                {product: products.caseKit, counted: (expected) => expected + 2},
+                {product: products.belt, counted: (expected) => Math.max(0, expected - 1)},
+                {product: products.socks, counted: (expected) => expected + 2},
             ],
         },
         {
             key: "count-draft",
-            note: "Monthly count, keyboards done, mice still to count.",
+            note: "Monthly count, caps done, belts still to count.",
             target: "draft",
-            lines: [{product: products.keyboard, counted: (expected) => expected}, {product: products.mouse}],
+            lines: [{product: products.cap, counted: (expected) => expected}, {product: products.belt}],
         },
         {
             key: "count-cancelled",
             note: "Started on the wrong shelf; recounted in the weekly count.",
             target: "cancelled",
-            lines: [{product: products.caseKit, counted: (expected) => Math.max(0, expected - 3)}],
+            lines: [{product: products.socks, counted: (expected) => Math.max(0, expected - 3)}],
         },
     ];
     const actions = new StockCountActions();
@@ -249,9 +249,9 @@ async function seedStockTransfers(
     to: Types.ObjectId,
 ): Promise<void> {
     const transfers: {key: string; note: string; target: IStockTransfer["status"]; lines: TillLine[]}[] = [
-        {key: "transfer-done", note: "Overflow stock for the harbour pick-up point.", target: "done", lines: [{product: products.mouse, quantity: 4}, {product: products.caseKit, quantity: 6}]},
-        {key: "transfer-draft", note: "Keyboards for the weekend fair, waiting for the van.", target: "draft", lines: [{product: products.keyboard, quantity: 2}]},
-        {key: "transfer-cancelled", note: "Fair cancelled, the mice stay here.", target: "cancelled", lines: [{product: products.mouse, quantity: 3}]},
+        {key: "transfer-done", note: "Overflow stock for the harbour pick-up point.", target: "done", lines: [{product: products.belt, quantity: 4}, {product: products.socks, quantity: 6}]},
+        {key: "transfer-draft", note: "Caps for the weekend fair, waiting for the van.", target: "draft", lines: [{product: products.cap, quantity: 2}]},
+        {key: "transfer-cancelled", note: "Fair cancelled, the belts stay here.", target: "cancelled", lines: [{product: products.belt, quantity: 3}]},
     ];
     const actions = new StockTransferActions();
     for (const transfer of transfers) {
@@ -480,7 +480,7 @@ async function seedTill(company: ICompany, staff: StaffParams, input: StateCover
         cash,
         card,
     };
-    const {mouse, keyboard, caseKit} = products;
+    const {belt, cap, socks} = products;
 
     // Yesterday's shift on the front till: sales, refunds, a cart dropped, cash moves, and closed a little short.
     // It must be closed before the front till's open shift below starts (one open shift per till).
@@ -488,13 +488,13 @@ async function seedTill(company: ICompany, staff: StaffParams, input: StateCover
     if (closed.state === "opened") {
         await cashMove(till, closed, "in", 50, "Float top-up from the safe");
         await cashMove(till, closed, "out", 12.5, "Window cleaner and paper towels");
-        await sell(till, closed, "pos-sale-closed-1", [{product: mouse, quantity: 2}, {product: keyboard, quantity: 1}], "cash");
-        await sell(till, closed, "pos-sale-closed-2", [{product: caseKit, quantity: 3}], "card", {discountPercent: 10, customerName: "Arta Hoxha"});
-        const refundedInFull = await sell(till, closed, "pos-sale-closed-3", [{product: mouse, quantity: 1}], "cash");
+        await sell(till, closed, "pos-sale-closed-1", [{product: belt, quantity: 2}, {product: cap, quantity: 1}], "cash");
+        await sell(till, closed, "pos-sale-closed-2", [{product: socks, quantity: 3}], "card", {discountPercent: 10, customerName: "Arta Hoxha"});
+        const refundedInFull = await sell(till, closed, "pos-sale-closed-3", [{product: belt, quantity: 1}], "cash");
         await refund(till, refundedInFull, "Customer changed their mind at the door", false);
-        const refundedInPart = await sell(till, closed, "pos-sale-closed-4", [{product: keyboard, quantity: 2}], "card");
-        await refund(till, refundedInPart, "One keyboard had a stuck key", true);
-        const unregistered = await sell(till, closed, "pos-sale-closed-5", [{product: caseKit, quantity: 1}], "cash");
+        const refundedInPart = await sell(till, closed, "pos-sale-closed-4", [{product: cap, quantity: 2}], "card");
+        await refund(till, refundedInPart, "One cap had a loose seam", true);
+        const unregistered = await sell(till, closed, "pos-sale-closed-5", [{product: socks, quantity: 1}], "cash");
         if (!unregistered.fiscalError) {
             // The tax authority is never called from a demo: the sale carries the failure CIS leaves on it
             // (registerPosInvoice), so the re-send flow and the fiscal error badge show.
@@ -503,7 +503,7 @@ async function seedTill(company: ICompany, staff: StaffParams, input: StateCover
                 {$set: {fiscalError: "CIS could not be reached: connect ETIMEDOUT (demo)", fiscalConfig: front.fiscalConfig}},
             );
         }
-        const dropped = await heldCart(till, closed, "pos-held-dropped", [{product: keyboard, quantity: 1}], "Customer went to fetch their card and did not come back.", "Walk-in Customer");
+        const dropped = await heldCart(till, closed, "pos-held-dropped", [{product: cap, quantity: 1}], "Customer went to fetch their card and did not come back.", "Walk-in Customer");
         if (dropped.state === "draft") {
             await runInTransaction(till.ctx.logger, (session) => deleteHeldPosOrder(dropped._id.toString(), {...till.ctx, session}));
         }
@@ -521,17 +521,17 @@ async function seedTill(company: ICompany, staff: StaffParams, input: StateCover
     // Today's shift on the front till, still open, with a cart on hold.
     const open = await shift(till, front._id, "pos-shift-open", "Monday shift, front till.", 100);
     if (open.state === "opened") {
-        await sell(till, open, "pos-sale-open-1", [{product: mouse, quantity: 1}], "cash");
-        await sell(till, open, "pos-sale-open-2", [{product: keyboard, quantity: 1}], "card");
-        await heldCart(till, open, "pos-held-open", [{product: caseKit, quantity: 2}], "Held while the customer checks the colour.", "Table 4");
+        await sell(till, open, "pos-sale-open-1", [{product: belt, quantity: 1}], "cash");
+        await sell(till, open, "pos-sale-open-2", [{product: cap, quantity: 1}], "card");
+        await heldCart(till, open, "pos-held-open", [{product: socks, quantity: 2}], "Held while the customer checks the colour.", "Table 4");
     }
 
     // The back counter's shift, counted and waiting for its close.
     const back = await backCounterTill(company, front);
     const closing = await shift(till, back._id, "pos-shift-closing", "Monday shift, back counter.", 80);
     if (closing.state === "opened") {
-        await sell(till, closing, "pos-sale-closing-1", [{product: caseKit, quantity: 2}], "card");
-        await sell(till, closing, "pos-sale-closing-2", [{product: mouse, quantity: 1}], "cash");
+        await sell(till, closing, "pos-sale-closing-1", [{product: socks, quantity: 2}], "card");
+        await sell(till, closing, "pos-sale-closing-2", [{product: belt, quantity: 1}], "cash");
         // Nothing in the till service sets this state: the shift stops selling while its cash is counted.
         await PosSession.updateOne({_id: closing._id, state: "opened"}, {$set: {state: "closing_control"}});
     }

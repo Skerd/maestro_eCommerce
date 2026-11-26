@@ -52,9 +52,9 @@ const asCompany = <T>(fn: () => PromiseLike<T>): Promise<T> => withTenant(compan
 
 const STOCK: Record<string, {price: number; stock: number}> = {
     "prod-02-hoodie": {price: 69, stock: 42},
-    [STATE_COVERAGE_PRODUCT_KEYS.mouse]: {price: 79, stock: 80},
-    [STATE_COVERAGE_PRODUCT_KEYS.keyboard]: {price: 129, stock: 55},
-    [STATE_COVERAGE_PRODUCT_KEYS.caseKit]: {price: 39.9, stock: 120},
+    [STATE_COVERAGE_PRODUCT_KEYS.belt]: {price: 39, stock: 80},
+    [STATE_COVERAGE_PRODUCT_KEYS.cap]: {price: 25, stock: 80},
+    [STATE_COVERAGE_PRODUCT_KEYS.socks]: {price: 19, stock: 80},
 };
 /** Every model in the list has a `countDocuments`; each is called on its own model so the overloads resolve. */
 const countOf = (model: {countDocuments: (filter: object) => {exec: () => Promise<number>}}) => model.countDocuments({}).exec();

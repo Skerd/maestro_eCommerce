@@ -11,26 +11,33 @@ export type CategorySeed = {
     parentSlug?: string;
 };
 
-/** Product-commerce taxonomy (retail / SKU catalog). Independent of marketplace ListingCategory. */
+/** Product-commerce taxonomy of the demo fashion shop. Independent of marketplace ListingCategory. */
 const defaultCategorySeeds: readonly CategorySeed[] = [
-    { name: demoName("Electronics"), slug: "electronics", order: 1 },
-    { name: demoName("Fashion"), slug: "fashion", order: 2 },
-    { name: demoName("Home & Living"), slug: "home-living", order: 3 },
-    { name: demoName("Health & Beauty"), slug: "health-beauty", order: 4 },
-    { name: demoName("Sports & Outdoors"), slug: "sports-outdoors", order: 5 },
-    { name: demoName("Food & Grocery"), slug: "food-grocery", order: 6 },
+    { name: demoName("Women"), slug: "women", order: 1 },
+    { name: demoName("Men"), slug: "men", order: 2 },
+    { name: demoName("Kids"), slug: "kids", order: 3 },
+    { name: demoName("Shoes"), slug: "shoes", order: 4 },
+    { name: demoName("Accessories"), slug: "accessories", order: 5 },
+    { name: demoName("Sleep & Sport"), slug: "sleep-sport", order: 6 },
+    { name: demoName("Outfit Sets"), slug: "outfit-sets", order: 7 },
+    { name: demoName("Gifts"), slug: "gifts", order: 8 },
 
-    { name: demoName("Phones & Tablets"), slug: "electronics-phones", order: 1, parentSlug: "electronics" },
-    { name: demoName("Computers"), slug: "electronics-computers", order: 2, parentSlug: "electronics" },
-    { name: demoName("Audio"), slug: "electronics-audio", order: 3, parentSlug: "electronics" },
+    { name: demoName("Dresses"), slug: "women-dresses", order: 1, parentSlug: "women" },
+    { name: demoName("Tops & Blouses"), slug: "women-tops", order: 2, parentSlug: "women" },
+    { name: demoName("Trousers & Skirts"), slug: "women-bottoms", order: 3, parentSlug: "women" },
+    { name: demoName("Coats & Jackets"), slug: "women-outerwear", order: 4, parentSlug: "women" },
 
-    { name: demoName("Men"), slug: "fashion-men", order: 1, parentSlug: "fashion" },
-    { name: demoName("Women"), slug: "fashion-women", order: 2, parentSlug: "fashion" },
-    { name: demoName("Kids"), slug: "fashion-kids", order: 3, parentSlug: "fashion" },
+    { name: demoName("Shirts"), slug: "men-shirts", order: 1, parentSlug: "men" },
+    { name: demoName("Tees & Knitwear"), slug: "men-tees-knit", order: 2, parentSlug: "men" },
+    { name: demoName("Trousers & Jeans"), slug: "men-trousers", order: 3, parentSlug: "men" },
+    { name: demoName("Suits & Tailoring"), slug: "men-suits", order: 4, parentSlug: "men" },
+    { name: demoName("Coats & Jackets"), slug: "men-outerwear", order: 5, parentSlug: "men" },
 
-    { name: demoName("Furniture"), slug: "home-furniture", order: 1, parentSlug: "home-living" },
-    { name: demoName("Kitchen"), slug: "home-kitchen", order: 2, parentSlug: "home-living" },
-    { name: demoName("Decor"), slug: "home-decor", order: 3, parentSlug: "home-living" },
+    { name: demoName("Bags"), slug: "accessories-bags", order: 1, parentSlug: "accessories" },
+    { name: demoName("Belts, Scarves & Jewellery"), slug: "accessories-small", order: 2, parentSlug: "accessories" },
+
+    { name: demoName("Sleep & Lounge"), slug: "sleep-lounge", order: 1, parentSlug: "sleep-sport" },
+    { name: demoName("Active & Swim"), slug: "active-swim", order: 2, parentSlug: "sleep-sport" },
 ];
 
 /**

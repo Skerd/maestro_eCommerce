@@ -40,8 +40,8 @@ export const defaultSavedSearchSeeds: readonly SavedSearchSeed[] = [
         sort: "priceAsc",
     },
     {
-        name: demoName("Men's fashion"),
-        categorySlugs: ["fashion-men"],
+        name: demoName("Men's shirts"),
+        categorySlugs: ["men-shirts"],
         sort: "newest",
     },
     {

@@ -51,7 +51,7 @@ export const defaultCollectionSeeds: readonly CollectionSeed[] = [
         description: "Recently published catalog items.",
         resolveProductKeys: (all) => all.slice(0, 16),
         position: 3,
-        imageSeedKey: "prod-phone-03-aura-pro",
+        imageSeedKey: "prod-wd-01-wrap-midi",
     },
     {
         slug: "digital-downloads",
