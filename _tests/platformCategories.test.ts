@@ -27,8 +27,13 @@ vi.mock("@coreModule/utilities/middlewares/authMW", async () => {
 vi.mock("@coreModule/utilities/middlewares/rateLimiter", () => ({
     rateLimiter: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
+vi.mock("@coreModule/domain/notifications/notificationEventBus", async (importOriginal) => ({
+    ...await importOriginal<typeof import("@coreModule/domain/notifications/notificationEventBus")>(),
+    emitNotificationEvent: vi.fn(),
+}));
 
 import {allPermissionTags, appFor, callerHeader, type TestCaller} from "@coreModule/_tests/httpHarness";
+import {emitNotificationEvent} from "@coreModule/domain/notifications/notificationEventBus";
 import {getLogger} from "@coreModule/loggers/serverLog";
 import {asCrossTenant, withTenant} from "@coreModule/utilities/endpoints/tenantScope";
 import Company from "@coreModule/database/schemas/company/company";
@@ -149,6 +154,9 @@ describe("a shop asks for a category (D160 request)", {timeout: 30000}, () => {
 
         const requested = await request(app).put("/api/eCommerce/category").set(callerHeader(asShop)).send({name: "Kilts"});
         expect(requested.body.error_code ?? "ok").toBe("ok");
+        // The platform's notice opens the categories page, not a page named after the collection.
+        const notice = vi.mocked(emitNotificationEvent).mock.calls.find(([code]) => code === "ENTRY_REQUESTED");
+        expect(notice?.[1].payload).toEqual(expect.objectContaining({list: "categories", entryId: requested.body._id}));
         const added = await request(app).put("/api/eCommerce/category").set(callerHeader(asPlatform)).send({name: "Saris", names: {sq: "Sari"}});
         expect(added.body.error_code ?? "ok").toBe("ok");
 

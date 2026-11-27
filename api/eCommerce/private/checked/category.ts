@@ -59,6 +59,8 @@ const platformList = platformListRouteOptions<IProductCategory, CreateCategoryFo
     toDTO: categoryToDTO,
     service: categoryService,
     buildCreateData: buildCreateDataFromSchemaDef(CategorySchemaDef),
+    // The panel's page is `/tenancy/systemSettings/categories`.
+    page: "categories",
 });
 
 // A platform list (D160, D195): one tree owned by the platform company and read by every shop; only the platform company
