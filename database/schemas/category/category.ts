@@ -22,9 +22,10 @@ import {
 } from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.schema-def";
 import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
+import {LIST_NAME_LANGUAGES, listSearchText, type ListNames} from "@coreModule/utilities/helpers/listNames";
 
 /** A category's name in each of the panel's languages; `name` is the English one (D195). */
-export type CategoryNames = {en?: string; sq?: string; de?: string; fr?: string; it?: string};
+export type CategoryNames = ListNames;
 
 /**
  * A platform product category (D195): one tree owned by the platform company and shared by every shop, built like the
@@ -46,14 +47,10 @@ export interface IProductCategory extends Document, IOwnershipPluginFields, IReq
 }
 
 const SERVER_WRITTEN = {self: {write: "no-permission"}, others: {write: "no-permission"}} as const;
-const NAME_LANGUAGES = ["en", "sq", "de", "fr", "it"] as const;
+const NAME_LANGUAGES = LIST_NAME_LANGUAGES;
 
 /** The text a select searches: the English name and every translation, lower-cased. */
-export function categorySearchText(name: string | undefined, names: CategoryNames | undefined): string {
-    return [...new Set([name, ...NAME_LANGUAGES.map((language) => names?.[language])]
-        .filter((value): value is string => !!value && value.trim() !== "")
-        .map((value) => value.trim().toLowerCase()))].join(" | ");
-}
+export const categorySearchText = listSearchText;
 
 const ProductCategorySchema = new Schema<IProductCategory>(
     {
