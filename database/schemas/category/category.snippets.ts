@@ -6,6 +6,7 @@ export const CategorySimpleSnippet = defineSnippet<IProductCategory, CategorySim
     keys: {
         _id: {},
         name: {},
+        names: {},
         slug: {},
     },
 });

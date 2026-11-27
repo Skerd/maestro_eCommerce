@@ -32,8 +32,9 @@ import User from "@coreModule/database/schemas/user/user";
 import {ensureAiChannel} from "@coreModule/database/schemas/channel/channel.helper";
 import {currencyService} from "@coreModule/database/schemas/currency/currency.service";
 import {platformRowsClause} from "@coreModule/utilities/security/platformAccess";
-import ProductCategory from "@eCommerceModule/database/schemas/category/category";
-import {categoryService} from "@eCommerceModule/database/schemas/category/category.service";
+import ProductCollection from "@eCommerceModule/database/schemas/collection/collection";
+import {collectionService} from "@eCommerceModule/database/schemas/collection/collection.service";
+import {createPlatformCategoryMatcher} from "@eCommerceModule/utilities/services/category/platformCategoryMatch";
 import Product from "@eCommerceModule/database/schemas/product/product";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
 import ProductAttribute from "@eCommerceModule/database/schemas/productAttribute/productAttribute";
@@ -184,6 +185,14 @@ async function ensureCurrencies(ctx: ImportCtx, odooIds: number[]): Promise<void
     }
 }
 
+/** The link from an Odoo category to the platform category it matched (D195); the category's own link names its collection. */
+const ODOO_PLATFORM_CATEGORY = "product.category.platform";
+
+/**
+ * Odoo's product categories become the shop's own collections (D195: categories are the platform's), and each is matched
+ * to a platform category by name where it can be, so its products land in that category too. An unmatched one keeps only
+ * its collection; the shop picks a platform category later.
+ */
 async function importCategories(ctx: ImportCtx): Promise<OdooImportCounts> {
     const counts = emptyImportCounts();
     const rows = sortCategoriesParentsFirst(
@@ -191,20 +200,19 @@ async function importCategories(ctx: ImportCtx): Promise<OdooImportCounts> {
             .map(parseCategoryRow)
             .filter((row): row is NonNullable<typeof row> => row != null),
     );
+    const matchPlatformCategory = await createPlatformCategoryMatcher();
     for (const row of rows) {
         const name = truncateOdooText(row.name, CATEGORY_NAME_MAX);
-        const parentLink = row.parentId != null ? await cachedLink(ctx, "product.category", row.parentId) : null;
         const existing = await cachedLink(ctx, "product.category", row.id);
-        const payload = {
-            name,
-            order: row.sequence,
-            parent: parentLink?.localId,
-        };
-        const doc = existing
-            ? await categoryService.updateByIdOrThrow(existing.localId, {$set: payload}, ctx.opts)
-            : await categoryService.create({...payload, company: ctx.companyId}, ctx.opts);
-        countRow(counts, importRowOutcome(!!existing));
-        await writeLink(ctx, "product.category", row.id, "ProductCategory", doc._id);
+        const payload = {name, type: "manual" as const, isVisible: true, position: row.sequence};
+        // A link from before D195 named a shop category; the collection replaces it.
+        const doc = existing?.localModel === "ProductCollection"
+            ? await collectionService.updateByIdOrThrow(existing.localId, {$set: payload}, ctx.opts)
+            : await collectionService.create({...payload, company: ctx.companyId}, ctx.opts);
+        countRow(counts, importRowOutcome(existing?.localModel === "ProductCollection"));
+        await writeLink(ctx, "product.category", row.id, "ProductCollection", doc._id);
+        const platform = matchPlatformCategory(row.name);
+        if (platform) await writeLink(ctx, ODOO_PLATFORM_CATEGORY, row.id, "ProductCategory", platform.categoryId);
     }
     return counts;
 }
@@ -283,9 +291,9 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
         }
         const mapped = mapOdooProductType(row);
         const categoryOdooId = odooMany2oneId(row.categ_id);
-        const categoryLink = categoryOdooId != null
-            ? await cachedLink(ctx, "product.category", categoryOdooId)
-            : null;
+        const collectionLink = categoryOdooId != null ? await cachedLink(ctx, "product.category", categoryOdooId) : null;
+        const collectionId = collectionLink?.localModel === "ProductCollection" ? collectionLink.localId : undefined;
+        const platformLink = categoryOdooId != null ? await cachedLink(ctx, ODOO_PLATFORM_CATEGORY, categoryOdooId) : null;
         const currencyOdooId = odooMany2oneId(row.currency_id);
         const description = typeof row.description_sale === "string"
             ? truncateOdooText(row.description_sale, PRODUCT_DESCRIPTION_MAX)
@@ -304,7 +312,8 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
             trackInventory: mapped.trackInventory,
             availableForSale: row.sale_ok !== false,
             hasVariants: mapped.hasVariants,
-            categories: categoryLink ? [categoryLink.localId] : undefined,
+            categories: platformLink ? [platformLink.localId] : undefined,
+            collections: collectionId ? [collectionId] : undefined,
         };
         const existing = await cachedLink(ctx, "product.template", id);
         const product = existing
@@ -312,6 +321,8 @@ async function importProducts(ctx: ImportCtx): Promise<OdooImportCounts> {
             : await productService.create({...payload, company: ctx.companyId}, ctx.opts);
         countRow(counts, importRowOutcome(!!existing));
         await writeLink(ctx, "product.template", id, "Product", product._id);
+        // A manual collection lists its products itself (the shop filter reads that list).
+        if (collectionId) await collectionService.updateByIdOrThrow(collectionId, {$addToSet: {products: product._id}}, ctx.opts);
 
         const odooVariants = variantsByTemplate.get(id) ?? [];
         if (!mapped.hasVariants) {
@@ -855,7 +866,7 @@ export async function runOdooImport(params: AuthenticatedMWType & OdooImportForm
     const permissionChecks: Record<OdooImportDataset, Model<Document>> = {
         // Currencies are only linked to the platform list (D160), never created.
         currencies: OdooLink,
-        categories: ProductCategory,
+        categories: ProductCollection,
         products: Product,
         warehouses: Warehouse,
         inventory: Inventory,

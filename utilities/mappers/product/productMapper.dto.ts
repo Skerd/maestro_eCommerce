@@ -10,7 +10,7 @@ import type {InventorySimple} from "armonia/src/modules/eCommerce/dto/inventory.
 import type {ProductReviewSimple} from "armonia/src/modules/eCommerce/dto/productReview.dto";
 import {mapMedia, mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {CurrencySimpleSnippet} from "@coreModule/database/schemas/currency/currency.snippets";
-import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
+import {categorySimpleToDTO} from "@eCommerceModule/utilities/mappers/category/categoryMapper.dto";
 import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collection/collection.snippets";
 import {ProductAttributeSimpleSnippet} from "@eCommerceModule/database/schemas/productAttribute/productAttribute.snippets";
 import {ProductSimpleSnippet} from "@eCommerceModule/database/schemas/product/product.snippets";
@@ -45,7 +45,7 @@ export function productToDTO(product: IProduct): Product {
         brand: product.brand,
         vendor: product.vendor,
         tags: product.tags,
-        categories: product.categories?.map((category) => mapSnippet<CategorySimple>()(category, CategorySimpleSnippet)).filter((c): c is CategorySimple => !!c),
+        categories: product.categories?.map((category) => categorySimpleToDTO(category)).filter((c): c is CategorySimple => !!c),
         collections: product.collections?.map((collection) => mapSnippet<CollectionSimple>()(collection, CollectionSimpleSnippet)).filter((c): c is CollectionSimple => !!c),
         price: product.price,
         compareAtPrice: product.compareAtPrice,

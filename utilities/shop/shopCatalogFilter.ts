@@ -27,26 +27,27 @@ export type ShopCatalogScope = {
     collectionId?: string;
 };
 
-/** The category and every category below it, at any depth. */
-async function withDescendantCategories(
-    companyClause: Record<string, unknown>,
-    rootId: unknown,
-): Promise<unknown[]> {
-    const categories = await categoryService.find(companyClause, {}, undefined, "_id parent");
-    const ids = [String(rootId)];
-    for (let i = 0; i < ids.length; i++) {
-        for (const category of categories) {
-            const id = String(category._id);
-            if (category.parent && String(category.parent) === ids[i] && !ids.includes(id)) ids.push(id);
-        }
+/**
+ * The categories and every category below them, at any depth, in the platform tree (D195): one query per level, since
+ * the tree holds thousands of categories and a request needs only one branch.
+ */
+export async function withDescendantCategories(rootIds: unknown[]): Promise<unknown[]> {
+    const all = [...rootIds];
+    const seen = new Set(rootIds.map(String));
+    let frontier = rootIds;
+    while (frontier.length > 0) {
+        const children = await categoryService.find({parent: {$in: frontier}}, {}, undefined, "_id");
+        frontier = children.map(child => child._id).filter(id => !seen.has(String(id)));
+        for (const id of frontier) seen.add(String(id));
+        all.push(...frontier);
     }
-    return categories.filter(category => ids.includes(String(category._id))).map(category => category._id);
+    return all;
 }
 
 /**
  * Active storefront products in the browse scope. `null` when the requested
  * category or collection does not exist — the caller returns an empty page.
- * Ambiguous platform slugs (multiple companies share the slug) also return null.
+ * Ambiguous collection slugs across shops (multiple companies share the slug) also return null.
  */
 export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<Record<string, unknown> | null> {
     const filter: Record<string, unknown> = {
@@ -64,15 +65,15 @@ export async function buildShopCatalogFilter(scope: ShopCatalogScope): Promise<R
     const search = scope.search?.trim();
     if (search) filter.title = {$regex: escapeRegex(search), $options: "i"};
 
+    // Categories are the platform's (D195): the same rows in every shop, so a category browses its whole branch everywhere.
     if (scope.categoryIds && scope.categoryIds.length > 0) {
-        const categories = await categoryService.find({...companyClause, _id: {$in: scope.categoryIds}}, {}, undefined, "_id");
+        const categories = await categoryService.find({_id: {$in: scope.categoryIds}}, {}, undefined, "_id");
         if (categories.length === 0) return null;
-        filter.categories = {$in: categories.map(category => category._id)};
+        filter.categories = {$in: await withDescendantCategories(categories.map(category => category._id))};
     } else if (scope.categorySlug) {
-        const matches = await categoryService.find({...companyClause, slug: scope.categorySlug.toLowerCase()}, {}, undefined, "_id");
-        if (matches.length === 0) return null;
-        if (scope.companyId == null && matches.length > 1) return null;
-        filter.categories = {$in: await withDescendantCategories(companyClause, matches[0]._id)};
+        const match = await categoryService.findOne({slug: scope.categorySlug.toLowerCase()}, {}, undefined, "_id");
+        if (!match) return null;
+        filter.categories = {$in: await withDescendantCategories([match._id])};
     }
 
     const collectionFields = "_id type company products rules ruleCondition";

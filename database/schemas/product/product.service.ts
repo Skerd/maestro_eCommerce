@@ -32,6 +32,12 @@ export class ProductService extends BaseCrudService<IProduct, typeof Product> {
             .lean<Row[]>();
     }
 
+    /** The platform categories live products in the filter use (D195): what a shop's or the portal's menu shows. */
+    async usedCategoryIds(filter: FilterQuery<IProduct>): Promise<ObjectId[]> {
+        const ids: ObjectId[] = await Product.distinct("categories", {...filter, deletedAt: null});
+        return ids;
+    }
+
     /** A live product as the platform's report desk reads it (D191): by its id alone, whichever shop owns it. */
     findReportable(id: ObjectId, session?: ClientSession) {
         return this.model.findOne({_id: id, deletedAt: null})

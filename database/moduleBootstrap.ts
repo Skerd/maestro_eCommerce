@@ -14,6 +14,7 @@ import {CollectionSchemaDef} from "armonia/src/modules/eCommerce/api/eCommerce/p
 import {companyService} from "@coreModule/database/schemas/company/company.service";
 import type {SelfServeBusinessType} from "@coreModule/domain/company/selfServeBusinessTypes";
 import {eCommerceReportables} from "@eCommerceModule/domain/reports/eCommerceReportables";
+import {seedProductTaxonomy} from "@eCommerceModule/database/seeds/taxonomy/productTaxonomy.seed";
 
 export const eCommerceModels: Model<any>[] = [
     ProductCategory,
@@ -62,4 +63,6 @@ export const moduleBootstrap = {
     defaultRoles: eCommerceDefaultRoles,
     selfServeBusinessTypes,
     reportables: eCommerceReportables,
+    // The platform product categories (D195), seeded with core's platform lists at database setup.
+    platformLists: seedProductTaxonomy,
 };

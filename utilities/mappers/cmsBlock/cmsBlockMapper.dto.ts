@@ -9,7 +9,7 @@ import {
     mapSoftDeleteToDTO,
 } from "@coreModule/utilities/mappers/plugin/pluginMappers.dto";
 import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collection/collection.snippets";
-import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
+import {categorySimpleToDTO} from "@eCommerceModule/utilities/mappers/category/categoryMapper.dto";
 
 function cmsBlockConfigToDTO(config: ICmsBlockConfig | undefined): CmsBlockConfig {
     if (!config) return {};
@@ -25,7 +25,7 @@ function cmsBlockConfigToDTO(config: ICmsBlockConfig | undefined): CmsBlockConfi
         url: config.url,
         collectionId: mapSnippet<CollectionSimple>()(config.collectionId, CollectionSimpleSnippet),
         categoryIds: config.categoryIds
-            ?.map((category) => mapSnippet<CategorySimple>()(category, CategorySimpleSnippet))
+            ?.map((category) => categorySimpleToDTO(category))
             .filter((category): category is CategorySimple => category != null),
         limit: config.limit,
         slides: config.slides,

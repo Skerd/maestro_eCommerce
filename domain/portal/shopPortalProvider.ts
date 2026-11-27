@@ -5,6 +5,8 @@ import {catalogItems, catalogRating, filterValue, filterValues, idClause, itemPa
 import {companyAddressCities, portalListedCompanyIds, type PortalScope} from "@coreModule/utilities/marketing/portalCompanies";
 import {publicMediaUrl} from "@coreModule/utilities/media/publicMediaUrl";
 import {productService} from "@eCommerceModule/database/schemas/product/product.service";
+import {categoryDisplayName} from "@eCommerceModule/utilities/helpers/categoryName";
+import type {CategoryNames} from "@eCommerceModule/database/schemas/category/category";
 import {PORTAL_CURRENCY_SELECT} from "@coreModule/utilities/mappers/portal/portalStorefrontMapper.dto";
 import {buildShopCatalogFilter, refineShopCatalogFilter, SHOP_PRODUCT_SORT_SPECS} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 
@@ -25,9 +27,9 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
     Object.assign(filter, narrowing, {company: {$in: companyIds}});
     await refineShopCatalogFilter(filter, {priceMin, priceMax, brands: filterValues(filters, "brand")});
     const [products, total] = await Promise.all([
-        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string}[]; ratingAverage?: number; ratingCount?: number}>(filter, {
+        productService.findCatalogRows<{_id: ObjectId; company: ObjectId; title: string; slug: string; mainImage?: ObjectId; price?: number; currency?: CurrencyRef; brand?: string; categories?: {name?: string; names?: CategoryNames}[]; ratingAverage?: number; ratingCount?: number}>(filter, {
             select: "company title slug mainImage price currency brand categories ratingAverage ratingCount",
-            populate: [{path: "currency", select: PORTAL_CURRENCY_SELECT}, {path: "categories", select: "name"}],
+            populate: [{path: "currency", select: PORTAL_CURRENCY_SELECT}, {path: "categories", select: "name names"}],
             sort: SHOP_PRODUCT_SORT_SPECS[sort ?? "newest"],
             skip,
             limit,
@@ -39,7 +41,7 @@ async function browseProducts({scope, companyIds, query, priceMin, priceMax, sor
         id: product._id.toString(),
         title: product.title,
         // The card's second line: the brand people shop by, else the product's first category.
-        subtitle: product.brand || product.categories?.[0]?.name,
+        subtitle: product.brand || (product.categories?.[0] ? categoryDisplayName(product.categories[0]) : undefined),
         image: publicMediaUrl(product.mainImage),
         ...(product.price != null && product.currency?.abbreviation ? {price: {amount: product.price, currency: product.currency.abbreviation}} : {}),
         ...catalogRating(product.ratingAverage, product.ratingCount),

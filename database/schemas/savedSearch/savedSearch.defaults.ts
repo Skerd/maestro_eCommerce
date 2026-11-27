@@ -40,8 +40,8 @@ export const defaultSavedSearchSeeds: readonly SavedSearchSeed[] = [
         sort: "priceAsc",
     },
     {
-        name: demoName("Men's shirts"),
-        categorySlugs: ["men-shirts"],
+        name: demoName("Shirts"),
+        categorySlugs: ["shirts"],
         sort: "newest",
     },
     {
@@ -89,10 +89,8 @@ export async function createSavedSearches(
             if (seed.categorySlugs?.length) {
                 categoryIds = [];
                 for (const slug of seed.categorySlugs) {
-                    const category = await ProductCategory.findOne({
-                        company: company._id,
-                        slug,
-                    }).select("_id");
+                    // A platform category (D195), the same for every shop.
+                    const category = await ProductCategory.findOne({slug}).select("_id");
                     if (!category) {
                         logger.warn(
                             `Skipping saved search "${seed.name}": category "${slug}" was not seeded.`,

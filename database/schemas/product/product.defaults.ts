@@ -307,10 +307,8 @@ export async function createProducts(
 
     for (const seed of defaultProductSeeds) {
         try {
-            const category = await ProductCategory.findOne({
-                slug: seed.categorySlug,
-                company: company._id,
-            })
+            // A platform category (D195): the same row for every shop.
+            const category = await ProductCategory.findOne({slug: seed.categorySlug})
                 .select("_id")
                 .lean();
 

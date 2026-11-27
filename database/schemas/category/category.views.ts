@@ -87,6 +87,64 @@ const categoryCreateFormNodes: ViewConfig["nodes"] = [
         ],
     },
     {
+        // The name in each panel language (D195): shops and shoppers read the one of their language, else English.
+        render: "#TitleWithCollapse",
+        props: {title: "form.namesSectionTitle"},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "names.en",
+                            widget: "#Input",
+                            label: "form.nameEnLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "names.sq",
+                            widget: "#Input",
+                            label: "form.nameSqLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "names.de",
+                            widget: "#Input",
+                            label: "form.nameDeLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "names.fr",
+                            widget: "#Input",
+                            label: "form.nameFrLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        field: {
+                            name: "names.it",
+                            widget: "#Input",
+                            label: "form.nameItLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
         render: "#TitleWithCollapse",
         props: {title: "form.visibilitySectionTitle"},
         children: [
@@ -146,6 +204,70 @@ const categoryEditFormNodes: ViewConfig["nodes"] = [
                                 postBodyFormExtrasMerge: {excludeCategoryId: "categoryId"},
                                 remountKeyFormField: "_id",
                             },
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        // The name in each panel language (D195): shops and shoppers read the one of their language, else English.
+        render: "#TitleWithCollapse",
+        props: {title: "form.namesSectionTitle"},
+        permissions: {readAny: ["names"], writeAny: ["names"]},
+        children: [
+            {
+                render: "#FormGrid",
+                props: {columns: 2},
+                children: [
+                    {
+                        render: "#Field",
+                        permissions: {read: "names", write: "names"},
+                        field: {
+                            name: "names.en",
+                            widget: "#Input",
+                            label: "form.nameEnLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "names", write: "names"},
+                        field: {
+                            name: "names.sq",
+                            widget: "#Input",
+                            label: "form.nameSqLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "names", write: "names"},
+                        field: {
+                            name: "names.de",
+                            widget: "#Input",
+                            label: "form.nameDeLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "names", write: "names"},
+                        field: {
+                            name: "names.fr",
+                            widget: "#Input",
+                            label: "form.nameFrLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
+                        },
+                    },
+                    {
+                        render: "#Field",
+                        permissions: {read: "names", write: "names"},
+                        field: {
+                            name: "names.it",
+                            widget: "#Input",
+                            label: "form.nameItLabel",
+                            widgetProps: {maxLength: CATEGORY_NAME_MAX},
                         },
                     },
                 ],

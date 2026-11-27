@@ -10,6 +10,7 @@ import {
     type CreateProductsResult,
 } from "@eCommerceModule/database/schemas/product/product.defaults";
 import type {CreateProductMediaResult} from "@eCommerceModule/database/seeds/catalog/productMedia";
+import {CATALOG_DEPARTMENTS, catalogProductSeeds} from "@eCommerceModule/database/schemas/product/product.catalog.seeds";
 
 export type CollectionSeed = {
     slug: string;
@@ -79,6 +80,22 @@ export const defaultCollectionSeeds: readonly CollectionSeed[] = [
     },
 ];
 
+/**
+ * The demo shop's own groupings ("Women · Dresses", "Men · Suits"…) as collections: categories are the platform's (D195),
+ * so what was the shop's own menu is now its collections, as the move of existing shops does.
+ */
+const departmentCollectionSeeds: readonly CollectionSeed[] = CATALOG_DEPARTMENTS.map((department, index) => {
+    const keys = catalogProductSeeds.filter((seed) => seed.department === department.slug).map((seed) => seed.seedKey);
+    return {
+        slug: department.slug,
+        name: demoName(department.name),
+        description: `The shop's ${department.name} range.`,
+        resolveProductKeys: () => keys,
+        position: 10 + index,
+        imageSeedKey: keys[0],
+    };
+});
+
 export type CreateCollectionsResult = {
     bySlug: Record<string, HydratedDocument<ICollection>>;
 };
@@ -98,7 +115,7 @@ export async function createCollections(
     const allKeys = Object.keys(products.bySeedKey);
     const bySlug: Record<string, HydratedDocument<ICollection>> = {};
 
-    for (const seed of defaultCollectionSeeds) {
+    for (const seed of [...defaultCollectionSeeds, ...departmentCollectionSeeds]) {
         try {
             const productIds: Types.ObjectId[] = [];
             for (const key of seed.resolveProductKeys(allKeys)) {
@@ -153,6 +170,8 @@ export async function createCollections(
         if (digital && digitalKeys.includes(seedKey)) collectionIds.push(digital._id);
         if (bySlug["gift-cards"] && giftCardKeys.includes(seedKey)) collectionIds.push(bySlug["gift-cards"]._id);
         if (bySlug.bundles && bundleKeys.includes(seedKey)) collectionIds.push(bySlug.bundles._id);
+        const department = catalogProductSeeds.find((seed) => seed.seedKey === seedKey)?.department;
+        if (department && bySlug[department]) collectionIds.push(bySlug[department]._id);
         if (collectionIds.length) {
             await Product.updateOne({_id: product._id}, {$set: {collections: collectionIds}});
         }

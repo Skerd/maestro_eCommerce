@@ -58,7 +58,7 @@ const CARD_FIELDS = "title slug type price compareAtPrice mainImage badges featu
 const RELATED_LIMIT = 8;
 
 const DETAIL_POPULATE = [
-    {path: "categories", select: "name slug"},
+    {path: "categories", select: "name names slug"},
     {path: "company", select: "name logo siteSlug siteHost"},
     {path: "currency", select: PORTAL_CURRENCY_SELECT},
 ] as const;

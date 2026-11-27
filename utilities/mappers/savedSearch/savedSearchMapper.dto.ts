@@ -5,7 +5,7 @@ import type {CategorySimple} from "armonia/src/modules/eCommerce/dto/category.dt
 import type {CollectionSimple} from "armonia/src/modules/eCommerce/dto/collection.dto";
 import {mapSnippet} from "@coreModule/utilities/mappers/common.mapper";
 import {SimpleBlankUserSnippet} from "@coreModule/database/schemas/user/user.snippets";
-import {CategorySimpleSnippet} from "@eCommerceModule/database/schemas/category/category.snippets";
+import {categorySimpleToDTO} from "@eCommerceModule/utilities/mappers/category/categoryMapper.dto";
 import {CollectionSimpleSnippet} from "@eCommerceModule/database/schemas/collection/collection.snippets";
 import {
     mapLifeCycleToDTO,
@@ -19,7 +19,7 @@ export function savedSearchToDTO(search: ISavedSearch): SavedSearch {
         customer: mapSnippet<SimpleBlankUser>()(search.customer, SimpleBlankUserSnippet),
         name: search.name || "",
         categoryIds: search.categoryIds
-            ?.map((category) => mapSnippet<CategorySimple>()(category, CategorySimpleSnippet))
+            ?.map((category) => categorySimpleToDTO(category))
             .filter((category): category is CategorySimple => !!category),
         collectionId: mapSnippet<CollectionSimple>()(search.collectionId, CollectionSimpleSnippet),
         priceMin: search.priceMin,

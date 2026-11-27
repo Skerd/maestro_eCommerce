@@ -1,6 +1,7 @@
 import { Document, model, Schema, SchemaTypes } from "mongoose";
 import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
+import requestablePlugin, {type IRequestablePluginFields} from "@coreModule/database/plugins/requestablePlugin";
 import auditPlugin from "@coreModule/database/plugins/auditPlugin";
 import softDeletePlugin from "@coreModule/database/plugins/softDeletePlugin";
 import lifeCyclePlugin from "@coreModule/database/plugins/lifeCyclePlugin";
@@ -22,12 +23,34 @@ import {
 import {generateUniqueSlug} from "@coreModule/utilities/helpers/uniqueSlug";
 import {apiValidationException, DEFAULT_EXCEPTION_LANGUAGE} from "armonia/src/modules/core/helpers/exceptions";
 
-export interface IProductCategory extends Document, IOwnershipPluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
+/** A category's name in each of the panel's languages; `name` is the English one (D195). */
+export type CategoryNames = {en?: string; sq?: string; de?: string; fr?: string; it?: string};
+
+/**
+ * A platform product category (D195): one tree owned by the platform company and shared by every shop, built like the
+ * D160 platform lists. Seeded from Shopify's Standard Product Taxonomy (`shopifyId`); a shop requests a missing one.
+ */
+export interface IProductCategory extends Document, IOwnershipPluginFields, IRequestablePluginFields, ISoftDeletePluginFields, ILifeCyclePluginFields {
     company: ICompany;
     name: string;
+    names?: CategoryNames;
     slug: string;
     parent?: IProductCategory;
     order: number;
+    /** The taxonomy id the row was seeded from (`aa-1-2`); a later release updates the same row. */
+    shopifyId?: string;
+    /** Every name, lower-cased, so a select finds the category in any language. */
+    searchText?: string;
+}
+
+const SERVER_WRITTEN = {self: {write: "no-permission"}, others: {write: "no-permission"}} as const;
+const NAME_LANGUAGES = ["en", "sq", "de", "fr", "it"] as const;
+
+/** The text a select searches: the English name and every translation, lower-cased. */
+export function categorySearchText(name: string | undefined, names: CategoryNames | undefined): string {
+    return [...new Set([name, ...NAME_LANGUAGES.map((language) => names?.[language])]
+        .filter((value): value is string => !!value && value.trim() !== "")
+        .map((value) => value.trim().toLowerCase()))].join(" | ");
 }
 
 const ProductCategorySchema = new Schema<IProductCategory>(
@@ -37,6 +60,25 @@ const ProductCategorySchema = new Schema<IProductCategory>(
             required: true,
             trim: true,
             maxlength: CATEGORY_NAME_MAX,
+        },
+        names: {
+            type: new Schema(Object.fromEntries(NAME_LANGUAGES.map((language) => [language, {
+                type: SchemaTypes.String, trim: true, maxlength: CATEGORY_NAME_MAX,
+            }])), {_id: false}),
+            required: false,
+            dynamicTableConfiguration: {hideColumn: true},
+        },
+        shopifyId: {
+            type: SchemaTypes.String,
+            required: false,
+            permissions: SERVER_WRITTEN,
+            dynamicTableConfiguration: {hideColumn: true},
+        },
+        searchText: {
+            type: SchemaTypes.String,
+            required: false,
+            permissions: SERVER_WRITTEN,
+            dynamicTableConfiguration: {hideColumn: true},
         },
         slug: {
             type: SchemaTypes.String,
@@ -68,6 +110,9 @@ const ProductCategorySchema = new Schema<IProductCategory>(
 
 ProductCategorySchema.pre("save", async function () {
     if (!this.name) return;
+    if (this.isNew || this.isModified("name") || this.isModified("names")) this.searchText = categorySearchText(this.name, this.names);
+    // The taxonomy seed brings its own unique slugs.
+    if (this.isNew && this.slug) return;
     if (!this.isNew && !this.isModified("name")) return;
     const companyId = (this.company as {_id?: unknown} | null)?._id ?? this.company;
     if (!companyId) {
@@ -81,19 +126,26 @@ ProductCategorySchema.pre(["updateOne", "findOneAndUpdate"], async function () {
     const update = this.getUpdate();
     if (!update || Array.isArray(update)) return;
     const {$set} = update;
-    if (!$set || $set.name === undefined || $set.slug !== undefined) return;
+    const namesChanged = !!$set && Object.keys($set).some((key) => key === "names" || key.startsWith("names."));
+    if (!$set || ($set.name === undefined && !namesChanged)) return;
 
     const existing = await this.model
         .findOne(this.getQuery())
-        .select("_id company")
+        .select("_id company name names")
         .session(this.getOptions()?.session ?? null)
         .lean();
     if (!existing?.company) return;
 
+    const names: CategoryNames = {...(existing.names ?? {}), ...($set.names ?? {})};
+    for (const language of NAME_LANGUAGES) if ($set[`names.${language}`] !== undefined) names[language] = $set[`names.${language}`];
+    $set.searchText = categorySearchText($set.name ?? existing.name, names);
+    if ($set.name === undefined || $set.slug !== undefined) return;
     $set.slug = await generateUniqueSlug(String($set.name), this.model, existing.company, existing._id);
 });
 
-ownershipPlugin(ProductCategorySchema);
+// A platform list (D160, D195): every shop reads the platform company's rows; a shop's create is a request.
+ownershipPlugin(ProductCategorySchema, {tenantScoped: false});
+requestablePlugin(ProductCategorySchema);
 auditPlugin(ProductCategorySchema);
 softDeletePlugin(ProductCategorySchema);
 applyCategoryIndexes(ProductCategorySchema);
@@ -103,4 +155,5 @@ normalizeSchemaPermissions(ProductCategory);
 export default ProductCategory;
 
 addModelData(ProductCategory, categoryViews);
-validateSchemaDefAgainstMongoose(ProductCategorySchema, CategorySchemaDef, "ProductCategory");
+/** Server-written paths: the seeded taxonomy id and the search text. */
+validateSchemaDefAgainstMongoose(ProductCategorySchema, CategorySchemaDef, "ProductCategory", ["shopifyId", "searchText"]);
