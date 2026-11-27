@@ -18,7 +18,7 @@ export function loadTaxonomyFile(): TaxonomyFile | null {
     return fs.existsSync(DATA_FILE) ? JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) as TaxonomyFile : null;
 }
 
-type ExistingRow = {_id: ObjectId; shopifyId: string; name: string; names?: CategoryNames; parent?: ObjectId; order: number; deletedAt?: Date | null};
+type ExistingRow = {_id: ObjectId; shopifyId: string; name: string; names?: CategoryNames; parent?: ObjectId; branch?: ObjectId; order: number; deletedAt?: Date | null};
 
 /**
  * Seeds the platform product categories (D195) from the taxonomy data file: the `platformLists` hook of eCommerce's
@@ -41,13 +41,14 @@ export async function seedProductTaxonomy(
         {shopifyId: {$type: "string"}},
         {withDeleted: true},
         undefined,
-        "_id shopifyId name names parent order deletedAt",
+        "_id shopifyId name names parent branch order deletedAt",
     )).map((row) => ({
         _id: row._id,
         shopifyId: row.shopifyId ?? "",
         name: row.name,
         names: row.names,
         parent: nestedEntityToRef(row.parent),
+        branch: row.branch,
         order: row.order,
         deletedAt: row.deletedAt,
     }));
@@ -64,6 +65,8 @@ export async function seedProductTaxonomy(
     const updates: {updateOne: {filter: object; update: object}}[] = [];
     for (const row of data.categories) {
         const parent = row.parent ? idOf.get(row.parent) : undefined;
+        // The top-level category above it: the first part of its taxonomy id ("aa" for "aa-1-4").
+        const branch = idOf.get(row.id.split("-")[0]);
         const current = byShopifyId.get(row.id);
         if (!current) {
             inserts.push(new ProductCategory({
@@ -76,6 +79,7 @@ export async function seedProductTaxonomy(
                 parent,
                 order: row.order,
                 shopifyId: row.id,
+                branch,
                 searchText: categorySearchText(row.name.en, row.name),
                 requestStatus: "approved",
             }));
@@ -83,10 +87,11 @@ export async function seedProductTaxonomy(
         }
         const sameNames = (["en", "sq", "de", "fr", "it"] as const).every((language) => current.names?.[language] === row.name[language]);
         const sameParent = String(current.parent ?? "") === String(parent ?? "");
-        if (sameNames && sameParent && current.name === row.name.en && current.order === row.order && !current.deletedAt) continue;
+        const sameBranch = String(current.branch ?? "") === String(branch ?? "");
+        if (sameNames && sameParent && sameBranch && current.name === row.name.en && current.order === row.order && !current.deletedAt) continue;
         updates.push({updateOne: {
             filter: {_id: current._id},
-            update: {$set: {name: row.name.en, names: row.name, parent: parent ?? null, order: row.order, searchText: categorySearchText(row.name.en, row.name), deletedAt: null, updatedAt: now}},
+            update: {$set: {name: row.name.en, names: row.name, parent: parent ?? null, branch, order: row.order, searchText: categorySearchText(row.name.en, row.name), deletedAt: null, updatedAt: now}},
         }});
     }
 

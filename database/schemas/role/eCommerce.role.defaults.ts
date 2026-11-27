@@ -11,6 +11,8 @@ const stockOwn = ["Warehouses", "Inventories", "Stocktransfers", "Stockcounts"];
 const tillOwn = ["Posorders", "Possessions"];
 const tillSetupOwn = ["Posconfigs", "Pospaymentmethods", "Fiscalconfigs"];
 const odooOwn = ["Odooconnections", "Odoolinks"];
+// The shop's own settings, such as What we sell (P26.8).
+const shopSetupOwn = ["Shopsettings"];
 // The stock ledger and buyer-side records are written by the system, so they are only ever read
 const systemRead = ["Inventorymovements", "Carts", "Checkouts", "Digitaldeliveries"];
 // A buyer's saved addresses are core `Useraddresses`, their own book (D163).
@@ -49,7 +51,7 @@ export const eCommerceDefaultRoles: DefaultRoleDefinition[] = [
         "Store Manager",
         "ecom_store_manager",
         "Runs the store: catalog, pricing, orders, shipments, returns, stock, and tills.",
-        [...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...odooOwn],
+        [...catalogOwn, ...ordersOwn, ...stockOwn, ...tillOwn, ...tillSetupOwn, ...odooOwn, ...shopSetupOwn],
         systemRead,
     ),
     ecomRole(

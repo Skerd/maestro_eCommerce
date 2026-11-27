@@ -2421,7 +2421,7 @@ const productCreteFormNodes: ViewConfig["nodes"] = [
                     name: "categories",
                     widget: "#ObjectIdChipsInput",
                     label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", postBody: {inShopBranches: true}, placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
                 },
             },
             {
@@ -3768,7 +3768,7 @@ const productEditFormNodes: ViewConfig["nodes"] = [
                     name: "categories",
                     widget: "#ObjectIdChipsInput",
                     label: "form.categoriesLabel",
-                    widgetProps: {apiUrl: "/api/eCommerce/category/select", placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
+                    widgetProps: {apiUrl: "/api/eCommerce/category/select", postBody: {inShopBranches: true}, placeholderKey: "form.selectCategory", removeTooltipKey: "form.removeCategory", selectPageSizeCreate: 50, selectPageSizeEdit: 200, labelRefFormExtraKey: "categories"},
                 },
             },
             {

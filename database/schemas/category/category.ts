@@ -1,4 +1,4 @@
-import { Document, model, Schema, SchemaTypes } from "mongoose";
+import { Document, model, Schema, SchemaTypes, Types } from "mongoose";
 import { normalizeSchemaPermissions } from "@coreModule/database/utilities";
 import ownershipPlugin from "@coreModule/database/plugins/ownershipPlugin";
 import requestablePlugin, {type IRequestablePluginFields} from "@coreModule/database/plugins/requestablePlugin";
@@ -41,6 +41,8 @@ export interface IProductCategory extends Document, IOwnershipPluginFields, IReq
     shopifyId?: string;
     /** Every name, lower-cased, so a select finds the category in any language. */
     searchText?: string;
+    /** The top-level category above it (itself at the top): a shop's "What we sell" branches filter on it (P26.8). */
+    branch?: Types.ObjectId;
 }
 
 const SERVER_WRITTEN = {self: {write: "no-permission"}, others: {write: "no-permission"}} as const;
@@ -80,6 +82,13 @@ const ProductCategorySchema = new Schema<IProductCategory>(
             permissions: SERVER_WRITTEN,
             dynamicTableConfiguration: {hideColumn: true},
         },
+        branch: {
+            type: SchemaTypes.ObjectId,
+            ref: "ProductCategory",
+            required: false,
+            permissions: SERVER_WRITTEN,
+            dynamicTableConfiguration: {hideColumn: true},
+        },
         slug: {
             type: SchemaTypes.String,
             required: false,
@@ -108,7 +117,16 @@ const ProductCategorySchema = new Schema<IProductCategory>(
     }
 );
 
+/** The top-level category of a category under `parentId`, or the category itself (`selfId`) at the top. */
+async function branchUnder(parentId: unknown, selfId: Types.ObjectId): Promise<Types.ObjectId> {
+    if (!parentId) return selfId;
+    const parent = await ProductCategory.findById(parentId).select("_id branch").lean();
+    return parent?.branch ?? parent?._id ?? selfId;
+}
+
 ProductCategorySchema.pre("save", async function () {
+    // The taxonomy seed sets every row's branch itself (a parent in the same batch is not stored yet).
+    if ((this.isNew && !this.branch) || (!this.isNew && this.isModified("parent"))) this.branch = await branchUnder(this.parent, this._id);
     if (!this.name) return;
     if (this.isNew || this.isModified("name") || this.isModified("names")) this.searchText = categorySearchText(this.name, this.names);
     // The taxonomy seed brings its own unique slugs.
@@ -126,6 +144,22 @@ ProductCategorySchema.pre(["updateOne", "findOneAndUpdate"], async function () {
     const update = this.getUpdate();
     if (!update || Array.isArray(update)) return;
     const {$set} = update;
+    if ($set && $set.parent !== undefined && $set.branch === undefined) {
+        // A category moved under another branch takes its branch along, with every category below it.
+        const moved = await this.model.findOne(this.getQuery()).select("_id branch").lean();
+        if (moved) {
+            const branch = await branchUnder($set.parent, moved._id);
+            $set.branch = branch;
+            if (String(branch) !== String(moved.branch)) {
+                let frontier: Types.ObjectId[] = [moved._id];
+                while (frontier.length > 0) {
+                    const children = await ProductCategory.find({parent: {$in: frontier}}).select("_id").lean();
+                    frontier = children.map((child) => child._id);
+                    if (frontier.length > 0) await ProductCategory.collection.updateMany({_id: {$in: frontier}}, {$set: {branch}});
+                }
+            }
+        }
+    }
     const namesChanged = !!$set && Object.keys($set).some((key) => key === "names" || key.startsWith("names."));
     if (!$set || ($set.name === undefined && !namesChanged)) return;
 

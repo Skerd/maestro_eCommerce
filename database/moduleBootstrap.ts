@@ -5,6 +5,7 @@ import ProductCategory from "@eCommerceModule/database/schemas/category/category
 import SavedSearch from "@eCommerceModule/database/schemas/savedSearch/savedSearch";
 import OdooConnection from "@eCommerceModule/database/schemas/odooConnection/odooConnection";
 import OdooLink from "@eCommerceModule/database/schemas/odooLink/odooLink";
+import ShopSettings from "@eCommerceModule/database/schemas/shopSettings/shopSettings";
 import {registerPublicMediaBackfillSource} from "@coreModule/utilities/media/publicMediaBackfillRegistry";
 import {registerDefaultRoles} from "@coreModule/database/schemas/role/role.defaults";
 import {eCommerceDefaultRoles} from "@eCommerceModule/database/schemas/role/eCommerce.role.defaults";
@@ -21,6 +22,7 @@ export const eCommerceModels: Model<any>[] = [
     SavedSearch,
     OdooConnection,
     OdooLink,
+    ShopSettings,
 ];
 
 export async function dropECommerceCollections(): Promise<void> {

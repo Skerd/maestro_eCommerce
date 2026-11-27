@@ -1,6 +1,6 @@
 import type {CategoryNames, IProductCategory} from "@eCommerceModule/database/schemas/category/category";
 import type {Category} from "armonia/src/modules/eCommerce/api/eCommerce/private/category/category.dto";
-import type {CategorySimple} from "armonia/src/modules/eCommerce/dto/category.dto";
+import type {CategorySimple, CategorySimpleSource} from "armonia/src/modules/eCommerce/dto/category.dto";
 import {
     mapLifeCycleToDTO,
     mapOwnershipToDTO,
@@ -15,7 +15,6 @@ export function categoryToDTO(cat: IProductCategory | any): Category {
     return {
         _id: cat._id.toString(),
         name: categoryDisplayName(cat),
-        names: cat.names ? {...(cat.names.toObject?.() ?? cat.names)} : undefined,
         slug: cat.slug,
         parent: categorySimpleToDTO(cat.parent),
         order: cat.order,
@@ -26,13 +25,19 @@ export function categoryToDTO(cat: IProductCategory | any): Category {
     };
 }
 
+/** The single read the edit form loads: also every language's name, which the platform edits (D195). */
+export function categoryEditToDTO(cat: IProductCategory): Category {
+    const names = cat.names;
+    return {...categoryToDTO(cat), ...(names ? {names: {en: names.en, sq: names.sq, de: names.de, fr: names.fr, it: names.it}} : {})};
+}
+
 export function categoriesToDTO(categories: IProductCategory[]): Category[] {
     return categories.map(categoryToDTO);
 }
 
-/** A populated category reference with its name in the reader's language (D195); undefined for an unpopulated id. */
+/** A populated category reference, named in the reader's language (D195); undefined for an unpopulated id. */
 export function categorySimpleToDTO(category: unknown): CategorySimple | undefined {
     if (!category || typeof category !== "object" || !("_id" in category)) return undefined;
-    const simple = mapSnippet<CategorySimple>()(category, CategorySimpleSnippet);
-    return simple ? {...simple, name: categoryDisplayName(category as {name?: string; names?: CategoryNames})} : undefined;
+    const source = mapSnippet<CategorySimpleSource>()(category, CategorySimpleSnippet);
+    return source ? {_id: source._id, name: categoryDisplayName(source), slug: source.slug} : undefined;
 }

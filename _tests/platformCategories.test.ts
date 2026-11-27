@@ -37,13 +37,18 @@ import Product from "@eCommerceModule/database/schemas/product/product";
 import Collection from "@eCommerceModule/database/schemas/collection/collection";
 import Discount from "@eCommerceModule/database/schemas/discount/discount";
 import * as categoryRoute from "@eCommerceModule/api/eCommerce/private/checked/category";
+import * as shopSettingsRoute from "@eCommerceModule/api/eCommerce/private/checked/shopSettings";
+import ShopSettings from "@eCommerceModule/database/schemas/shopSettings/shopSettings";
 import {buildPlatformCategoryMatcher} from "@eCommerceModule/utilities/services/category/platformCategoryMatch";
 import {seedProductTaxonomy, type TaxonomyFile} from "@eCommerceModule/database/seeds/taxonomy/productTaxonomy.seed";
 import {moveShopsToPlatformCategories} from "@eCommerceModule/database/seeds/taxonomy/moveShopsToPlatformCategories";
 import {buildShopCatalogFilter} from "@eCommerceModule/utilities/shop/shopCatalogFilter";
 
 const logger = getLogger("platform_categories_test");
-const app = appFor([{basePath: "/api/eCommerce/category", router: categoryRoute.router, module: "eCommerce"}]);
+const app = appFor([
+    {basePath: "/api/eCommerce/category", router: categoryRoute.router, module: "eCommerce"},
+    {basePath: "/api/eCommerce/shopSettings", router: shopSettingsRoute.router, module: "eCommerce"},
+]);
 
 const names = (en: string, sq: string) => ({en, sq, de: `${en} DE`, fr: `${en} FR`, it: `${en} IT`});
 const TAXONOMY: TaxonomyFile = {
@@ -67,7 +72,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-    await Promise.all([Company, ProductCategory, Product, Collection, Discount].map((model) => model.collection.deleteMany({})));
+    await Promise.all([Company, ProductCategory, Product, Collection, Discount, ShopSettings].map((model) => model.collection.deleteMany({})));
     await Company.collection.insertMany([
         {_id: platform, company: platform, name: "Kudoo", vat: "P-1", isPlatformOwner: true, isActive: true, modules: ["core"], createdBy: userId, deletedAt: null},
         {_id: shop, company: shop, name: "Chlò Shop", vat: "S-1", isActive: true, modules: ["core", "eCommerce"], createdBy: userId, deletedAt: null},
@@ -189,5 +194,38 @@ describe("moving shops onto the platform categories (P26.6)", {timeout: 30000}, 
         expect(collections.every((collection) => collection.products.map(String).includes(String(product)))).toBe(true);
         expect(moved?.collections.map(String).sort()).toEqual(collections.map((collection) => String(collection._id)).sort());
         expect((await Discount.collection.findOne({_id: discount}))?.targetIds.map(String)).toEqual([String(platformDresses?._id)]);
+    });
+});
+
+describe("What we sell (P26.8)", {timeout: 30000}, () => {
+    const TWO_BRANCHES: TaxonomyFile = {source: {release: "test"}, categories: [
+        ...TAXONOMY.categories,
+        {id: "el", parent: null, order: 0, slug: "electronics", name: names("Electronics", "Elektronikë")},
+        {id: "el-1", parent: "el", order: 1, slug: "audio", name: names("Audio", "Audio")},
+    ]};
+    const labels = async (caller: TestCaller, body: Record<string, unknown>) => {
+        const res = await request(app).post("/api/eCommerce/category/select").set(callerHeader(caller)).send({page: 1, limit: 50, ...body});
+        expect(res.body.error_code ?? "ok").toBe("ok");
+        return res.body.data.map((option: {label: string}) => option.label).sort();
+    };
+
+    it("starts from the branches the shop's products use, and narrows the product picker to them", async () => {
+        await seedTree(TWO_BRANCHES);
+        expect(String((await bySlug("maxi-dresses"))?.branch)).toBe(String((await bySlug("apparel-and-accessories"))?._id));
+        const maxi = await bySlug("maxi-dresses");
+        await Product.collection.insertOne({title: "Maxi", slug: "maxi", type: "physical", status: "active", company: shop, categories: [maxi?._id], deletedAt: null});
+        const tags = allPermissionTags([ProductCategory, ShopSettings]);
+        const asShop: TestCaller = {userId: userId.toString(), companyId: shop.toString(), permissions: tags, modules: ["core", "eCommerce"]};
+
+        expect(await labels(asShop, {topLevel: true})).toEqual(["Apparel & Accessories", "Electronics"]);
+        // Before the shop opens its settings it has none: the picker offers every category.
+        expect(await labels(asShop, {inShopBranches: true})).toContain("Electronics › Audio");
+
+        const ensured = await request(app).post("/api/eCommerce/shopSettings/ensure").set(callerHeader(asShop)).send({});
+        expect(ensured.body.error_code ?? "ok").toBe("ok");
+        expect(ensured.body.branches.map((branch: {name: string}) => branch.name)).toEqual(["Apparel & Accessories"]);
+        const offered = await labels(asShop, {inShopBranches: true});
+        expect(offered).toContain("Dresses › Maxi Dresses");
+        expect(offered).not.toContain("Electronics › Audio");
     });
 });
