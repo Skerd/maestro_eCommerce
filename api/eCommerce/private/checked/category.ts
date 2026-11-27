@@ -1,6 +1,6 @@
 import {ObjectId} from "mongodb";
 import {createCrudRouter} from "@coreModule/api/crudRouterFactory";
-import {platformListRouteOptions} from "@coreModule/api/platformListRoute";
+import {platformListRouteOptions, withoutForeignRequest} from "@coreModule/api/platformListRoute";
 import {nestedEntityToRef} from "@coreModule/utilities/mappers/common.mapper";
 import type {TransactionRequiredParams} from "@coreModule/utilities/middlewares/transactionUtils";
 import {apiValidationException} from "armonia/src/modules/core/helpers/exceptions";
@@ -80,8 +80,9 @@ export const {router} = createCrudRouter<IProductCategory, CreateCategoryFormTyp
     toDTO: categoryToDTO,
     toDTOArray: categoriesToDTO,
     toSelect: categoriesToSelect,
-    // Only the single read, which the edit form loads, carries every language's name (D195).
-    enrichSingle: async (doc) => categoryEditToDTO(doc),
+    // Only the single read, which the edit form loads, carries every language's name (D195); the request record stays
+    // the requester's and the platform's, as on every platform list.
+    enrichSingle: async (doc, params) => withoutForeignRequest(categoryEditToDTO(doc), params.company),
     ...platformList,
     // The platform list's approved rows, without the category being edited.
     extraSelectFilter: async (params) => {
