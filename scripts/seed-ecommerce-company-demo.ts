@@ -42,7 +42,7 @@ async function main() {
 // Operator scripts span companies on purpose (D16).
 
 asCrossTenant("a demo seed writes the shop company's data", main).catch(async (err) => {
-    console.error(err);
+    process.stderr.write(`${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
     try {
         await mongoose.disconnect();
     } catch {
